@@ -3737,7 +3737,7 @@
                 if (!PLANETS[state.selectedStarMapPlanetId]) state.selectedStarMapPlanetId = 'homeworld';
                 state.selectedVeinIndex = Math.max(0, Math.min(PLANETS[state.activeColonyPlanetId].veins.length - 1, Number(state.selectedVeinIndex) || 0));
                 applyGameSettings();
-                updateHUD(); renderBottomBar(); renderDrawerContent(); syncDrawerTabButtons(); toggleDrawer(state.drawerOpen);
+                updateHUD(); renderBottomBar(); renderDrawerContent(); syncDrawerTabButtons(); toggleDrawer(state.drawerOpen && window.innerWidth > 600);
                 gameHasStarted = true; setGameMenuVisible(false);
                 setStatusTicker('Partida carregada. A dinastia continua de onde foi salva.');
                 return true;
