@@ -4059,10 +4059,10 @@
         function drawGame(time) {
             if (!ctx || !canvasWidth || !canvasHeight) return;
             drawBackground(time);
-            if (state.firstGameStarted && !state.founding.firstGemCreated) drawPrimitiveHomeworld(time);
+            if (state.currentScreen === 'colony') drawColony(time);
+            else if (state.firstGameStarted && !state.founding.firstGemCreated) drawPrimitiveHomeworld(time);
             else if (state.currentScreen === 'throne') drawThrone(time);
-            else if (state.currentScreen === 'starmap') drawStarMap(time);
-            else drawColony(time);
+            else drawStarMap(time);
         }
 
         function handleCanvasClick(x, y) {
