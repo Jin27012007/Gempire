@@ -1159,6 +1159,7 @@
                 gatheredMinerals: { quartz: 0, silicate: 0, corundum: 0, metallic: 0, nacre: 0, jasperrock: 0, olivine: 0, lapisrock: 0 },
                 essenceOutput: 0,
                 activityCount: 0,
+                essenceCooldown: 0,
                 diamondEssence: 0,
                 injectorEssence: 0,
                 gemsCreatedCount: 0,
@@ -3275,6 +3276,9 @@
         function updateWorld(deltaMs) {
             const dt = Math.min(0.05, Math.max(0, deltaMs / 1000));
             const elapsedMs = dt * 1000;
+            if (state.founding) {
+                state.founding.essenceCooldown = Math.max(0, (Number(state.founding.essenceCooldown) || 0) - dt);
+            }
             if (state.founding && state.founding.creationActive) {
                 state.founding.creationProgress = Math.min(100, state.founding.creationProgress + dt * 100 / 42);
                 if (state.founding.creationProgress >= 100) finishFirstGemCreation();
@@ -3357,6 +3361,7 @@
                 uiRefreshAccumulator = 0;
                 updateHUD();
                 updateInjectorProgressUI();
+                if (state.firstGameStarted && state.founding && (!state.founding.firstGemCreated || !structureCount('injector'))) renderDrawerContent();
             }
         }
 
@@ -3994,6 +3999,7 @@
             state.founding.stage = 'gathering';
             state.founding.firstGemCreated = false;
             state.founding.diamondEssence = 0;
+            state.founding.essenceCooldown = 0;
             state.founding.injectorEssence = 0;
             state.founding.gemsCreatedCount = 0;
             state.founding.terraformLevel = 0;
@@ -4024,7 +4030,17 @@
 
         function performFounderActivity() {
             const fd = state.firstDiamond;
-            const amount = 8 + Math.min(4, Math.floor(state.founding.activityCount / 3));
+            const founding = state.founding;
+            if (founding.creationActive) {
+                setStatusTicker('A Diamante está concentrada na formação da Gem. Não pode produzir essência ao mesmo tempo.');
+                return;
+            }
+            if ((founding.essenceCooldown || 0) > 0) {
+                setStatusTicker('A Diamante precisa recuperar o fôlego por mais ' + founding.essenceCooldown.toFixed(1) + 's.');
+                return;
+            }
+            const amount = 2;
+            founding.essenceCooldown = 3;
             const key = ['white','yellow','blue','pink'].includes(fd.colorKey) ? fd.colorKey : 'white';
             if (structureIsOperational('essence_chamber')) {
                 state.founding.diamondEssence += amount;
@@ -4122,12 +4138,12 @@
                 '<div class="card"><div class="card-header"><span class="card-title title-font">✨ Essência da Diamante</span></div>' +
                 '<div class="founding-note">A atividade física produz essência. Antes de a Câmara estar operacional, ela pode ser usada diretamente; depois, a reserva interna é transferida pela Câmara para o estoque.</div>' +
                 '<div class="stat-box">Essência armazenada: <b>' + Object.values(state.essence).reduce((a,b)=>a+b,0).toFixed(1) + '</b> · Reserva interna da Diamante: <b>' + (found.diamondEssence || 0).toFixed(1) + '</b> · Recebida pelo Injetor: <b>' + (found.injectorEssence || 0).toFixed(1) + '</b></div>' +
-                '<button class="btn btn-pink btn-block" onclick="performFounderActivity()">💪 Realizar atividade física e produzir essência</button></div>' +
+                '<button class="btn btn-pink btn-block" onclick="performFounderActivity()" ' + (found.creationActive || (found.essenceCooldown || 0) > 0 ? 'disabled' : '') + '>' + (found.creationActive ? '💎 Concentração na formação da Gem' : (found.essenceCooldown || 0) > 0 ? '⏳ Recuperando fôlego · ' + found.essenceCooldown.toFixed(1) + 's' : '💪 Produzir 2 unidades de essência') + '</button></div>' +
                 '<div class="card"><div class="card-header"><span class="card-title title-font">💎 Formação manual de Gems</span></div>' +
                 (hasInjector ? '<div class="founding-note">O Injetor já foi construído. Use a aba Estruturas para iniciar novos ciclos de produção.</div>' :
                     '<label class="stat-label" for="founding-gem-select">Escolha o tipo de Gem</label><select id="founding-gem-select" style="width:100%" onchange="state.founding.selectedGem=this.value;renderDrawerContent()">' + gemOptions + '</select>' +
                     '<div class="founding-note" style="margin-top:8px"><b>' + selected.label + '</b><br>Substrato: ' + selected.mineralName + '<br>Composição: ' + selected.elements + '<br>Função natural: ' + selected.role + '<br>Requer 12 unidades de essência e uma amostra compatível.</div>' +
-                    (found.creationActive ? '<div class="founding-progress"><div style="width:' + found.creationProgress + '%"></div></div><div style="font-size:10px;color:#cbd5e1">Formação em andamento: ' + Math.floor(found.creationProgress) + '%</div>' :
+                    (found.creationActive ? '<div class="founding-progress"><div style="width:' + found.creationProgress + '%"></div></div><div style="font-size:10px;color:#cbd5e1">Formação em andamento: ' + Math.floor(found.creationProgress) + '% · a Diamante não pode realizar outra atividade durante este processo.</div>' :
                     '<button class="btn btn-emerald btn-block" onclick="startFirstGemCreation()">🤲 Formar Gem manualmente</button>')) +
                 '</div>';
         }
@@ -4259,6 +4275,7 @@
                 Object.assign(state, data.state);
                 if (!state.founding) state.founding = {stage:'legacy',firstGemCreated:true,mineralSamples:{},gatheredMinerals:{},essenceOutput:0,activityCount:0,diamondEssence:0,gemsCreatedCount:0,selectedGem:'quartz',creationProgress:0,creationActive:false,creationTarget:null,creationSource:'manual'};
                 state.founding.diamondEssence = Number(state.founding.diamondEssence) || 0;
+                state.founding.essenceCooldown = Number(state.founding.essenceCooldown) || 0;
                 state.founding.injectorEssence = Number(state.founding.injectorEssence) || 0;
                 state.founding.gemsCreatedCount = Number(state.founding.gemsCreatedCount) || 0;
                 state.founding.selectedGem = state.founding.selectedGem || 'quartz';
