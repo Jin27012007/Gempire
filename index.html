@@ -1157,6 +1157,30 @@
         };
 
         // --- 5. ESTADO GLOBAL DO IMPÉRIO ---
+
+        // Reservas minerais planetárias: a colonização mede a fração realmente extraída.
+        function initializePlanetaryReserves(){
+            const profiles={
+                homeworld:{size:'gigante rochoso',min:31000,max:50000},
+                ignis_prime:{size:'médio',min:10000,max:30000},
+                thalassa_9:{size:'médio',min:10000,max:30000},
+                caelum_gelidus:{size:'gigante rochoso',min:31000,max:50000},
+                terra_veritas:{size:'médio',min:10000,max:30000}
+            };
+            const weights={quartz:24,silicate:22,corundum:16,metallic:18,nacre:12,jasperrock:3,olivine:3,lapisrock:2};
+            for(const planet of Object.values(PLANETS)){
+                if(Number.isFinite(planet.resourceTotal)&&Number.isFinite(planet.resourcesRemaining))continue;
+                const profile=profiles[planet.id]||{size:'pequeno',min:1000,max:10000};
+                const total=Math.floor(profile.min+Math.random()*(profile.max-profile.min+1));
+                const keys=Object.keys(weights),weightTotal=Object.values(weights).reduce((a,b)=>a+b,0);
+                const resources={};let assigned=0;
+                keys.forEach((key,index)=>{const amount=index===keys.length-1?total-assigned:Math.floor(total*weights[key]/weightTotal);resources[key]=amount;assigned+=amount;});
+                planet.resourceSize=profile.size;planet.resourceTotal=total;planet.resourcesRemaining=total;planet.resourcesByType=resources;
+            }
+        }
+        initializePlanetaryReserves();
+
+
         const state = {
             currentScreen: 'throne', // 'throne' | 'starmap' | 'colony'
             drawerOpen: true,
@@ -1737,7 +1761,16 @@
             if (!bar) return;
 
             if (state.firstGameStarted && (!state.founding.firstGemCreated || !structureCount('injector'))) {
-                bar.innerHTML = `<span style="font-size:11px;color:#cbd5e1">Era Primitiva · A primeira Gem ainda não nasceu</span><button class="btn" onclick="toggleHideUI()">👁️ Ocultar UI</button>`;
+                bar.innerHTML = `
+                    <span style="font-size:11px;color:#cbd5e1">Era Primitiva · Fundação de Homeworld</span>
+                    <button class="btn" onclick="rotatePlanetBy(-0.4)">◀</button>
+                    <button class="btn ${state.planetCamera.autoRotate ? 'active' : ''}" onclick="togglePlanetAutoRotate()">🔄 ${state.planetCamera.autoRotate ? 'Auto' : 'Manual'}</button>
+                    <button class="btn" onclick="rotatePlanetBy(0.4)">▶</button>
+                    <button class="btn ${state.planetCamera.xrayMode ? 'active' : ''}" onclick="togglePlanetXRay()">🔍 Raio-X</button>
+                    <button class="btn" onclick="adjustPlanetZoom(0.14)">➕</button>
+                    <button class="btn" onclick="adjustPlanetZoom(-0.14)">➖</button>
+                    <button class="btn" onclick="toggleHideUI()">👁️ Ocultar UI</button>
+                `;
             } else if (state.currentScreen === 'throne') {
                 bar.innerHTML = `
                     <button class="btn active" onclick="channelRoyalEssence()">✨ Pulsar Aura Real (+Essências)</button>
@@ -3147,6 +3180,7 @@
         function togglePlanetXRay() {
             state.planetCamera.xrayMode = !state.planetCamera.xrayMode;
             renderBottomBar();
+            if (ctx && canvasWidth && canvasHeight) drawGame(performance.now());
         }
 
         function adjustPlanetZoom(amount) {
@@ -3350,7 +3384,11 @@
             for (const planet of Object.values(PLANETS)) {
                 if (!planet.colonized) continue;
                 const yieldRate = calculatePlanetYield(planet);
-                state.minerals += yieldRate.min * dt;
+                const available= Math.max(0,Number(planet.resourcesRemaining)||0);
+                const extracted=Math.min(available,Math.max(0,yieldRate.min*dt));
+                planet.resourcesRemaining=Math.max(0,available-extracted);
+                state.minerals += extracted;
+                if(planet.resourcesRemaining<=0)planet.resourceDepleted=true;
                 state.tech += yieldRate.tech * dt;
                 state.essence.white += yieldRate.white * dt;
                 state.essence.yellow += yieldRate.yellow * dt;
@@ -3933,11 +3971,10 @@
             const organicLifeKnown=planet.organicLifePopulation!==null&&planet.organicLifePopulation!==undefined;
             const organicLife=Math.max(0,Math.floor(Number(planet.organicLifePopulation??planet.organicLifeCount??0)||0));
             const organicLifePresent=!!planet.organicLifePresent||organicLife>0;
-            let infrastructure=0;
-            if(planet.id==='homeworld') infrastructure=STRUCTURE_CATALOG.reduce((sum,def)=>sum+structureCount(def.id),0);
-            else infrastructure=Math.max(0,Number(planet.spireCount)||0)+Math.max(0,Number(planet.spiresCount)||0)+Math.max(0,Number(planet.warpPadsCount)||0)+Math.max(0,Number(planet.thermalSinks)||0)+(planet.hasOrbitalRing?2:0);
-            const progress=planet.colonized?Math.round(Math.min(60,gemCount*5)+Math.min(40,infrastructure*(40/15))):0;
-            return {gemCount,organicLife,organicLifeKnown,organicLifePresent,infrastructure,progress:Math.max(0,Math.min(100,progress)),stage:Math.min(4,Math.floor(progress/25))};
+            const infrastructure=planet.id==='homeworld'?STRUCTURE_CATALOG.reduce((sum,def)=>sum+structureCount(def.id),0):Math.max(0,Number(planet.spireCount)||0)+Math.max(0,Number(planet.spiresCount)||0)+Math.max(0,Number(planet.warpPadsCount)||0)+Math.max(0,Number(planet.thermalSinks)||0)+(planet.hasOrbitalRing?2:0);
+            const total=Math.max(1,Number(planet.resourceTotal)||1),remaining=Math.max(0,Number(planet.resourcesRemaining)||0);
+            const progress=Math.round((1-remaining/total)*100);
+            return {gemCount,organicLife,organicLifeKnown,organicLifePresent,infrastructure,totalResources:total,remainingResources:remaining,progress:Math.max(0,Math.min(100,progress)),stage:Math.min(4,Math.floor(progress/25))};
         }
 
         function drawPlanetDebris(planet,cx,cy,radius,time,camera,stage,front){
@@ -3963,7 +4000,7 @@
             ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();ctx.fill();ctx.stroke();ctx.shadowBlur=0;
             ctx.textAlign='left';ctx.font='bold 9px Segoe UI';ctx.fillStyle='#7dd3fc';ctx.fillText('RELATÓRIO PLANETÁRIO',x+11,y+17);
             ctx.textAlign='right';ctx.font='bold 14px Segoe UI';ctx.fillStyle='#f8fafc';ctx.fillText(stats.progress+'%',x+w-11,y+36);
-            ctx.textAlign='left';ctx.font='9px Segoe UI';ctx.fillStyle='#94a3b8';ctx.fillText('COLONIZAÇÃO',x+11,y+35);
+            ctx.textAlign='left';ctx.font='9px Segoe UI';ctx.fillStyle='#94a3b8';ctx.fillText('RECURSOS EXTRAÍDOS',x+11,y+35);
             ctx.fillStyle='rgba(71,85,105,.62)';ctx.fillRect(x+11,y+44,w-22,5);ctx.fillStyle=stats.progress>=75?'#c4b5fd':stats.progress>=25?'#38bdf8':'#64748b';ctx.fillRect(x+11,y+44,(w-22)*stats.progress/100,5);
             ctx.font='10px Segoe UI';ctx.fillStyle='#cbd5e1';ctx.textAlign='left';ctx.fillText('Gems no local',x+11,y+67);ctx.textAlign='right';ctx.font='bold 11px Segoe UI';ctx.fillStyle='#e9d5ff';ctx.fillText(String(stats.gemCount),x+w-11,y+67);
             ctx.textAlign='left';ctx.font='10px Segoe UI';ctx.fillStyle='#cbd5e1';ctx.fillText('Vida orgânica',x+11,y+86);ctx.textAlign='right';ctx.font='bold 10px Segoe UI';ctx.fillStyle=stats.organicLifePresent?'#86efac':'#94a3b8';
@@ -3971,6 +4008,7 @@
             ctx.fillText(organicLabel,x+w-11,y+86);
             const names=['Intacto','Primeiras fissuras','Crosta fraturada','Fragmentação','Mundo estilhaçado'];
             ctx.textAlign='left';ctx.font='bold 9px Segoe UI';ctx.fillStyle='#f8fafc';ctx.fillText('ESTÁGIO '+stats.stage+'/4',x+11,y+111);ctx.textAlign='right';ctx.font='9px Segoe UI';ctx.fillStyle='#94a3b8';ctx.fillText(names[stats.stage],x+w-11,y+111);
+            ctx.textAlign='left';ctx.font='8px Segoe UI';ctx.fillStyle='#94a3b8';ctx.fillText(Math.floor(stats.remainingResources).toLocaleString('pt-BR')+' / '+Math.floor(stats.totalResources).toLocaleString('pt-BR')+' recursos restantes',x+11,y+124);
             ctx.restore();
         }
 
@@ -4027,9 +4065,9 @@
                 if(!available.has(r.type))return;
                 const meta=MINERAL_DISPLAY[r.type]||MINERAL_DISPLAY.quartz;
                 const grad=ctx.createRadialGradient(r.x,r.y,0,r.x,r.y,r.rx*1.4);
-                grad.addColorStop(0,meta.color+'bb');grad.addColorStop(.55,meta.color+'66');grad.addColorStop(1,meta.color+'00');
+                grad.addColorStop(0,meta.color+'ff');grad.addColorStop(.55,meta.color+'bb');grad.addColorStop(1,meta.color+'00');
                 ctx.fillStyle=grad;ctx.beginPath();ctx.ellipse(r.x,r.y,r.rx,r.ry,r.a,0,Math.PI*2);ctx.fill();
-                ctx.strokeStyle=meta.color+'cc';ctx.lineWidth=.009;ctx.beginPath();ctx.ellipse(r.x,r.y,r.rx*.78,r.ry*.65,r.a,0,Math.PI*2);ctx.stroke();
+                ctx.strokeStyle=meta.color+'ff';ctx.lineWidth=.014;ctx.beginPath();ctx.ellipse(r.x,r.y,r.rx*.78,r.ry*.65,r.a,0,Math.PI*2);ctx.stroke();
                 ctx.strokeStyle=meta.color+'99';ctx.lineWidth=.006;ctx.beginPath();ctx.moveTo(r.x-r.rx*.7,r.y);ctx.quadraticCurveTo(r.x,r.y-r.ry*1.4,r.x+r.rx*.75,r.y+r.ry*.15);ctx.stroke();
             });
             ctx.restore();
