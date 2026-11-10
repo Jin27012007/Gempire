@@ -3974,6 +3974,67 @@
             ctx.restore();
         }
 
+
+        let mineralChartHitTargets=[];
+        const MINERAL_DISPLAY={
+            quartz:{short:'QTZ',name:'Quartzo',color:'#c084fc'},
+            silicate:{short:'SLT',name:'Silicato',color:'#34d399'},
+            corundum:{short:'CRN',name:'Coríndon',color:'#38bdf8'},
+            metallic:{short:'MET',name:'Metálico',color:'#facc15'},
+            nacre:{short:'NCR',name:'Nácar',color:'#f8fafc'}
+        };
+        function getMineralGroups(planet){
+            const groups={};
+            planet.veins.forEach((vein,index)=>{
+                const type=vein.type,meta=MINERAL_DISPLAY[type]||{short:type.slice(0,3).toUpperCase(),name:type,color:'#94a3b8'};
+                if(!groups[type])groups[type]={type,meta,count:0,firstIndex:index};
+                groups[type].count++;
+            });
+            return Object.values(groups).sort((a,b)=>a.firstIndex-b.firstIndex);
+        }
+        function drawMineralBarChart(planet,x,y){
+            const groups=getMineralGroups(planet),w=Math.min(172,canvasWidth*.44),rowH=15,h=27+groups.length*rowH;
+            mineralChartHitTargets=[];
+            ctx.save();ctx.fillStyle='rgba(5,10,25,.88)';ctx.strokeStyle='rgba(148,163,184,.36)';ctx.lineWidth=1;
+            ctx.beginPath();ctx.roundRect(x,y,w,h,10);ctx.fill();ctx.stroke();
+            ctx.font='bold 9px Segoe UI';ctx.fillStyle='#7dd3fc';ctx.textAlign='left';ctx.fillText('MINÉRIOS • DEPÓSITOS',x+9,y+14);
+            const max=Math.max(1,...groups.map(g=>g.count));
+            groups.forEach((g,i)=>{
+                const yy=y+25+i*rowH,selected=planet.veins[state.selectedVeinIndex]?.type===g.type;
+                ctx.font='bold 9px Segoe UI';ctx.fillStyle=selected?'#fff':'#cbd5e1';ctx.textAlign='left';ctx.fillText(g.meta.short,x+9,yy+8);
+                const bx=x+39,bw=w-65;
+                ctx.fillStyle='rgba(71,85,105,.55)';ctx.fillRect(bx,yy+2,bw,6);
+                ctx.fillStyle=g.meta.color;ctx.fillRect(bx,yy+2,bw*g.count/max,6);
+                ctx.textAlign='right';ctx.fillStyle='#e2e8f0';ctx.fillText(String(g.count),x+w-9,yy+8);
+                mineralChartHitTargets.push({x,y:yy-2,w,h:rowH,type:g.type,index:g.firstIndex});
+            });
+            ctx.restore();
+        }
+        function drawXRayMineralSeams(planet){
+            const regions=[
+                {type:'quartz',x:-.57,y:-.42,rx:.25,ry:.11,a:-.5},
+                {type:'silicate',x:.42,y:-.48,rx:.28,ry:.13,a:.45},
+                {type:'corundum',x:.48,y:.24,rx:.24,ry:.1,a:-.3},
+                {type:'metallic',x:-.42,y:.45,rx:.3,ry:.12,a:.25},
+                {type:'nacre',x:-.03,y:-.05,rx:.19,ry:.075,a:-.7},
+                {type:'quartz',x:.05,y:.67,rx:.18,ry:.07,a:.15},
+                {type:'silicate',x:-.75,y:.05,rx:.13,ry:.08,a:.2},
+                {type:'metallic',x:.75,y:-.05,rx:.12,ry:.07,a:-.5}
+            ];
+            const available=new Set(planet.veins.map(v=>v.type));
+            ctx.save();ctx.globalCompositeOperation='screen';
+            regions.forEach((r,i)=>{
+                if(!available.has(r.type))return;
+                const meta=MINERAL_DISPLAY[r.type]||MINERAL_DISPLAY.quartz;
+                const grad=ctx.createRadialGradient(r.x,r.y,0,r.x,r.y,r.rx*1.4);
+                grad.addColorStop(0,meta.color+'bb');grad.addColorStop(.55,meta.color+'66');grad.addColorStop(1,meta.color+'00');
+                ctx.fillStyle=grad;ctx.beginPath();ctx.ellipse(r.x,r.y,r.rx,r.ry,r.a,0,Math.PI*2);ctx.fill();
+                ctx.strokeStyle=meta.color+'cc';ctx.lineWidth=.009;ctx.beginPath();ctx.ellipse(r.x,r.y,r.rx*.78,r.ry*.65,r.a,0,Math.PI*2);ctx.stroke();
+                ctx.strokeStyle=meta.color+'99';ctx.lineWidth=.006;ctx.beginPath();ctx.moveTo(r.x-r.rx*.7,r.y);ctx.quadraticCurveTo(r.x,r.y-r.ry*1.4,r.x+r.rx*.75,r.y+r.ry*.15);ctx.stroke();
+            });
+            ctx.restore();
+        }
+
         function drawColony(time){
             const planet=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld,{cx,cy}=getVisibleCenter(canvasWidth,canvasHeight);
             const isMobile=window.matchMedia('(max-width: 600px)').matches;
@@ -4026,7 +4087,7 @@
             const crackCount=stage===0?0:stage*3;
             for(let i=0;i<crackCount;i++){const points=cracks[i];ctx.beginPath();ctx.moveTo(points[0][0],points[0][1]);for(let j=1;j<points.length;j++)ctx.lineTo(points[j][0],points[j][1]);ctx.strokeStyle=stage>=3?'rgba(7,12,24,.92)':'rgba(15,23,42,.78)';ctx.lineWidth=stage>=3?.026:.016;ctx.lineJoin='round';ctx.lineCap='round';ctx.stroke();ctx.beginPath();ctx.moveTo(points[0][0],points[0][1]);for(let j=1;j<points.length;j++)ctx.lineTo(points[j][0],points[j][1]);ctx.strokeStyle=stage>=2?'rgba(125,211,252,.72)':'rgba(214,184,139,.58)';ctx.lineWidth=stage>=3?.006:.004;ctx.stroke();}
             if(stage>=2){const rifts=[[-.33,-.18,.13,.09],[.29,.12,.12,.07],[-.12,.49,.1,.06],[.58,-.35,.08,.05]];rifts.slice(0,stage-1).forEach(([x,y,rx,ry])=>{ctx.fillStyle='rgba(2,6,23,.58)';ctx.beginPath();ctx.ellipse(x,y,rx,ry,-.6,0,Math.PI*2);ctx.fill();ctx.strokeStyle='rgba(125,211,252,.52)';ctx.lineWidth=.006;ctx.stroke();});}
-            if(cam.xrayMode){const core=ctx.createRadialGradient(0,0,.04,0,0,.8);core.addColorStop(0,'rgba(255,255,255,.65)');core.addColorStop(.3,'rgba(56,189,248,.25)');core.addColorStop(1,'rgba(56,189,248,0)');ctx.fillStyle=core;ctx.beginPath();ctx.arc(0,0,.82,0,Math.PI*2);ctx.fill();}
+            if(cam.xrayMode){const core=ctx.createRadialGradient(0,0,.04,0,0,.8);core.addColorStop(0,'rgba(255,255,255,.2)');core.addColorStop(.3,'rgba(56,189,248,.08)');core.addColorStop(1,'rgba(56,189,248,0)');ctx.fillStyle=core;ctx.beginPath();ctx.arc(0,0,.82,0,Math.PI*2);ctx.fill();}
             ctx.restore();
 
             // Sombreamento esférico aplicado por cima da textura.
@@ -4036,22 +4097,14 @@
 
             drawHomeworldStructures(planet,cx,cy,radius,cam,time);
 
-            // Veios minerais agora são depósitos na crosta, não raios partindo do centro.
-            planet.veins.forEach((vein,index)=>{
-                const angle=vein.angle+cam.rotation,orbit=.46+(index%3)*.075,x=cx+Math.cos(angle)*radius*orbit,y=cy+Math.sin(angle)*radius*orbit*.76;
-                vein._screenX=x;vein._screenY=y;
-                const selected=index===state.selectedVeinIndex,veinColor=vein.rebelBlocked?'#fb7185':vein.type==='quartz'?'#c084fc':vein.type==='silicate'?'#34d399':vein.type==='corundum'?'#38bdf8':vein.type==='metallic'?'#facc15':'#f8fafc';
-                ctx.save();ctx.shadowColor=veinColor;ctx.shadowBlur=selected?11:4;ctx.fillStyle='rgba(15,23,42,.86)';ctx.beginPath();ctx.arc(x,y,selected?8:6,0,Math.PI*2);ctx.fill();
-                ctx.fillStyle=veinColor;ctx.beginPath();ctx.arc(x,y,selected?4.5:3.2,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
-                ctx.strokeStyle=selected?'#ffffff':'rgba(255,255,255,.35)';ctx.lineWidth=selected?1.8:1;ctx.beginPath();ctx.arc(x,y,selected?12:7.5,0,Math.PI*2);ctx.stroke();
-                if(vein.injector){ctx.strokeStyle='#fb7185';ctx.lineWidth=2.5;ctx.beginPath();ctx.arc(x,y,14,-Math.PI/2,-Math.PI/2+Math.PI*2*Math.min(1,vein.injector.progress/100));ctx.stroke();}
-                ctx.restore();
-            });
+            // O raio-X revela veios minerais como zonas coloridas sob a crosta.
+            if(cam.xrayMode)drawXRayMineralSeams(planet);
             ctx.restore();
 
             // Fragmentos que passam pela frente fecham o efeito de órbita 360°.
             drawPlanetDebris(planet,cx,cy,radius,time,cam,stage,true);
             drawPlanetStatusPanel(planet,stats,Math.max(10,canvasWidth-Math.min(190,canvasWidth*.48)-12),12);
+            drawMineralBarChart(planet,12,Math.max(150,canvasHeight-174));
             ctx.textAlign='center';ctx.fillStyle='#f8fafc';ctx.font='bold 16px Georgia';ctx.fillText(planet.shortName,cx,Math.max(24,cy-radius-24));
             ctx.fillStyle='#cbd5e1';ctx.font='10px Segoe UI';ctx.fillText('ARRASTE PARA GIRAR • TOQUE EM UM DEPÓSITO MINERAL',cx,Math.min(canvasHeight-12,cy+radius+30));
         }
@@ -4078,17 +4131,8 @@
                 }
                 if (nearest) selectStarMapPlanet(nearest.id);
             } else if (state.currentScreen === 'colony') {
-                const planet = PLANETS[state.activeColonyPlanetId];
-                let nearestIndex = -1;
-                let nearestDistance = 20;
-                planet.veins.forEach((vein, index) => {
-                    const distance = Math.hypot(x - vein._screenX, y - vein._screenY);
-                    if (distance < nearestDistance) {
-                        nearestDistance = distance;
-                        nearestIndex = index;
-                    }
-                });
-                if (nearestIndex >= 0) selectRadialVein(nearestIndex);
+                const chartTarget=mineralChartHitTargets.find(target=>x>=target.x&&x<=target.x+target.w&&y>=target.y&&y<=target.y+target.h);
+                if(chartTarget)selectRadialVein(chartTarget.index);
             }
         }
 
