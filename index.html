@@ -4118,12 +4118,13 @@
             const crackCount=stage===0?0:stage*3;
             for(let i=0;i<crackCount;i++){const points=cracks[i];ctx.beginPath();ctx.moveTo(points[0][0],points[0][1]);for(let j=1;j<points.length;j++)ctx.lineTo(points[j][0],points[j][1]);ctx.strokeStyle=stage>=3?'rgba(7,12,24,.92)':'rgba(15,23,42,.78)';ctx.lineWidth=stage>=3?.026:.016;ctx.lineJoin='round';ctx.lineCap='round';ctx.stroke();ctx.beginPath();ctx.moveTo(points[0][0],points[0][1]);for(let j=1;j<points.length;j++)ctx.lineTo(points[j][0],points[j][1]);ctx.strokeStyle=stage>=2?'rgba(125,211,252,.72)':'rgba(214,184,139,.58)';ctx.lineWidth=stage>=3?.006:.004;ctx.stroke();}
             if(stage>=2){const rifts=[[-.33,-.18,.13,.09],[.29,.12,.12,.07],[-.12,.49,.1,.06],[.58,-.35,.08,.05]];rifts.slice(0,stage-1).forEach(([x,y,rx,ry])=>{ctx.fillStyle='rgba(2,6,23,.58)';ctx.beginPath();ctx.ellipse(x,y,rx,ry,-.6,0,Math.PI*2);ctx.fill();ctx.strokeStyle='rgba(125,211,252,.52)';ctx.lineWidth=.006;ctx.stroke();});}
-            if(cam.xrayMode){const core=ctx.createRadialGradient(0,0,.04,0,0,.8);core.addColorStop(0,'rgba(255,255,255,.2)');core.addColorStop(.3,'rgba(56,189,248,.08)');core.addColorStop(1,'rgba(56,189,248,0)');ctx.fillStyle=core;ctx.beginPath();ctx.arc(0,0,.82,0,Math.PI*2);ctx.fill();}
+            if(cam.xrayMode){const core=ctx.createRadialGradient(0,0,.04,0,0,.8);core.addColorStop(0,'rgba(255,255,255,.12)');core.addColorStop(.3,'rgba(56,189,248,.04)');core.addColorStop(1,'rgba(56,189,248,0)');ctx.fillStyle=core;ctx.beginPath();ctx.arc(0,0,.82,0,Math.PI*2);ctx.fill();}
             ctx.restore();
 
             // Sombreamento esférico aplicado por cima da textura.
             const terminator=ctx.createRadialGradient(lightX,lightY,radius*.08,cx,cy,radius*1.12);terminator.addColorStop(0,'rgba(255,255,255,0)');terminator.addColorStop(.62,'rgba(2,6,23,.02)');terminator.addColorStop(1,'rgba(1,4,14,.72)');
             ctx.fillStyle=terminator;ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.fill();
+            if(cam.xrayMode){ctx.save();ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.clip();ctx.translate(cx,cy);ctx.rotate(cam.rotation*.22);ctx.scale(radius,radius);drawXRayMineralSeams(planet);ctx.restore();}
             ctx.strokeStyle='rgba(219,234,254,.58)';ctx.lineWidth=1.2;ctx.beginPath();ctx.arc(cx,cy,radius-1,Math.PI*1.05,Math.PI*1.9);ctx.stroke();
 
             drawHomeworldStructures(planet,cx,cy,radius,cam,time);
