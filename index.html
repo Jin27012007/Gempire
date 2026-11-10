@@ -2010,9 +2010,13 @@
                         });
                         html += '</div>';
                         if (def.id === 'injector') {
-                            html += '<label class="stat-label" for="injector-gem-select">Tipo de Gem</label><select id="injector-gem-select" style="width:100%" onchange="state.founding.selectedGem=this.value;renderDrawerContent()">';
-                            Object.entries(FOUNDING_GEM_DATA).forEach(([key,g]) => { html += '<option value="' + key + '" ' + (state.founding.selectedGem === key ? 'selected' : '') + '>' + g.label + '</option>'; });
-                            html += '</select><div class="founding-note">O Injetor consome 12 unidades de essência transferidas pela Câmara e uma amostra mineral compatível. Recebida: ' + (state.founding.injectorEssence || 0).toFixed(1) + ' / 12 unidades.</div>' +
+                            html += '<div class="card-header"><span class="card-title">📚 Catálogo de tipos de Gem</span><span class="badge">Sempre aberto</span></div>' +
+                                '<div class="founding-note">Escolha aqui o tipo de Gem para o próximo ciclo. O catálogo permanece visível, sem lista suspensa.</div><div class="founding-gem-catalog" role="group" aria-label="Catálogo de tipos de Gem">';
+                            Object.entries(FOUNDING_GEM_DATA).forEach(([key,g]) => {
+                                html += '<button type="button" class="founding-gem-option ' + (state.founding.selectedGem === key ? 'selected' : '') + '" data-gem="' + key + '" onclick="selectFoundingGem(this.dataset.gem)" ' + (state.founding.creationActive ? 'disabled' : '') + ' aria-pressed="' + (state.founding.selectedGem === key ? 'true' : 'false') + '">' +
+                                    '<strong>' + g.label + (state.founding.selectedGem === key ? ' ✓' : '') + '</strong><small>' + g.mineralName + '</small><small>' + g.role + '</small></button>';
+                            });
+                            html += '</div><div class="founding-note">O Injetor consome 12 unidades de essência transferidas pela Câmara e uma amostra mineral compatível. Recebida: ' + (state.founding.injectorEssence || 0).toFixed(1) + ' / 12 unidades.</div>' +
                                 '<button class="btn btn-emerald btn-block" onclick="startInjectorProduction()" ' + (!structureIsOperational('injector') || state.founding.creationActive ? 'disabled' : '') + '>💎 Iniciar ciclo de injeção</button>';
                         } else if (['workshop','refinery','research_center','shipyard','terraformer','defense_tower','shield_generator','teleporter','administration_center','reactor','orbital_station','planetary_network'].includes(def.id)) {
                             const labels = {workshop:'🔧 Fabricar componentes',refinery:'⚗️ Refinar materiais',research_center:'🔬 Pesquisar',shipyard:'🚀 Construir nave',terraformer:'🌊 Terraformar',defense_tower:'🛡️ Calibrar defesa',shield_generator:'🔰 Ativar escudo',teleporter:'🌀 Sincronizar teletransporte',administration_center:'📋 Organizar equipes',reactor:'⚡ Verificar reator',orbital_station:'🛰️ Iniciar operação orbital',planetary_network:'🌐 Expandir rede planetária'};
