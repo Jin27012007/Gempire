@@ -884,6 +884,22 @@
             }
         };
 
+
+        const DIAMOND_PERSONALITY_POOL=[
+            {id:'militarist',name:'Militarista Implacável',badge:'⚔️ Punho de Ferro',desc:'Busca expansão, disciplina e supremacia militar.',quotes:['A expansão não será interrompida.','A ordem nasce da força.']},
+            {id:'melancholic',name:'Diplomata Melancólica',badge:'💧 Guardiã da Tradição',desc:'Valoriza estabilidade, memória e diplomacia.',quotes:['Toda conquista tem um preço.','A paz exige paciência.']},
+            {id:'empathic',name:'Curiosa & Empática',badge:'🌸 Fascínio Orgânico',desc:'Demonstra curiosidade por outras formas de vida e compaixão.',quotes:['Há beleza no que ainda não compreendemos.','Nem tudo precisa ser conquistado.']},
+            {id:'technocrat',name:'Tecnocrata Calculista',badge:'🔬 Lógica Fria',desc:'Prioriza eficiência, pesquisa e planejamento.',quotes:['Cada variável deve ser compreendida.','A eficiência é uma forma de elegância.']},
+            {id:'visionary',name:'Visionária Expansionista',badge:'🌌 Horizonte Infinito',desc:'Sonha com descobertas e expansão para além das fronteiras conhecidas.',quotes:['O universo ainda está por ser escrito.','Não fomos feitas para permanecer aqui.']},
+            {id:'isolationist',name:'Isolacionista Cautelosa',badge:'🛡️ Fortaleza Silenciosa',desc:'Desconfia de estrangeiros e prefere proteger o que já existe.',quotes:['Nem toda porta precisa ser aberta.','Primeiro, fortaleça nossas muralhas.']},
+            {id:'artist',name:'Artista Perfeccionista',badge:'🎨 Geometria Viva',desc:'Valoriza beleza, arquitetura e expressão individual.',quotes:['Uma obra imperfeita ainda pode ser bela.','Que nossas cidades expressem quem somos.']},
+            {id:'scholar',name:'Erudita Obsessiva',badge:'📚 Arquivo Eterno',desc:'Procura respostas, preserva conhecimento e questiona dogmas.',quotes:['O desconhecido não é uma ameaça, é uma pergunta.','Registre tudo. O esquecimento é irreversível.']},
+            {id:'hedonist',name:'Hedonista Extravagante',badge:'✨ Esplendor Absoluto',desc:'Busca conforto, celebração e demonstrações de poder.',quotes:['Se podemos criar algo magnífico, por que aceitar menos?','A eternidade merece ser celebrada.']},
+            {id:'reformer',name:'Reformista Radical',badge:'⚖️ Nova Ordem',desc:'Questiona hierarquias e defende mudanças estruturais.',quotes:['Tradição não é justificativa para injustiça.','Uma ordem melhor pode nascer das ruínas.']},
+            {id:'manipulator',name:'Estrategista Manipuladora',badge:'♟️ Véu de Cristal',desc:'Prefere influência indireta, intriga e controle político.',quotes:['O poder mais eficiente raramente precisa ser exibido.','Deixe que pensem que a decisão foi deles.']},
+            {id:'naturalist',name:'Naturalista Primitivista',badge:'🌿 Voz da Crosta',desc:'Respeita os ecossistemas e rejeita a exploração indiscriminada.',quotes:['O planeta não é apenas um depósito.','Podemos prosperar sem consumir tudo.']}
+        ];
+
         const COLOR_PALETTES = {
             white: { name: 'Branco Prismático', hex: '#f8fafc', glow: '#38bdf8' },
             yellow: { name: 'Ouro Solar', hex: '#facc15', glow: '#f59e0b' },
@@ -2537,14 +2553,7 @@
                             <span class="stat-label">Nome da Nova Diamante</span>
                             <input type="text" value="${d.name}" oninput="state.newDiamondDraft.name=this.value;">
                         </div>
-                        <div>
-                            <span class="stat-label">Espectro Cromático</span>
-                            <select onchange="state.newDiamondDraft.colorKey=this.value; renderDrawerContent();">
-                                ${Object.entries(COLOR_PALETTES).map(([k, pal]) => `
-                                    <option value="${k}" ${d.colorKey === k ? 'selected' : ''}>${pal.name}</option>
-                                `).join('')}
-                            </select>
-                        </div>
+                        <div class="stat-box"><span class="stat-label">Cor e personalidade</span><b>Determinadas aleatoriamente pelos minerais consumidos na forja.</b></div>
                         <div>
                             <span class="stat-label">Formato da Gem</span>
                             <select onchange="state.newDiamondDraft.gemCut=this.value;">
@@ -2564,25 +2573,7 @@
                         </div>
                     </div>
 
-                    <div class="stat-box" style="display:flex; flex-direction:column; gap:5px;">
-                        <span class="stat-label" style="color:var(--cyan); font-weight:700;">MISTURA DE ESSÊNCIAS (DEFINE A PERSONALIDADE):</span>
-                        <div>
-                            <div style="display:flex; justify-content:space-between; font-size:10px;"><span>🤍 Branca (Tecnocrata)</span><b>${d.white}</b></div>
-                            <input type="range" min="40" max="180" step="20" value="${d.white}" oninput="state.newDiamondDraft.white=parseInt(this.value,10); renderDrawerContent();">
-                        </div>
-                        <div>
-                            <div style="display:flex; justify-content:space-between; font-size:10px; color:#fde047;"><span>💛 Amarela (Militarista)</span><b>${d.yellow}</b></div>
-                            <input type="range" min="0" max="180" step="20" value="${d.yellow}" oninput="state.newDiamondDraft.yellow=parseInt(this.value,10); renderDrawerContent();">
-                        </div>
-                        <div>
-                            <div style="display:flex; justify-content:space-between; font-size:10px; color:#7dd3fc;"><span>💙 Azul (Melancólica/Diplomata)</span><b>${d.blue}</b></div>
-                            <input type="range" min="0" max="180" step="20" value="${d.blue}" oninput="state.newDiamondDraft.blue=parseInt(this.value,10); renderDrawerContent();">
-                        </div>
-                        <div>
-                            <div style="display:flex; justify-content:space-between; font-size:10px; color:#fda4af;"><span>💗 Vital (Empática/Curiosa)</span><b>${d.pink}</b></div>
-                            <input type="range" min="0" max="180" step="20" value="${d.pink}" oninput="state.newDiamondDraft.pink=parseInt(this.value,10); renderDrawerContent();">
-                        </div>
-                    </div>
+                    <div class="stat-box"><b>FORJA ALEATÓRIA</b><p style="font-size:11px;color:#cbd5e1">A forja consome uma parcela substancial dos recursos restantes do planeta escolhido. Os minerais consumidos determinam a cor; a personalidade é sorteada entre múltiplos arquétipos. O resultado só será revelado quando a Diamante emergir.</p></div>
 
                     <div class="stat-box" style="border-color:rgba(250,204,21,0.35);">
                         <div style="display:flex; justify-content:space-between; align-items:center;">
@@ -2594,7 +2585,7 @@
                     </div>
 
                     <button class="btn active" style="width:100%; padding:9px;" onclick="synthesizeCustomDiamond()">
-                        💎 Sintetizar ${d.name} (${d.white}B / ${d.yellow}A / ${d.blue}Az / ${d.pink}V)
+                        💎 Iniciar forja — custo planetário elevado
                     </button>
                 </div>
             `;
@@ -2612,53 +2603,55 @@
         }
 
         function synthesizeCustomDiamond() {
-            const d = state.newDiamondDraft;
-            if (state.essence.white < d.white || state.essence.yellow < d.yellow || state.essence.blue < d.blue || state.essence.pink < d.pink) {
-                setStatusTicker('⚠️ Essências insuficientes para forjar esta Diamante! Use a Refinaria ou reduza os controles.');
+            const d=state.newDiamondDraft;
+            const planet=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld;
+            const total=Math.max(1,Number(planet.resourceTotal)||1);
+            const remaining=Math.max(0,Number(planet.resourcesRemaining)||0);
+            const cost=Math.ceil(total*.22);
+            if(remaining<cost||cost<1){
+                setStatusTicker('A forja exige '+cost.toLocaleString('pt-BR')+' unidades minerais ainda disponíveis em '+planet.shortName+'.',true);
                 return;
             }
-            state.essence.white -= d.white;
-            state.essence.yellow -= d.yellow;
-            state.essence.blue -= d.blue;
-            state.essence.pink -= d.pink;
-
-            const pers = predictDraftPersonality(d);
-            const pal = COLOR_PALETTES[d.colorKey] || COLOR_PALETTES.yellow;
-
-            const matriarch = {
-                id: 'm_' + Date.now(),
-                name: d.name || 'Diamante Solar',
-                colorKey: d.colorKey,
-                colorHex: pal.hex,
-                glowHex: pal.glow,
-                gemCut: d.gemCut,
-                gemPos: d.gemPos,
-                personalityId: pers.id,
-                personalityName: pers.name,
-                badge: pers.badge,
-                loyalty: 84,
-                autonomy: 35,
-                currentSpeech: pers.quotes[0]
+            const pools=planet.resourcesByType||{};
+            const available=Object.entries(pools).filter(([,amount])=>amount>0);
+            if(!available.length){setStatusTicker('Não há composição mineral disponível para a forja.',true);return;}
+            let remainingCost=cost;const consumed={};
+            while(remainingCost>0){
+                const candidates=available.filter(([key,amount])=>(pools[key]||0)>0);
+                if(!candidates.length)break;
+                const [key,amount]=candidates[Math.floor(Math.random()*candidates.length)];
+                const take=Math.min(amount,Math.max(1,Math.ceil(remainingCost/(candidates.length*.8))));
+                pools[key]-=take;consumed[key]=(consumed[key]||0)+take;remainingCost-=take;
+            }
+            const actualCost=cost-remainingCost;
+            planet.resourcesRemaining=Math.max(0,remaining-actualCost);
+            const dominant=Object.entries(consumed).sort((a,b)=>b[1]-a[1])[0]?.[0]||'quartz';
+            const mineralColors={
+                quartz:'violet',silicate:'emerald',corundum:'blue',metallic:'yellow',
+                nacre:'white',jasperrock:'pink',olivine:'emerald',lapisrock:'blue'
             };
-
+            const colorKey=mineralColors[dominant]||'white';
+            const palette=COLOR_PALETTES[colorKey]||COLOR_PALETTES.white;
+            const pers=DIAMOND_PERSONALITY_POOL[Math.floor(Math.random()*DIAMOND_PERSONALITY_POOL.length)];
+            const matriarch={
+                id:'m_'+Date.now(),name:d.name||'Diamante recém-forjada',
+                colorKey,colorHex:palette.hex,glowHex:palette.glow,
+                gemCut:d.gemCut||'lozenge',gemPos:d.gemPos||'chest',
+                personalityId:pers.id,personalityName:pers.name,badge:pers.badge,
+                personalityDesc:pers.desc,loyalty:84,autonomy:35,currentSpeech:pers.quotes[0],
+                consumedPlanet:planet.id,consumedMinerals:consumed
+            };
             state.matriarchs.push(matriarch);
-            state.era = 1;
-            const eraEl = document.getElementById('era-badge');
-            if (eraEl) eraEl.textContent = `Era 1 (${state.matriarchs.length + 1} Diamantes)`;
-
-            addChronicle(
-                `Gênese de ${matriarch.name}`,
-                `Forjada pela Primeira Diamante com mente ${pers.name}. Capacidade administrativa ampliada em +2 colônias.`,
-                `Nova Matriarca na Corte`
-            );
-
-            const nextNames = ['Diamante Safira-Azul', 'Diamante Estelar Rosa', 'Diamante Violeta', 'Diamante Esmeralda'];
-            state.newDiamondDraft.name = nextNames[state.matriarchs.length % nextNames.length];
-
-            state.thronePulseEffects.push({ radius: 12, alpha: 1.0 });
-            setStatusTicker(`💎 ${matriarch.name} (${pers.name}) emergiu no Trono com consciência própria!`);
-            updateHUD();
-            switchDrawerTab('context');
+            state.era=1;
+            const eraEl=document.getElementById('era-badge');
+            if(eraEl)eraEl.textContent='Era 1 ('+(state.matriarchs.length+1)+' Diamantes)';
+            addChronicle('Gênese de '+matriarch.name,
+                'A forja consumiu '+actualCost.toLocaleString('pt-BR')+' unidades de recursos de '+planet.shortName+'. A composição dominante foi '+dominant+'. A mente emergiu como '+pers.name+'.',
+                'Nova Matriarca na Corte');
+            state.newDiamondDraft.name=['Diamante Safira-Azul','Diamante Estelar Rosa','Diamante Violeta','Diamante Esmeralda'][state.matriarchs.length%4];
+            state.thronePulseEffects.push({radius:12,alpha:1});
+            setStatusTicker('Uma nova Diamante emergiu de '+planet.shortName+'. Cor: '+palette.name+'. Personalidade: '+pers.name+'.');
+            updateHUD();switchDrawerTab('context');
         }
 
         function communeWithMatriarch(idx) {
