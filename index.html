@@ -1177,21 +1177,21 @@
         // Reservas minerais planetárias: a colonização mede a fração realmente extraída.
         function initializePlanetaryReserves(){
             const profiles={
-                homeworld:{size:'gigante rochoso',min:31000,max:50000},
-                ignis_prime:{size:'médio',min:10000,max:30000},
-                thalassa_9:{size:'médio',min:10000,max:30000},
-                caelum_gelidus:{size:'gigante rochoso',min:31000,max:50000},
-                terra_veritas:{size:'médio',min:10000,max:30000}
+                homeworld:{size:'grande',min:50000,max:50000,pressure:150,forgeSeconds:45,power:2.5},
+                ignis_prime:{size:'médio',min:10000,max:30000,pressure:85,forgeSeconds:95,power:1.8},
+                thalassa_9:{size:'médio',min:10000,max:30000,pressure:85,forgeSeconds:95,power:1.8},
+                caelum_gelidus:{size:'gigante rochoso',min:31000,max:50000,pressure:150,forgeSeconds:45,power:2.5},
+                terra_veritas:{size:'médio',min:10000,max:30000,pressure:85,forgeSeconds:95,power:1.8}
             };
             const weights={quartz:24,silicate:22,corundum:16,metallic:18,nacre:12,jasperrock:3,olivine:3,lapisrock:2};
             for(const planet of Object.values(PLANETS)){
                 if(Number.isFinite(planet.resourceTotal)&&Number.isFinite(planet.resourcesRemaining))continue;
-                const profile=profiles[planet.id]||{size:'pequeno',min:1000,max:10000};
+                const profile=profiles[planet.id]||{size:'pequeno',min:1000,max:10000,pressure:35,forgeSeconds:180,power:1};
                 const total=Math.floor(profile.min+Math.random()*(profile.max-profile.min+1));
                 const keys=Object.keys(weights),weightTotal=Object.values(weights).reduce((a,b)=>a+b,0);
                 const resources={};let assigned=0;
                 keys.forEach((key,index)=>{const amount=index===keys.length-1?total-assigned:Math.floor(total*weights[key]/weightTotal);resources[key]=amount;assigned+=amount;});
-                planet.resourceSize=profile.size;planet.resourceTotal=total;planet.resourcesRemaining=total;planet.resourcesByType=resources;
+                planet.resourceSize=profile.size;planet.resourceTotal=total;planet.resourcesRemaining=total;planet.resourcesByType=resources;planet.corePressure=profile.pressure;planet.diamondForgeSeconds=profile.forgeSeconds;planet.diamondPower=profile.power;
             }
         }
         initializePlanetaryReserves();
@@ -1259,6 +1259,7 @@
 
             // Diamantes Subordinadas Criadas pelo Jogador (Mente e Personalidade Própria)
             matriarchs: [],
+            diamondForge: null,
 
             // Rascunho para Forjar Nova Diamante
             newDiamondDraft: {
@@ -2497,18 +2498,21 @@
             const total=Math.max(1,Number(planet.resourceTotal)||1);
             const remaining=Math.max(0,Number(planet.resourcesRemaining)||0);
             const mineralCost=Math.ceil(total*.22);
-            const essenceCost={white:100,yellow:80,blue:80,pink:80};
-            const canForge=remaining>=mineralCost&&Object.entries(essenceCost).every(([k,v])=>(Number(state.essence[k])||0)>=v);
+            const pressure=Number(planet.corePressure)||35;
+            const forgeSeconds=Number(planet.diamondForgeSeconds)||180;
+            const forgePower=Number(planet.diamondPower)||1;
+            const activeForge=state.diamondForge;
+            const canForge=remaining>=mineralCost&&!activeForge;
             const influence=Math.min(100,Math.round(25+state.matriarchs.length*8+admin.colonizedCount*7+state.era*5));
             const reputation=Math.max(0,Math.min(100,Math.round((Number(state.order)||0)*.65+(Number(state.ideologyAxis)||0)*.35+50)));
             const mineralNames={quartz:'Quartzo',silicate:'Silicato',corundum:'Coríndon',metallic:'Metal',nacre:'Nácar',jasperrock:'Jaspe',olivine:'Olivina',lapisrock:'Lápis-lazúli'};
             const matriarchCards=state.matriarchs.length?state.matriarchs.map(m=>
                 '<div class="stat-box"><div style="display:flex;align-items:center;gap:9px"><span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:'+ (m.colorHex||'#cbd5e1') +';box-shadow:0 0 12px '+(m.glowHex||m.colorHex||'#cbd5e1')+'"></span><div><b>'+escapeHTML(m.name)+'</b><small style="display:block;color:var(--text-muted)">'+escapeHTML(m.personalityName||'Personalidade desconhecida')+' · '+escapeHTML(m.badge||'Diamante')+'</small></div></div><div style="font-size:11px;color:#cbd5e1;margin-top:7px">'+escapeHTML(m.personalityDesc||'')+'</div><div style="font-size:10px;color:#94a3b8;margin-top:5px">Lealdade: '+Math.round(m.loyalty||0)+'% · Autonomia: '+Math.round(m.autonomy||0)+'%</div><div style="font-size:10px;color:#94a3b8">Origem: '+escapeHTML(PLANETS[m.consumedPlanet]?.shortName||'Desconhecida')+' · Minerais: '+Object.entries(m.consumedMinerals||{}).map(([k,v])=>(mineralNames[k]||k)+' '+Number(v).toLocaleString('pt-BR')).join(', ')+'</div></div>'
             ).join(''):'<div class="stat-box" style="color:#94a3b8">Nenhuma Diamante subordinada foi criada ainda.</div>';
-            const essenceRows=Object.entries(essenceCost).map(([k,v])=>'<div style="display:flex;justify-content:space-between;font-size:11px;color:#cbd5e1"><span>'+({white:'🤍 Branca',yellow:'💛 Amarela',blue:'💙 Azul',pink:'💗 Vital'})[k]+'</span><b style="color:'+( (Number(state.essence[k])||0)>=v?'#6ee7b7':'#fb7185')+'">'+v+' / '+Math.floor(Number(state.essence[k])||0)+'</b></div>').join('');
+
             container.innerHTML=
                 '<div class="card card-cyan"><div class="card-header"><span class="card-title title-font">👑 '+escapeHTML(fd.name)+'</span><span class="badge">Diamante Principal · Jogador</span></div><p style="font-size:11px;color:#cbd5e1">A Diamante fundadora. Sua identidade foi definida no início da partida e não pode ser alterada.</p><div class="grid-2"><div class="stat-box"><span class="stat-label">Influência imperial</span><b style="color:#7dd3fc">'+influence+'%</b></div><div class="stat-box"><span class="stat-label">Reputação</span><b style="color:#f9a8d4">'+reputation+'%</b></div></div><div class="stat-box"><small style="color:var(--text-muted)">Influência acompanha o crescimento da dinastia e das colônias. Reputação acompanha a estabilidade e as decisões ideológicas do império.</small></div></div>'+
-                '<div class="card card-amber"><div class="card-header"><span class="card-title title-font">💎 Forjar nova Diamante</span><span class="badge">+2 Limite ADM</span></div><p style="font-size:11px;color:#cbd5e1">A forja é irreversível. A composição mineral define a cor; a personalidade é sorteada. Nome, cor, aparência e personalidade só serão revelados após a criação.</p><div class="stat-box"><b>Planeta de origem: '+escapeHTML(planet.shortName)+'</b><small style="display:block;color:var(--text-muted)">Reserva disponível: '+Math.floor(remaining).toLocaleString('pt-BR')+' / '+Math.floor(total).toLocaleString('pt-BR')+'</small></div><div class="stat-box"><span class="stat-label">Requisitos minerais</span><b>'+mineralCost.toLocaleString('pt-BR')+' unidades (22% da reserva original)</b><small style="display:block;color:'+(remaining>=mineralCost?'#6ee7b7':'#fb7185')+'">'+(remaining>=mineralCost?'Disponível':'Recursos insuficientes neste planeta')+'</small></div><div class="stat-box"><span class="stat-label">Requisitos de essência</span>'+essenceRows+'</div><div class="stat-box"><span class="stat-label">Colônias ativas</span><b>'+admin.colonizedCount+' / '+admin.maxCap+'</b></div><button class="btn active" style="width:100%;padding:10px" onclick="synthesizeCustomDiamond()" '+(canForge?'':'disabled')+'>💎 Iniciar forja</button>'+(canForge?'':'<small style="display:block;color:#fb7185;margin-top:6px">Reúna todos os recursos e essências exigidos para liberar a forja.</small>')+'</div>'+
+                '<div class="card card-amber"><div class="card-header"><span class="card-title title-font">💎 Forjar nova Diamante</span><span class="badge">Núcleo planetário</span></div><p style="font-size:11px;color:#cbd5e1">A Diamante é formada sob pressão extrema no centro do planeta. A Primeira Diamante é monocromática: a forja não exige essências coloridas. A composição mineral define a cor; a pressão determina o tempo e a potência.</p><div class="stat-box"><b>Planeta de origem: '+escapeHTML(planet.shortName)+'</b><small style="display:block;color:var(--text-muted)">Reserva disponível: '+Math.floor(remaining).toLocaleString('pt-BR')+' / '+Math.floor(total).toLocaleString('pt-BR')+'</small></div><div class="stat-box"><span class="stat-label">Custo mineral</span><b>'+mineralCost.toLocaleString('pt-BR')+' unidades (22% da reserva original)</b><small style="display:block;color:'+(remaining>=mineralCost?'#6ee7b7':'#fb7185')+'">'+(remaining>=mineralCost?'Disponível':'Recursos insuficientes neste planeta')+'</small></div><div class="grid-2"><div class="stat-box"><span class="stat-label">Pressão do núcleo</span><b>'+pressure+' GPa</b></div><div class="stat-box"><span class="stat-label">Potência estimada</span><b>'+forgePower.toFixed(1)+'x</b></div></div><div class="stat-box"><span class="stat-label">Tempo de formação</span><b>'+forgeSeconds+' segundos</b><small style="display:block;color:var(--text-muted)">Quanto maior a pressão, mais rápida e poderosa será a Diamante.</small></div>'+(activeForge?'<div class="stat-box"><b>Forja em andamento · '+escapeHTML(PLANETS[activeForge.planetId]?.shortName||'Núcleo')+'</b><div class="founding-progress" style="margin-top:8px"><div style="width:'+Math.floor(activeForge.progress)+'%"></div></div><small>'+Math.floor(activeForge.progress)+'% · '+Math.max(0,Math.ceil(activeForge.duration*(1-activeForge.progress/100)))+'s restantes</small></div>':'')+'<div class="stat-box"><span class="stat-label">Colônias ativas</span><b>'+admin.colonizedCount+' / '+admin.maxCap+'</b></div><button class="btn active" style="width:100%;padding:10px" onclick="synthesizeCustomDiamond()" '+(canForge?'':'disabled')+'>'+(activeForge?'💎 Forja em andamento':'💎 Iniciar forja no núcleo')+'</button>'+(canForge?'':'<small style="display:block;color:#fb7185;margin-top:6px">'+(activeForge?'Aguarde a conclusão da formação.':'Recursos minerais insuficientes para iniciar a forja.')+'</small>')+'</div>'+
                 '<div class="card"><div class="card-header"><span class="card-title title-font">Dinastia · '+state.matriarchs.length+' Diamante(s) subordinada(s)</span></div>'+matriarchCards+'</div>';
         }
 
@@ -2524,57 +2528,56 @@
         }
 
         function synthesizeCustomDiamond() {
-            const d=state.newDiamondDraft;
             const planet=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld;
-            const essenceCost={white:100,yellow:80,blue:80,pink:80};
-            for(const [key,cost] of Object.entries(essenceCost)){if((Number(state.essence[key])||0)<cost){setStatusTicker('Essência insuficiente: são necessárias '+cost+' unidades de '+key+'.',true);return;}}
+            if(state.diamondForge){setStatusTicker('Uma Diamante já está sendo formada no núcleo planetário.',true);return;}
             const total=Math.max(1,Number(planet.resourceTotal)||1);
             const remaining=Math.max(0,Number(planet.resourcesRemaining)||0);
             const cost=Math.ceil(total*.22);
-            if(remaining<cost||cost<1){
-                setStatusTicker('A forja exige '+cost.toLocaleString('pt-BR')+' unidades minerais ainda disponíveis em '+planet.shortName+'.',true);
-                return;
-            }
-            for(const [key,cost] of Object.entries(essenceCost))state.essence[key]-=cost;
+            if(remaining<cost||cost<1){setStatusTicker('A forja exige '+cost.toLocaleString('pt-BR')+' unidades minerais ainda disponíveis em '+planet.shortName+'.',true);return;}
+            const pressure=Number(planet.corePressure)||35;
+            state.diamondForge={planetId:planet.id,progress:0,duration:Number(planet.diamondForgeSeconds)||180,pressure,mineralCost:cost,power:Number(planet.diamondPower)||1};
+            setStatusTicker('Forja iniciada no núcleo de '+planet.shortName+'. A pressão está cristalizando a nova Diamante.');
+            updateHUD();
+        }
+
+        function completeDiamondForge() {
+            const forge=state.diamondForge;
+            if(!forge)return;
+            const planet=PLANETS[forge.planetId];
+            if(!planet){state.diamondForge=null;return;}
+            const remaining=Math.max(0,Number(planet.resourcesRemaining)||0);
+            if(remaining<forge.mineralCost){state.diamondForge=null;setStatusTicker('A forja foi interrompida: recursos minerais insuficientes.',true);return;}
             const pools=planet.resourcesByType||{};
             const available=Object.entries(pools).filter(([,amount])=>amount>0);
-            if(!available.length){setStatusTicker('Não há composição mineral disponível para a forja.',true);return;}
-            let remainingCost=cost;const consumed={};
+            if(!available.length){state.diamondForge=null;setStatusTicker('A forja foi interrompida: não há composição mineral disponível.',true);return;}
+            let remainingCost=forge.mineralCost;const consumed={};
             while(remainingCost>0){
-                const candidates=available.filter(([key,amount])=>(pools[key]||0)>0);
+                const candidates=available.filter(([key])=>(pools[key]||0)>0);
                 if(!candidates.length)break;
                 const [key,amount]=candidates[Math.floor(Math.random()*candidates.length)];
                 const take=Math.min(amount,Math.max(1,Math.ceil(remainingCost/(candidates.length*.8))));
                 pools[key]-=take;consumed[key]=(consumed[key]||0)+take;remainingCost-=take;
             }
-            const actualCost=cost-remainingCost;
+            const actualCost=forge.mineralCost-remainingCost;
             planet.resourcesRemaining=Math.max(0,remaining-actualCost);
             const dominant=Object.entries(consumed).sort((a,b)=>b[1]-a[1])[0]?.[0]||'quartz';
-            const mineralColors={
-                quartz:'violet',silicate:'emerald',corundum:'blue',metallic:'yellow',
-                nacre:'white',jasperrock:'pink',olivine:'emerald',lapisrock:'blue'
-            };
+            const mineralColors={quartz:'violet',silicate:'emerald',corundum:'blue',metallic:'yellow',nacre:'white',jasperrock:'pink',olivine:'emerald',lapisrock:'blue'};
             const colorKey=mineralColors[dominant]||'white';
             const palette=COLOR_PALETTES[colorKey]||COLOR_PALETTES.white;
             const pers=DIAMOND_PERSONALITY_POOL[Math.floor(Math.random()*DIAMOND_PERSONALITY_POOL.length)];
             const matriarch={
-                id:'m_'+Date.now(),name:d.name||'Diamante recém-forjada',
-                colorKey,colorHex:palette.hex,glowHex:palette.glow,
-                gemCut:d.gemCut||'lozenge',gemPos:d.gemPos||'chest',
-                personalityId:pers.id,personalityName:pers.name,badge:pers.badge,
-                personalityDesc:pers.desc,loyalty:84,autonomy:35,currentSpeech:pers.quotes[0],
-                consumedPlanet:planet.id,consumedMinerals:consumed
+                id:'m_'+Date.now(),name:'Diamante '+['Áurea','Celeste','Rubi','Esmeralda','Violeta','Pérola'][state.matriarchs.length%6],
+                colorKey,colorHex:palette.hex,glowHex:palette.glow,gemCut:'lozenge',gemPos:'chest',
+                personalityId:pers.id,personalityName:pers.name,badge:pers.badge,personalityDesc:pers.desc,
+                loyalty:84,autonomy:35,currentSpeech:pers.quotes[0],consumedPlanet:planet.id,consumedMinerals:consumed,
+                corePressure:forge.pressure,diamondPower:forge.power
             };
-            state.matriarchs.push(matriarch);
-            state.era=1;
+            state.matriarchs.push(matriarch);state.diamondForge=null;state.era=1;
             const eraEl=document.getElementById('era-badge');
             if(eraEl)eraEl.textContent='Era 1 ('+(state.matriarchs.length+1)+' Diamantes)';
-            addChronicle('Gênese de '+matriarch.name,
-                'A forja consumiu '+actualCost.toLocaleString('pt-BR')+' unidades de recursos de '+planet.shortName+'. A composição dominante foi '+dominant+'. A mente emergiu como '+pers.name+'.',
-                'Nova Matriarca na Corte');
-            state.newDiamondDraft.name=['Diamante Safira-Azul','Diamante Estelar Rosa','Diamante Violeta','Diamante Esmeralda'][state.matriarchs.length%4];
+            addChronicle('Gênese de '+matriarch.name,'A Diamante foi formada no núcleo de '+planet.shortName+' sob '+forge.pressure+' GPa de pressão. A formação consumiu '+actualCost.toLocaleString('pt-BR')+' unidades minerais; poder relativo: '+forge.power.toFixed(1)+'x.','Nova Matriarca na Corte');
             state.thronePulseEffects.push({radius:12,alpha:1});
-            setStatusTicker('Uma nova Diamante emergiu de '+planet.shortName+'. Cor: '+palette.name+'. Personalidade: '+pers.name+'.');
+            setStatusTicker('Uma nova Diamante emergiu do núcleo de '+planet.shortName+'. Potência relativa: '+forge.power.toFixed(1)+'x.');
             updateHUD();switchDrawerTab('context');
         }
 
@@ -3261,6 +3264,10 @@
                 state.founding.creationProgress = Math.min(100, state.founding.creationProgress + dt * 100 / 42);
                 if (state.founding.creationProgress >= 100) finishFirstGemCreation();
             }
+            if(state.diamondForge){
+                state.diamondForge.progress=Math.min(100,state.diamondForge.progress+dt*100/Math.max(1,state.diamondForge.duration));
+                if(state.diamondForge.progress>=100)completeDiamondForge();
+            }
             if (state.firstGameStarted) updateStructureSimulation(dt);
             for (const planet of Object.values(PLANETS)) {
                 planet.orbitAngle = (planet.orbitAngle || 0) + (planet.orbitSpeed || 0) * elapsedMs;
@@ -3344,6 +3351,7 @@
                 updateHUD();
                 updateInjectorProgressUI();
                 if (state.firstGameStarted && state.founding && (!state.founding.firstGemCreated || !structureCount('injector'))) updateFoundingLiveUI();
+                if(state.diamondForge&&state.drawerOpen&&state.drawerTab==='dynasty')renderDrawerContent();
             }
         }
 
