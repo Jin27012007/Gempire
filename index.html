@@ -2492,103 +2492,24 @@
 
         // 10E. Sub-Aba 3: Dinastia (Criador da 1ª Diamante + Forja de Novas Diamantes)
         function renderDynastyTab(container) {
-            const fd = state.firstDiamond;
-            const d = state.newDiamondDraft;
-            const predPers = predictDraftPersonality(d);
-            const admin = getAdminStats();
-
-            container.innerHTML = `
-                <!-- Customizador da Primeira Diamante -->
-                <div class="card card-cyan">
-                    <div class="card-header">
-                        <span class="card-title title-font">👑 Identidade da 1ª Diamante</span>
-                        <span class="badge">Ao Vivo no Trono</span>
-                    </div>
-                    <div class="grid-2">
-                        <div>
-                            <span class="stat-label">Nome Real</span>
-                            <input type="text" value="${fd.name}" oninput="state.firstDiamond.name=this.value; updateHUD();">
-                        </div>
-                        <div>
-                            <span class="stat-label">Epíteto / Título</span>
-                            <input type="text" value="${fd.title}" oninput="state.firstDiamond.title=this.value;">
-                        </div>
-                    </div>
-                    <div class="grid-2">
-                        <div>
-                            <span class="stat-label">Cor livre</span>
-                            <input type="color" value="${fd.colorHex || COLOR_PALETTES[fd.colorKey]?.hex || '#f8fafc'}" oninput="state.firstDiamond.colorHex=this.value; renderDrawerContent();" aria-label="Cor da Primeira Diamante">
-                        </div>
-                        <div>
-                            <span class="stat-label">Lapidação da Pedra</span>
-                            <select onchange="state.firstDiamond.gemCut=this.value;">
-                                <option value="lozenge" ${fd.gemCut === 'lozenge' ? 'selected' : ''}>💎 Losango Clássico</option>
-                                <option value="octagon" ${fd.gemCut === 'octagon' ? 'selected' : ''}>🛑 Octogonal Real</option>
-                                <option value="teardrop" ${fd.gemCut === 'teardrop' ? 'selected' : ''}>💧 Gota Celestial</option>
-                                <option value="star" ${fd.gemCut === 'star' ? 'selected' : ''}>✨ Estrela Facetada</option>
-                            </select>
-                        </div>
-                        <div>
-                            <span class="stat-label">Silhueta corporal</span>
-                            <select onchange="state.firstDiamond.bodySilhouette=this.value; renderDrawerContent();">
-                                <option value="regal" ${fd.bodySilhouette==='regal'?'selected':''}>Regal</option>
-                                <option value="slender" ${fd.bodySilhouette==='slender'?'selected':''}>Esbelta</option>
-                                <option value="broad" ${fd.bodySilhouette==='broad'?'selected':''}>Imponente</option>
-                            </select>
-                        </div>
-                    </div>
-                </div>
-
-                <!-- Forja de Nova Diamante com Mente Própria -->
-                <div class="card card-amber">
-                    <div class="card-header">
-                        <span class="card-title title-font">➕ Forjar Nova Diamante</span>
-                        <span class="badge" style="color:#6ee7b7;">+2 Limite ADM</span>
-                    </div>
-                    <div style="font-size:11px; color:#cbd5e1;">
-                        Colônias Ativas: <b>${admin.colonizedCount}/${admin.maxCap}</b>. Sintetize uma nova Matriarca para expandir a administração e delegar mundos!
-                    </div>
-                    <div class="grid-2">
-                        <div>
-                            <span class="stat-label">Nome da Nova Diamante</span>
-                            <input type="text" value="${d.name}" oninput="state.newDiamondDraft.name=this.value;">
-                        </div>
-                        <div class="stat-box"><span class="stat-label">Cor e personalidade</span><b>Determinadas aleatoriamente pelos minerais consumidos na forja.</b></div>
-                        <div>
-                            <span class="stat-label">Formato da Gem</span>
-                            <select onchange="state.newDiamondDraft.gemCut=this.value;">
-                                <option value="lozenge" ${d.gemCut === 'lozenge' ? 'selected' : ''}>💎 Losango</option>
-                                <option value="octagon" ${d.gemCut === 'octagon' ? 'selected' : ''}>🛑 Octogonal</option>
-                                <option value="teardrop" ${d.gemCut === 'teardrop' ? 'selected' : ''}>💧 Gota</option>
-                                <option value="star" ${d.gemCut === 'star' ? 'selected' : ''}>✨ Estelar</option>
-                            </select>
-                        </div>
-                        <div>
-                            <span class="stat-label">Posição da Gem</span>
-                            <select onchange="state.newDiamondDraft.gemPos=this.value;">
-                                <option value="chest" ${d.gemPos === 'chest' ? 'selected' : ''}>Peito</option>
-                                <option value="forehead" ${d.gemPos === 'forehead' ? 'selected' : ''}>Testa</option>
-                                <option value="navel" ${d.gemPos === 'navel' ? 'selected' : ''}>Centro</option>
-                            </select>
-                        </div>
-                    </div>
-
-                    <div class="stat-box"><b>FORJA ALEATÓRIA</b><p style="font-size:11px;color:#cbd5e1">A forja consome uma parcela substancial dos recursos restantes do planeta escolhido. Os minerais consumidos determinam a cor; a personalidade é sorteada entre múltiplos arquétipos. O resultado só será revelado quando a Diamante emergir.</p></div>
-
-                    <div class="stat-box" style="border-color:rgba(250,204,21,0.35);">
-                        <div style="display:flex; justify-content:space-between; align-items:center;">
-                            <span style="font-size:10px; color:#fde047; font-weight:700;">🧠 MENTE PREVISTA:</span>
-                            <span class="badge">${predPers.badge}</span>
-                        </div>
-                        <div style="font-size:12px; font-weight:700; color:#ffffff; margin-top:2px;">${predPers.name}</div>
-                        <p style="font-size:10px; color:#cbd5e1; margin-top:2px;">${predPers.desc}</p>
-                    </div>
-
-                    <button class="btn active" style="width:100%; padding:9px;" onclick="synthesizeCustomDiamond()">
-                        💎 Iniciar forja — custo planetário elevado
-                    </button>
-                </div>
-            `;
+            const fd=state.firstDiamond,admin=getAdminStats();
+            const planet=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld;
+            const total=Math.max(1,Number(planet.resourceTotal)||1);
+            const remaining=Math.max(0,Number(planet.resourcesRemaining)||0);
+            const mineralCost=Math.ceil(total*.22);
+            const essenceCost={white:100,yellow:80,blue:80,pink:80};
+            const canForge=remaining>=mineralCost&&Object.entries(essenceCost).every(([k,v])=>(Number(state.essence[k])||0)>=v);
+            const influence=Math.min(100,Math.round(25+state.matriarchs.length*8+admin.colonizedCount*7+state.era*5));
+            const reputation=Math.max(0,Math.min(100,Math.round((Number(state.order)||0)*.65+(Number(state.ideologyAxis)||0)*.35+50)));
+            const mineralNames={quartz:'Quartzo',silicate:'Silicato',corundum:'Coríndon',metallic:'Metal',nacre:'Nácar',jasperrock:'Jaspe',olivine:'Olivina',lapisrock:'Lápis-lazúli'};
+            const matriarchCards=state.matriarchs.length?state.matriarchs.map(m=>
+                '<div class="stat-box"><div style="display:flex;align-items:center;gap:9px"><span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:'+ (m.colorHex||'#cbd5e1') +';box-shadow:0 0 12px '+(m.glowHex||m.colorHex||'#cbd5e1')+'"></span><div><b>'+escapeHTML(m.name)+'</b><small style="display:block;color:var(--text-muted)">'+escapeHTML(m.personalityName||'Personalidade desconhecida')+' · '+escapeHTML(m.badge||'Diamante')+'</small></div></div><div style="font-size:11px;color:#cbd5e1;margin-top:7px">'+escapeHTML(m.personalityDesc||'')+'</div><div style="font-size:10px;color:#94a3b8;margin-top:5px">Lealdade: '+Math.round(m.loyalty||0)+'% · Autonomia: '+Math.round(m.autonomy||0)+'%</div><div style="font-size:10px;color:#94a3b8">Origem: '+escapeHTML(PLANETS[m.consumedPlanet]?.shortName||'Desconhecida')+' · Minerais: '+Object.entries(m.consumedMinerals||{}).map(([k,v])=>(mineralNames[k]||k)+' '+Number(v).toLocaleString('pt-BR')).join(', ')+'</div></div>'
+            ).join(''):'<div class="stat-box" style="color:#94a3b8">Nenhuma Diamante subordinada foi criada ainda.</div>';
+            const essenceRows=Object.entries(essenceCost).map(([k,v])=>'<div style="display:flex;justify-content:space-between;font-size:11px;color:#cbd5e1"><span>'+({white:'🤍 Branca',yellow:'💛 Amarela',blue:'💙 Azul',pink:'💗 Vital'})[k]+'</span><b style="color:'+( (Number(state.essence[k])||0)>=v?'#6ee7b7':'#fb7185')+'">'+v+' / '+Math.floor(Number(state.essence[k])||0)+'</b></div>').join('');
+            container.innerHTML=
+                '<div class="card card-cyan"><div class="card-header"><span class="card-title title-font">👑 '+escapeHTML(fd.name)+'</span><span class="badge">Diamante Principal · Jogador</span></div><p style="font-size:11px;color:#cbd5e1">A Diamante fundadora. Sua identidade foi definida no início da partida e não pode ser alterada.</p><div class="grid-2"><div class="stat-box"><span class="stat-label">Influência imperial</span><b style="color:#7dd3fc">'+influence+'%</b></div><div class="stat-box"><span class="stat-label">Reputação</span><b style="color:#f9a8d4">'+reputation+'%</b></div></div><div class="stat-box"><small style="color:var(--text-muted)">Influência acompanha o crescimento da dinastia e das colônias. Reputação acompanha a estabilidade e as decisões ideológicas do império.</small></div></div>'+
+                '<div class="card card-amber"><div class="card-header"><span class="card-title title-font">💎 Forjar nova Diamante</span><span class="badge">+2 Limite ADM</span></div><p style="font-size:11px;color:#cbd5e1">A forja é irreversível. A composição mineral define a cor; a personalidade é sorteada. Nome, cor, aparência e personalidade só serão revelados após a criação.</p><div class="stat-box"><b>Planeta de origem: '+escapeHTML(planet.shortName)+'</b><small style="display:block;color:var(--text-muted)">Reserva disponível: '+Math.floor(remaining).toLocaleString('pt-BR')+' / '+Math.floor(total).toLocaleString('pt-BR')+'</small></div><div class="stat-box"><span class="stat-label">Requisitos minerais</span><b>'+mineralCost.toLocaleString('pt-BR')+' unidades (22% da reserva original)</b><small style="display:block;color:'+(remaining>=mineralCost?'#6ee7b7':'#fb7185')+'">'+(remaining>=mineralCost?'Disponível':'Recursos insuficientes neste planeta')+'</small></div><div class="stat-box"><span class="stat-label">Requisitos de essência</span>'+essenceRows+'</div><div class="stat-box"><span class="stat-label">Colônias ativas</span><b>'+admin.colonizedCount+' / '+admin.maxCap+'</b></div><button class="btn active" style="width:100%;padding:10px" onclick="synthesizeCustomDiamond()" '+(canForge?'':'disabled')+'>💎 Iniciar forja</button>'+(canForge?'':'<small style="display:block;color:#fb7185;margin-top:6px">Reúna todos os recursos e essências exigidos para liberar a forja.</small>')+'</div>'+
+                '<div class="card"><div class="card-header"><span class="card-title title-font">Dinastia · '+state.matriarchs.length+' Diamante(s) subordinada(s)</span></div>'+matriarchCards+'</div>';
         }
 
         function predictDraftPersonality(d) {
@@ -2605,6 +2526,8 @@
         function synthesizeCustomDiamond() {
             const d=state.newDiamondDraft;
             const planet=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld;
+            const essenceCost={white:100,yellow:80,blue:80,pink:80};
+            for(const [key,cost] of Object.entries(essenceCost)){if((Number(state.essence[key])||0)<cost){setStatusTicker('Essência insuficiente: são necessárias '+cost+' unidades de '+key+'.',true);return;}}
             const total=Math.max(1,Number(planet.resourceTotal)||1);
             const remaining=Math.max(0,Number(planet.resourcesRemaining)||0);
             const cost=Math.ceil(total*.22);
@@ -2612,6 +2535,7 @@
                 setStatusTicker('A forja exige '+cost.toLocaleString('pt-BR')+' unidades minerais ainda disponíveis em '+planet.shortName+'.',true);
                 return;
             }
+            for(const [key,cost] of Object.entries(essenceCost))state.essence[key]-=cost;
             const pools=planet.resourcesByType||{};
             const available=Object.entries(pools).filter(([,amount])=>amount>0);
             if(!available.length){setStatusTicker('Não há composição mineral disponível para a forja.',true);return;}
