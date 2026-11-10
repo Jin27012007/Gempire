@@ -424,6 +424,31 @@
             padding-right: 4px;
         }
 
+
+        /* MENU PRINCIPAL, CONFIGURAÇÕES E SALVAMENTO */
+        .game-menu-overlay{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:18px;overflow-y:auto;background:radial-gradient(ellipse at 50% 25%,rgba(30,64,110,.46),transparent 55%),rgba(2,5,15,.94);backdrop-filter:blur(12px)}
+        .game-menu-shell{width:min(760px,100%);max-height:min(90vh,860px);overflow-y:auto;border:1px solid rgba(125,211,252,.45);border-radius:20px;padding:clamp(18px,4vw,34px);background:linear-gradient(145deg,rgba(13,24,46,.98),rgba(5,9,22,.99));box-shadow:0 24px 90px rgba(0,0,0,.7),0 0 45px rgba(56,189,248,.12)}
+        .game-menu-brand{text-align:center;padding:8px 0 22px}
+        .game-menu-mark{width:46px;height:46px;margin:0 auto 14px;display:grid;place-items:center;transform:rotate(45deg);border:1px solid rgba(186,230,253,.8);background:linear-gradient(135deg,rgba(56,189,248,.25),rgba(192,132,252,.18));box-shadow:0 0 28px rgba(56,189,248,.25)}
+        .game-menu-mark span{transform:rotate(-45deg);font-size:25px}
+        .game-menu-brand h1{font:700 clamp(23px,5vw,35px) Georgia,serif;letter-spacing:.07em;color:#f8fafc}
+        .game-menu-brand p{margin-top:8px;color:#94a3b8;font-size:12px;letter-spacing:.16em;text-transform:uppercase}
+        .game-menu-content{display:grid;gap:10px;max-width:480px;margin:0 auto}
+        .game-menu-content .btn{min-height:44px;justify-content:center;font-size:13px}
+        .game-menu-subtitle{color:#7dd3fc;font-size:11px;font-weight:800;letter-spacing:.14em;text-transform:uppercase;margin-bottom:4px}
+        .game-menu-panel{display:flex;flex-direction:column;gap:12px}
+        .game-menu-panel-head{display:flex;align-items:center;justify-content:space-between;gap:10px}
+        .game-menu-panel-head h2{font:700 20px Georgia,serif}
+        .menu-option,.save-slot{display:flex;align-items:center;justify-content:space-between;gap:14px;padding:13px;border:1px solid var(--border-light);border-radius:10px;background:rgba(15,23,42,.72)}
+        .menu-option strong,.save-slot strong{display:block;font-size:12px}
+        .menu-option small,.save-slot small{display:block;color:var(--text-muted);font-size:10px;margin-top:4px;line-height:1.45}
+        .menu-option input{width:20px;height:20px;accent-color:var(--cyan);flex-shrink:0}
+        .save-slot-actions{display:flex;flex-wrap:wrap;justify-content:flex-end;gap:5px}
+        .menu-status{min-height:18px;margin-top:16px;text-align:center;color:#94a3b8;font-size:11px}
+        .menu-footer{margin-top:18px;text-align:center;color:#64748b;font-size:10px}
+        body.compact-ui .btn{padding:4px 7px;font-size:10px}
+        body.compact-ui .res-pill{padding:3px 6px;gap:6px}
+        @media(max-width:600px){.game-menu-overlay{padding:10px;align-items:flex-start}.game-menu-shell{margin:auto 0;padding:18px 14px}.save-slot{align-items:flex-start;flex-direction:column}.save-slot-actions{justify-content:flex-start;width:100%}.game-menu-brand{padding-bottom:16px}}
         .hidden {
             display: none !important;
         }
@@ -480,6 +505,7 @@
             <button class="btn btn-pink" onclick="openDrawerDynasty()">👑 Dinastia & Forja</button>
             <button class="btn btn-amber" onclick="toggleModal('codex-modal')">📖 Códice</button>
             <button class="btn btn-emerald" onclick="toggleModal('tech-modal')">🔬 Tecnol. & Logística</button>
+            <button class="btn btn-amber" onclick="openGameMenu()">☰ Menu</button>
             <button id="btn-top-drawer" class="btn active" onclick="toggleDrawer()">🗂️ Painel</button>
         </div>
     </header>
@@ -527,6 +553,27 @@
             <div id="drawer-body"></div>
         </aside>
     </main>
+
+    <!-- MENU PRINCIPAL DO JOGO -->
+    <section id="game-menu" class="game-menu-overlay" role="dialog" aria-modal="true" aria-labelledby="game-menu-title">
+        <div class="game-menu-shell">
+            <header class="game-menu-brand">
+                <div class="game-menu-mark"><span>💎</span></div>
+                <h1 id="game-menu-title">GEMPIRE</h1>
+                <p>Era 0 · A Alvorada do Império Gem</p>
+            </header>
+            <div id="game-menu-main" class="game-menu-content">
+                <div class="game-menu-subtitle">Centro de comando imperial</div>
+                <button id="menu-start-button" class="btn btn-emerald" onclick="startGame()">▶ Iniciar jogo</button>
+                <button class="btn" onclick="showMenuPanel('saves')">▣ Salvamento e carregamento</button>
+                <button class="btn" onclick="showMenuPanel('settings')">⚙ Configurações</button>
+                <button id="menu-return-button" class="btn hidden" onclick="startGame()">↩ Voltar ao jogo</button>
+            </div>
+            <div id="game-menu-panel" class="game-menu-panel hidden"></div>
+            <div id="game-menu-status" class="menu-status" role="status">Sua dinastia aguarda o primeiro comando.</div>
+            <div class="menu-footer">O progresso é armazenado neste navegador e neste dispositivo.</div>
+        </div>
+    </section>
 
     <!-- ===================================================================== -->
     <!-- MODAL 1: CÓDICE MINERALÓGICO GEM                                      -->
@@ -1105,6 +1152,16 @@
                 dragStartRot: 0
             }
         };
+
+        // --- MENU, CONFIGURAÇÕES E SLOTS DE SALVAMENTO ---
+        const SAVE_VERSION = 1;
+        const SAVE_STORAGE_PREFIX = 'gempire_save_v1_';
+        const SETTINGS_STORAGE_KEY = 'gempire_settings_v1';
+        const SAVE_SLOT_IDS = ['slot1', 'slot2', 'slot3', 'autosave'];
+        let menuActive = true;
+        let gameHasStarted = false;
+        let autoSaveAccumulator = 0;
+        let gameSettings = { autoSave: true, autoRotate: true, compactUI: false };
 
         // Estrelas de fundo geradas uma vez
         const starBgParticles = Array.from({ length: 130 }, () => ({
@@ -3455,14 +3512,247 @@
                 state.planetCamera.rotation += diff * Math.min(1, delta * 0.008);
                 if (Math.abs(diff) < 0.002) state.planetCamera.targetRotation = null;
             }
-            updateWorld(delta);
+            if (!menuActive) {
+                updateWorld(delta);
+                if (gameSettings.autoSave) {
+                    autoSaveAccumulator += delta;
+                    if (autoSaveAccumulator >= 90000) { autoSaveAccumulator = 0; saveGame('autosave', true); }
+                }
+            }
             drawGame(timestamp);
             requestAnimationFrame(animationFrame);
         }
 
+        // --- 17. MENU, CONFIGURAÇÕES E PERSISTÊNCIA ---
+        function setGameMenuStatus(message, isError = false) {
+            const el = document.getElementById('game-menu-status');
+            if (!el) return;
+            el.textContent = message;
+            el.style.color = isError ? '#fda4af' : '#94a3b8';
+        }
+
+        function setGameMenuVisible(visible) {
+            const menu = document.getElementById('game-menu');
+            if (!menu) return;
+            menu.classList.toggle('hidden', !visible);
+            menuActive = visible;
+            if (visible) {
+                const firstButton = menu.querySelector('button:not(:disabled)');
+                if (firstButton) firstButton.focus();
+            }
+        }
+
+        function renderMenuHome() {
+            const main = document.getElementById('game-menu-main');
+            const panel = document.getElementById('game-menu-panel');
+            const start = document.getElementById('menu-start-button');
+            const back = document.getElementById('menu-return-button');
+            if (main) main.classList.remove('hidden');
+            if (panel) { panel.classList.add('hidden'); panel.innerHTML = ''; }
+            if (start) start.textContent = gameHasStarted ? '▶ Continuar partida' : '▶ Iniciar jogo';
+            if (back) back.classList.toggle('hidden', !gameHasStarted);
+        }
+
+        function openGameMenu() {
+            renderMenuHome();
+            setGameMenuVisible(true);
+            setGameMenuStatus('Jogo pausado. Escolha uma opção.');
+        }
+
+        function startGame() {
+            gameHasStarted = true;
+            setGameMenuVisible(false);
+            setStatusTicker('A dinastia voltou ao comando.');
+        }
+
+        function showMenuPanel(panelName) {
+            const main = document.getElementById('game-menu-main');
+            const panel = document.getElementById('game-menu-panel');
+            if (!panel || !main) return;
+            main.classList.add('hidden');
+            panel.classList.remove('hidden');
+
+            if (panelName === 'settings') {
+                panel.innerHTML = `
+                    <div class="game-menu-panel-head"><h2>Configurações</h2><button class="btn" onclick="renderMenuHome()">Voltar</button></div>
+                    <div class="menu-option"><div><strong>Salvamento automático</strong><small>Cria um autosave a cada 90 segundos enquanto a partida está em andamento.</small></div><input type="checkbox" aria-label="Salvamento automático" ${gameSettings.autoSave ? 'checked' : ''} onchange="updateGameSetting('autoSave', this.checked)"></div>
+                    <div class="menu-option"><div><strong>Rotação automática do globo</strong><small>Gira os planetas automaticamente na tela Globo 360°.</small></div><input type="checkbox" aria-label="Rotação automática do globo" ${gameSettings.autoRotate ? 'checked' : ''} onchange="updateGameSetting('autoRotate', this.checked)"></div>
+                    <div class="menu-option"><div><strong>Interface compacta</strong><small>Reduz o tamanho de botões e indicadores para telas menores.</small></div><input type="checkbox" aria-label="Interface compacta" ${gameSettings.compactUI ? 'checked' : ''} onchange="updateGameSetting('compactUI', this.checked)"></div>
+                    <p style="color:#94a3b8;font-size:10px;line-height:1.5;">As configurações são guardadas separadamente dos arquivos de progresso.</p>
+                `;
+            } else if (panelName === 'saves') {
+                const slotsHtml = SAVE_SLOT_IDS.map(slotId => {
+                    const info = getSaveInfo(slotId);
+                    const label = slotId === 'autosave' ? 'Autosave' : 'Slot ' + slotId.slice(-1);
+                    const detail = info ? 'Salvo em ' + info.dateLabel + ' · Ciclo ' + info.cycle : 'Vazio — nenhum progresso salvo';
+                    return `
+                        <div class="save-slot"><div><strong>${label}</strong><small>${detail}</small></div>
+                        <div class="save-slot-actions"><button class="btn btn-emerald" onclick="saveGame('${slotId}')">Salvar</button><button class="btn" onclick="loadGame('${slotId}')" ${info ? '' : 'disabled'}>Carregar</button></div></div>
+                    `;
+                }).join('');
+                panel.innerHTML = `
+                    <div class="game-menu-panel-head"><h2>Salvamento</h2><button class="btn" onclick="renderMenuHome()">Voltar</button></div>
+                    <p style="color:#94a3b8;font-size:11px;line-height:1.5;">Três slots manuais e um autosave. Os dados ficam armazenados localmente neste navegador.</p>
+                    ${slotsHtml}
+                    <button class="btn" onclick="exportSave()">⇩ Exportar salvamentos</button>
+                    <label style="display:block;color:#94a3b8;font-size:10px;">Importar arquivo de salvamento (.json)<input type="file" accept="application/json,.json" onchange="importSaveFile(this.files && this.files[0])" style="display:block;width:100%;margin-top:7px;font-size:11px;"></label>
+                `;
+            } else {
+                renderMenuHome();
+            }
+        }
+
+        function loadGameSettings() {
+            try {
+                const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
+                if (raw) {
+                    const parsed = JSON.parse(raw);
+                    gameSettings = { autoSave: parsed.autoSave !== false, autoRotate: parsed.autoRotate !== false, compactUI: parsed.compactUI === true };
+                }
+            } catch (error) { console.warn('Não foi possível ler as configurações locais:', error); }
+            applyGameSettings();
+        }
+
+        function updateGameSetting(key, value) {
+            if (!Object.prototype.hasOwnProperty.call(gameSettings, key)) return;
+            gameSettings[key] = Boolean(value);
+            try { localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(gameSettings)); }
+            catch (error) { setGameMenuStatus('Não foi possível guardar as configurações neste navegador.', true); }
+            applyGameSettings();
+        }
+
+        function applyGameSettings() {
+            document.body.classList.toggle('compact-ui', gameSettings.compactUI);
+            if (state && state.planetCamera) state.planetCamera.autoRotate = gameSettings.autoRotate;
+        }
+
+        function getSaveKey(slotId) {
+            return SAVE_SLOT_IDS.includes(slotId) ? SAVE_STORAGE_PREFIX + slotId : null;
+        }
+
+        function readSave(slotId) {
+            const key = getSaveKey(slotId);
+            if (!key) return null;
+            try {
+                const raw = localStorage.getItem(key);
+                if (!raw) return null;
+                const data = JSON.parse(raw);
+                if (!data || data.version !== SAVE_VERSION || !data.state || !data.planets) return null;
+                return data;
+            } catch (error) { console.warn('Arquivo de salvamento inválido:', error); return null; }
+        }
+
+        function getSaveInfo(slotId) {
+            const data = readSave(slotId);
+            if (!data) return null;
+            const date = new Date(data.savedAt);
+            return { dateLabel: Number.isNaN(date.getTime()) ? 'data desconhecida' : date.toLocaleString('pt-BR'), cycle: Number(data.state.cycleCount) || 1 };
+        }
+
+        function createSaveSnapshot() {
+            const safeState = JSON.parse(JSON.stringify(state));
+            // Petições guardam callbacks em memória; serão geradas novamente depois do carregamento.
+            safeState.activePetition = null;
+            return { version: SAVE_VERSION, savedAt: new Date().toISOString(), state: safeState, planets: JSON.parse(JSON.stringify(PLANETS)) };
+        }
+
+        function saveGame(slotId = 'slot1', silent = false) {
+            const key = getSaveKey(slotId);
+            if (!key) return false;
+            try {
+                localStorage.setItem(key, JSON.stringify(createSaveSnapshot()));
+                if (!silent) {
+                    setGameMenuStatus('Progresso salvo com sucesso em ' + (slotId === 'autosave' ? 'Autosave' : 'Slot ' + slotId.slice(-1)) + '.');
+                    const panel = document.getElementById('game-menu-panel');
+                    if (panel && !panel.classList.contains('hidden')) showMenuPanel('saves');
+                }
+                return true;
+            } catch (error) {
+                console.error('Falha ao salvar a partida:', error);
+                if (!silent) setGameMenuStatus('Falha ao salvar. O armazenamento local pode estar cheio ou indisponível.', true);
+                return false;
+            }
+        }
+
+        function isValidSaveData(data) {
+            if (!data || data.version !== SAVE_VERSION || !data.state || !data.planets) return false;
+            if (!data.state.essence || !data.state.firstDiamond || !data.state.planetCamera) return false;
+            if (!['throne', 'starmap', 'colony'].includes(data.state.currentScreen)) return false;
+            return Object.keys(PLANETS).every(id => {
+                const p = data.planets[id];
+                return p && Array.isArray(p.veins) && Array.isArray(p.walkingGems);
+            });
+        }
+
+        function loadGame(slotId) {
+            const data = readSave(slotId);
+            if (!isValidSaveData(data)) { setGameMenuStatus('Este slot está vazio, corrompido ou usa uma versão incompatível.', true); return false; }
+            try {
+                for (const key of Object.keys(state)) delete state[key];
+                Object.assign(state, data.state);
+                state.activePetition = null;
+                for (const id of Object.keys(PLANETS)) {
+                    for (const key of Object.keys(PLANETS[id])) delete PLANETS[id][key];
+                    Object.assign(PLANETS[id], data.planets[id]);
+                }
+                if (!PLANETS[state.activeColonyPlanetId] || !PLANETS[state.activeColonyPlanetId].colonized) state.activeColonyPlanetId = 'homeworld';
+                if (!PLANETS[state.selectedStarMapPlanetId]) state.selectedStarMapPlanetId = 'homeworld';
+                state.selectedVeinIndex = Math.max(0, Math.min(PLANETS[state.activeColonyPlanetId].veins.length - 1, Number(state.selectedVeinIndex) || 0));
+                applyGameSettings();
+                updateHUD(); renderBottomBar(); renderDrawerContent(); syncDrawerTabButtons(); toggleDrawer(state.drawerOpen);
+                gameHasStarted = true; setGameMenuVisible(false);
+                setStatusTicker('Partida carregada. A dinastia continua de onde foi salva.');
+                return true;
+            } catch (error) {
+                console.error('Falha ao carregar a partida:', error);
+                setGameMenuStatus('Não foi possível carregar este salvamento.', true);
+                return false;
+            }
+        }
+
+        function exportSave() {
+            const saves = SAVE_SLOT_IDS.map(id => ({ slot: id, data: readSave(id) })).filter(item => item.data);
+            if (!saves.length) { setGameMenuStatus('Não há salvamentos para exportar.', true); return; }
+            const blob = new Blob([JSON.stringify({ game: 'Gempire', version: SAVE_VERSION, saves }, null, 2)], { type: 'application/json' });
+            const url = URL.createObjectURL(blob);
+            const link = document.createElement('a'); link.href = url; link.download = 'gempire-salvamentos.json';
+            document.body.appendChild(link); link.click(); link.remove(); URL.revokeObjectURL(url);
+            setGameMenuStatus('Arquivo de salvamento exportado.');
+        }
+
+        async function importSaveFile(file) {
+            if (!file) return;
+            try {
+                const payload = JSON.parse(await file.text());
+                const entries = payload && Array.isArray(payload.saves) ? payload.saves : [];
+                let imported = 0;
+                for (const entry of entries) {
+                    if (SAVE_SLOT_IDS.includes(entry.slot) && isValidSaveData(entry.data)) {
+                        localStorage.setItem(getSaveKey(entry.slot), JSON.stringify(entry.data)); imported++;
+                    }
+                }
+                if (!imported) throw new Error('Nenhum slot compatível encontrado.');
+                showMenuPanel('saves'); setGameMenuStatus(imported + ' salvamento(s) importado(s).');
+            } catch (error) {
+                console.error('Falha ao importar salvamento:', error);
+                setGameMenuStatus('Arquivo inválido ou incompatível com esta versão.', true);
+            }
+        }
+
+        function handleMenuKeyboard(event) {
+            if (event.key === 'Escape' && menuActive) {
+                const panel = document.getElementById('game-menu-panel');
+                if (panel && !panel.classList.contains('hidden')) renderMenuHome();
+                else if (gameHasStarted) startGame();
+            }
+        }
+
         // --- 17. INICIALIZAÇÃO SEGURA ---
         function initializeGame() {
+            loadGameSettings();
             resizeGameCanvas();
+            window.addEventListener('resize', resizeGameCanvas);
+            document.addEventListener('keydown', handleMenuKeyboard);
             bindCanvasControls();
             updateHUD();
             renderBottomBar();
@@ -3470,7 +3760,12 @@
             syncDrawerTabButtons();
             toggleDrawer(state.drawerOpen);
             requestAnimationFrame(animationFrame);
+            renderMenuHome();
+            setGameMenuVisible(true);
             setStatusTicker('Bem-vinda, Primeira Diamante. Governe a Corte ou molde novas Diamantes.');
+            window.addEventListener('pagehide', () => {
+                if (gameHasStarted && gameSettings.autoSave) saveGame('autosave', true);
+            });
         }
 
         if (document.readyState === 'loading') {
