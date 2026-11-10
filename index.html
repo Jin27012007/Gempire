@@ -482,6 +482,39 @@
             .menu-status{margin-top:10px}
             .menu-footer{margin-top:10px}
         }
+        /* Correção de posicionamento do menu em navegadores móveis */
+        @media(max-width:600px){
+            html,body{max-width:100%;overflow:hidden}
+            #game-menu.game-menu-overlay{
+                position:fixed;
+                inset:0;
+                left:0;
+                right:0;
+                top:0;
+                bottom:0;
+                width:100%;
+                max-width:100%;
+                height:100%;
+                height:100dvh;
+                min-width:0;
+                margin:0;
+                transform:none;
+                display:flex;
+                align-items:center;
+                justify-content:center;
+                padding:10px;
+                overflow-x:hidden;
+            }
+            #game-menu .game-menu-shell{
+                position:relative;
+                flex:0 1 440px;
+                width:min(440px,calc(100vw - 20px));
+                max-width:100%;
+                min-width:0;
+                margin:0 auto;
+                box-sizing:border-box;
+            }
+        }
         @media(max-width:380px){
             .nav-group .btn{font-size:8px;padding:4px 5px}
             .action-group .btn{font-size:8px;padding:4px 6px}
