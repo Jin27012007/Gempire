@@ -1222,6 +1222,7 @@
                 essenceOutput: 0,
                 activityCount: 0,
                 essenceCooldown: 0,
+                gatherCooldown: 0,
                 diamondEssence: 0,
                 injectorEssence: 0,
                 gemsCreatedCount: 0,
@@ -3259,6 +3260,7 @@
             const elapsedMs = dt * 1000;
             if (state.founding) {
                 state.founding.essenceCooldown = Math.max(0, (Number(state.founding.essenceCooldown) || 0) - dt);
+                state.founding.gatherCooldown = Math.max(0, (Number(state.founding.gatherCooldown) || 0) - dt);
             }
             if (state.founding && state.founding.creationActive) {
                 state.founding.creationProgress = Math.min(100, state.founding.creationProgress + dt * 100 / 42);
@@ -4306,7 +4308,7 @@
                 return;
             }
             const amount = 2;
-            founding.essenceCooldown = 3;
+            founding.essenceCooldown = 1.5;
             const key = ['white','yellow','blue','pink'].includes(fd.colorKey) ? fd.colorKey : 'white';
             if (structureIsOperational('essence_chamber')) {
                 state.founding.diamondEssence += amount;
@@ -4333,13 +4335,31 @@
             jasper:{label:'Jaspe',mineral:'jasperrock',color:'#f97316',role:'Combate e proteção de linha de frente',elements:'Sílica microcristalina (SiO₂) com impurezas e óxidos',mineralName:'Jaspe bruto'}
         };
 
-        function gatherPrimitiveMineral(type) {
-            const validTypes=['quartz','silicate','corundum','metallic','nacre','jasperrock','olivine','lapisrock'];
-            if (!validTypes.includes(type)) return;
-            const available = state.founding.gatheredMinerals[type]||0;
-            state.founding.gatheredMinerals[type]=available+1;
-            state.minerals += 10;
-            setStatusTicker(`Amostra recolhida: ${vein.label}. Composição ainda exige análise.`);
+        const PRIMITIVE_MINERAL_FINDS = [
+            {type:'quartz',weight:26,label:'Quartzo bruto'},
+            {type:'silicate',weight:20,label:'Rocha silicatada'},
+            {type:'metallic',weight:16,label:'Minério metálico'},
+            {type:'olivine',weight:12,label:'Olivina'},
+            {type:'nacre',weight:10,label:'Sedimento carbonático'},
+            {type:'corundum',weight:7,label:'Coríndon'},
+            {type:'lapisrock',weight:5,label:'Lápis-lazúli bruto'},
+            {type:'jasperrock',weight:4,label:'Jaspe bruto'}
+        ];
+
+        function gatherPrimitiveMineral() {
+            const found=state.founding;
+            if((Number(found.gatherCooldown)||0)>0){
+                setStatusTicker('Aguarde '+found.gatherCooldown.toFixed(1)+'s antes de procurar outra rocha.',true);
+                return;
+            }
+            const totalWeight=PRIMITIVE_MINERAL_FINDS.reduce((sum,item)=>sum+item.weight,0);
+            let roll=Math.random()*totalWeight;
+            let discovery=PRIMITIVE_MINERAL_FINDS[0];
+            for(const item of PRIMITIVE_MINERAL_FINDS){roll-=item.weight;if(roll<0){discovery=item;break;}}
+            found.gatheredMinerals[discovery.type]=(Number(found.gatheredMinerals[discovery.type])||0)+1;
+            found.gatherCooldown=5;
+            state.minerals+=10;
+            setStatusTicker('Encontro mineral: '+discovery.label+'. Amostra adicionada ao estoque.');
             updateHUD();renderDrawerContent();
         }
 
@@ -4393,10 +4413,10 @@
 
         function renderFoundingContext(container) {
             const fd = state.firstDiamond, found = state.founding;
-            const mineralLabels = {quartz:'Quartzo bruto',silicate:'Rocha silicatada',corundum:'Coríndon',metallic:'Minério metálico',nacre:'Sedimento carbonático',jasperrock:'Jaspe bruto',olivine:'Olivina',lapisrock:'Lápis-lazúli bruto'};
+            const mineralLabels = {quartz:'Quartzo',silicate:'Silicato',corundum:'Coríndon (Safiras/Rubis)',metallic:'Metal',nacre:'Nácar (Pérolas)',jasperrock:'Jaspe',olivine:'Olivina (Peridotos)',lapisrock:'Lápis-lazúli (Lápis)'};
             const mineralCards = Object.entries(mineralLabels).map(([key,label]) => {
                 const n = found.gatheredMinerals[key] || 0;
-                return '<div class="stat-box" style="display:flex;justify-content:space-between;gap:6px;align-items:center"><span>' + label + '<small style="display:block;color:var(--text-muted)">Amostras: ' + n + '</small></span><button class="btn" onclick="gatherPrimitiveMineral(\'' + key + '\')">⛏️ Recolher</button></div>';
+                return '<div class="stat-box" style="display:flex;justify-content:space-between;gap:6px;align-items:center"><span>' + label + '</span><b>' + n + '</b></div>';
             }).join('');
             const selected = FOUNDING_GEM_DATA[found.selectedGem] || FOUNDING_GEM_DATA.quartz;
             const gemCatalog = Object.entries(FOUNDING_GEM_DATA).map(([key,g]) =>
@@ -4409,7 +4429,7 @@
                 '<div style="font-size:12px;line-height:1.55;color:#cbd5e1">' + escapeHTML(fd.name) + ' iniciou a civilização sem infraestrutura. Gems já nascem conhecendo sua função; ferramentas e estruturas determinam o que conseguem executar.</div>' +
                 '<div class="stat-box">Gems criadas: <b>' + (found.gemsCreatedCount || 0) + '</b> · Minerais brutos: <b>' + Math.floor(state.minerals) + '</b> · Materiais refinados: <b>' + Math.floor(state.refinedMaterials || 0) + '</b></div>' +
                 '<button class="btn btn-amber btn-block" onclick="switchDrawerTab(\'structures\')">🏗️ Abrir catálogo de estruturas</button></div>' +
-                '<div class="card"><div class="card-header"><span class="card-title title-font">⛏️ Exploração manual</span></div><div class="founding-note">A Primeira Diamante recolhe amostras diretamente dos afloramentos. Cada tipo de Gem exige um substrato compatível.</div>' + mineralCards + '</div>' +
+                '<div class="card"><div class="card-header"><span class="card-title title-font">⛏️ Exploração manual</span></div><div class="founding-note">Cada busca encontra uma rocha aleatória. Materiais comuns aparecem com frequência; coríndon, lápis-lazúli e jaspe são achados mais raros. Safiras e Rubis dependem do coríndon, por isso sua formação exige mais exploração.</div><div class="stat-box"><span class="stat-label">Próximo encontro</span><b>' + ((found.gatherCooldown||0)>0?'⏳ Disponível em '+found.gatherCooldown.toFixed(1)+'s':'Pronto para explorar') + '</b></div><button id="gather-mineral-button" class="btn btn-amber btn-block" onclick="gatherPrimitiveMineral()" ' + ((found.gatherCooldown||0)>0?'disabled':'') + '>⛏️ Procurar rochas · 5s entre encontros</button><div class="grid-2">' + mineralCards + '</div></div>' +
                 '<div class="card"><div class="card-header"><span class="card-title title-font">✨ Essência da Diamante</span></div>' +
                 '<div class="founding-note">A atividade física produz essência. Antes de a Câmara estar operacional, ela pode ser usada diretamente; depois, a reserva interna é transferida pela Câmara para o estoque.</div>' +
                 '<div class="stat-box">Essência armazenada: <b>' + Object.values(state.essence).reduce((a,b)=>a+b,0).toFixed(1) + '</b> · Reserva interna da Diamante: <b>' + (found.diamondEssence || 0).toFixed(1) + '</b> · Recebida pelo Injetor: <b>' + (found.injectorEssence || 0).toFixed(1) + '</b></div>' +
@@ -4430,6 +4450,12 @@
                 const cooling = (found.essenceCooldown || 0) > 0;
                 button.disabled = Boolean(found.creationActive || cooling);
                 button.textContent = found.creationActive ? '💎 Concentração na formação da Gem' : cooling ? '⏳ Recuperando fôlego · ' + found.essenceCooldown.toFixed(1) + 's' : '💪 Produzir 2 unidades de essência';
+            }
+            const gatherButton=document.getElementById('gather-mineral-button');
+            if(gatherButton){
+                const gathering=(Number(found.gatherCooldown)||0)>0;
+                gatherButton.disabled=gathering;
+                gatherButton.textContent=gathering?'⏳ Próximo encontro em '+found.gatherCooldown.toFixed(1)+'s':'⛏️ Procurar rochas · 5s entre encontros';
             }
             const progress = document.getElementById('founder-creation-progress');
             const label = document.getElementById('founder-creation-progress-label');
@@ -4565,6 +4591,7 @@
                 if (!state.founding) state.founding = {stage:'legacy',firstGemCreated:true,mineralSamples:{},gatheredMinerals:{},essenceOutput:0,activityCount:0,diamondEssence:0,gemsCreatedCount:0,selectedGem:'quartz',creationProgress:0,creationActive:false,creationTarget:null,creationSource:'manual'};
                 state.founding.diamondEssence = Number(state.founding.diamondEssence) || 0;
                 state.founding.essenceCooldown = Number(state.founding.essenceCooldown) || 0;
+                state.founding.gatherCooldown = Number(state.founding.gatherCooldown) || 0;
                 state.founding.injectorEssence = Number(state.founding.injectorEssence) || 0;
                 state.founding.gemsCreatedCount = Number(state.founding.gemsCreatedCount) || 0;
                 state.founding.selectedGem = state.founding.selectedGem || 'quartz';
