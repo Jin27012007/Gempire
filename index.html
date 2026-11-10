@@ -290,7 +290,7 @@
 
         .drawer-tabs {
             display: grid;
-            grid-template-columns: repeat(4, 1fr);
+            grid-template-columns: repeat(5, 1fr);
             gap: 4px;
             flex: 1;
         }
@@ -526,6 +526,15 @@
         .founding-gem-option small { color:var(--text-muted); font-size:10px; line-height:1.35; }
         .founding-progress { height:7px; background:#111827; border-radius:99px; overflow:hidden; }
         .founding-progress>div { height:100%; background:linear-gradient(90deg,#f9a8d4,#facc15,#bae6fd); transition:width .2s; }
+        .silhouette-studio-intro{color:#cbd5e1;font-size:11px;line-height:1.55}
+        .silhouette-gallery{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
+        .silhouette-card{min-width:0;overflow:hidden;padding:8px;display:flex;flex-direction:column;align-items:stretch;gap:6px;text-align:left;color:var(--text-main);background:linear-gradient(155deg,rgba(40,43,72,.94),rgba(13,18,35,.98));border:1px solid rgba(210,190,236,.2);border-radius:11px;cursor:pointer}
+        .silhouette-card.selected{border-color:#e5c8f2;box-shadow:0 0 0 1px rgba(229,200,242,.18),0 0 18px rgba(190,150,220,.16)}
+        .silhouette-preview{display:block;width:100%;height:148px;border-radius:7px;background:radial-gradient(ellipse at 50% 42%,rgba(196,170,218,.2),rgba(42,39,67,.06) 62%,transparent 78%)}
+        .silhouette-card strong{font-size:12px}.silhouette-card small{min-height:27px;color:#b6b1c9;font-size:9px;line-height:1.35}
+        .silhouette-selected-detail{display:flex;align-items:center;gap:10px;padding:10px;border-radius:9px;background:rgba(184,155,213,.1);border:1px solid rgba(205,178,228,.22)}
+        .silhouette-selected-detail canvas{width:90px;height:120px;flex-shrink:0}
+        @media(max-width:600px){.silhouette-preview{height:136px}}
         .structure-category { display:flex; flex-direction:column; gap:7px; }
         .structure-card { gap:7px; }
         .structure-desc { color:#cbd5e1; font-size:11px; line-height:1.5; }
@@ -616,6 +625,7 @@
                     <button id="tab-chronicle" class="btn" onclick="switchDrawerTab('chronicle')">📜 Crônicas</button>
                     <button id="tab-dynasty" class="btn" onclick="switchDrawerTab('dynasty')">👑 Dinastia</button>
                     <button id="tab-structures" class="btn" onclick="switchDrawerTab('structures')">🏗️ Estruturas</button>
+                    <button id="tab-silhouettes" class="btn" onclick="switchDrawerTab('silhouettes')">◇ Silhuetas</button>
                 </div>
                 <button class="btn" onclick="toggleDrawer()" title="Fechar Painel">✕</button>
             </div>
@@ -1685,7 +1695,7 @@
         }
 
         function syncDrawerTabButtons() {
-            ['context', 'chronicle', 'dynasty', 'structures'].forEach(t => {
+            ['context', 'chronicle', 'dynasty', 'structures', 'silhouettes'].forEach(t => {
                 const btn = document.getElementById('tab-' + t);
                 if (btn) btn.classList.toggle('active', state.drawerTab === t);
             });
@@ -1776,6 +1786,7 @@
             const body = document.getElementById('drawer-body');
             if (!body) return;
             if (state.drawerTab === 'structures') { renderStructuresTab(body); return; }
+            if (state.drawerTab === 'silhouettes') { renderSilhouetteStudio(body); return; }
             if (state.drawerTab === 'chronicle') { renderChronicleTab(body); return; }
             if (state.drawerTab === 'dynasty') { renderDynastyTab(body); return; }
             if (state.firstGameStarted && state.founding && (!state.founding.firstGemCreated || !structureCount('injector'))) {
@@ -3450,6 +3461,70 @@
             ctx.restore();
         }
 
+
+        const GEM_SILHOUETTE_PROFILES={
+            quartz:{shape:'broad',hair:'spikes',outfit:'fighter',gemPos:'chest',expression:'smile'},
+            peridot:{shape:'compact',hair:'crown',outfit:'tunic',gemPos:'forehead',expression:'neutral'},
+            bismuth:{shape:'heavy',hair:'crown',outfit:'armor',gemPos:'chest',expression:'smile'},
+            lapis:{shape:'slender',hair:'flowing',outfit:'gown',gemPos:'chest',expression:'neutral'},
+            sapphire:{shape:'tall',hair:'smooth',outfit:'gown',gemPos:'forehead',expression:'calm'},
+            ruby:{shape:'compact',hair:'spikes',outfit:'fighter',gemPos:'navel',expression:'fierce'},
+            pearl:{shape:'slender',hair:'swept',outfit:'gown',gemPos:'navel',expression:'smile'},
+            jasper:{shape:'heavy',hair:'angular',outfit:'fighter',gemPos:'chest',expression:'fierce'}
+        };
+        let silhouettePreviewSelection='quartz';
+        function gemSilhouetteProfile(type){return GEM_SILHOUETTE_PROFILES[type]||GEM_SILHOUETTE_PROFILES.quartz;}
+        function drawGemSilhouette(targetCtx,x,y,scale,options={}){
+            if(!targetCtx)return;
+            const c=targetCtx,color=options.color||'#b98acb',face=options.faceColor||'#fff5ed',p=options.profile||GEM_SILHOUETTE_PROFILES.quartz;
+            const shape=options.shape||p.shape||'slender',hair=options.hair||p.hair||'spikes',outfit=options.outfit||p.outfit||'fighter';
+            const gemPos=options.gemPos||p.gemPos||'chest',expression=options.expression||p.expression||'neutral',glow=options.glow!==false;
+            c.save();c.translate(x,y+(Number(options.bob)||0));c.scale(scale,scale);c.lineCap='round';c.lineJoin='round';c.fillStyle=color;
+            if(glow){c.shadowColor=color;c.shadowBlur=13;}
+            c.beginPath();
+            if(hair==='flowing'){
+                c.moveTo(-25,-93);c.bezierCurveTo(-60,-125,-58,-49,-67,12);c.bezierCurveTo(-76,67,-51,91,-38,70);c.lineTo(-29,5);
+                c.moveTo(25,-93);c.bezierCurveTo(60,-125,58,-49,67,12);c.bezierCurveTo(76,67,51,91,38,70);c.lineTo(29,5);
+            }else if(hair==='smooth'){c.moveTo(-32,-77);c.bezierCurveTo(-43,-137,43,-145,34,-76);c.bezierCurveTo(25,-91,22,-103,13,-113);c.bezierCurveTo(3,-91,-16,-83,-32,-77);}
+            else if(hair==='swept'){c.moveTo(-31,-74);c.bezierCurveTo(-49,-126,7,-145,41,-111);c.lineTo(54,-94);c.lineTo(22,-91);c.bezierCurveTo(6,-76,-15,-78,-31,-74);}
+            else if(hair==='crown'){c.moveTo(-33,-75);c.lineTo(-42,-123);c.lineTo(-14,-108);c.lineTo(0,-143);c.lineTo(16,-108);c.lineTo(43,-124);c.lineTo(32,-73);c.closePath();}
+            else if(hair==='angular'){c.moveTo(-31,-79);c.lineTo(-46,-124);c.lineTo(-17,-109);c.lineTo(8,-146);c.lineTo(18,-112);c.lineTo(47,-122);c.lineTo(30,-72);c.closePath();}
+            else{c.moveTo(-33,-77);c.lineTo(-50,-124);c.lineTo(-18,-108);c.lineTo(-3,-145);c.lineTo(12,-111);c.lineTo(42,-132);c.lineTo(34,-89);c.lineTo(52,-96);c.lineTo(29,-62);c.closePath();}
+            c.fill();c.beginPath();
+            if(shape==='broad'||shape==='heavy'){c.moveTo(-31,-111);c.quadraticCurveTo(-48,-75,-28,-48);c.quadraticCurveTo(0,-30,28,-48);c.quadraticCurveTo(48,-76,31,-111);c.quadraticCurveTo(0,-137,-31,-111);}
+            else if(shape==='compact'){c.moveTo(-27,-111);c.quadraticCurveTo(-36,-75,-22,-52);c.quadraticCurveTo(0,-35,23,-52);c.quadraticCurveTo(38,-78,27,-111);c.quadraticCurveTo(0,-134,-27,-111);}
+            else if(shape==='tall'){c.moveTo(-25,-119);c.quadraticCurveTo(-34,-78,-20,-49);c.quadraticCurveTo(0,-33,21,-49);c.quadraticCurveTo(35,-79,25,-119);c.quadraticCurveTo(0,-145,-25,-119);}
+            else{c.moveTo(-28,-115);c.quadraticCurveTo(-39,-78,-23,-50);c.quadraticCurveTo(0,-32,24,-50);c.quadraticCurveTo(40,-78,28,-115);c.quadraticCurveTo(0,-140,-28,-115);}
+            c.fill();c.fillRect(-9,-54,18,29);
+            c.lineWidth=shape==='heavy'?15:shape==='broad'?12:9;c.strokeStyle=color;c.beginPath();
+            c.moveTo(-29,-31);c.quadraticCurveTo(-47,-13,-58,13);c.quadraticCurveTo(-67,30,-77,43);
+            c.moveTo(29,-31);c.quadraticCurveTo(47,-13,58,13);c.quadraticCurveTo(67,30,77,43);c.stroke();
+            c.fillStyle=color;c.beginPath();
+            if(outfit==='gown'){c.moveTo(-31,-36);c.lineTo(31,-36);c.lineTo(23,22);c.quadraticCurveTo(34,54,58,120);c.quadraticCurveTo(0,132,-58,120);c.quadraticCurveTo(-34,54,-23,22);c.closePath();}
+            else if(outfit==='armor'){c.moveTo(-34,-36);c.lineTo(34,-36);c.lineTo(27,30);c.lineTo(43,105);c.lineTo(13,105);c.lineTo(0,54);c.lineTo(-13,105);c.lineTo(-43,105);c.lineTo(-27,30);c.closePath();}
+            else{c.moveTo(-32,-36);c.lineTo(32,-36);c.lineTo(25,28);c.lineTo(18,52);c.lineTo(29,116);c.lineTo(7,116);c.lineTo(0,63);c.lineTo(-7,116);c.lineTo(-29,116);c.lineTo(-18,52);c.lineTo(-25,28);c.closePath();}
+            c.fill();c.lineWidth=5;c.beginPath();c.moveTo(-77,43);c.lineTo(-81,52);c.moveTo(-77,43);c.lineTo(-69,51);c.moveTo(77,43);c.lineTo(81,52);c.moveTo(77,43);c.lineTo(69,51);c.stroke();c.shadowBlur=0;
+            c.fillStyle=face;c.beginPath();c.ellipse(-11,-88,4.5,7,0,0,Math.PI*2);c.ellipse(11,-88,4.5,7,0,0,Math.PI*2);c.fill();c.beginPath();
+            if(expression==='smile'){c.moveTo(-10,-68);c.quadraticCurveTo(0,-58,10,-68);c.quadraticCurveTo(0,-53,-10,-68);}
+            else if(expression==='fierce'){c.moveTo(-17,-97);c.lineTo(-5,-94);c.lineTo(-10,-90);c.moveTo(17,-97);c.lineTo(5,-94);c.lineTo(10,-90);c.moveTo(-7,-66);c.lineTo(7,-66);}
+            else if(expression==='calm'){c.ellipse(0,-66,8,2,0,0,Math.PI*2);}else{c.ellipse(0,-66,7,1.8,0,0,Math.PI*2);}c.fill();
+            const gy=gemPos==='forehead'?-111:gemPos==='navel'?30:-13,gs=Number(options.gemSize)||7;
+            c.save();c.shadowColor='#fff4d8';c.shadowBlur=glow?8:0;c.fillStyle=options.gemColor||'#fff1cf';c.beginPath();c.moveTo(0,gy-gs);c.lineTo(gs*.68,gy);c.lineTo(0,gy+gs);c.lineTo(-gs*.68,gy);c.closePath();c.fill();
+            c.fillStyle='rgba(255,255,255,.65)';c.beginPath();c.moveTo(0,gy-gs);c.lineTo(0,gy+gs);c.lineTo(-gs*.68,gy);c.closePath();c.fill();c.restore();c.restore();
+        }
+        function renderSilhouetteStudio(container){
+            const types=Object.keys(FOUNDING_GEM_DATA),selected=FOUNDING_GEM_DATA[silhouettePreviewSelection]||FOUNDING_GEM_DATA.quartz,profile=gemSilhouetteProfile(silhouettePreviewSelection);
+            let cards='';
+            types.forEach(type=>{const gem=FOUNDING_GEM_DATA[type];cards+='<button type="button" class="silhouette-card '+(type===silhouettePreviewSelection?'selected':'')+'" data-silhouette="'+type+'"><canvas class="silhouette-preview" data-profile="'+type+'" width="180" height="220"></canvas><strong>'+gem.label+'</strong><small>'+gem.role+'</small></button>';});
+            container.innerHTML='<div class="card card-cyan"><div class="card-header"><span class="card-title title-font">◇ Estúdio de Silhuetas</span><span class="badge">Protótipo visual</span></div><div class="silhouette-studio-intro">Modelos originais e reutilizáveis. Cada tipo possui anatomia, cabelo, vestimenta e expressão próprios. Esta galeria é uma bancada visual: ainda não altera as regras do jogo.</div></div>'+
+                '<div class="silhouette-selected-detail"><canvas id="silhouette-selected-preview" width="180" height="220"></canvas><div><b>'+selected.label+'</b><div style="font-size:10px;color:#cbd5e1;margin-top:4px">'+selected.role+'</div><div style="font-size:9px;color:#b9a9c8;margin-top:6px">Forma: '+profile.shape+' · Cabelo: '+profile.hair+'</div></div></div>'+
+                '<div class="silhouette-gallery">'+cards+'</div><div class="card"><div class="card-header"><span class="card-title">Direção visual do protótipo</span></div><div class="founding-note">Silhueta monocromática, recortes claros para olhos e boca, gema facetada destacada e anatomias diferentes. O brilho é discreto para preservar a leitura chapada.</div></div>';
+            const main=document.getElementById('silhouette-selected-preview');if(main)drawGemSilhouette(main.getContext('2d'),90,112,.72,{color:selected.color,profile:profile,glow:true});
+            container.querySelectorAll('.silhouette-preview').forEach(canvas=>{const type=canvas.dataset.profile,gem=FOUNDING_GEM_DATA[type];drawGemSilhouette(canvas.getContext('2d'),90,112,.66,{color:gem.color,profile:gemSilhouetteProfile(type),glow:true});});
+            container.querySelectorAll('[data-silhouette]').forEach(button=>{button.addEventListener('click',()=>selectSilhouettePreview(button.dataset.silhouette));});
+        }
+        function selectSilhouettePreview(type){if(!FOUNDING_GEM_DATA[type])return;silhouettePreviewSelection=type;const body=document.getElementById('drawer-body');if(body&&state.drawerTab==='silhouettes')renderSilhouetteStudio(body);}
+
         function drawPrimitiveHomeworld(time) {
             const {cx,cy}=getVisibleCenter(canvasWidth,canvasHeight);
             const scale=Math.min(window.innerWidth<600?1.35:1.65,canvasWidth/360,canvasHeight/430);
@@ -3460,14 +3535,11 @@
             ctx.strokeStyle='rgba(226,200,160,.35)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-170,125);ctx.lineTo(-105,20);ctx.lineTo(-58,105);ctx.moveTo(65,125);ctx.lineTo(135,18);ctx.lineTo(190,100);ctx.stroke();
             // Mineral outcrops.
             for(let i=0;i<9;i++){const x=-210+i*51;const y=130+Math.sin(i*2.1)*24;drawCrystal(x,y,8+(i%3)*2,['#b6a18a','#a78bfa','#9ca3af','#d6b88b'][i%4], '#8b7355',i*.2);}
-            // The lone founder, represented as a luminous silhouette.
-            const palette=COLOR_PALETTES[state.firstDiamond.colorKey]||COLOR_PALETTES.white;
-            const customColor=state.firstDiamond.colorHex||palette.hex;
-            ctx.shadowColor=customColor;ctx.shadowBlur=22;ctx.fillStyle=customColor;
-            ctx.beginPath();ctx.ellipse(0,35,20,31,0,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
-            ctx.fillStyle='rgba(15,23,42,.65)';ctx.beginPath();ctx.arc(0,0,15,Math.PI,Math.PI*2);ctx.fill();
-            drawCrystal(0,state.firstDiamond.gemPos==='forehead'?0:(state.firstDiamond.gemPos==='chest'?36:59),7,customColor,customColor);
-            ctx.strokeStyle='rgba(226,232,240,.25)';ctx.beginPath();ctx.moveTo(-250,181);ctx.lineTo(250,181);ctx.stroke();
+            // Fundadora representada pelo sistema de silhuetas.
+            const palette=COLOR_PALETTES[state.firstDiamond.colorKey]||COLOR_PALETTES.white,customColor=state.firstDiamond.colorHex||palette.hex;
+            const founderProfile=state.firstDiamond.bodySilhouette==='broad'?{shape:'heavy',hair:'crown',outfit:'armor',gemPos:state.firstDiamond.gemPos,expression:'calm'}:state.firstDiamond.bodySilhouette==='slender'?{shape:'slender',hair:'flowing',outfit:'gown',gemPos:state.firstDiamond.gemPos,expression:'calm'}:{shape:'broad',hair:'angular',outfit:'gown',gemPos:state.firstDiamond.gemPos,expression:'calm'};
+            drawGemSilhouette(ctx,0,31,.53,{color:customColor,profile:founderProfile,glow:true,gemColor:'#fff4d8'});
+            ctx.strokeStyle='rgba(226,200,160,.42)';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(-250,181);ctx.lineTo(250,181);ctx.stroke();
             ctx.restore();
         }
 
@@ -3504,31 +3576,10 @@
                 drawCrystal(Math.cos(a) * 135, -160 + Math.sin(a) * 30, 7, '#bae6fd', '#38bdf8', a);
             }
 
-            // Representação simbólica da Primeira Diamante
-            const palette = COLOR_PALETTES[state.firstDiamond.colorKey] || COLOR_PALETTES.white;
-            const customColor = state.firstDiamond.colorHex || palette.hex;
-            ctx.shadowColor = customColor;
-            ctx.shadowBlur = 24;
-            ctx.fillStyle = customColor;
-            ctx.beginPath();
-            ctx.ellipse(0, -60, 42, 58, 0, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.shadowBlur = 0;
-            ctx.fillStyle = 'rgba(15,23,42,.8)';
-            ctx.beginPath();
-            ctx.ellipse(0, -98, 31, 28, 0, Math.PI, Math.PI * 2);
-            ctx.fill();
-            drawCrystal(0, state.firstDiamond.gemPos === 'forehead' ? -103 : (state.firstDiamond.gemPos === 'chest' ? -48 : -12), 12, customColor, customColor);
-            const silhouette = state.firstDiamond.bodySilhouette || 'regal';
-            const bodyPoints = silhouette === 'slender'
-                ? [[-62,8],[-39,-34],[-22,28],[0,-5],[22,28],[39,-34],[62,8],[50,112],[-50,112]]
-                : silhouette === 'broad'
-                    ? [[-112,8],[-68,-34],[-35,28],[0,-5],[35,28],[68,-34],[112,8],[88,112],[-88,112]]
-                    : [[-90,8],[-52,-34],[-28,28],[0,-5],[28,28],[52,-34],[90,8],[72,112],[-72,112]];
-            drawPolygon(bodyPoints, customColor, 'rgba(255,255,255,.65)', 1.5);
-            ctx.globalAlpha = 0.2;
-            drawPolygon([[-90, 8], [0, -5], [-72, 112]], '#ffffff');
-            ctx.globalAlpha = 1;
+            // A Primeira Diamante usa a mesma linguagem de silhueta da população.
+            const palette=COLOR_PALETTES[state.firstDiamond.colorKey]||COLOR_PALETTES.white,customColor=state.firstDiamond.colorHex||palette.hex;
+            const throneProfile=state.firstDiamond.bodySilhouette==='slender'?{shape:'slender',hair:'flowing',outfit:'gown',gemPos:state.firstDiamond.gemPos,expression:'calm'}:state.firstDiamond.bodySilhouette==='broad'?{shape:'heavy',hair:'crown',outfit:'armor',gemPos:state.firstDiamond.gemPos,expression:'calm'}:{shape:'tall',hair:'angular',outfit:'gown',gemPos:state.firstDiamond.gemPos,expression:'calm'};
+            drawGemSilhouette(ctx,0,-35,.78,{color:customColor,profile:throneProfile,glow:true,gemSize:11,gemColor:'#fff4d8'});
 
             // Diamantes da corte orbitando o trono
             state.matriarchs.forEach((m, i) => {
@@ -3768,19 +3819,12 @@
                 }
             });
 
-            // Gems em atividade na superfície
-            planet.walkingGems.forEach((gem, index) => {
-                const a = gem.angle + cam.rotation;
-                const orbitR = gem.isOrbiting ? radius * 1.05 : radius * (0.68 + (index % 3) * 0.035);
-                const x = cx + Math.cos(a) * orbitR;
-                const y = cy + Math.sin(a) * orbitR * 0.86 + Math.sin(gem.bobPhase || 0) * 2;
-                ctx.fillStyle = gem.color;
-                ctx.shadowColor = gem.color;
-                ctx.shadowBlur = 9;
-                ctx.beginPath();
-                ctx.arc(x, y, 4.2, 0, Math.PI * 2);
-                ctx.fill();
-                ctx.shadowBlur = 0;
+            // População representada por miniaturas de silhuetas, não pontos coloridos.
+            planet.walkingGems.forEach((gem,index)=>{
+                const a=gem.angle+cam.rotation,orbitR=gem.isOrbiting?radius*1.05:radius*(0.68+(index%3)*0.035);
+                const x=cx+Math.cos(a)*orbitR,y=cy+Math.sin(a)*orbitR*0.86;
+                const type=gem.caste||'quartz',color=gem.color||(FOUNDING_GEM_DATA[type]&&FOUNDING_GEM_DATA[type].color)||'#d7c2e8';
+                drawGemSilhouette(ctx,x,y,.105,{color,profile:gemSilhouetteProfile(type),glow:false,gemSize:3,bob:Math.sin(gem.bobPhase||0)*2});
             });
             ctx.restore();
 
