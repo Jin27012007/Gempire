@@ -3463,62 +3463,148 @@
 
 
         const GEM_SILHOUETTE_PROFILES={
-            quartz:{shape:'broad',hair:'spikes',outfit:'fighter',gemPos:'chest',expression:'smile'},
-            peridot:{shape:'compact',hair:'crown',outfit:'tunic',gemPos:'forehead',expression:'neutral'},
-            bismuth:{shape:'heavy',hair:'crown',outfit:'armor',gemPos:'chest',expression:'smile'},
-            lapis:{shape:'slender',hair:'flowing',outfit:'gown',gemPos:'chest',expression:'neutral'},
-            sapphire:{shape:'tall',hair:'smooth',outfit:'gown',gemPos:'forehead',expression:'calm'},
-            ruby:{shape:'compact',hair:'spikes',outfit:'fighter',gemPos:'navel',expression:'fierce'},
-            pearl:{shape:'slender',hair:'swept',outfit:'gown',gemPos:'navel',expression:'smile'},
-            jasper:{shape:'heavy',hair:'angular',outfit:'fighter',gemPos:'chest',expression:'fierce'}
+            quartz:{shape:'athletic',hair:'volume',outfit:'fighter',gemPos:'chest',eyeCount:2,width:1.02,height:1.02,shoulder:42,limb:9,summary:'Base Quartz atlética; variedades específicas devem herdar e modificar este perfil.'},
+            peridot:{shape:'compact',hair:'angular',outfit:'tunic',gemPos:'forehead',eyeCount:2,width:.88,height:.88,shoulder:30,limb:7,summary:'Baixa e compacta, com cabeça geométrica e cabelo curto, pontudo e angular.'},
+            bismuth:{shape:'massive',hair:'crest',outfit:'armor',gemPos:'chest',eyeCount:2,width:1.25,height:1.08,shoulder:58,limb:16,summary:'Estrutura alta e muito larga, ombros e braços volumosos, com crista alta.'},
+            lapis:{shape:'slender',hair:'bob',outfit:'gown',gemPos:'back',eyeCount:2,width:.91,height:1.04,shoulder:28,limb:7,summary:'Corpo esguio, ombros estreitos, cabelo em corte bob e gema nas costas.'},
+            sapphire:{shape:'petite',hair:'cloud',outfit:'gown',gemPos:'palm',eyeCount:1,width:.91,height:.94,shoulder:27,limb:7,summary:'Figura pequena e delicada, cabelo volumoso em forma de nuvem e apenas um olho.'},
+            ruby:{shape:'compact',hair:'square',outfit:'fighter',gemPos:'palm',eyeCount:1,width:.94,height:.91,shoulder:34,limb:9,summary:'Corpo baixo e compacto, cabelo quadrado e apenas um olho.'},
+            pearl:{shape:'tall-slim',hair:'swept',outfit:'gown',gemPos:'forehead',eyeCount:2,width:.78,height:1.17,shoulder:25,limb:6,summary:'Muito alta e magra, com membros longos, tronco estreito e postura elegante.'},
+            jasper:{shape:'tall-muscular',hair:'mane',outfit:'armor',gemPos:'nose',eyeCount:2,width:1.2,height:1.15,shoulder:55,limb:15,summary:'Alta e musculosa, ombros largos, rosto angular e cabelo volumoso projetado para trás.'}
         };
         let silhouettePreviewSelection='quartz';
         function gemSilhouetteProfile(type){return GEM_SILHOUETTE_PROFILES[type]||GEM_SILHOUETTE_PROFILES.quartz;}
         function drawGemSilhouette(targetCtx,x,y,scale,options={}){
             if(!targetCtx)return;
             const c=targetCtx,color=options.color||'#b98acb',face=options.faceColor||'#fff5ed',p=options.profile||GEM_SILHOUETTE_PROFILES.quartz;
-            const shape=options.shape||p.shape||'slender',hair=options.hair||p.hair||'spikes',outfit=options.outfit||p.outfit||'fighter';
-            const gemPos=options.gemPos||p.gemPos||'chest',expression=options.expression||p.expression||'neutral',glow=options.glow!==false;
-            c.save();c.translate(x,y+(Number(options.bob)||0));c.scale(scale,scale);c.lineCap='round';c.lineJoin='round';c.fillStyle=color;
+            const hair=p.hair||'volume',outfit=options.outfit||p.outfit||'fighter';
+            const gemPos=options.gemPos||p.gemPos||'chest',expression=options.expression||'neutral';
+            const eyeCount=options.eyeCount||p.eyeCount||2;
+            const width=Number(p.width)||1,height=Number(p.height)||1;
+            const shoulder=Number(p.shoulder)||38,limb=Number(p.limb)||9,glow=options.glow!==false;
+            c.save();c.translate(x,y+(Number(options.bob)||0));c.scale(scale*width,scale*height);
+            c.lineCap='round';c.lineJoin='round';c.fillStyle=color;
             if(glow){c.shadowColor=color;c.shadowBlur=13;}
+
+            // Cabelo desenhado atrás da cabeça; cada espécie recebe uma geometria própria.
             c.beginPath();
-            if(hair==='flowing'){
-                c.moveTo(-25,-93);c.bezierCurveTo(-60,-125,-58,-49,-67,12);c.bezierCurveTo(-76,67,-51,91,-38,70);c.lineTo(-29,5);
-                c.moveTo(25,-93);c.bezierCurveTo(60,-125,58,-49,67,12);c.bezierCurveTo(76,67,51,91,38,70);c.lineTo(29,5);
-            }else if(hair==='smooth'){c.moveTo(-32,-77);c.bezierCurveTo(-43,-137,43,-145,34,-76);c.bezierCurveTo(25,-91,22,-103,13,-113);c.bezierCurveTo(3,-91,-16,-83,-32,-77);}
-            else if(hair==='swept'){c.moveTo(-31,-74);c.bezierCurveTo(-49,-126,7,-145,41,-111);c.lineTo(54,-94);c.lineTo(22,-91);c.bezierCurveTo(6,-76,-15,-78,-31,-74);}
-            else if(hair==='crown'){c.moveTo(-33,-75);c.lineTo(-42,-123);c.lineTo(-14,-108);c.lineTo(0,-143);c.lineTo(16,-108);c.lineTo(43,-124);c.lineTo(32,-73);c.closePath();}
-            else if(hair==='angular'){c.moveTo(-31,-79);c.lineTo(-46,-124);c.lineTo(-17,-109);c.lineTo(8,-146);c.lineTo(18,-112);c.lineTo(47,-122);c.lineTo(30,-72);c.closePath();}
-            else{c.moveTo(-33,-77);c.lineTo(-50,-124);c.lineTo(-18,-108);c.lineTo(-3,-145);c.lineTo(12,-111);c.lineTo(42,-132);c.lineTo(34,-89);c.lineTo(52,-96);c.lineTo(29,-62);c.closePath();}
-            c.fill();c.beginPath();
-            if(shape==='broad'||shape==='heavy'){c.moveTo(-31,-111);c.quadraticCurveTo(-48,-75,-28,-48);c.quadraticCurveTo(0,-30,28,-48);c.quadraticCurveTo(48,-76,31,-111);c.quadraticCurveTo(0,-137,-31,-111);}
-            else if(shape==='compact'){c.moveTo(-27,-111);c.quadraticCurveTo(-36,-75,-22,-52);c.quadraticCurveTo(0,-35,23,-52);c.quadraticCurveTo(38,-78,27,-111);c.quadraticCurveTo(0,-134,-27,-111);}
-            else if(shape==='tall'){c.moveTo(-25,-119);c.quadraticCurveTo(-34,-78,-20,-49);c.quadraticCurveTo(0,-33,21,-49);c.quadraticCurveTo(35,-79,25,-119);c.quadraticCurveTo(0,-145,-25,-119);}
-            else{c.moveTo(-28,-115);c.quadraticCurveTo(-39,-78,-23,-50);c.quadraticCurveTo(0,-32,24,-50);c.quadraticCurveTo(40,-78,28,-115);c.quadraticCurveTo(0,-140,-28,-115);}
-            c.fill();c.fillRect(-9,-54,18,29);
-            c.lineWidth=shape==='heavy'?15:shape==='broad'?12:9;c.strokeStyle=color;c.beginPath();
-            c.moveTo(-29,-31);c.quadraticCurveTo(-47,-13,-58,13);c.quadraticCurveTo(-67,30,-77,43);
-            c.moveTo(29,-31);c.quadraticCurveTo(47,-13,58,13);c.quadraticCurveTo(67,30,77,43);c.stroke();
+            if(hair==='square'){
+                c.moveTo(-34,-78);c.lineTo(-38,-119);c.lineTo(-29,-132);c.lineTo(29,-132);
+                c.lineTo(39,-119);c.lineTo(35,-66);c.lineTo(27,-55);c.lineTo(-28,-55);c.closePath();
+            }else if(hair==='swept'){
+                c.moveTo(-34,-77);c.bezierCurveTo(-48,-119,-19,-143,15,-132);
+                c.lineTo(43,-146);c.lineTo(37,-119);c.lineTo(59,-111);
+                c.lineTo(31,-91);c.lineTo(13,-82);c.closePath();
+            }else if(hair==='cloud'){
+                c.moveTo(-34,-75);c.bezierCurveTo(-63,-83,-61,-116,-40,-126);
+                c.bezierCurveTo(-34,-151,1,-155,17,-137);
+                c.bezierCurveTo(48,-143,60,-113,42,-94);
+                c.bezierCurveTo(45,-78,31,-67,27,-65);c.lineTo(-28,-65);c.closePath();
+            }else if(hair==='angular'){
+                c.moveTo(-32,-77);c.lineTo(-43,-115);c.lineTo(-27,-108);c.lineTo(-17,-142);
+                c.lineTo(-2,-116);c.lineTo(17,-137);c.lineTo(23,-109);c.lineTo(43,-119);
+                c.lineTo(33,-76);c.closePath();
+            }else if(hair==='crest'){
+                c.moveTo(-35,-77);c.lineTo(-42,-110);c.lineTo(-24,-104);
+                c.lineTo(-16,-151);c.lineTo(0,-119);c.lineTo(16,-153);
+                c.lineTo(23,-105);c.lineTo(43,-119);c.lineTo(34,-73);c.closePath();
+            }else if(hair==='bob'){
+                c.moveTo(-34,-79);c.bezierCurveTo(-49,-126,-8,-143,25,-122);
+                c.bezierCurveTo(45,-108,45,-77,37,-54);
+                c.lineTo(31,-25);c.lineTo(17,-42);c.lineTo(19,-75);
+                c.lineTo(-20,-75);c.lineTo(-25,-38);c.lineTo(-39,-25);
+                c.lineTo(-41,-61);c.closePath();
+            }else if(hair==='mane'){
+                c.moveTo(-34,-76);c.lineTo(-49,-117);c.lineTo(-21,-111);
+                c.lineTo(-14,-147);c.lineTo(9,-118);c.lineTo(38,-143);
+                c.lineTo(33,-111);c.lineTo(55,-119);c.lineTo(39,-84);
+                c.lineTo(28,-65);c.closePath();
+            }else{
+                c.moveTo(-37,-78);c.bezierCurveTo(-52,-119,-27,-144,-3,-132);
+                c.bezierCurveTo(11,-151,37,-132,35,-111);
+                c.lineTo(49,-121);c.lineTo(43,-84);c.lineTo(31,-65);
+                c.lineTo(-31,-65);c.closePath();
+            }
+            c.fill();
+
+            c.fillStyle=color;c.beginPath();c.ellipse(0,-91,31,42,0,0,Math.PI*2);c.fill();
+            c.fillRect(-8,-55,16,22);
+            c.strokeStyle=color;c.lineWidth=limb;c.beginPath();
+            c.moveTo(-shoulder*.48,-39);c.quadraticCurveTo(-shoulder*.78,-10,-shoulder*.92,34);
+            c.moveTo(shoulder*.48,-39);c.quadraticCurveTo(shoulder*.78,-10,shoulder*.92,34);c.stroke();
+            c.beginPath();c.arc(-shoulder*.92,38,limb*.62,0,Math.PI*2);
+            c.arc(shoulder*.92,38,limb*.62,0,Math.PI*2);c.fill();
+
             c.fillStyle=color;c.beginPath();
-            if(outfit==='gown'){c.moveTo(-31,-36);c.lineTo(31,-36);c.lineTo(23,22);c.quadraticCurveTo(34,54,58,120);c.quadraticCurveTo(0,132,-58,120);c.quadraticCurveTo(-34,54,-23,22);c.closePath();}
-            else if(outfit==='armor'){c.moveTo(-34,-36);c.lineTo(34,-36);c.lineTo(27,30);c.lineTo(43,105);c.lineTo(13,105);c.lineTo(0,54);c.lineTo(-13,105);c.lineTo(-43,105);c.lineTo(-27,30);c.closePath();}
-            else{c.moveTo(-32,-36);c.lineTo(32,-36);c.lineTo(25,28);c.lineTo(18,52);c.lineTo(29,116);c.lineTo(7,116);c.lineTo(0,63);c.lineTo(-7,116);c.lineTo(-29,116);c.lineTo(-18,52);c.lineTo(-25,28);c.closePath();}
-            c.fill();c.lineWidth=5;c.beginPath();c.moveTo(-77,43);c.lineTo(-81,52);c.moveTo(-77,43);c.lineTo(-69,51);c.moveTo(77,43);c.lineTo(81,52);c.moveTo(77,43);c.lineTo(69,51);c.stroke();c.shadowBlur=0;
-            c.fillStyle=face;c.beginPath();c.ellipse(-11,-88,4.5,7,0,0,Math.PI*2);c.ellipse(11,-88,4.5,7,0,0,Math.PI*2);c.fill();c.beginPath();
-            if(expression==='smile'){c.moveTo(-10,-68);c.quadraticCurveTo(0,-58,10,-68);c.quadraticCurveTo(0,-53,-10,-68);}
-            else if(expression==='fierce'){c.moveTo(-17,-97);c.lineTo(-5,-94);c.lineTo(-10,-90);c.moveTo(17,-97);c.lineTo(5,-94);c.lineTo(10,-90);c.moveTo(-7,-66);c.lineTo(7,-66);}
-            else if(expression==='calm'){c.ellipse(0,-66,8,2,0,0,Math.PI*2);}else{c.ellipse(0,-66,7,1.8,0,0,Math.PI*2);}c.fill();
-            const gy=gemPos==='forehead'?-111:gemPos==='navel'?30:-13,gs=Number(options.gemSize)||7;
-            c.save();c.shadowColor='#fff4d8';c.shadowBlur=glow?8:0;c.fillStyle=options.gemColor||'#fff1cf';c.beginPath();c.moveTo(0,gy-gs);c.lineTo(gs*.68,gy);c.lineTo(0,gy+gs);c.lineTo(-gs*.68,gy);c.closePath();c.fill();
-            c.fillStyle='rgba(255,255,255,.65)';c.beginPath();c.moveTo(0,gy-gs);c.lineTo(0,gy+gs);c.lineTo(-gs*.68,gy);c.closePath();c.fill();c.restore();c.restore();
+            if(outfit==='gown'){
+                c.moveTo(-shoulder*.52,-39);c.lineTo(shoulder*.52,-39);
+                c.lineTo(shoulder*.43,20);c.quadraticCurveTo(shoulder*.55,60,shoulder*.98,122);
+                c.quadraticCurveTo(0,133,-shoulder*.98,122);
+                c.quadraticCurveTo(-shoulder*.55,60,-shoulder*.43,20);c.closePath();
+            }else if(outfit==='armor'){
+                c.moveTo(-shoulder*.62,-40);c.lineTo(-shoulder*.34,-49);
+                c.lineTo(0,-39);c.lineTo(shoulder*.34,-49);c.lineTo(shoulder*.62,-40);
+                c.lineTo(shoulder*.52,48);c.lineTo(shoulder*.35,58);
+                c.lineTo(shoulder*.2,120);c.lineTo(5,120);c.lineTo(0,69);
+                c.lineTo(-5,120);c.lineTo(-shoulder*.2,120);c.lineTo(-shoulder*.35,58);
+                c.lineTo(-shoulder*.52,48);c.closePath();
+            }else{
+                c.moveTo(-shoulder*.54,-39);c.lineTo(shoulder*.54,-39);
+                c.lineTo(shoulder*.43,42);c.lineTo(shoulder*.29,58);
+                c.lineTo(shoulder*.34,119);c.lineTo(6,119);c.lineTo(0,67);
+                c.lineTo(-6,119);c.lineTo(-shoulder*.34,119);c.lineTo(-shoulder*.29,58);
+                c.lineTo(-shoulder*.43,42);c.closePath();
+            }
+            c.fill();
+            c.strokeStyle=color;c.lineWidth=Math.max(7,limb*.82);c.beginPath();
+            c.moveTo(-shoulder*.23,75);c.lineTo(-shoulder*.31,128);
+            c.moveTo(shoulder*.23,75);c.lineTo(shoulder*.31,128);c.stroke();
+            c.lineWidth=Math.max(5,limb*.62);c.beginPath();
+            c.moveTo(-shoulder*.31,128);c.lineTo(-shoulder*.48,132);
+            c.moveTo(shoulder*.31,128);c.lineTo(shoulder*.48,132);c.stroke();
+
+            c.shadowBlur=0;c.fillStyle=face;
+            if(eyeCount===1){
+                c.beginPath();c.ellipse(0,-91,5.2,7.3,0,0,Math.PI*2);c.fill();
+            }else{
+                c.beginPath();c.ellipse(-11,-91,4.1,6.5,0,0,Math.PI*2);
+                c.ellipse(11,-91,4.1,6.5,0,0,Math.PI*2);c.fill();
+            }
+            c.strokeStyle=face;c.lineWidth=2;c.beginPath();
+            if(expression==='fierce'){
+                c.moveTo(-17,-101);c.lineTo(-5,-97);c.moveTo(17,-101);c.lineTo(5,-97);
+                c.moveTo(-7,-66);c.lineTo(7,-66);
+            }else if(expression==='smile'){
+                c.moveTo(-9,-69);c.quadraticCurveTo(0,-60,9,-69);
+            }else{
+                c.moveTo(-6,-68);c.lineTo(6,-68);
+            }
+            c.stroke();
+
+            const gs=Number(options.gemSize)||7;
+            let gx=0,gy=-20;
+            if(gemPos==='forehead'){gy=-119;}
+            else if(gemPos==='nose'){gy=-83;}
+            else if(gemPos==='palm'){gx=-shoulder*.92;gy=38;}
+            else if(gemPos==='back'){gx=shoulder*.52;gy=-25;}
+            else if(gemPos==='navel'){gy=34;}
+            else if(gemPos==='chest'){gy=-20;}
+            c.save();c.shadowColor='#fff4d8';c.shadowBlur=glow?8:0;
+            c.fillStyle=options.gemColor||'#fff1cf';c.beginPath();
+            c.moveTo(gx,gy-gs);c.lineTo(gx+gs*.68,gy);
+            c.lineTo(gx,gy+gs);c.lineTo(gx-gs*.68,gy);c.closePath();c.fill();
+            c.fillStyle='rgba(255,255,255,.65)';c.beginPath();
+            c.moveTo(gx,gy-gs);c.lineTo(gx,gy+gs);
+            c.lineTo(gx-gs*.68,gy);c.closePath();c.fill();
+            c.restore();c.restore();
         }
         function renderSilhouetteStudio(container){
             const types=Object.keys(FOUNDING_GEM_DATA),selected=FOUNDING_GEM_DATA[silhouettePreviewSelection]||FOUNDING_GEM_DATA.quartz,profile=gemSilhouetteProfile(silhouettePreviewSelection);
             let cards='';
             types.forEach(type=>{const gem=FOUNDING_GEM_DATA[type];cards+='<button type="button" class="silhouette-card '+(type===silhouettePreviewSelection?'selected':'')+'" data-silhouette="'+type+'"><canvas class="silhouette-preview" data-profile="'+type+'" width="180" height="220"></canvas><strong>'+gem.label+'</strong><small>'+gem.role+'</small></button>';});
-            container.innerHTML='<div class="card card-cyan"><div class="card-header"><span class="card-title title-font">◇ Estúdio de Silhuetas</span><span class="badge">Protótipo visual</span></div><div class="silhouette-studio-intro">Modelos originais e reutilizáveis. Cada tipo possui anatomia, cabelo, vestimenta e expressão próprios. Esta galeria é uma bancada visual: ainda não altera as regras do jogo.</div></div>'+
-                '<div class="silhouette-selected-detail"><canvas id="silhouette-selected-preview" width="180" height="220"></canvas><div><b>'+selected.label+'</b><div style="font-size:10px;color:#cbd5e1;margin-top:4px">'+selected.role+'</div><div style="font-size:9px;color:#b9a9c8;margin-top:6px">Forma: '+profile.shape+' · Cabelo: '+profile.hair+'</div></div></div>'+
-                '<div class="silhouette-gallery">'+cards+'</div><div class="card"><div class="card-header"><span class="card-title">Direção visual do protótipo</span></div><div class="founding-note">Silhueta monocromática, recortes claros para olhos e boca, gema facetada destacada e anatomias diferentes. O brilho é discreto para preservar a leitura chapada.</div></div>';
+            container.innerHTML='<div class="card card-cyan"><div class="card-header"><span class="card-title title-font">◇ Estúdio de Silhuetas</span><span class="badge">Perfis anatômicos</span></div><div class="silhouette-studio-intro">Cada variedade possui proporções, cabelo, quantidade de olhos e posição de gema próprios. São referências visuais por espécie; variantes individuais poderão ser adicionadas sem apagar a anatomia-base.</div></div>'+
+                '<div class="silhouette-selected-detail"><canvas id="silhouette-selected-preview" width="180" height="220"></canvas><div><b>'+selected.label+'</b><div style="font-size:10px;color:#cbd5e1;margin-top:4px">'+selected.role+'</div><div style="font-size:9px;color:#b9a9c8;margin-top:6px">'+profile.summary+'</div><div style="font-size:9px;color:#b9a9c8;margin-top:5px">Olhos: '+profile.eyeCount+' · Gema: '+profile.gemPos+'</div></div></div>'+
+                '<div class="silhouette-gallery">'+cards+'</div><div class="card"><div class="card-header"><span class="card-title">Regras de leitura</span></div><div class="founding-note">Ruby e Sapphire têm um olho; Pearl é alta e esguia; Bismuth e Jasper têm estruturas largas, mas silhuetas distintas; Peridot é compacta; Lapis tem gema nas costas. A categoria Quartz permanece uma base de família, não uma espécie visual única.</div></div>';
             const main=document.getElementById('silhouette-selected-preview');if(main)drawGemSilhouette(main.getContext('2d'),90,112,.72,{color:selected.color,profile:profile,glow:true});
             container.querySelectorAll('.silhouette-preview').forEach(canvas=>{const type=canvas.dataset.profile,gem=FOUNDING_GEM_DATA[type];drawGemSilhouette(canvas.getContext('2d'),90,112,.66,{color:gem.color,profile:gemSilhouetteProfile(type),glow:true});});
             container.querySelectorAll('[data-silhouette]').forEach(button=>{button.addEventListener('click',()=>selectSilhouettePreview(button.dataset.silhouette));});
