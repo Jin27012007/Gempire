@@ -290,7 +290,7 @@
 
         .drawer-tabs {
             display: grid;
-            grid-template-columns: repeat(3, 1fr);
+            grid-template-columns: repeat(4, 1fr);
             gap: 4px;
             flex: 1;
         }
@@ -520,7 +520,18 @@
         .founding-actions { display:grid; grid-template-columns:1fr; gap:8px; }
         .founding-progress { height:7px; background:#111827; border-radius:99px; overflow:hidden; }
         .founding-progress>div { height:100%; background:linear-gradient(90deg,#f9a8d4,#facc15,#bae6fd); transition:width .2s; }
-        @media(max-width:600px){.founding-grid{grid-template-columns:1fr}.founding-intro{gap:9px}}
+        .structure-category { display:flex; flex-direction:column; gap:7px; }
+        .structure-card { gap:7px; }
+        .structure-desc { color:#cbd5e1; font-size:11px; line-height:1.5; }
+        .structure-meta { display:grid; gap:3px; color:var(--text-muted); font-size:10px; }
+        .structure-interaction { color:#bae6fd; font-size:10px; line-height:1.4; }
+        .structure-locked { color:#fbbf24; font-size:10px; padding:5px 0; }
+        .structure-status { font-size:10px; font-weight:700; padding:5px 7px; border-radius:6px; }
+        .structure-status.is-operational { color:#6ee7b7; background:rgba(16,185,129,.1); }
+        .structure-status.is-idle { color:#fbbf24; background:rgba(245,158,11,.1); }
+        .structure-jobs { display:flex; flex-direction:column; gap:4px; }
+        .job-row { display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:10px; color:#cbd5e1; }
+        @media(max-width:600px){.founding-grid{grid-template-columns:1fr}.founding-intro{gap:9px}.drawer-tabs{grid-template-columns:repeat(2,1fr)}}
 
     </style>
 </head>
@@ -598,6 +609,7 @@
                     <button id="tab-context" class="btn active" onclick="switchDrawerTab('context')">🎯 Contexto</button>
                     <button id="tab-chronicle" class="btn" onclick="switchDrawerTab('chronicle')">📜 Crônicas</button>
                     <button id="tab-dynasty" class="btn" onclick="switchDrawerTab('dynasty')">👑 Dinastia</button>
+                    <button id="tab-structures" class="btn" onclick="switchDrawerTab('structures')">🏗️ Estruturas</button>
                 </div>
                 <button class="btn" onclick="toggleDrawer()" title="Fechar Painel">✕</button>
             </div>
@@ -1665,7 +1677,7 @@
         }
 
         function syncDrawerTabButtons() {
-            ['context', 'chronicle', 'dynasty'].forEach(t => {
+            ['context', 'chronicle', 'dynasty', 'structures'].forEach(t => {
                 const btn = document.getElementById('tab-' + t);
                 if (btn) btn.classList.toggle('active', state.drawerTab === t);
             });
@@ -1755,18 +1767,13 @@
         function renderDrawerContent() {
             const body = document.getElementById('drawer-body');
             if (!body) return;
-            if (state.firstGameStarted && state.founding && !state.founding.firstGemCreated) { renderFoundingContext(body); return; }
-
-            if (state.drawerTab === 'chronicle') {
-                renderChronicleTab(body);
+            if (state.drawerTab === 'structures') { renderStructuresTab(body); return; }
+            if (state.drawerTab === 'chronicle') { renderChronicleTab(body); return; }
+            if (state.drawerTab === 'dynasty') { renderDynastyTab(body); return; }
+            if (state.firstGameStarted && state.founding && (!state.founding.firstGemCreated || !structureCount('injector'))) {
+                renderFoundingContext(body);
                 return;
             }
-            if (state.drawerTab === 'dynasty') {
-                renderDynastyTab(body);
-                return;
-            }
-
-            // SUB-ABA 1: CONTEXTO DA TELA ATIVA
             if (state.currentScreen === 'throne') renderThroneContext(body);
             else if (state.currentScreen === 'starmap') renderStarMapContext(body);
             else renderColonyContext(body);
@@ -3049,6 +3056,7 @@
                 state.founding.creationProgress = Math.min(100, state.founding.creationProgress + dt * 100 / 42);
                 if (state.founding.creationProgress >= 100) finishFirstGemCreation();
             }
+            if (state.firstGameStarted) updateStructureSimulation(dt);
             for (const planet of Object.values(PLANETS)) {
                 planet.orbitAngle = (planet.orbitAngle || 0) + (planet.orbitSpeed || 0) * elapsedMs;
                 for (const gem of planet.walkingGems) {
