@@ -3586,7 +3586,7 @@
             if(gemPos==='forehead'){gy=-119;}
             else if(gemPos==='nose'){gy=-83;}
             else if(gemPos==='palm'){gx=-shoulder*.92;gy=38;}
-            else if(gemPos==='back'){gx=shoulder*.52;gy=-25;}
+            else if(gemPos==='back'){c.restore();return;}
             else if(gemPos==='navel'){gy=34;}
             else if(gemPos==='chest'){gy=-20;}
             c.save();c.shadowColor='#fff4d8';c.shadowBlur=glow?8:0;
@@ -3605,8 +3605,8 @@
             container.innerHTML='<div class="card card-cyan"><div class="card-header"><span class="card-title title-font">◇ Estúdio de Silhuetas</span><span class="badge">Perfis anatômicos</span></div><div class="silhouette-studio-intro">Cada variedade possui proporções, cabelo, quantidade de olhos e posição de gema próprios. São referências visuais por espécie; variantes individuais poderão ser adicionadas sem apagar a anatomia-base.</div></div>'+
                 '<div class="silhouette-selected-detail"><canvas id="silhouette-selected-preview" width="180" height="220"></canvas><div><b>'+selected.label+'</b><div style="font-size:10px;color:#cbd5e1;margin-top:4px">'+selected.role+'</div><div style="font-size:9px;color:#b9a9c8;margin-top:6px">'+profile.summary+'</div><div style="font-size:9px;color:#b9a9c8;margin-top:5px">Olhos: '+profile.eyeCount+' · Gema: '+profile.gemPos+'</div></div></div>'+
                 '<div class="silhouette-gallery">'+cards+'</div><div class="card"><div class="card-header"><span class="card-title">Regras de leitura</span></div><div class="founding-note">Ruby e Sapphire têm um olho; Pearl é alta e esguia; Bismuth e Jasper têm estruturas largas, mas silhuetas distintas; Peridot é compacta; Lapis tem gema nas costas. A categoria Quartz permanece uma base de família, não uma espécie visual única.</div></div>';
-            const main=document.getElementById('silhouette-selected-preview');if(main)drawGemSilhouette(main.getContext('2d'),90,112,.72,{color:selected.color,profile:profile,glow:true});
-            container.querySelectorAll('.silhouette-preview').forEach(canvas=>{const type=canvas.dataset.profile,gem=FOUNDING_GEM_DATA[type];drawGemSilhouette(canvas.getContext('2d'),90,112,.66,{color:gem.color,profile:gemSilhouetteProfile(type),glow:true});});
+            const main=document.getElementById('silhouette-selected-preview');if(main)drawGemSilhouette(main.getContext('2d'),90,112,.62,{color:selected.color,profile:profile,glow:true});
+            container.querySelectorAll('.silhouette-preview').forEach(canvas=>{const type=canvas.dataset.profile,gem=FOUNDING_GEM_DATA[type];drawGemSilhouette(canvas.getContext('2d'),90,112,.62,{color:gem.color,profile:gemSilhouetteProfile(type),glow:true});});
             container.querySelectorAll('[data-silhouette]').forEach(button=>{button.addEventListener('click',()=>selectSilhouettePreview(button.dataset.silhouette));});
         }
         function selectSilhouettePreview(type){if(!FOUNDING_GEM_DATA[type])return;silhouettePreviewSelection=type;const body=document.getElementById('drawer-body');if(body&&state.drawerTab==='silhouettes')renderSilhouetteStudio(body);}
