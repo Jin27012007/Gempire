@@ -865,6 +865,25 @@
             emerald: { name: 'Esmeralda Imperial', hex: '#34d399', glow: '#10b981' }
         };
 
+        const STRUCTURE_CATALOG = [
+            {id:'essence_chamber',name:'Câmara de Extração de Essência',category:'Extração',desc:'Retira essência da reserva interna da Primeira Diamante e a transfere ao estoque conectado ao Injetor.',cost:{minerals:20,tech:0},buildTime:18,prerequisites:[],workers:{peridot:1},interaction:'Transfere essência da Diamante para o estoque da colônia.',maxCount:1},
+            {id:'injector',name:'Injetor',category:'Criação',desc:'Recebe essência da Câmara e substratos minerais para formar novas Gems.',cost:{minerals:35,tech:0},buildTime:28,prerequisites:['essence_chamber'],workers:{peridot:1},interaction:'Abre a produção de Gems por injeção.',maxCount:1},
+            {id:'mineral_extractor',name:'Extrator Mineral',category:'Extração',desc:'Permite que Quartzos extraiam minerais continuamente.',cost:{minerals:25,tech:0},buildTime:20,prerequisites:[],workers:{quartz:1},interaction:'Produção contínua de minerais.',maxCount:3},
+            {id:'workshop',name:'Oficina de Engenharia',category:'Indústria',desc:'Bismutos constroem ferramentas, peças e componentes para instalações avançadas.',cost:{minerals:40,tech:0},buildTime:24,prerequisites:['mineral_extractor'],workers:{bismuth:1},interaction:'Fabrica ferramentas e componentes.',maxCount:2},
+            {id:'refinery',name:'Refinaria',category:'Indústria',desc:'Peridotos e Quartzos processam matérias-primas em materiais refinados.',cost:{minerals:45,tech:0},buildTime:26,prerequisites:['mineral_extractor','workshop'],workers:{peridot:1,quartz:1},interaction:'Converte minerais brutos em materiais refinados.',maxCount:2},
+            {id:'research_center',name:'Centro de Pesquisa',category:'Ciência',desc:'Safiras analisam os processos da colônia e transformam materiais refinados em tecnologia.',cost:{minerals:55,tech:8},buildTime:30,prerequisites:['workshop','refinery'],workers:{sapphire:1,peridot:1},interaction:'Permite desenvolver tecnologias.',maxCount:2},
+            {id:'reactor',name:'Reator de Energia',category:'Energia',desc:'Peridotos operam o reator e mantêm uma reserva energética.',cost:{minerals:65,tech:15},buildTime:32,prerequisites:['refinery'],workers:{peridot:1},interaction:'Gera energia para estruturas dependentes.',maxCount:2},
+            {id:'administration_center',name:'Centro Administrativo',category:'Administração',desc:'Pérolas organizam equipes, prioridades de produção e distribuição de trabalhadores.',cost:{minerals:50,tech:10},buildTime:28,prerequisites:['workshop'],workers:{pearl:1},interaction:'Libera organização da força de trabalho.',maxCount:1},
+            {id:'defense_tower',name:'Torre de Defesa',category:'Defesa',desc:'Rubis operam sistemas de vigilância e proteção das instalações locais.',cost:{minerals:40,tech:5},buildTime:22,prerequisites:['workshop'],workers:{ruby:1},interaction:'Amplia a defesa local.',maxCount:4},
+            {id:'teleporter',name:'Teletransportador',category:'Transporte',desc:'Peridotos e Pérolas sincronizam pontos para deslocar Gems e cargas entre locais conectados.',cost:{minerals:75,tech:30},buildTime:36,prerequisites:['reactor','research_center'],workers:{peridot:1,pearl:1},interaction:'Abre a rede de transporte.',maxCount:3},
+            {id:'shipyard',name:'Estaleiro',category:'Exploração espacial',desc:'Bismutos constroem naves e Peridotos integram seus sistemas.',cost:{minerals:90,tech:40},buildTime:40,prerequisites:['workshop','refinery','reactor'],workers:{bismuth:1,peridot:1},interaction:'Permite construir naves.',maxCount:1},
+            {id:'terraformer',name:'Terraformador',category:'Planetária',desc:'Lápis-Lazúlis controlam água e transformações ambientais; Peridotos mantêm os equipamentos.',cost:{minerals:80,tech:35},buildTime:38,prerequisites:['reactor','research_center'],workers:{lapis:1,peridot:1},interaction:'Desbloqueia intervenções ambientais.',maxCount:1},
+            {id:'shield_generator',name:'Gerador de Escudo',category:'Defesa',desc:'Gera uma barreira planetária operada por Rubis e sustentada por energia.',cost:{minerals:70,tech:25},buildTime:34,prerequisites:['reactor','defense_tower'],workers:{ruby:1,peridot:1},interaction:'Ativa proteção energética.',maxCount:2},
+            {id:'orbital_station',name:'Estação Orbital',category:'Megastruturas',desc:'Plataforma fora da superfície para logística, observação e apoio às naves.',cost:{minerals:150,tech:80},buildTime:60,prerequisites:['shipyard','teleporter','reactor'],workers:{peridot:2,bismuth:1},interaction:'Desbloqueia operações em órbita.',maxCount:1},
+            {id:'planetary_network',name:'Rede Planetária',category:'Megastruturas',desc:'Integra instalações de diferentes regiões em uma infraestrutura coordenada.',cost:{minerals:250,tech:150},buildTime:90,prerequisites:['orbital_station','terraformer','administration_center'],workers:{sapphire:1,pearl:1,peridot:1},interaction:'Coordena operações em escala planetária.',maxCount:1}
+        ];
+        const GEM_ROLE_NAMES = {quartz:'Quartzo · extração mineral',peridot:'Peridoto · engenharia',bismuth:'Bismuto · construção',lapis:'Lápis-Lazúli · terraformação',sapphire:'Safira · análise',ruby:'Rubi · defesa',pearl:'Pérola · administração',jasper:'Jaspe · combate'};
+
         const IMPERIAL_TECHS = [
             { id: 'diamond_drills', name: 'Brocas de Diamante Sintético', cost: 90, desc: '+35% velocidade de perfuração em todos os Injetores sem perder pureza.' },
             { id: 'automated_reefs', name: 'Recifes de Pérolas Automatizados', cost: 110, desc: 'Reduz o consumo de Essência Branca em todas as injeções em 25%.' },
@@ -1114,6 +1133,12 @@
             essence: { white: 0, yellow: 0, blue: 0, pink: 0 },
             minerals: 0,
             tech: 0,
+            energy: 0,
+            refinedMaterials: 0,
+            ships: 0,
+            structures: {},
+            structureAssignments: {},
+            construction: null,
             order: 100,
             founding: {
                 stage: 'setup',
@@ -1122,10 +1147,15 @@
                 gatheredMinerals: { quartz: 0, silicate: 0, corundum: 0, metallic: 0, nacre: 0, jasperrock: 0, olivine: 0, lapisrock: 0 },
                 essenceOutput: 0,
                 activityCount: 0,
-                selectedGem: 'jasper',
+                diamondEssence: 0,
+                gemsCreatedCount: 0,
+                terraformLevel: 0,
+                defenseLevel: 0,
+                selectedGem: 'quartz',
                 creationProgress: 0,
                 creationActive: false,
-                creationTarget: null
+                creationTarget: null,
+                creationSource: 'manual'
             },
             firstGameStarted: false,
 
@@ -1142,9 +1172,11 @@
                 name: 'Primeira Diamante',
                 title: 'A Fundadora',
                 colorKey: 'white',
-                gemCut: 'lozenge',   // 'lozenge' | 'octagon' | 'teardrop' | 'star'
-                gemPos: 'forehead',  // 'forehead' | 'chest' | 'navel'
-                crownStyle: 'radiant', // 'radiant' | 'horns' | 'halo'
+                colorHex: '#f8fafc',
+                gemCut: 'lozenge',
+                bodySilhouette: 'regal',
+                gemPos: 'chest',
+                crownStyle: 'radiant',
                 doctrine: 'perfectionist',
                 currentSpeech: 'Eu sou a luz primordial que deu forma a Homeworld.'
             },
@@ -3673,39 +3705,25 @@
             main.classList.add('hidden');
             panel.classList.remove('hidden');
             const fd = state.firstDiamond;
-            panel.innerHTML = `
-                <div class="game-menu-panel-head"><h2>O Despertar da Primeira Diamante</h2><button class="btn" onclick="renderMenuHome()">Voltar</button></div>
-                <div class="founding-intro">
-                    <div class="founding-note">Antes de existir uma Corte, uma colônia ou qualquer estrutura, existe apenas você e um planeta primitivo. Defina a identidade da fundadora. Sua personalidade influenciará como ela recupera essência através de atividades físicas.</div>
-                    <div><label for="founder-name">Nome da Primeira Diamante</label><input id="founder-name" maxlength="28" value="${escapeHTML(fd.name)}" placeholder="Nome da Diamante"></div>
-                    <div class="founding-grid">
-                        <div><label for="founder-color">Cor / essência predominante</label><select id="founder-color">
-                            ${Object.entries(COLOR_PALETTES).map(([k,v])=>`<option value="${k}" ${fd.colorKey===k?'selected':''}>${v.name}</option>`).join('')}
-                        </select></div>
-                        <div><label for="founder-doctrine">Personalidade</label><select id="founder-doctrine">
-                            <option value="perfectionist" ${fd.doctrine==='perfectionist'?'selected':''}>Perfeccionista</option>
-                            <option value="conqueror" ${fd.doctrine==='conqueror'?'selected':''}>Ativa e conquistadora</option>
-                            <option value="archivist" ${fd.doctrine==='archivist'?'selected':''}>Curiosa e analítica</option>
-                            <option value="lifeseeder" ${fd.doctrine==='lifeseeder'?'selected':''}>Empática e cuidadora</option>
-                        </select></div>
-                    </div>
-                    <div><label>Lapidação do avatar</label><div class="founding-avatar">
-                        <button class="btn ${fd.gemCut==='lozenge'?'active':''}" onclick="setFounderAppearance('gemCut','lozenge')">◇ Losango</button>
-                        <button class="btn ${fd.gemCut==='octagon'?'active':''}" onclick="setFounderAppearance('gemCut','octagon')">⬡ Octogonal</button>
-                        <button class="btn ${fd.gemCut==='teardrop'?'active':''}" onclick="setFounderAppearance('gemCut','teardrop')">◆ Gota</button>
-                        <button class="btn ${fd.gemCut==='star'?'active':''}" onclick="setFounderAppearance('gemCut','star')">✦ Estrela</button>
-                    </div></div>
-                    <div class="founding-grid">
-                        <div><label for="founder-position">Posição da gema</label><select id="founder-position">
-                            <option value="forehead" ${fd.gemPos==='forehead'?'selected':''}>Testa</option><option value="chest" ${fd.gemPos==='chest'?'selected':''}>Peito</option><option value="navel" ${fd.gemPos==='navel'?'selected':''}>Umbigo</option>
-                        </select></div>
-                        <div><label for="founder-crown">Silhueta / adorno</label><select id="founder-crown">
-                            <option value="radiant" ${fd.crownStyle==='radiant'?'selected':''}>Radiante</option><option value="horns" ${fd.crownStyle==='horns'?'selected':''}>Cristas</option><option value="halo" ${fd.crownStyle==='halo'?'selected':''}>Halo</option>
-                        </select></div>
-                    </div>
-                    <button class="btn btn-emerald" onclick="confirmFoundingSetup()">Despertar em Homeworld</button>
-                </div>`;
-            setGameMenuStatus('A história começa com a fundadora, não com um império pronto.');
+            const currentColor = fd.colorHex || COLOR_PALETTES[fd.colorKey]?.hex || '#f8fafc';
+            panel.innerHTML =
+                '<div class="game-menu-panel-head"><h2>O Despertar da Primeira Diamante</h2><button class="btn" onclick="renderMenuHome()">Voltar</button></div>' +
+                '<div class="founding-intro">' +
+                '<div class="founding-note">Você define apenas a identidade da fundadora. Sua personalidade será formada pelas decisões e ações tomadas durante a partida. Ela desperta sem Corte, população ou estruturas.</div>' +
+                '<div><label for="founder-name">Nome da Primeira Diamante</label><input id="founder-name" maxlength="28" value="' + escapeHTML(fd.name) + '" placeholder="Nome da Diamante"></div>' +
+                '<div><label for="founder-color">Cor livre</label><input id="founder-color" type="color" value="' + currentColor + '" aria-label="Cor da Primeira Diamante" style="height:46px;padding:4px;cursor:pointer"></div>' +
+                '<div class="founding-grid">' +
+                '<div><label for="founder-cut">Forma da gema</label><select id="founder-cut">' +
+                '<option value="lozenge" ' + (fd.gemCut==='lozenge'?'selected':'') + '>◇ Losango</option>' +
+                '<option value="octagon" ' + (fd.gemCut==='octagon'?'selected':'') + '>⬡ Octogonal</option>' +
+                '<option value="teardrop" ' + (fd.gemCut==='teardrop'?'selected':'') + '>◆ Gota</option>' +
+                '<option value="star" ' + (fd.gemCut==='star'?'selected':'') + '>✦ Estrela</option></select></div>' +
+                '<div><label for="founder-silhouette">Silhueta corporal</label><select id="founder-silhouette">' +
+                '<option value="regal" ' + (fd.bodySilhouette==='regal'?'selected':'') + '>Regal</option>' +
+                '<option value="slender" ' + (fd.bodySilhouette==='slender'?'selected':'') + '>Esbelta</option>' +
+                '<option value="broad" ' + (fd.bodySilhouette==='broad'?'selected':'') + '>Imponente</option></select></div></div>' +
+                '<button class="btn btn-emerald" onclick="confirmFoundingSetup()">Despertar em Homeworld</button></div>';
+            setGameMenuStatus('A fundadora começa sem personalidade predeterminada e sem infraestrutura.');
         }
 
         function escapeHTML(value) {
@@ -3713,20 +3731,20 @@
         }
 
         function setFounderAppearance(key, value) {
-            if (!['gemCut'].includes(key) || !['lozenge','octagon','teardrop','star'].includes(value)) return;
-            state.firstDiamond[key] = value;
+            if (key === 'gemCut' && ['lozenge','octagon','teardrop','star'].includes(value)) state.firstDiamond.gemCut = value;
+            else if (key === 'bodySilhouette' && ['regal','slender','broad'].includes(value)) state.firstDiamond.bodySilhouette = value;
+            else return;
             showFoundingSetup();
         }
 
         function confirmFoundingSetup() {
             const name = document.getElementById('founder-name')?.value.trim();
-            const color = document.getElementById('founder-color')?.value;
-            const doctrine = document.getElementById('founder-doctrine')?.value;
-            const gemPos = document.getElementById('founder-position')?.value;
-            const crown = document.getElementById('founder-crown')?.value;
+            const colorHex = document.getElementById('founder-color')?.value;
+            const gemCut = document.getElementById('founder-cut')?.value;
+            const bodySilhouette = document.getElementById('founder-silhouette')?.value;
             if (!name) { setGameMenuStatus('Dê um nome à Primeira Diamante.', true); return; }
-            if (!COLOR_PALETTES[color] || !FIRST_DIAMOND_DOCTRINES[doctrine] || !['forehead','chest','navel'].includes(gemPos) || !['radiant','horns','halo'].includes(crown)) return;
-            Object.assign(state.firstDiamond,{name,colorKey:color,doctrine,gemPos,crownStyle:crown,title:'A Fundadora'});
+            if (!/^#[0-9a-fA-F]{6}$/.test(colorHex || '') || !['lozenge','octagon','teardrop','star'].includes(gemCut) || !['regal','slender','broad'].includes(bodySilhouette)) return;
+            Object.assign(state.firstDiamond,{name,colorHex:colorHex.toLowerCase(),gemCut,bodySilhouette,gemPos:'chest',title:'A Fundadora'});
             beginPrimitiveEra();
             startGame();
         }
@@ -3736,12 +3754,22 @@
             state.firstGameStarted = true;
             state.founding.stage = 'gathering';
             state.founding.firstGemCreated = false;
+            state.founding.diamondEssence = 0;
+            state.founding.gemsCreatedCount = 0;
+            state.founding.terraformLevel = 0;
+            state.founding.defenseLevel = 0;
             state.essence = {white:0,yellow:0,blue:0,pink:0};
             state.minerals = 0;
             state.tech = 0;
+            state.energy = 0;
+            state.refinedMaterials = 0;
+            state.ships = 0;
+            state.structures = {};
+            state.structureAssignments = {};
+            state.construction = null;
             state.order = 100;
             state.matriarchs = [];
-            state.census = {quartz:0,peridot:0,lapis:0,sapphire:0,bismuth:0,ruby:0,pearl:0,prime:0,offcolor:0};
+            state.census = {quartz:0,peridot:0,lapis:0,sapphire:0,bismuth:0,ruby:0,pearl:0,jasper:0,prime:0,offcolor:0};
             state.chronicleLog = [{cycle:1,title:'O Primeiro Despertar',desc:`${state.firstDiamond.name} despertou em Homeworld, um mundo primitivo sem população ou estruturas.`,impact:'Início da Era Primitiva'}];
             for (const p of Object.values(PLANETS)) {
                 p.walkingGems = [];
@@ -3754,33 +3782,33 @@
             updateHUD();renderBottomBar();renderDrawerContent();
         }
 
-        function performFounderActivity(activity) {
+        function performFounderActivity() {
             const fd = state.firstDiamond;
-            const doctrines = {
-                perfectionist:{activity:'treino de precisão',gain:7,resource:'white'},
-                conqueror:{activity:'esforço físico intenso',gain:8,resource:'yellow'},
-                archivist:{activity:'exploração e escalada',gain:6,resource:'blue'},
-                lifeseeder:{activity:'movimentos rítmicos e cuidadosos',gain:7,resource:'pink'}
-            };
-            const chosen = doctrines[fd.doctrine] || doctrines.perfectionist;
-            const key = COLOR_PALETTES[fd.colorKey] ? ({white:'white',yellow:'yellow',blue:'blue',pink:'pink',violet:'white',emerald:'pink'}[fd.colorKey]) : chosen.resource;
-            const amount = chosen.gain + Math.min(5,Math.floor(state.founding.activityCount/3));
-            state.essence[key] += amount;
+            const amount = 8 + Math.min(4, Math.floor(state.founding.activityCount / 3));
+            const key = ['white','yellow','blue','pink'].includes(fd.colorKey) ? fd.colorKey : 'white';
+            if (structureIsOperational('essence_chamber')) {
+                state.founding.diamondEssence += amount;
+                setStatusTicker('A Diamante concentrou ' + amount + ' unidades de essência em sua reserva interna. A Câmara fará a transferência.');
+            } else {
+                state.essence[key] += amount;
+                setStatusTicker('A Diamante produziu ' + amount + ' unidades de essência por esforço próprio.');
+            }
             state.founding.essenceOutput += amount;
             state.founding.activityCount++;
             state.founding.stage = 'essence';
-            addChronicle('Essência produzida', `${fd.name} realizou ${chosen.activity} e liberou ${amount} unidades de essência ${key}.`, '+'+amount+' essência');
-            setStatusTicker(`${chosen.activity}: +${amount} essência. A essência é parte da matéria-prima da criação.`);
-            updateHUD();renderDrawerContent();
+            addChronicle('Essência produzida', fd.name + ' realizou uma atividade e produziu ' + amount + ' unidades de essência.', '+' + amount + ' essência');
+            updateHUD(); renderDrawerContent(); renderBottomBar();
         }
 
         const FOUNDING_GEM_DATA = {
-            jasper:{label:'Jaspe',mineral:'jasperrock',color:'#f97316',role:'Soldado e combatente de linha de frente',elements:'Sílica microcristalina (SiO₂) com impurezas e óxidos que geram padrões e cores',mineralName:'Jaspe'},
-            peridot:{label:'Peridoto',mineral:'olivine',color:'#10b981',role:'Engenheira e especialista em tecnologia',elements:'(Mg,Fe)₂SiO₄ — olivina gemológica',mineralName:'Olivina'},
-            sapphire:{label:'Safira',mineral:'corundum',color:'#818cf8',role:'Nobre vidente, ligada a previsões do futuro',elements:'Al₂O₃ com elementos-traço',mineralName:'Coríndon'},
-            ruby:{label:'Rubi',mineral:'corundum',color:'#f43f5e',role:'Guarda e combatente; variação do coríndon',elements:'Al₂O₃ com Cr³⁺ como cromóforo típico',mineralName:'Coríndon'},
-            bismuth:{label:'Bismuto',mineral:'metallic',color:'#facc15',role:'Arquiteta e construtora',elements:'Bi (elemento nativo) / minerais de bismuto',mineralName:'Minério de bismuto'},
-            lapis:{label:'Lápis-Lazúli',mineral:'lapisrock',color:'#38bdf8',role:'Terraformadora e manipuladora de água',elements:'Rocha composta: lazurita, calcita e pirita',mineralName:'Lápis-lazúli'}
+            quartz:{label:'Quartzo',mineral:'quartz',color:'#e2e8f0',role:'Extração mineral e trabalho pesado',elements:'SiO₂ cristalino',mineralName:'Quartzo bruto'},
+            peridot:{label:'Peridoto',mineral:'olivine',color:'#10b981',role:'Engenharia, máquinas e tecnologia',elements:'(Mg,Fe)₂SiO₄ — olivina gemológica',mineralName:'Olivina'},
+            bismuth:{label:'Bismuto',mineral:'metallic',color:'#facc15',role:'Construção de estruturas e instalações',elements:'Bi (elemento nativo) / minerais de bismuto',mineralName:'Minério de bismuto'},
+            lapis:{label:'Lápis-Lazúli',mineral:'lapisrock',color:'#38bdf8',role:'Água, transporte hídrico e terraformação',elements:'Rocha composta: lazurita, calcita e pirita',mineralName:'Lápis-lazúli'},
+            sapphire:{label:'Safira',mineral:'corundum',color:'#818cf8',role:'Análise, previsão e planejamento',elements:'Al₂O₃ com elementos-traço',mineralName:'Coríndon'},
+            ruby:{label:'Rubi',mineral:'corundum',color:'#f43f5e',role:'Defesa e segurança',elements:'Al₂O₃ com Cr³⁺ como cromóforo típico',mineralName:'Coríndon'},
+            pearl:{label:'Pérola',mineral:'nacre',color:'#f5d0fe',role:'Administração, organização e assistência',elements:'Material carbonático de origem biogênica',mineralName:'Sedimento carbonático'},
+            jasper:{label:'Jaspe',mineral:'jasperrock',color:'#f97316',role:'Combate e proteção de linha de frente',elements:'Sílica microcristalina (SiO₂) com impurezas e óxidos',mineralName:'Jaspe bruto'}
         };
 
         function gatherPrimitiveMineral(type) {
@@ -3794,35 +3822,45 @@
         }
 
         function startFirstGemCreation() {
-            const type=state.founding.selectedGem;
-            const gem=FOUNDING_GEM_DATA[type];
-            if(!gem){setStatusTicker('Tipo de Gem ainda não catalogado.',true);return;}
-            if((state.founding.gatheredMinerals[gem.mineral]||0)<1){setStatusTicker('É preciso recolher a rocha compatível primeiro.');return;}
-            const essenceKey=({white:'white',yellow:'yellow',blue:'blue',pink:'pink'}[state.firstDiamond.colorKey]||'white');
-            const essenceCost=12;
-            if(state.essence[essenceKey]<essenceCost){setStatusTicker('A Diamante precisa produzir mais essência antes de criar a Gem.');return;}
+            if (structureCount('injector')) { setStatusTicker('Use a aba Estruturas para produzir Gems pelo Injetor.'); return; }
+            if (state.founding.creationActive) { setStatusTicker('Já existe uma formação em andamento.'); return; }
+            const type = state.founding.selectedGem;
+            const gem = FOUNDING_GEM_DATA[type];
+            if (!gem) { setStatusTicker('Tipo de Gem ainda não catalogado.', true); return; }
+            if ((state.founding.gatheredMinerals[gem.mineral] || 0) < 1) { setStatusTicker('É preciso recolher uma amostra de ' + gem.mineralName + ' primeiro.'); return; }
+            const essenceKey = ['white','yellow','blue','pink'].includes(state.firstDiamond.colorKey) ? state.firstDiamond.colorKey : 'white';
+            if ((state.essence[essenceKey] || 0) < 12) { setStatusTicker('A Diamante precisa produzir mais essência antes de criar a Gem.'); return; }
             state.founding.gatheredMinerals[gem.mineral]--;
-            state.essence[essenceKey]-=essenceCost;
-            state.founding.creationTarget=type;
-            state.founding.creationProgress=0;
-            state.founding.creationActive=true;
-            state.founding.stage='forming';
-            setStatusTicker(`${state.firstDiamond.name} concentra essência nas mãos e começa a comprimir a rocha...`);
-            renderDrawerContent();renderBottomBar();
+            state.essence[essenceKey] -= 12;
+            state.founding.creationTarget = type;
+            state.founding.creationSource = 'manual';
+            state.founding.creationProgress = 0;
+            state.founding.creationActive = true;
+            state.founding.stage = 'forming';
+            setStatusTicker(state.firstDiamond.name + ' está formando uma Gem manualmente, usando essência e substrato mineral.');
+            renderDrawerContent(); renderBottomBar();
         }
 
         function finishFirstGemCreation() {
-            const type=state.founding.creationTarget;
-            const data=FOUNDING_GEM_DATA[type];
-            if(!data || state.founding.firstGemCreated)return;
-            state.founding.creationActive=false;
-            state.founding.firstGemCreated=true;
-            state.founding.stage='first-gem';
-            state.census[type==='jasper'?'quartz':type]++;
-            PLANETS.homeworld.walkingGems.push({caste:type,color:data.color,grade:'A',isOrbiting:false,bubbleText:'✨ Recém-emergida',angle:0.5,dir:1,speed:0.0005,bobPhase:0});
-            addChronicle('A primeira Gem nasceu',`${state.firstDiamond.name} apertou a rocha impregnada com sua essência. Uma ${data.label} emergiu em Homeworld. Função: ${data.role}.`,'Primeira Gem criada');
-            setStatusTicker(`A primeira Gem emergiu: ${data.label}. A partir de agora, ela poderá ajudar na exploração e abrir a próxima etapa da civilização.`);
-            updateHUD();renderDrawerContent();renderBottomBar();
+            const type = state.founding.creationTarget;
+            const data = FOUNDING_GEM_DATA[type];
+            if (!data) return;
+            const isFirst = !state.founding.firstGemCreated;
+            state.founding.creationActive = false;
+            state.founding.firstGemCreated = true;
+            state.founding.gemsCreatedCount = (state.founding.gemsCreatedCount || 0) + 1;
+            state.founding.stage = 'first-gem';
+            state.founding.creationTarget = null;
+            const source = state.founding.creationSource || 'manual';
+            state.founding.creationSource = 'manual';
+            if (!Object.prototype.hasOwnProperty.call(state.census, type)) state.census[type] = 0;
+            state.census[type]++;
+            PLANETS.homeworld.walkingGems.push({caste:type,color:data.color,grade:'A',isOrbiting:false,bubbleText:'✨ Recém-emergida',angle:Math.random()*Math.PI*2,dir:1,speed:0.0005,bobPhase:0});
+            const title = isFirst ? 'A primeira Gem nasceu' : 'Nova Gem nasceu';
+            const description = state.firstDiamond.name + ' formou uma ' + data.label + ' através de ' + (source === 'injector' ? 'um ciclo de injeção' : 'essência e substrato mineral') + '. Função: ' + data.role + '.';
+            addChronicle(title, description, isFirst ? 'Primeira Gem criada' : 'População ampliada');
+            setStatusTicker((isFirst ? 'A primeira Gem emergiu: ' : 'Nova Gem emergiu: ') + data.label + '. Ela já conhece sua função e pode ser designada a uma estrutura.');
+            updateHUD(); renderDrawerContent(); renderBottomBar();
         }
 
         function renderFoundingContext(container) {
