@@ -1160,6 +1160,7 @@
                 essenceOutput: 0,
                 activityCount: 0,
                 diamondEssence: 0,
+                injectorEssence: 0,
                 gemsCreatedCount: 0,
                 terraformLevel: 0,
                 defenseLevel: 0,
@@ -1785,12 +1786,15 @@
         function structureDefinition(id) { return STRUCTURE_CATALOG.find(item => item.id === id); }
         function hasStructurePrerequisites(def) { return (def.prerequisites || []).every(id => structureCount(id) > 0); }
         function totalAssignedWorkers(gemType) {
-            return Object.values(state.structureAssignments || {}).reduce((sum, jobs) => sum + (Number(jobs && jobs[gemType]) || 0), 0);
+            const assignedToStructures = Object.values(state.structureAssignments || {}).reduce((sum, jobs) => sum + (Number(jobs && jobs[gemType]) || 0), 0);
+            const assignedToConstruction = state.construction && state.construction.active && state.construction.builder === gemType ? 1 : 0;
+            return assignedToStructures + assignedToConstruction;
         }
         function freeGemWorkers(gemType) { return Math.max(0, (Number(state.census && state.census[gemType]) || 0) - totalAssignedWorkers(gemType)); }
         function structureIsOperational(id) {
             const def = structureDefinition(id);
             if (!def || structureCount(id) < 1 || !hasStructurePrerequisites(def)) return false;
+            if (id === 'injector' && !structureIsOperational('essence_chamber')) return false;
             return Object.entries(def.workers || {}).every(([type, required]) =>
                 (Number(state.structureAssignments && state.structureAssignments[id] && state.structureAssignments[id][type]) || 0) >= required
             );
@@ -1822,6 +1826,7 @@
             if (missing.length) return 'Requer: ' + missing.map(id => structureDefinition(id).name).join(', ');
             if (state.minerals < (def.cost.minerals || 0)) return 'Minerais insuficientes.';
             if (state.tech < (def.cost.tech || 0)) return 'Tecnologia insuficiente.';
+            if (freeGemWorkers('bismuth') < 1) return 'Requer uma Bismuto livre para executar a construção.';
             return '';
         }
         function buildStructure(id) {
@@ -1831,7 +1836,7 @@
             if (reason) { setStatusTicker(reason, true); return; }
             state.minerals -= def.cost.minerals || 0;
             state.tech -= def.cost.tech || 0;
-            state.construction = {id:id,progress:0,active:true};
+            state.construction = {id:id,progress:0,active:true,builder:'bismuth'};
             setStatusTicker('Construção iniciada: ' + def.name + '.');
             addChronicle('Construção iniciada', def.name + ' está sendo construída em Homeworld.', 'Infraestrutura em desenvolvimento');
             updateStructureUI();
@@ -1856,9 +1861,9 @@
             if (!gem) return;
             if ((state.founding.gatheredMinerals[gem.mineral] || 0) < 1) { setStatusTicker('O Injetor precisa de uma amostra de ' + gem.mineralName + '.'); return; }
             const essenceKey = ['white','yellow','blue','pink'].includes(state.firstDiamond.colorKey) ? state.firstDiamond.colorKey : 'white';
-            if ((state.essence[essenceKey] || 0) < 12) { setStatusTicker('A Câmara ainda não transferiu 12 unidades de essência para o estoque.'); return; }
+            if ((state.founding.injectorEssence || 0) < 12) { setStatusTicker('A Câmara ainda não transferiu 12 unidades de essência ao reservatório do Injetor.'); return; }
             state.founding.gatheredMinerals[gem.mineral]--;
-            state.essence[essenceKey] -= 12;
+            state.founding.injectorEssence -= 12;
             state.founding.creationTarget = type;
             state.founding.creationSource = 'injector';
             state.founding.creationProgress = 0;
@@ -1949,9 +1954,8 @@
             }
             if (structureIsOperational('essence_chamber') && Number(state.founding.diamondEssence) > 0) {
                 const moved = Math.min(state.founding.diamondEssence, dt * 0.5);
-                const key = ['white','yellow','blue','pink'].includes(state.firstDiamond.colorKey) ? state.firstDiamond.colorKey : 'white';
                 state.founding.diamondEssence -= moved;
-                state.essence[key] += moved;
+                state.founding.injectorEssence = (Number(state.founding.injectorEssence) || 0) + moved;
             }
             if (structureIsOperational('mineral_extractor')) state.minerals += dt * 0.3;
             if (structureIsOperational('reactor')) state.energy += dt * 0.35;
@@ -2001,7 +2005,7 @@
                         if (def.id === 'injector') {
                             html += '<label class="stat-label" for="injector-gem-select">Tipo de Gem</label><select id="injector-gem-select" style="width:100%" onchange="state.founding.selectedGem=this.value;renderDrawerContent()">';
                             Object.entries(FOUNDING_GEM_DATA).forEach(([key,g]) => { html += '<option value="' + key + '" ' + (state.founding.selectedGem === key ? 'selected' : '') + '>' + g.label + '</option>'; });
-                            html += '</select><div class="founding-note">O Injetor consome 12 unidades de essência e uma amostra mineral compatível. A Câmara precisa estar operacional e conectada.</div>' +
+                            html += '</select><div class="founding-note">O Injetor consome 12 unidades de essência transferidas pela Câmara e uma amostra mineral compatível. Recebida: ' + (state.founding.injectorEssence || 0).toFixed(1) + ' / 12 unidades.</div>' +
                                 '<button class="btn btn-emerald btn-block" onclick="startInjectorProduction()" ' + (!structureIsOperational('injector') || state.founding.creationActive ? 'disabled' : '') + '>💎 Iniciar ciclo de injeção</button>';
                         } else if (['workshop','refinery','research_center','shipyard','terraformer','defense_tower','shield_generator','teleporter','administration_center','reactor','orbital_station','planetary_network'].includes(def.id)) {
                             const labels = {workshop:'🔧 Fabricar componentes',refinery:'⚗️ Refinar materiais',research_center:'🔬 Pesquisar',shipyard:'🚀 Construir nave',terraformer:'🌊 Terraformar',defense_tower:'🛡️ Calibrar defesa',shield_generator:'🔰 Ativar escudo',teleporter:'🌀 Sincronizar teletransporte',administration_center:'📋 Organizar equipes',reactor:'⚡ Verificar reator',orbital_station:'🛰️ Iniciar operação orbital',planetary_network:'🌐 Expandir rede planetária'};
@@ -3990,6 +3994,7 @@
             state.founding.stage = 'gathering';
             state.founding.firstGemCreated = false;
             state.founding.diamondEssence = 0;
+            state.founding.injectorEssence = 0;
             state.founding.gemsCreatedCount = 0;
             state.founding.terraformLevel = 0;
             state.founding.defenseLevel = 0;
@@ -4116,7 +4121,7 @@
                 '<div class="card"><div class="card-header"><span class="card-title title-font">⛏️ Exploração manual</span></div><div class="founding-note">A Primeira Diamante recolhe amostras diretamente dos afloramentos. Cada tipo de Gem exige um substrato compatível.</div>' + mineralCards + '</div>' +
                 '<div class="card"><div class="card-header"><span class="card-title title-font">✨ Essência da Diamante</span></div>' +
                 '<div class="founding-note">A atividade física produz essência. Antes de a Câmara estar operacional, ela pode ser usada diretamente; depois, a reserva interna é transferida pela Câmara para o estoque.</div>' +
-                '<div class="stat-box">Essência armazenada: <b>' + Object.values(state.essence).reduce((a,b)=>a+b,0).toFixed(1) + '</b> · Reserva interna: <b>' + (found.diamondEssence || 0).toFixed(1) + '</b></div>' +
+                '<div class="stat-box">Essência armazenada: <b>' + Object.values(state.essence).reduce((a,b)=>a+b,0).toFixed(1) + '</b> · Reserva interna da Diamante: <b>' + (found.diamondEssence || 0).toFixed(1) + '</b> · Recebida pelo Injetor: <b>' + (found.injectorEssence || 0).toFixed(1) + '</b></div>' +
                 '<button class="btn btn-pink btn-block" onclick="performFounderActivity()">💪 Realizar atividade física e produzir essência</button></div>' +
                 '<div class="card"><div class="card-header"><span class="card-title title-font">💎 Formação manual de Gems</span></div>' +
                 (hasInjector ? '<div class="founding-note">O Injetor já foi construído. Use a aba Estruturas para iniciar novos ciclos de produção.</div>' :
@@ -4254,6 +4259,7 @@
                 Object.assign(state, data.state);
                 if (!state.founding) state.founding = {stage:'legacy',firstGemCreated:true,mineralSamples:{},gatheredMinerals:{},essenceOutput:0,activityCount:0,diamondEssence:0,gemsCreatedCount:0,selectedGem:'quartz',creationProgress:0,creationActive:false,creationTarget:null,creationSource:'manual'};
                 state.founding.diamondEssence = Number(state.founding.diamondEssence) || 0;
+                state.founding.injectorEssence = Number(state.founding.injectorEssence) || 0;
                 state.founding.gemsCreatedCount = Number(state.founding.gemsCreatedCount) || 0;
                 state.founding.selectedGem = state.founding.selectedGem || 'quartz';
                 state.structures = state.structures || {};
