@@ -1150,7 +1150,8 @@
                     { type: 'silicate', label: 'Silicato Verde Esmeralda', purity: 96 }
                 ]),
                 emergedHoles: [],
-                organicLifePopulation: 0,
+                organicLifePopulation: null,
+                organicLifePresent: true,
                 walkingGems: []
             }
         };
@@ -3929,12 +3930,14 @@
 
         function getPlanetVisualStats(planet){
             const gemCount=Array.isArray(planet.walkingGems)?planet.walkingGems.length:0;
+            const organicLifeKnown=planet.organicLifePopulation!==null&&planet.organicLifePopulation!==undefined;
             const organicLife=Math.max(0,Math.floor(Number(planet.organicLifePopulation??planet.organicLifeCount??0)||0));
+            const organicLifePresent=!!planet.organicLifePresent||organicLife>0;
             let infrastructure=0;
             if(planet.id==='homeworld') infrastructure=STRUCTURE_CATALOG.reduce((sum,def)=>sum+structureCount(def.id),0);
             else infrastructure=Math.max(0,Number(planet.spireCount)||0)+Math.max(0,Number(planet.spiresCount)||0)+Math.max(0,Number(planet.warpPadsCount)||0)+Math.max(0,Number(planet.thermalSinks)||0)+(planet.hasOrbitalRing?2:0);
             const progress=planet.colonized?Math.round(Math.min(60,gemCount*5)+Math.min(40,infrastructure*(40/15))):0;
-            return {gemCount,organicLife,infrastructure,progress:Math.max(0,Math.min(100,progress)),stage:Math.min(4,Math.floor(progress/25))};
+            return {gemCount,organicLife,organicLifeKnown,organicLifePresent,infrastructure,progress:Math.max(0,Math.min(100,progress)),stage:Math.min(4,Math.floor(progress/25))};
         }
 
         function drawPlanetDebris(planet,cx,cy,radius,time,camera,stage,front){
@@ -3945,7 +3948,7 @@
             for(let i=0;i<count;i++){
                 const a=time*(.000035+i%3*.000008)+i*2.399963229728653+camera.rotation*.12,isFront=Math.sin(a)>0;
                 if(isFront!==front)continue;
-                const orbit=radius*(1.34+(i%5)*.105),x=Math.cos(a)*orbit,y=Math.sin(a)*orbit*.36,sz=radius*(.018+(i%4)*.005)*(stage>=3?1.22:1);
+                const orbit=radius*(1.18+(i%5)*.05),x=Math.cos(a)*orbit,y=Math.sin(a)*orbit*.36,sz=radius*(.018+(i%4)*.005)*(stage>=3?1.22:1);
                 ctx.save();ctx.translate(x,y);ctx.rotate(a*.7+i);ctx.shadowColor=stage>=2?'rgba(125,211,252,.28)':'transparent';ctx.shadowBlur=stage>=2?7:0;
                 const c=[planet.colors.continent,planet.colors.mantle,planet.colors.primary,'#64748b'][i%4]||'#64748b';
                 drawPolygon([[-sz*.7,-sz*.2],[-sz*.25,-sz],[sz*.55,-sz*.58],[sz,.08*sz],[sz*.12,sz*.8],[-sz*.72,sz*.35]],c,'rgba(226,232,240,.5)',Math.max(.7,radius*.002));
@@ -3963,7 +3966,9 @@
             ctx.textAlign='left';ctx.font='9px Segoe UI';ctx.fillStyle='#94a3b8';ctx.fillText('COLONIZAÇÃO',x+11,y+35);
             ctx.fillStyle='rgba(71,85,105,.62)';ctx.fillRect(x+11,y+44,w-22,5);ctx.fillStyle=stats.progress>=75?'#c4b5fd':stats.progress>=25?'#38bdf8':'#64748b';ctx.fillRect(x+11,y+44,(w-22)*stats.progress/100,5);
             ctx.font='10px Segoe UI';ctx.fillStyle='#cbd5e1';ctx.textAlign='left';ctx.fillText('Gems no local',x+11,y+67);ctx.textAlign='right';ctx.font='bold 11px Segoe UI';ctx.fillStyle='#e9d5ff';ctx.fillText(String(stats.gemCount),x+w-11,y+67);
-            ctx.textAlign='left';ctx.font='10px Segoe UI';ctx.fillStyle='#cbd5e1';ctx.fillText('Vida orgânica',x+11,y+86);ctx.textAlign='right';ctx.font='bold 10px Segoe UI';ctx.fillStyle=stats.organicLife>0?'#86efac':'#94a3b8';ctx.fillText(stats.organicLife>0?stats.organicLife.toLocaleString('pt-BR'):'Ausente',x+w-11,y+86);
+            ctx.textAlign='left';ctx.font='10px Segoe UI';ctx.fillStyle='#cbd5e1';ctx.fillText('Vida orgânica',x+11,y+86);ctx.textAlign='right';ctx.font='bold 10px Segoe UI';ctx.fillStyle=stats.organicLifePresent?'#86efac':'#94a3b8';
+            const organicLabel=stats.organicLifeKnown?stats.organicLife.toLocaleString('pt-BR'):(stats.organicLifePresent?'Não censada':'Ausente');
+            ctx.fillText(organicLabel,x+w-11,y+86);
             const names=['Intacto','Primeiras fissuras','Crosta fraturada','Fragmentação','Mundo estilhaçado'];
             ctx.textAlign='left';ctx.font='bold 9px Segoe UI';ctx.fillStyle='#f8fafc';ctx.fillText('ESTÁGIO '+stats.stage+'/4',x+11,y+111);ctx.textAlign='right';ctx.font='9px Segoe UI';ctx.fillStyle='#94a3b8';ctx.fillText(names[stats.stage],x+w-11,y+111);
             ctx.restore();
