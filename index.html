@@ -1189,7 +1189,7 @@
                 bodySilhouette: 'regal',
                 gemPos: 'chest',
                 crownStyle: 'radiant',
-                doctrine: 'perfectionist',
+                doctrine: 'emergent',
                 currentSpeech: 'Eu sou a luz primordial que deu forma a Homeworld.'
             },
 
@@ -1712,7 +1712,7 @@
             const bar = document.getElementById('bottom-bar');
             if (!bar) return;
 
-            if (state.firstGameStarted && !state.founding.firstGemCreated) {
+            if (state.firstGameStarted && (!state.founding.firstGemCreated || !structureCount('injector'))) {
                 bar.innerHTML = `<span style="font-size:11px;color:#cbd5e1">Era Primitiva · A primeira Gem ainda não nasceu</span><button class="btn" onclick="toggleHideUI()">👁️ Ocultar UI</button>`;
             } else if (state.currentScreen === 'throne') {
                 bar.innerHTML = `
@@ -1780,11 +1780,251 @@
         }
 
         // 10A. Contexto da Câmara do Trono
+
+        function structureCount(id) { return Math.max(0, Number(state.structures && state.structures[id]) || 0); }
+        function structureDefinition(id) { return STRUCTURE_CATALOG.find(item => item.id === id); }
+        function hasStructurePrerequisites(def) { return (def.prerequisites || []).every(id => structureCount(id) > 0); }
+        function totalAssignedWorkers(gemType) {
+            return Object.values(state.structureAssignments || {}).reduce((sum, jobs) => sum + (Number(jobs && jobs[gemType]) || 0), 0);
+        }
+        function freeGemWorkers(gemType) { return Math.max(0, (Number(state.census && state.census[gemType]) || 0) - totalAssignedWorkers(gemType)); }
+        function structureIsOperational(id) {
+            const def = structureDefinition(id);
+            if (!def || structureCount(id) < 1 || !hasStructurePrerequisites(def)) return false;
+            return Object.entries(def.workers || {}).every(([type, required]) =>
+                (Number(state.structureAssignments && state.structureAssignments[id] && state.structureAssignments[id][type]) || 0) >= required
+            );
+        }
+        function assignGemToStructure(id, gemType) {
+            const def = structureDefinition(id);
+            if (!def || structureCount(id) < 1 || !def.workers || !def.workers[gemType]) return;
+            if (!state.structureAssignments[id]) state.structureAssignments[id] = {};
+            const jobs = state.structureAssignments[id];
+            const current = Number(jobs[gemType]) || 0;
+            if (current >= def.workers[gemType]) { setStatusTicker('Esta estrutura já possui todos os operadores dessa função.'); return; }
+            if (freeGemWorkers(gemType) < 1) { setStatusTicker('Não há Gems livres dessa função. Crie outra Gem ou libere uma equipe.'); return; }
+            jobs[gemType] = current + 1;
+            setStatusTicker((GEM_ROLE_NAMES[gemType] || gemType) + ' designado para ' + def.name + '.');
+            updateStructureUI();
+        }
+        function unassignGemFromStructure(id, gemType) {
+            const jobs = state.structureAssignments[id];
+            if (!jobs || !(jobs[gemType] > 0)) return;
+            jobs[gemType]--;
+            setStatusTicker('Gem liberada da estrutura.');
+            updateStructureUI();
+        }
+        function canBuildStructure(def) {
+            if (!state.firstGameStarted || !state.founding || !state.founding.firstGemCreated) return 'A primeira Gem precisa nascer antes da construção.';
+            if (state.construction && state.construction.active) return 'Conclua a construção atual primeiro.';
+            if (structureCount(def.id) >= (def.maxCount || 1)) return 'Limite desta estrutura atingido.';
+            const missing = (def.prerequisites || []).filter(id => structureCount(id) < 1);
+            if (missing.length) return 'Requer: ' + missing.map(id => structureDefinition(id).name).join(', ');
+            if (state.minerals < (def.cost.minerals || 0)) return 'Minerais insuficientes.';
+            if (state.tech < (def.cost.tech || 0)) return 'Tecnologia insuficiente.';
+            return '';
+        }
+        function buildStructure(id) {
+            const def = structureDefinition(id);
+            if (!def) return;
+            const reason = canBuildStructure(def);
+            if (reason) { setStatusTicker(reason, true); return; }
+            state.minerals -= def.cost.minerals || 0;
+            state.tech -= def.cost.tech || 0;
+            state.construction = {id:id,progress:0,active:true};
+            setStatusTicker('Construção iniciada: ' + def.name + '.');
+            addChronicle('Construção iniciada', def.name + ' está sendo construída em Homeworld.', 'Infraestrutura em desenvolvimento');
+            updateStructureUI();
+        }
+        function finishStructureConstruction() {
+            const job = state.construction;
+            if (!job || !job.active) return;
+            const def = structureDefinition(job.id);
+            if (def) {
+                state.structures[def.id] = structureCount(def.id) + 1;
+                addChronicle('Estrutura concluída', def.name + ' foi concluída. ' + def.interaction, 'Aguardando operadores');
+                setStatusTicker(def.name + ' concluída. Designe Gems com a função adequada para operá-la.');
+            }
+            state.construction = null;
+            updateStructureUI();
+        }
+        function startInjectorProduction() {
+            if (!structureIsOperational('injector')) { setStatusTicker('O Injetor precisa estar construído e receber um Peridoto operador.', true); return; }
+            if (state.founding.creationActive) { setStatusTicker('Já existe um ciclo de formação em andamento.'); return; }
+            const type = state.founding.selectedGem;
+            const gem = FOUNDING_GEM_DATA[type];
+            if (!gem) return;
+            if ((state.founding.gatheredMinerals[gem.mineral] || 0) < 1) { setStatusTicker('O Injetor precisa de uma amostra de ' + gem.mineralName + '.'); return; }
+            const essenceKey = ['white','yellow','blue','pink'].includes(state.firstDiamond.colorKey) ? state.firstDiamond.colorKey : 'white';
+            if ((state.essence[essenceKey] || 0) < 12) { setStatusTicker('A Câmara ainda não transferiu 12 unidades de essência para o estoque.'); return; }
+            state.founding.gatheredMinerals[gem.mineral]--;
+            state.essence[essenceKey] -= 12;
+            state.founding.creationTarget = type;
+            state.founding.creationSource = 'injector';
+            state.founding.creationProgress = 0;
+            state.founding.creationActive = true;
+            state.founding.stage = 'injecting';
+            setStatusTicker('Injeção iniciada: o Injetor está combinando essência e substrato mineral.');
+            updateStructureUI();
+        }
+        function executeStructureInteraction(id) {
+            if (!structureIsOperational(id)) { setStatusTicker('A estrutura precisa de operadores disponíveis para executar essa interação.', true); return; }
+            switch (id) {
+                case 'workshop':
+                    if (state.minerals < 20) { setStatusTicker('A Oficina exige 20 minerais brutos.'); return; }
+                    state.minerals -= 20; state.refinedMaterials += 5;
+                    setStatusTicker('A Oficina fabricou 5 componentes refinados.');
+                    break;
+                case 'refinery':
+                    if (state.minerals < 30) { setStatusTicker('A Refinaria exige 30 minerais brutos.'); return; }
+                    state.minerals -= 30; state.refinedMaterials += 12;
+                    setStatusTicker('A Refinaria converteu 30 minerais em 12 materiais refinados.');
+                    break;
+                case 'research_center':
+                    if (state.refinedMaterials < 5) { setStatusTicker('A pesquisa exige 5 materiais refinados.'); return; }
+                    state.refinedMaterials -= 5; state.tech += 10;
+                    setStatusTicker('A Safira concluiu uma análise: +10 tecnologia.');
+                    addChronicle('Pesquisa concluída', 'Uma Safira analisou materiais refinados e ampliou o conhecimento tecnológico.', '+10 tecnologia');
+                    break;
+                case 'shipyard':
+                    if (state.minerals < 60 || state.refinedMaterials < 10) { setStatusTicker('Construir uma nave exige 60 minerais e 10 materiais refinados.'); return; }
+                    state.minerals -= 60; state.refinedMaterials -= 10; state.ships = (state.ships || 0) + 1;
+                    setStatusTicker('Uma nave foi construída e adicionada à frota.');
+                    addChronicle('Nova nave', 'O estaleiro concluiu uma nave para exploração e transporte.', 'Frota ampliada');
+                    break;
+                case 'terraformer':
+                    state.founding.terraformLevel = (state.founding.terraformLevel || 0) + 1;
+                    PLANETS.homeworld.colors.atmosphere = 'rgba(56, 189, 248, ' + Math.min(0.5,0.12 + state.founding.terraformLevel * 0.04) + ')';
+                    PLANETS.homeworld.colors.ocean = state.founding.terraformLevel > 2 ? '#164e63' : '#172b3a';
+                    setStatusTicker('O Lápis-Lazúli iniciou uma etapa de terraformação em Homeworld.');
+                    addChronicle('Terraformação', 'A equipe de terraformação modificou gradualmente as condições ambientais de Homeworld.', 'Nível ' + state.founding.terraformLevel);
+                    break;
+                case 'defense_tower':
+                    state.founding.defenseLevel = (state.founding.defenseLevel || 0) + 1;
+                    setStatusTicker('A torre foi calibrada. Defesa local: nível ' + state.founding.defenseLevel + '.');
+                    break;
+                case 'shield_generator':
+                    if (state.energy < 5) { setStatusTicker('O escudo exige 5 unidades de energia armazenada.'); return; }
+                    state.energy -= 5; state.founding.shieldActive = true;
+                    setStatusTicker('Escudo energético ativado em Homeworld.');
+                    break;
+                case 'teleporter':
+                    state.founding.teleporterNetwork = true;
+                    setStatusTicker('O ponto foi sincronizado. Conexões entre colônias serão habilitadas quando houver outro mundo colonizado.');
+                    break;
+                case 'administration_center':
+                    state.founding.administrationLevel = (state.founding.administrationLevel || 0) + 1;
+                    setStatusTicker('A Pérola reorganizou as equipes e ampliou a capacidade administrativa.');
+                    break;
+                case 'reactor':
+                    setStatusTicker('O reator está fornecendo energia continuamente enquanto houver um Peridoto designado.');
+                    break;
+                case 'orbital_station':
+                    state.founding.orbitalLevel = (state.founding.orbitalLevel || 0) + 1;
+                    setStatusTicker('A estação orbital iniciou sua primeira operação de observação.');
+                    break;
+                case 'planetary_network':
+                    state.founding.planetaryNetworkLevel = (state.founding.planetaryNetworkLevel || 0) + 1;
+                    setStatusTicker('A rede planetária foi sincronizada. Instalações conectadas podem compartilhar operações.');
+                    break;
+                case 'mineral_extractor':
+                    setStatusTicker('O extrator está trabalhando automaticamente enquanto houver um Quartzo designado.');
+                    break;
+                case 'essence_chamber':
+                    setStatusTicker('A Câmara está transferindo essência da Diamante para o estoque da colônia.');
+                    break;
+                case 'injector':
+                    setStatusTicker('Selecione um substrato e inicie um ciclo de injeção.');
+                    break;
+                default:
+                    setStatusTicker('A estrutura está operacional.');
+            }
+            updateHUD(); renderDrawerContent(); renderBottomBar();
+        }
+        function updateStructureSimulation(dt) {
+            if (state.construction && state.construction.active) {
+                const def = structureDefinition(state.construction.id);
+                state.construction.progress = Math.min(100, state.construction.progress + dt * 100 / Math.max(1, def ? def.buildTime : 20));
+                if (state.construction.progress >= 100) finishStructureConstruction();
+            }
+            if (structureIsOperational('essence_chamber') && Number(state.founding.diamondEssence) > 0) {
+                const moved = Math.min(state.founding.diamondEssence, dt * 0.5);
+                const key = ['white','yellow','blue','pink'].includes(state.firstDiamond.colorKey) ? state.firstDiamond.colorKey : 'white';
+                state.founding.diamondEssence -= moved;
+                state.essence[key] += moved;
+            }
+            if (structureIsOperational('mineral_extractor')) state.minerals += dt * 0.3;
+            if (structureIsOperational('reactor')) state.energy += dt * 0.35;
+        }
+        function updateStructureUI() {
+            updateHUD(); renderDrawerContent(); renderBottomBar();
+        }
+
+
+        function renderStructuresTab(container) {
+            if (!state.firstGameStarted) {
+                container.innerHTML = '<div class="card"><b>Catálogo de Estruturas</b><p>Inicie uma civilização para revelar os requisitos de construção.</p></div>';
+                return;
+            }
+            const totalBuilt = STRUCTURE_CATALOG.reduce((n,def) => n + structureCount(def.id),0);
+            const construction = state.construction && state.construction.active ? structureDefinition(state.construction.id) : null;
+            const categories = Array.from(new Set(STRUCTURE_CATALOG.map(def => def.category)));
+            let html = '<div class="card card-cyan"><div class="card-header"><span class="card-title title-font">🏗️ Catálogo de Estruturas</span><span class="badge">' + totalBuilt + ' construídas</span></div>' +
+                '<p class="structure-desc">As instalações formam cadeias de dependência. Construir não significa operar: cada estrutura exige seus operadores naturais, recursos e pré-requisitos.</p>' +
+                '<div class="grid-2"><div class="stat-box">Minerais: <b>' + Math.floor(state.minerals) + '</b></div><div class="stat-box">Tecnologia: <b>' + Math.floor(state.tech) + '</b></div><div class="stat-box">Refinados: <b>' + Math.floor(state.refinedMaterials || 0) + '</b></div><div class="stat-box">Energia: <b>' + (state.energy || 0).toFixed(1) + '</b></div></div>';
+            if (construction) html += '<div class="stat-box"><b>Construindo: ' + construction.name + '</b><div class="founding-progress"><div style="width:' + state.construction.progress + '%"></div></div><small>' + Math.floor(state.construction.progress) + '% · ' + construction.buildTime + 's de trabalho</small></div>';
+            else html += '<div class="founding-note">Nenhuma construção em andamento. As primeiras instalações podem ser erguidas manualmente.</div>';
+            html += '</div>';
+            categories.forEach(category => {
+                html += '<div class="structure-category"><div class="card-header"><b>' + category + '</b></div>';
+                STRUCTURE_CATALOG.filter(def => def.category === category).forEach(def => {
+                    const count = structureCount(def.id);
+                    const reason = canBuildStructure(def);
+                    const prereqs = def.prerequisites.length ? def.prerequisites.map(id => structureDefinition(id).name).join(' + ') : 'Nenhuma';
+                    const costText = (def.cost.minerals || 0) + ' minerais' + ((def.cost.tech || 0) ? ' · ' + def.cost.tech + ' tecnologia' : '');
+                    html += '<div class="card structure-card"><div class="card-header"><span class="card-title">' + def.name + '</span><span class="badge">' + (count ? 'Construída × ' + count : 'Catálogo') + '</span></div>' +
+                        '<p class="structure-desc">' + def.desc + '</p><div class="structure-meta"><span>Pré-requisitos: ' + prereqs + '</span><span>Custo: ' + costText + '</span></div>' +
+                        '<div class="structure-interaction">Desbloqueia: ' + def.interaction + '</div>';
+                    if (count > 0) {
+                        html += '<div class="structure-status ' + (structureIsOperational(def.id) ? 'is-operational' : 'is-idle') + '">' +
+                            (structureIsOperational(def.id) ? '● Operacional' : '● Construída · aguardando operadores') + '</div><div class="structure-jobs">';
+                        const workerTypes = Object.entries(def.workers || {});
+                        if (!workerTypes.length) html += '<small>Não exige operadores.</small>';
+                        workerTypes.forEach(([type,need]) => {
+                            const assigned = Number(state.structureAssignments[def.id] && state.structureAssignments[def.id][type]) || 0;
+                            const free = freeGemWorkers(type);
+                            html += '<div class="job-row"><span>' + (GEM_ROLE_NAMES[type] || type) + ': <b>' + assigned + '/' + need + '</b> · livres: ' + free + '</span><span>' +
+                                '<button class="btn" style="padding:2px 6px" onclick="unassignGemFromStructure(\'' + def.id + '\',\'' + type + '\')" ' + (assigned < 1 ? 'disabled' : '') + '>−</button>' +
+                                '<button class="btn" style="padding:2px 6px" onclick="assignGemToStructure(\'' + def.id + '\',\'' + type + '\')" ' + (assigned >= need || free < 1 ? 'disabled' : '') + '>+</button></span></div>';
+                        });
+                        html += '</div>';
+                        if (def.id === 'injector') {
+                            html += '<label class="stat-label" for="injector-gem-select">Tipo de Gem</label><select id="injector-gem-select" style="width:100%" onchange="state.founding.selectedGem=this.value;renderDrawerContent()">';
+                            Object.entries(FOUNDING_GEM_DATA).forEach(([key,g]) => { html += '<option value="' + key + '" ' + (state.founding.selectedGem === key ? 'selected' : '') + '>' + g.label + '</option>'; });
+                            html += '</select><div class="founding-note">O Injetor consome 12 unidades de essência e uma amostra mineral compatível. A Câmara precisa estar operacional e conectada.</div>' +
+                                '<button class="btn btn-emerald btn-block" onclick="startInjectorProduction()" ' + (!structureIsOperational('injector') || state.founding.creationActive ? 'disabled' : '') + '>💎 Iniciar ciclo de injeção</button>';
+                        } else if (['workshop','refinery','research_center','shipyard','terraformer','defense_tower','shield_generator','teleporter','administration_center','reactor','orbital_station','planetary_network'].includes(def.id)) {
+                            const labels = {workshop:'🔧 Fabricar componentes',refinery:'⚗️ Refinar materiais',research_center:'🔬 Pesquisar',shipyard:'🚀 Construir nave',terraformer:'🌊 Terraformar',defense_tower:'🛡️ Calibrar defesa',shield_generator:'🔰 Ativar escudo',teleporter:'🌀 Sincronizar teletransporte',administration_center:'📋 Organizar equipes',reactor:'⚡ Verificar reator',orbital_station:'🛰️ Iniciar operação orbital',planetary_network:'🌐 Expandir rede planetária'};
+                            html += '<button class="btn btn-block" onclick="executeStructureInteraction(\'' + def.id + '\')" ' + (!structureIsOperational(def.id) ? 'disabled' : '') + '>' + labels[def.id] + '</button>';
+                        } else if (def.id === 'mineral_extractor') html += '<div class="founding-note">Produz minerais continuamente enquanto houver um Quartzo designado.</div>';
+                        else if (def.id === 'essence_chamber') html += '<div class="founding-note">Transfere até 0,5 essência por segundo da reserva interna da Diamante para o estoque.</div>';
+                    } else {
+                        html += '<div class="structure-locked">' + (reason || 'Disponível para construção.') + '</div>' +
+                            '<button class="btn btn-block" onclick="buildStructure(\'' + def.id + '\')" ' + (reason ? 'disabled' : '') + '>🏗️ Construir · ' + costText + ' · ' + def.buildTime + 's</button>';
+                    }
+                    html += '</div>';
+                });
+                html += '</div>';
+            });
+            container.innerHTML = html;
+        }
+
+
         function renderThroneContext(container) {
             if (!state.activePetition) state.activePetition = generateProceduralPetition();
             const pet = state.activePetition;
             const admin = getAdminStats();
-            const doc = FIRST_DIAMOND_DOCTRINES[state.firstDiamond.doctrine];
+            const doc = null;
 
             const matriarchsList = state.matriarchs.length === 0
                 ? `<div class="stat-box" style="color:var(--text-muted);">
@@ -1817,7 +2057,7 @@
                         <button class="btn btn-pink" onclick="openDrawerDynasty()">🎨 Customizar</button>
                     </div>
                     <div class="stat-box" style="display:flex; justify-content:space-between;">
-                        <span>Doutrina: <b style="color:#fde047">${doc.name}</b></span>
+                        <span>Personalidade: <b style="color:#fde047">em formação</b></span>
                         <span>ADM: <b style="color:${admin.overload > 0 ? '#fb7185' : '#6ee7b7'}">${admin.colonizedCount}/${admin.maxCap} Colônias</b></span>
                     </div>
                 </div>
@@ -2195,12 +2435,8 @@
                     </div>
                     <div class="grid-2">
                         <div>
-                            <span class="stat-label">Cor da Luz</span>
-                            <select onchange="state.firstDiamond.colorKey=this.value; renderDrawerContent();">
-                                ${Object.entries(COLOR_PALETTES).map(([k, pal]) => `
-                                    <option value="${k}" ${fd.colorKey === k ? 'selected' : ''}>${pal.name}</option>
-                                `).join('')}
-                            </select>
+                            <span class="stat-label">Cor livre</span>
+                            <input type="color" value="${fd.colorHex || COLOR_PALETTES[fd.colorKey]?.hex || '#f8fafc'}" oninput="state.firstDiamond.colorHex=this.value; renderDrawerContent();" aria-label="Cor da Primeira Diamante">
                         </div>
                         <div>
                             <span class="stat-label">Lapidação da Pedra</span>
@@ -2212,30 +2448,13 @@
                             </select>
                         </div>
                         <div>
-                            <span class="stat-label">Posição da Pedra</span>
-                            <select onchange="state.firstDiamond.gemPos=this.value;">
-                                <option value="forehead" ${fd.gemPos === 'forehead' ? 'selected' : ''}>Testa (Onisciência)</option>
-                                <option value="chest" ${fd.gemPos === 'chest' ? 'selected' : ''}>Peito (Soberania)</option>
-                                <option value="navel" ${fd.gemPos === 'navel' ? 'selected' : ''}>Umbigo (Gênese)</option>
+                            <span class="stat-label">Silhueta corporal</span>
+                            <select onchange="state.firstDiamond.bodySilhouette=this.value; renderDrawerContent();">
+                                <option value="regal" ${fd.bodySilhouette==='regal'?'selected':''}>Regal</option>
+                                <option value="slender" ${fd.bodySilhouette==='slender'?'selected':''}>Esbelta</option>
+                                <option value="broad" ${fd.bodySilhouette==='broad'?'selected':''}>Imponente</option>
                             </select>
                         </div>
-                        <div>
-                            <span class="stat-label">Coroa / Halo</span>
-                            <select onchange="state.firstDiamond.crownStyle=this.value;">
-                                <option value="radiant" ${fd.crownStyle === 'radiant' ? 'selected' : ''}>Coroa Solar 5 Pontas</option>
-                                <option value="horns" ${fd.crownStyle === 'horns' ? 'selected' : ''}>Crista Bipartida</option>
-                                <option value="halo" ${fd.crownStyle === 'halo' ? 'selected' : ''}>Halo Astral Flutuante</option>
-                            </select>
-                        </div>
-                    </div>
-                    <div>
-                        <span class="stat-label">Doutrina Primordial (Bônus Global)</span>
-                        <select onchange="state.firstDiamond.doctrine=this.value; renderDrawerContent();">
-                            ${Object.values(FIRST_DIAMOND_DOCTRINES).map(doc => `
-                                <option value="${doc.id}" ${fd.doctrine === doc.id ? 'selected' : ''}>${doc.name}</option>
-                            `).join('')}
-                        </select>
-                        <div style="font-size:10px; color:#fde047; margin-top:3px;">${FIRST_DIAMOND_DOCTRINES[fd.doctrine].desc}</div>
                     </div>
                 </div>
 
@@ -3224,10 +3443,11 @@
             for(let i=0;i<9;i++){const x=-210+i*51;const y=130+Math.sin(i*2.1)*24;drawCrystal(x,y,8+(i%3)*2,['#b6a18a','#a78bfa','#9ca3af','#d6b88b'][i%4], '#8b7355',i*.2);}
             // The lone founder, represented as a luminous silhouette.
             const palette=COLOR_PALETTES[state.firstDiamond.colorKey]||COLOR_PALETTES.white;
-            ctx.shadowColor=palette.glow;ctx.shadowBlur=22;ctx.fillStyle=palette.hex;
+            const customColor=state.firstDiamond.colorHex||palette.hex;
+            ctx.shadowColor=customColor;ctx.shadowBlur=22;ctx.fillStyle=customColor;
             ctx.beginPath();ctx.ellipse(0,35,20,31,0,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
             ctx.fillStyle='rgba(15,23,42,.65)';ctx.beginPath();ctx.arc(0,0,15,Math.PI,Math.PI*2);ctx.fill();
-            drawCrystal(0,state.firstDiamond.gemPos==='forehead'?0:(state.firstDiamond.gemPos==='chest'?36:59),7,palette.hex,palette.glow);
+            drawCrystal(0,state.firstDiamond.gemPos==='forehead'?0:(state.firstDiamond.gemPos==='chest'?36:59),7,customColor,customColor);
             ctx.strokeStyle='rgba(226,232,240,.25)';ctx.beginPath();ctx.moveTo(-250,181);ctx.lineTo(250,181);ctx.stroke();
             ctx.restore();
         }
@@ -3267,9 +3487,10 @@
 
             // Representação simbólica da Primeira Diamante
             const palette = COLOR_PALETTES[state.firstDiamond.colorKey] || COLOR_PALETTES.white;
-            ctx.shadowColor = palette.glow;
+            const customColor = state.firstDiamond.colorHex || palette.hex;
+            ctx.shadowColor = customColor;
             ctx.shadowBlur = 24;
-            ctx.fillStyle = palette.hex;
+            ctx.fillStyle = customColor;
             ctx.beginPath();
             ctx.ellipse(0, -60, 42, 58, 0, 0, Math.PI * 2);
             ctx.fill();
@@ -3278,8 +3499,14 @@
             ctx.beginPath();
             ctx.ellipse(0, -98, 31, 28, 0, Math.PI, Math.PI * 2);
             ctx.fill();
-            drawCrystal(0, state.firstDiamond.gemPos === 'forehead' ? -103 : (state.firstDiamond.gemPos === 'chest' ? -48 : -12), 12, palette.hex, palette.glow);
-            drawPolygon([[-90, 8], [-52, -34], [-28, 28], [0, -5], [28, 28], [52, -34], [90, 8], [72, 112], [-72, 112]], palette.hex, 'rgba(255,255,255,.65)', 1.5);
+            drawCrystal(0, state.firstDiamond.gemPos === 'forehead' ? -103 : (state.firstDiamond.gemPos === 'chest' ? -48 : -12), 12, customColor, customColor);
+            const silhouette = state.firstDiamond.bodySilhouette || 'regal';
+            const bodyPoints = silhouette === 'slender'
+                ? [[-62,8],[-39,-34],[-22,28],[0,-5],[22,28],[39,-34],[62,8],[50,112],[-50,112]]
+                : silhouette === 'broad'
+                    ? [[-112,8],[-68,-34],[-35,28],[0,-5],[35,28],[68,-34],[112,8],[88,112],[-88,112]]
+                    : [[-90,8],[-52,-34],[-28,28],[0,-5],[28,28],[52,-34],[90,8],[72,112],[-72,112]];
+            drawPolygon(bodyPoints, customColor, 'rgba(255,255,255,.65)', 1.5);
             ctx.globalAlpha = 0.2;
             drawPolygon([[-90, 8], [0, -5], [-72, 112]], '#ffffff');
             ctx.globalAlpha = 1;
@@ -3872,31 +4099,33 @@
         }
 
         function renderFoundingContext(container) {
-            const fd=state.firstDiamond, found=state.founding;
-            const mineralCards=Object.entries({quartz:'Quartzo',silicate:'Rocha silicatada',corundum:'Coríndon',metallic:'Minério metálico',nacre:'Sedimento carbonático',jasperrock:'Jaspe bruto',olivine:'Olivina',lapisrock:'Lápis-lazúli bruto'}).map(([key,label])=>{
-                const n=found.gatheredMinerals[key]||0;
-                return `<div class="stat-box" style="display:flex;justify-content:space-between;gap:6px;align-items:center"><span>${label}<small style="display:block;color:var(--text-muted)">Amostras: ${n}</small></span><button class="btn" onclick="gatherPrimitiveMineral('${key}')">⛏️ Recolher</button></div>`;
+            const fd = state.firstDiamond, found = state.founding;
+            const mineralLabels = {quartz:'Quartzo bruto',silicate:'Rocha silicatada',corundum:'Coríndon',metallic:'Minério metálico',nacre:'Sedimento carbonático',jasperrock:'Jaspe bruto',olivine:'Olivina',lapisrock:'Lápis-lazúli bruto'};
+            const mineralCards = Object.entries(mineralLabels).map(([key,label]) => {
+                const n = found.gatheredMinerals[key] || 0;
+                return '<div class="stat-box" style="display:flex;justify-content:space-between;gap:6px;align-items:center"><span>' + label + '<small style="display:block;color:var(--text-muted)">Amostras: ' + n + '</small></span><button class="btn" onclick="gatherPrimitiveMineral(\'' + key + '\')">⛏️ Recolher</button></div>';
             }).join('');
-            const gemOptions=Object.entries(FOUNDING_GEM_DATA).map(([key,g])=>`<option value="${key}" ${found.selectedGem===key?'selected':''}>${g.label}</option>`).join('');
-            const selected=FOUNDING_GEM_DATA[found.selectedGem];
-            container.innerHTML=`
-                <div class="card card-cyan"><div class="card-header"><span class="card-title title-font">🌑 Era Primitiva</span><span class="badge">Homeworld</span></div>
-                <div style="font-size:12px;line-height:1.55;color:#cbd5e1">${escapeHTML(fd.name)} está sozinha em um planeta rochoso. Não existem Gems, cidades ou máquinas.</div></div>
-                <div class="card"><div class="card-header"><span class="card-title title-font">⛏️ Exploração manual</span></div>
-                <div class="founding-note">Recolha amostras de rocha. Cada tipo possui uma composição mineralógica própria; a compatibilidade determina quais Gems podem nascer.</div>${mineralCards}</div>
-                <div class="card"><div class="card-header"><span class="card-title title-font">✨ Essência da Diamante</span></div>
-                <div class="founding-note">A essência é produzida por esforço físico, de acordo com a personalidade da fundadora. Nesta versão, a atividade é representada por uma ação de esforço.</div>
-                <button class="btn btn-pink btn-block" onclick="performFounderActivity()">💪 Realizar atividade física e produzir essência</button>
-                <div class="stat-box">Essência armazenada: <b>${Object.values(state.essence).reduce((a,b)=>a+b,0)}</b> un.</div></div>
-                <div class="card"><div class="card-header"><span class="card-title title-font">💎 Criar a primeira Gem</span></div>
-                <label class="stat-label" for="founding-gem-select">Escolha uma Gem compatível com o mineral que coletou</label>
-                <select id="founding-gem-select" style="width:100%" onchange="state.founding.selectedGem=this.value;renderDrawerContent()">${gemOptions}</select>
-                <div class="founding-note" style="margin-top:8px"><b>${selected.label}</b><br>Substrato: ${selected.mineralName}<br>Composição de referência: ${selected.elements}<br>Função: ${selected.role}<br>Requer 12 unidades de essência e uma amostra compatível.</div>
-                ${found.creationActive?`<div class="founding-progress"><div style="width:${found.creationProgress}%"></div></div><div style="font-size:10px;color:#cbd5e1">A Diamante comprime a rocha: ${Math.floor(found.creationProgress)}%</div>`:
-                (found.firstGemCreated?`<div class="founding-note">A primeira Gem já nasceu. O próximo passo é definir como ela poderá ajudar a fundadora.</div>`:`<button class="btn btn-emerald btn-block" onclick="startFirstGemCreation()">🤲 Imbuir e comprimir a rocha</button>`)}
-                </div>`;
+            const gemOptions = Object.entries(FOUNDING_GEM_DATA).map(([key,g]) => '<option value="' + key + '" ' + (found.selectedGem===key?'selected':'') + '>' + g.label + '</option>').join('');
+            const selected = FOUNDING_GEM_DATA[found.selectedGem] || FOUNDING_GEM_DATA.quartz;
+            const hasInjector = structureCount('injector') > 0;
+            container.innerHTML =
+                '<div class="card card-cyan"><div class="card-header"><span class="card-title title-font">🌑 Fundação de Homeworld</span><span class="badge">Era Primitiva</span></div>' +
+                '<div style="font-size:12px;line-height:1.55;color:#cbd5e1">' + escapeHTML(fd.name) + ' iniciou a civilização sem infraestrutura. Gems já nascem conhecendo sua função; ferramentas e estruturas determinam o que conseguem executar.</div>' +
+                '<div class="stat-box">Gems criadas: <b>' + (found.gemsCreatedCount || 0) + '</b> · Minerais brutos: <b>' + Math.floor(state.minerals) + '</b> · Materiais refinados: <b>' + Math.floor(state.refinedMaterials || 0) + '</b></div>' +
+                '<button class="btn btn-amber btn-block" onclick="switchDrawerTab(\'structures\')">🏗️ Abrir catálogo de estruturas</button></div>' +
+                '<div class="card"><div class="card-header"><span class="card-title title-font">⛏️ Exploração manual</span></div><div class="founding-note">A Primeira Diamante recolhe amostras diretamente dos afloramentos. Cada tipo de Gem exige um substrato compatível.</div>' + mineralCards + '</div>' +
+                '<div class="card"><div class="card-header"><span class="card-title title-font">✨ Essência da Diamante</span></div>' +
+                '<div class="founding-note">A atividade física produz essência. Antes de a Câmara estar operacional, ela pode ser usada diretamente; depois, a reserva interna é transferida pela Câmara para o estoque.</div>' +
+                '<div class="stat-box">Essência armazenada: <b>' + Object.values(state.essence).reduce((a,b)=>a+b,0).toFixed(1) + '</b> · Reserva interna: <b>' + (found.diamondEssence || 0).toFixed(1) + '</b></div>' +
+                '<button class="btn btn-pink btn-block" onclick="performFounderActivity()">💪 Realizar atividade física e produzir essência</button></div>' +
+                '<div class="card"><div class="card-header"><span class="card-title title-font">💎 Formação manual de Gems</span></div>' +
+                (hasInjector ? '<div class="founding-note">O Injetor já foi construído. Use a aba Estruturas para iniciar novos ciclos de produção.</div>' :
+                    '<label class="stat-label" for="founding-gem-select">Escolha o tipo de Gem</label><select id="founding-gem-select" style="width:100%" onchange="state.founding.selectedGem=this.value;renderDrawerContent()">' + gemOptions + '</select>' +
+                    '<div class="founding-note" style="margin-top:8px"><b>' + selected.label + '</b><br>Substrato: ' + selected.mineralName + '<br>Composição: ' + selected.elements + '<br>Função natural: ' + selected.role + '<br>Requer 12 unidades de essência e uma amostra compatível.</div>' +
+                    (found.creationActive ? '<div class="founding-progress"><div style="width:' + found.creationProgress + '%"></div></div><div style="font-size:10px;color:#cbd5e1">Formação em andamento: ' + Math.floor(found.creationProgress) + '%</div>' :
+                    '<button class="btn btn-emerald btn-block" onclick="startFirstGemCreation()">🤲 Formar Gem manualmente</button>')) +
+                '</div>';
         }
-        
 
         function showMenuPanel(panelName) {
             const main = document.getElementById('game-menu-main');
@@ -4023,7 +4252,20 @@
             try {
                 for (const key of Object.keys(state)) delete state[key];
                 Object.assign(state, data.state);
-                if (!state.founding) state.founding = {stage:'legacy',firstGemCreated:true,mineralSamples:{},gatheredMinerals:{},essenceOutput:0,activityCount:0,selectedGem:'jasper',creationProgress:0,creationActive:false,creationTarget:null};
+                if (!state.founding) state.founding = {stage:'legacy',firstGemCreated:true,mineralSamples:{},gatheredMinerals:{},essenceOutput:0,activityCount:0,diamondEssence:0,gemsCreatedCount:0,selectedGem:'quartz',creationProgress:0,creationActive:false,creationTarget:null,creationSource:'manual'};
+                state.founding.diamondEssence = Number(state.founding.diamondEssence) || 0;
+                state.founding.gemsCreatedCount = Number(state.founding.gemsCreatedCount) || 0;
+                state.founding.selectedGem = state.founding.selectedGem || 'quartz';
+                state.structures = state.structures || {};
+                state.structureAssignments = state.structureAssignments || {};
+                state.construction = state.construction || null;
+                state.energy = Number(state.energy) || 0;
+                state.refinedMaterials = Number(state.refinedMaterials) || 0;
+                state.ships = Number(state.ships) || 0;
+                state.firstDiamond.colorHex = state.firstDiamond.colorHex || COLOR_PALETTES[state.firstDiamond.colorKey]?.hex || '#f8fafc';
+                state.firstDiamond.bodySilhouette = state.firstDiamond.bodySilhouette || 'regal';
+                state.firstDiamond.doctrine = 'emergent';
+                if (!Number.isFinite(Number(state.census.jasper))) state.census.jasper = 0;
                 if (typeof state.firstGameStarted !== 'boolean') state.firstGameStarted = true;
                 state.activePetition = null;
                 for (const id of Object.keys(PLANETS)) {
