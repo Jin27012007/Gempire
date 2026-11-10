@@ -429,7 +429,7 @@
 
         /* MENU PRINCIPAL, CONFIGURAÇÕES E SALVAMENTO */
         .game-menu-overlay{position:fixed;inset:0;z-index:100;display:flex;align-items:center;justify-content:center;padding:18px;overflow-y:auto;background:radial-gradient(ellipse at 50% 25%,rgba(30,64,110,.46),transparent 55%),rgba(2,5,15,.94);backdrop-filter:blur(12px)}
-        .game-menu-shell{width:min(760px,100%);max-height:min(90vh,860px);overflow-y:auto;border:1px solid rgba(125,211,252,.45);border-radius:20px;padding:clamp(18px,4vw,34px);background:linear-gradient(145deg,rgba(13,24,46,.98),rgba(5,9,22,.99));box-shadow:0 24px 90px rgba(0,0,0,.7),0 0 45px rgba(56,189,248,.12)}
+        .game-menu-shell{width:min(700px,calc(100vw - 36px));max-height:min(86dvh,820px);overflow-y:auto;border:1px solid rgba(125,211,252,.45);border-radius:20px;padding:clamp(18px,4vw,34px);background:linear-gradient(145deg,rgba(13,24,46,.98),rgba(5,9,22,.99));box-shadow:0 24px 90px rgba(0,0,0,.7),0 0 45px rgba(56,189,248,.12)}
         .game-menu-brand{text-align:center;padding:8px 0 22px}
         .game-menu-mark{width:46px;height:46px;margin:0 auto 14px;display:grid;place-items:center;transform:rotate(45deg);border:1px solid rgba(186,230,253,.8);background:linear-gradient(135deg,rgba(56,189,248,.25),rgba(192,132,252,.18));box-shadow:0 0 28px rgba(56,189,248,.25)}
         .game-menu-mark span{transform:rotate(-45deg);font-size:25px}
@@ -468,8 +468,8 @@
             #bottom-bar{bottom:6px;max-width:96vw;padding:5px 7px;gap:4px}
             #hud-banners{top:6px;left:6px;right:6px;max-width:none}
             .banner-pill{font-size:10px;padding:5px 7px}
-            .game-menu-overlay{padding:10px;align-items:center;justify-content:center}
-            .game-menu-shell{width:100%;max-width:440px;max-height:calc(100dvh - 20px);margin:auto;padding:14px 12px;border-radius:14px}
+            .game-menu-overlay{padding:8px;align-items:center;justify-content:center;overflow-x:hidden}
+            .game-menu-shell{width:min(400px,94vw);max-width:100%;max-height:88dvh;margin:auto;padding:12px 11px;border-radius:14px}
             .game-menu-brand{padding:3px 0 12px}
             .game-menu-mark{width:36px;height:36px;margin-bottom:10px}
             .game-menu-mark span{font-size:20px}
@@ -482,39 +482,6 @@
             .game-menu-panel{gap:9px}
             .menu-status{margin-top:10px}
             .menu-footer{margin-top:10px}
-        }
-        /* Correção de posicionamento do menu em navegadores móveis */
-        @media(max-width:600px){
-            html,body{max-width:100%;overflow:hidden}
-            #game-menu.game-menu-overlay{
-                position:fixed;
-                inset:0;
-                left:0;
-                right:0;
-                top:0;
-                bottom:0;
-                width:100%;
-                max-width:100%;
-                height:100%;
-                height:100dvh;
-                min-width:0;
-                margin:0;
-                transform:none;
-                display:flex;
-                align-items:center;
-                justify-content:center;
-                padding:10px;
-                overflow-x:hidden;
-            }
-            #game-menu .game-menu-shell{
-                position:relative;
-                flex:0 1 440px;
-                width:min(440px,calc(100vw - 20px));
-                max-width:100%;
-                min-width:0;
-                margin:0 auto;
-                box-sizing:border-box;
-            }
         }
         @media(max-width:380px){
             .nav-group .btn{font-size:8px;padding:4px 5px}
@@ -3183,7 +3150,7 @@
             const { cx, cy } = getVisibleCenter(canvasWidth, canvasHeight);
             const isMobile = window.matchMedia('(max-width: 600px)').matches;
             const scale = isMobile
-                ? Math.min(1.35, canvasWidth / 390, canvasHeight / 500)
+                ? Math.min(1.45, canvasWidth / 370, canvasHeight / 480)
                 : Math.min(1, canvasHeight / 650);
             ctx.save();
             ctx.translate(cx, cy + 10);
@@ -3300,7 +3267,10 @@
 
         function drawStarMap(time) {
             const { cx, cy } = getVisibleCenter(canvasWidth, canvasHeight);
-            const maxOrbit = Math.min(canvasWidth * 0.39, canvasHeight * 0.43, 300);
+            const isMobile = window.matchMedia('(max-width: 600px)').matches;
+            const maxOrbit = isMobile
+                ? Math.min(canvasWidth * 0.43, canvasHeight * 0.45, 330)
+                : Math.min(canvasWidth * 0.39, canvasHeight * 0.43, 300);
             const sun = ctx.createRadialGradient(cx, cy, 2, cx, cy, 48);
             sun.addColorStop(0, '#ffffff');
             sun.addColorStop(0.25, '#fef08a');
@@ -3361,7 +3331,11 @@
         function drawColony(time) {
             const planet = PLANETS[state.activeColonyPlanetId] || PLANETS.homeworld;
             const { cx, cy } = getVisibleCenter(canvasWidth, canvasHeight);
-            const radius = Math.max(70, Math.min(canvasWidth * 0.31, canvasHeight * 0.43) * state.planetCamera.zoom);
+            const isMobile = window.matchMedia('(max-width: 600px)').matches;
+            const radius = Math.max(70, Math.min(
+                canvasWidth * (isMobile ? 0.34 : 0.31),
+                canvasHeight * (isMobile ? 0.45 : 0.43)
+            ) * state.planetCamera.zoom);
             const cam = state.planetCamera;
             const grad = ctx.createRadialGradient(cx - radius * 0.34, cy - radius * 0.4, radius * 0.08, cx, cy, radius);
             grad.addColorStop(0, planet.colors.secondary);
