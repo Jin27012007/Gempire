@@ -518,6 +518,12 @@
         .founding-avatar button { flex:1; min-width:85px; }
         .founding-note { padding:10px; border:1px solid rgba(56,189,248,.25); border-radius:9px; background:rgba(8,47,73,.18); color:#cbd5e1; font-size:11px; line-height:1.55; }
         .founding-actions { display:grid; grid-template-columns:1fr; gap:8px; }
+        .founding-gem-catalog { display:grid; grid-template-columns:repeat(2,minmax(0,1fr)); gap:7px; }
+        .founding-gem-option { display:flex; flex-direction:column; align-items:flex-start; gap:4px; min-height:72px; padding:9px; border:1px solid var(--border-light); border-radius:9px; background:rgba(4,7,17,.72); color:var(--text-main); text-align:left; cursor:pointer; }
+        .founding-gem-option.selected { border-color:var(--cyan); background:rgba(8,47,73,.42); box-shadow:inset 0 0 0 1px rgba(56,189,248,.22); }
+        .founding-gem-option:disabled { opacity:.65; cursor:default; }
+        .founding-gem-option strong { font-size:12px; }
+        .founding-gem-option small { color:var(--text-muted); font-size:10px; line-height:1.35; }
         .founding-progress { height:7px; background:#111827; border-radius:99px; overflow:hidden; }
         .founding-progress>div { height:100%; background:linear-gradient(90deg,#f9a8d4,#facc15,#bae6fd); transition:width .2s; }
         .structure-category { display:flex; flex-direction:column; gap:7px; }
@@ -531,7 +537,7 @@
         .structure-status.is-idle { color:#fbbf24; background:rgba(245,158,11,.1); }
         .structure-jobs { display:flex; flex-direction:column; gap:4px; }
         .job-row { display:flex; align-items:center; justify-content:space-between; gap:8px; font-size:10px; color:#cbd5e1; }
-        @media(max-width:600px){.founding-grid{grid-template-columns:1fr}.founding-intro{gap:9px}.drawer-tabs{grid-template-columns:repeat(2,1fr)}}
+        @media(max-width:600px){.founding-grid{grid-template-columns:1fr}.founding-intro{gap:9px}.founding-gem-catalog{grid-template-columns:repeat(2,minmax(0,1fr))}.drawer-tabs{grid-template-columns:repeat(2,1fr)}}
 
     </style>
 </head>
@@ -3361,7 +3367,7 @@
                 uiRefreshAccumulator = 0;
                 updateHUD();
                 updateInjectorProgressUI();
-                if (state.firstGameStarted && state.founding && (!state.founding.firstGemCreated || !structureCount('injector'))) renderDrawerContent();
+                if (state.firstGameStarted && state.founding && (!state.founding.firstGemCreated || !structureCount('injector'))) updateFoundingLiveUI();
             }
         }
 
@@ -4119,6 +4125,12 @@
             updateHUD(); renderDrawerContent(); renderBottomBar();
         }
 
+        function selectFoundingGem(type) {
+            if (!FOUNDING_GEM_DATA[type] || state.founding.creationActive) return;
+            state.founding.selectedGem = type;
+            renderDrawerContent();
+        }
+
         function renderFoundingContext(container) {
             const fd = state.firstDiamond, found = state.founding;
             const mineralLabels = {quartz:'Quartzo bruto',silicate:'Rocha silicatada',corundum:'Coríndon',metallic:'Minério metálico',nacre:'Sedimento carbonático',jasperrock:'Jaspe bruto',olivine:'Olivina',lapisrock:'Lápis-lazúli bruto'};
@@ -4126,8 +4138,11 @@
                 const n = found.gatheredMinerals[key] || 0;
                 return '<div class="stat-box" style="display:flex;justify-content:space-between;gap:6px;align-items:center"><span>' + label + '<small style="display:block;color:var(--text-muted)">Amostras: ' + n + '</small></span><button class="btn" onclick="gatherPrimitiveMineral(\'' + key + '\')">⛏️ Recolher</button></div>';
             }).join('');
-            const gemOptions = Object.entries(FOUNDING_GEM_DATA).map(([key,g]) => '<option value="' + key + '" ' + (found.selectedGem===key?'selected':'') + '>' + g.label + '</option>').join('');
             const selected = FOUNDING_GEM_DATA[found.selectedGem] || FOUNDING_GEM_DATA.quartz;
+            const gemCatalog = Object.entries(FOUNDING_GEM_DATA).map(([key,g]) =>
+                '<button type="button" class="founding-gem-option ' + (found.selectedGem===key?'selected':'') + '" onclick="selectFoundingGem(&quot;' + key + '&quot;)" ' + (found.creationActive?'disabled':'') + ' aria-pressed="' + (found.selectedGem===key?'true':'false') + '">' +
+                '<strong>' + g.label + (found.selectedGem===key?' ✓':'') + '</strong><small>' + g.mineralName + '</small><small>' + g.role + '</small></button>'
+            ).join('');
             const hasInjector = structureCount('injector') > 0;
             container.innerHTML =
                 '<div class="card card-cyan"><div class="card-header"><span class="card-title title-font">🌑 Fundação de Homeworld</span><span class="badge">Era Primitiva</span></div>' +
@@ -4138,14 +4153,28 @@
                 '<div class="card"><div class="card-header"><span class="card-title title-font">✨ Essência da Diamante</span></div>' +
                 '<div class="founding-note">A atividade física produz essência. Antes de a Câmara estar operacional, ela pode ser usada diretamente; depois, a reserva interna é transferida pela Câmara para o estoque.</div>' +
                 '<div class="stat-box">Essência armazenada: <b>' + Object.values(state.essence).reduce((a,b)=>a+b,0).toFixed(1) + '</b> · Reserva interna da Diamante: <b>' + (found.diamondEssence || 0).toFixed(1) + '</b> · Recebida pelo Injetor: <b>' + (found.injectorEssence || 0).toFixed(1) + '</b></div>' +
-                '<button class="btn btn-pink btn-block" onclick="performFounderActivity()" ' + (found.creationActive || (found.essenceCooldown || 0) > 0 ? 'disabled' : '') + '>' + (found.creationActive ? '💎 Concentração na formação da Gem' : (found.essenceCooldown || 0) > 0 ? '⏳ Recuperando fôlego · ' + found.essenceCooldown.toFixed(1) + 's' : '💪 Produzir 2 unidades de essência') + '</button></div>' +
+                '<button id="founder-activity-button" class="btn btn-pink btn-block" onclick="performFounderActivity()" ' + (found.creationActive || (found.essenceCooldown || 0) > 0 ? 'disabled' : '') + '>' + (found.creationActive ? '💎 Concentração na formação da Gem' : (found.essenceCooldown || 0) > 0 ? '⏳ Recuperando fôlego · ' + found.essenceCooldown.toFixed(1) + 's' : '💪 Produzir 2 unidades de essência') + '</button></div>' +
                 '<div class="card"><div class="card-header"><span class="card-title title-font">💎 Formação manual de Gems</span></div>' +
                 (hasInjector ? '<div class="founding-note">O Injetor já foi construído. Use a aba Estruturas para iniciar novos ciclos de produção.</div>' :
-                    '<label class="stat-label" for="founding-gem-select">Escolha o tipo de Gem</label><select id="founding-gem-select" style="width:100%" onchange="state.founding.selectedGem=this.value;renderDrawerContent()">' + gemOptions + '</select>' +
+                    '<div class="founding-note">Selecione diretamente no catálogo. A opção escolhida fica destacada.</div><div class="founding-gem-catalog">' + gemCatalog + '</div>' +
                     '<div class="founding-note" style="margin-top:8px"><b>' + selected.label + '</b><br>Substrato: ' + selected.mineralName + '<br>Composição: ' + selected.elements + '<br>Função natural: ' + selected.role + '<br>Requer 12 unidades de essência e uma amostra compatível.</div>' +
-                    (found.creationActive ? '<div class="founding-progress"><div style="width:' + found.creationProgress + '%"></div></div><div style="font-size:10px;color:#cbd5e1">Formação em andamento: ' + Math.floor(found.creationProgress) + '% · a Diamante não pode realizar outra atividade durante este processo.</div>' :
+                    (found.creationActive ? '<div class="founding-progress"><div id="founder-creation-progress" style="width:' + found.creationProgress + '%"></div></div><div id="founder-creation-progress-label" style="font-size:10px;color:#cbd5e1">Formação em andamento: ' + Math.floor(found.creationProgress) + '% · a Diamante não pode realizar outra atividade durante este processo.</div>' :
                     '<button class="btn btn-emerald btn-block" onclick="startFirstGemCreation()">🤲 Formar Gem manualmente</button>')) +
                 '</div>';
+        }
+
+        function updateFoundingLiveUI() {
+            const found = state.founding;
+            const button = document.getElementById('founder-activity-button');
+            if (button) {
+                const cooling = (found.essenceCooldown || 0) > 0;
+                button.disabled = Boolean(found.creationActive || cooling);
+                button.textContent = found.creationActive ? '💎 Concentração na formação da Gem' : cooling ? '⏳ Recuperando fôlego · ' + found.essenceCooldown.toFixed(1) + 's' : '💪 Produzir 2 unidades de essência';
+            }
+            const progress = document.getElementById('founder-creation-progress');
+            const label = document.getElementById('founder-creation-progress-label');
+            if (progress) progress.style.width = found.creationProgress + '%';
+            if (label) label.textContent = 'Formação em andamento: ' + Math.floor(found.creationProgress) + '% · a Diamante não pode realizar outra atividade durante este processo.';
         }
 
         function showMenuPanel(panelName) {
