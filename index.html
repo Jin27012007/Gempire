@@ -1118,8 +1118,8 @@
             founding: {
                 stage: 'setup',
                 firstGemCreated: false,
-                mineralSamples: { quartz: 0, silicate: 0, corundum: 0, metallic: 0, nacre: 0 },
-                gatheredMinerals: { quartz: 0, silicate: 0, corundum: 0, metallic: 0, nacre: 0 },
+                mineralSamples: { quartz: 0, silicate: 0, corundum: 0, metallic: 0, nacre: 0, jasperrock: 0, olivine: 0, lapisrock: 0 },
+                gatheredMinerals: { quartz: 0, silicate: 0, corundum: 0, metallic: 0, nacre: 0, jasperrock: 0, olivine: 0, lapisrock: 0 },
                 essenceOutput: 0,
                 activityCount: 0,
                 selectedGem: 'jasper',
@@ -1723,7 +1723,7 @@
         function renderDrawerContent() {
             const body = document.getElementById('drawer-body');
             if (!body) return;
-            if (state.firstGameStarted && !state.founding.firstGemCreated) { renderFoundingContext(body); return; }
+            if (state.firstGameStarted && state.founding && !state.founding.firstGemCreated) { renderFoundingContext(body); return; }
 
             if (state.drawerTab === 'chronicle') {
                 renderChronicleTab(body);
@@ -3775,17 +3775,17 @@
         }
 
         const FOUNDING_GEM_DATA = {
-            jasper:{label:'Jaspe (Quartzo)',mineral:'quartz',color:'#f97316',role:'Soldado e combatente de linha de frente',elements:'SiO₂ com impurezas minerais que alteram a cor',mineralName:'Quartzo'},
-            peridot:{label:'Peridoto',mineral:'silicate',color:'#10b981',role:'Engenheira e especialista em tecnologia',elements:'(Mg,Fe)₂SiO₄ — olivina',mineralName:'Olivina'},
+            jasper:{label:'Jaspe',mineral:'jasperrock',color:'#f97316',role:'Soldado e combatente de linha de frente',elements:'Sílica microcristalina (SiO₂) com impurezas e óxidos que geram padrões e cores',mineralName:'Jaspe'},
+            peridot:{label:'Peridoto',mineral:'olivine',color:'#10b981',role:'Engenheira e especialista em tecnologia',elements:'(Mg,Fe)₂SiO₄ — olivina gemológica',mineralName:'Olivina'},
             sapphire:{label:'Safira',mineral:'corundum',color:'#818cf8',role:'Nobre vidente, ligada a previsões do futuro',elements:'Al₂O₃ com elementos-traço',mineralName:'Coríndon'},
             ruby:{label:'Rubi',mineral:'corundum',color:'#f43f5e',role:'Guarda e combatente; variação do coríndon',elements:'Al₂O₃ com Cr³⁺ como cromóforo típico',mineralName:'Coríndon'},
             bismuth:{label:'Bismuto',mineral:'metallic',color:'#facc15',role:'Arquiteta e construtora',elements:'Bi (elemento nativo) / minerais de bismuto',mineralName:'Minério de bismuto'},
-            lapis:{label:'Lápis-Lazúli',mineral:'nacre',color:'#38bdf8',role:'Terraformadora e manipuladora de água',elements:'Rocha composta: lazurita, calcita e pirita',mineralName:'Lápis-lazúli'}
+            lapis:{label:'Lápis-Lazúli',mineral:'lapisrock',color:'#38bdf8',role:'Terraformadora e manipuladora de água',elements:'Rocha composta: lazurita, calcita e pirita',mineralName:'Lápis-lazúli'}
         };
 
         function gatherPrimitiveMineral(type) {
-            const vein = PLANETS.homeworld.veins.find(v=>v.type===type);
-            if (!vein) return;
+            const validTypes=['quartz','silicate','corundum','metallic','nacre','jasperrock','olivine','lapisrock'];
+            if (!validTypes.includes(type)) return;
             const available = state.founding.gatheredMinerals[type]||0;
             state.founding.gatheredMinerals[type]=available+1;
             state.minerals += 10;
@@ -3821,13 +3821,13 @@
             state.census[type==='jasper'?'quartz':type]++;
             PLANETS.homeworld.walkingGems.push({caste:type,color:data.color,grade:'A',isOrbiting:false,bubbleText:'✨ Recém-emergida',angle:0.5,dir:1,speed:0.0005,bobPhase:0});
             addChronicle('A primeira Gem nasceu',`${state.firstDiamond.name} apertou a rocha impregnada com sua essência. Uma ${data.label} emergiu em Homeworld. Função: ${data.role}.`,'Primeira Gem criada');
-            setStatusTicker(`A primeira Gem emergiu: ${data.label}. A civilização começou.`);
+            setStatusTicker(`A primeira Gem emergiu: ${data.label}. A partir de agora, ela poderá ajudar na exploração e abrir a próxima etapa da civilização.`);
             updateHUD();renderDrawerContent();renderBottomBar();
         }
 
         function renderFoundingContext(container) {
             const fd=state.firstDiamond, found=state.founding;
-            const mineralCards=Object.entries({quartz:'Quartzo',silicate:'Rocha silicatada',corundum:'Coríndon',metallic:'Minério metálico',nacre:'Lápis-lazúli'}).map(([key,label])=>{
+            const mineralCards=Object.entries({quartz:'Quartzo',silicate:'Rocha silicatada',corundum:'Coríndon',metallic:'Minério metálico',nacre:'Sedimento carbonático',jasperrock:'Jaspe bruto',olivine:'Olivina',lapisrock:'Lápis-lazúli bruto'}).map(([key,label])=>{
                 const n=found.gatheredMinerals[key]||0;
                 return `<div class="stat-box" style="display:flex;justify-content:space-between;gap:6px;align-items:center"><span>${label}<small style="display:block;color:var(--text-muted)">Amostras: ${n}</small></span><button class="btn" onclick="gatherPrimitiveMineral('${key}')">⛏️ Recolher</button></div>`;
             }).join('');
