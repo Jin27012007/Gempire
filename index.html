@@ -3463,14 +3463,14 @@
 
 
         const GEM_SILHOUETTE_PROFILES={
-            quartz:{shape:'athletic',hair:'volume',outfit:'fighter',gemPos:'chest',eyeCount:2,width:1.02,height:1.02,shoulder:42,limb:9,summary:'Base Quartz atlética; variedades específicas devem herdar e modificar este perfil.'},
-            peridot:{shape:'compact',hair:'angular',outfit:'tunic',gemPos:'forehead',eyeCount:2,width:.88,height:.88,shoulder:30,limb:7,summary:'Baixa e compacta, com cabeça geométrica e cabelo curto, pontudo e angular.'},
-            bismuth:{shape:'massive',hair:'crest',outfit:'armor',gemPos:'chest',eyeCount:2,width:1.25,height:1.08,shoulder:58,limb:16,summary:'Estrutura alta e muito larga, ombros e braços volumosos, com crista alta.'},
-            lapis:{shape:'slender',hair:'bob',outfit:'gown',gemPos:'back',eyeCount:2,width:.91,height:1.04,shoulder:28,limb:7,summary:'Corpo esguio, ombros estreitos, cabelo em corte bob e gema nas costas.'},
-            sapphire:{shape:'petite',hair:'cloud',outfit:'gown',gemPos:'palm',eyeCount:1,width:.91,height:.94,shoulder:27,limb:7,summary:'Figura pequena e delicada, cabelo volumoso em forma de nuvem e apenas um olho.'},
-            ruby:{shape:'compact',hair:'square',outfit:'fighter',gemPos:'palm',eyeCount:1,width:.94,height:.91,shoulder:34,limb:9,summary:'Corpo baixo e compacto, cabelo quadrado e apenas um olho.'},
-            pearl:{shape:'tall-slim',hair:'swept',outfit:'gown',gemPos:'forehead',eyeCount:2,width:.78,height:1.17,shoulder:25,limb:6,summary:'Muito alta e magra, com membros longos, tronco estreito e postura elegante.'},
-            jasper:{shape:'tall-muscular',hair:'mane',outfit:'armor',gemPos:'nose',eyeCount:2,width:1.2,height:1.15,shoulder:55,limb:15,summary:'Alta e musculosa, ombros largos, rosto angular e cabelo volumoso projetado para trás.'}
+            quartz:{shape:'athletic',hair:'volume',outfit:'fighter',gemPos:'chest',eyeCount:2,width:1,height:1,shoulder:42,limb:9,torso:22,waist:18,hips:21,legLength:58,summary:'Base Quartz atlética, usada como referência para variações de quartzo.'},
+            peridot:{shape:'compact',hair:'angular',outfit:'tunic',gemPos:'chest',eyeCount:2,width:.94,height:.94,shoulder:30,limb:7,torso:17,waist:16,hips:18,legLength:48,summary:'Baixa e estreita, com tronco curto, membros curtos e estrutura compacta.'},
+            bismuth:{shape:'massive',hair:'crest',outfit:'armor',gemPos:'chest',eyeCount:2,width:1.08,height:1.08,shoulder:56,limb:16,torso:29,waist:26,hips:28,legLength:62,summary:'Alta e robusta, ombros muito largos, braços espessos e tronco forte.'},
+            lapis:{shape:'slender',hair:'bob',outfit:'gown',gemPos:'chest',eyeCount:2,width:.96,height:1.02,shoulder:28,limb:6,torso:17,waist:15,hips:17,legLength:59,summary:'Corpo fino e leve, ombros estreitos, cintura delicada e pernas longas.'},
+            sapphire:{shape:'petite',hair:'cloud',outfit:'gown',gemPos:'chest',eyeCount:1,width:.94,height:.96,shoulder:27,limb:6,torso:17,waist:15,hips:17,legLength:52,summary:'Pequena e delicada, com ombros estreitos e membros finos.'},
+            ruby:{shape:'compact',hair:'square',outfit:'fighter',gemPos:'chest',eyeCount:1,width:.96,height:.93,shoulder:35,limb:10,torso:22,waist:20,hips:22,legLength:49,summary:'Baixa e atarracada, com tronco firme, braços fortes e pernas curtas.'},
+            pearl:{shape:'tall-slim',hair:'swept',outfit:'gown',gemPos:'chest',eyeCount:2,width:.91,height:1.12,shoulder:25,limb:5,torso:16,waist:13,hips:15,legLength:70,summary:'Muito alta e esguia, ombros estreitos, cintura fina e membros compridos.'},
+            jasper:{shape:'tall-muscular',hair:'mane',outfit:'armor',gemPos:'chest',eyeCount:2,width:1.08,height:1.12,shoulder:57,limb:16,torso:30,waist:25,hips:28,legLength:68,summary:'Alta e musculosa, com ombros enormes, braços grossos e pernas fortes.'}
         };
         let silhouettePreviewSelection='quartz';
         function gemSilhouetteProfile(type){return GEM_SILHOUETTE_PROFILES[type]||GEM_SILHOUETTE_PROFILES.quartz;}
@@ -3481,7 +3481,8 @@
             const gemPos=options.gemPos||p.gemPos||'chest',expression=options.expression||'neutral';
             const eyeCount=options.eyeCount||p.eyeCount||2;
             const width=Number(p.width)||1,height=Number(p.height)||1;
-            const shoulder=Number(p.shoulder)||38,limb=Number(p.limb)||9,glow=options.glow!==false;
+            const shoulder=Number(p.shoulder)||38,limb=Number(p.limb)||9;
+            const torso=Number(p.torso)||22,waist=Number(p.waist)||18,hips=Number(p.hips)||21,legLength=Number(p.legLength)||58,glow=options.glow!==false;
             c.save();c.translate(x,y+(Number(options.bob)||0));c.scale(scale*width,scale*height);
             c.lineCap='round';c.lineJoin='round';c.fillStyle=color;
             if(glow){c.shadowColor=color;c.shadowBlur=13;}
@@ -3529,40 +3530,36 @@
 
             c.fillStyle=color;c.beginPath();c.ellipse(0,-91,31,42,0,0,Math.PI*2);c.fill();
             c.fillRect(-8,-55,16,22);
-            c.strokeStyle=color;c.lineWidth=limb;c.beginPath();
-            c.moveTo(-shoulder*.48,-39);c.quadraticCurveTo(-shoulder*.78,-10,-shoulder*.92,34);
-            c.moveTo(shoulder*.48,-39);c.quadraticCurveTo(shoulder*.78,-10,shoulder*.92,34);c.stroke();
-            c.beginPath();c.arc(-shoulder*.92,38,limb*.62,0,Math.PI*2);
-            c.arc(shoulder*.92,38,limb*.62,0,Math.PI*2);c.fill();
-
-            c.fillStyle=color;c.beginPath();
+            c.strokeStyle=color;c.lineCap='round';c.lineJoin='round';c.lineWidth=limb;c.beginPath();
+            c.moveTo(-shoulder*.46,-39);c.quadraticCurveTo(-shoulder*.82,-13,-shoulder*.88,24);c.lineTo(-shoulder*.91,43);
+            c.moveTo(shoulder*.46,-39);c.quadraticCurveTo(shoulder*.82,-13,shoulder*.88,24);c.lineTo(shoulder*.91,43);c.stroke();
+            c.beginPath();c.arc(-shoulder*.91,46,limb*.68,0,Math.PI*2);c.arc(shoulder*.91,46,limb*.68,0,Math.PI*2);c.fill();
+            const chest=shoulder*.49,armored=outfit==='armor';c.fillStyle=color;c.beginPath();
             if(outfit==='gown'){
-                c.moveTo(-shoulder*.52,-39);c.lineTo(shoulder*.52,-39);
-                c.lineTo(shoulder*.43,20);c.quadraticCurveTo(shoulder*.55,60,shoulder*.98,122);
-                c.quadraticCurveTo(0,133,-shoulder*.98,122);
-                c.quadraticCurveTo(-shoulder*.55,60,-shoulder*.43,20);c.closePath();
-            }else if(outfit==='armor'){
-                c.moveTo(-shoulder*.62,-40);c.lineTo(-shoulder*.34,-49);
-                c.lineTo(0,-39);c.lineTo(shoulder*.34,-49);c.lineTo(shoulder*.62,-40);
-                c.lineTo(shoulder*.52,48);c.lineTo(shoulder*.35,58);
-                c.lineTo(shoulder*.2,120);c.lineTo(5,120);c.lineTo(0,69);
-                c.lineTo(-5,120);c.lineTo(-shoulder*.2,120);c.lineTo(-shoulder*.35,58);
-                c.lineTo(-shoulder*.52,48);c.closePath();
+                c.moveTo(-chest,-39);c.lineTo(chest,-39);c.lineTo(waist,20);
+                c.quadraticCurveTo(hips*.82,58,hips*1.72,legLength+48);
+                c.quadraticCurveTo(0,legLength+62,-hips*1.72,legLength+48);
+                c.quadraticCurveTo(-hips*.82,58,-waist,20);c.closePath();
+            }else if(armored){
+                c.moveTo(-chest,-40);c.lineTo(-torso*.55,-48);c.lineTo(0,-40);
+                c.lineTo(torso*.55,-48);c.lineTo(chest,-40);c.lineTo(torso*.72,18);
+                c.lineTo(waist,43);c.lineTo(hips,legLength+8);c.lineTo(5,legLength+8);
+                c.lineTo(0,legLength*.68);c.lineTo(-5,legLength+8);c.lineTo(-hips,legLength+8);
+                c.lineTo(-waist,43);c.lineTo(-torso*.72,18);c.closePath();
             }else{
-                c.moveTo(-shoulder*.54,-39);c.lineTo(shoulder*.54,-39);
-                c.lineTo(shoulder*.43,42);c.lineTo(shoulder*.29,58);
-                c.lineTo(shoulder*.34,119);c.lineTo(6,119);c.lineTo(0,67);
-                c.lineTo(-6,119);c.lineTo(-shoulder*.34,119);c.lineTo(-shoulder*.29,58);
-                c.lineTo(-shoulder*.43,42);c.closePath();
+                c.moveTo(-chest,-39);c.lineTo(chest,-39);c.lineTo(torso*.82,16);
+                c.lineTo(waist,42);c.lineTo(hips,legLength+8);c.lineTo(5,legLength+8);
+                c.lineTo(0,legLength*.68);c.lineTo(-5,legLength+8);c.lineTo(-hips,legLength+8);
+                c.lineTo(-waist,42);c.lineTo(-torso*.82,16);c.closePath();
             }
             c.fill();
-            c.strokeStyle=color;c.lineWidth=Math.max(7,limb*.82);c.beginPath();
-            c.moveTo(-shoulder*.23,75);c.lineTo(-shoulder*.31,128);
-            c.moveTo(shoulder*.23,75);c.lineTo(shoulder*.31,128);c.stroke();
+            const legGap=Math.max(7,hips*.42),legEnd=legLength+58;
+            c.strokeStyle=color;c.lineCap='round';c.lineWidth=Math.max(6,limb*.82);c.beginPath();
+            c.moveTo(-legGap*.55,legLength*.76);c.lineTo(-legGap,legEnd);
+            c.moveTo(legGap*.55,legLength*.76);c.lineTo(legGap,legEnd);c.stroke();
             c.lineWidth=Math.max(5,limb*.62);c.beginPath();
-            c.moveTo(-shoulder*.31,128);c.lineTo(-shoulder*.48,132);
-            c.moveTo(shoulder*.31,128);c.lineTo(shoulder*.48,132);c.stroke();
-
+            c.moveTo(-legGap,legEnd);c.lineTo(-legGap-7,legEnd+2);
+            c.moveTo(legGap,legEnd);c.lineTo(legGap+7,legEnd+2);c.stroke();
             c.shadowBlur=0;c.fillStyle=face;
             if(eyeCount===1){
                 c.beginPath();c.ellipse(0,-91,5.2,7.3,0,0,Math.PI*2);c.fill();
@@ -3582,13 +3579,7 @@
             c.stroke();
 
             const gs=Number(options.gemSize)||7;
-            let gx=0,gy=-20;
-            if(gemPos==='forehead'){gy=-119;}
-            else if(gemPos==='nose'){gy=-83;}
-            else if(gemPos==='palm'){gx=-shoulder*.92;gy=38;}
-            else if(gemPos==='back'){c.restore();return;}
-            else if(gemPos==='navel'){gy=34;}
-            else if(gemPos==='chest'){gy=-20;}
+            const gx=0,gy=-20; // Todas as Gems usam a gema no peito neste modelo visual.
             c.save();c.shadowColor='#fff4d8';c.shadowBlur=glow?8:0;
             c.fillStyle=options.gemColor||'#fff1cf';c.beginPath();
             c.moveTo(gx,gy-gs);c.lineTo(gx+gs*.68,gy);
