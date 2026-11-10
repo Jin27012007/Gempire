@@ -4140,7 +4140,7 @@
             }).join('');
             const selected = FOUNDING_GEM_DATA[found.selectedGem] || FOUNDING_GEM_DATA.quartz;
             const gemCatalog = Object.entries(FOUNDING_GEM_DATA).map(([key,g]) =>
-                '<button type="button" class="founding-gem-option ' + (found.selectedGem===key?'selected':'') + '" onclick="selectFoundingGem(&quot;' + key + '&quot;)" ' + (found.creationActive?'disabled':'') + ' aria-pressed="' + (found.selectedGem===key?'true':'false') + '">' +
+                '<button type="button" class="founding-gem-option ' + (found.selectedGem===key?'selected':'') + '" data-gem="' + key + '" onclick="selectFoundingGem(this.dataset.gem)" ' + (found.creationActive?'disabled':'') + ' aria-pressed="' + (found.selectedGem===key?'true':'false') + '">' +
                 '<strong>' + g.label + (found.selectedGem===key?' ✓':'') + '</strong><small>' + g.mineralName + '</small><small>' + g.role + '</small></button>'
             ).join('');
             const hasInjector = structureCount('injector') > 0;
