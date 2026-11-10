@@ -3610,13 +3610,25 @@
             const ground=ctx.createLinearGradient(0,40,0,240);ground.addColorStop(0,'#766451');ground.addColorStop(1,'#211d1a');
             ctx.fillStyle=ground;ctx.beginPath();ctx.moveTo(-260,180);ctx.lineTo(-220,90);ctx.lineTo(-170,125);ctx.lineTo(-105,20);ctx.lineTo(-58,105);ctx.lineTo(5,55);ctx.lineTo(65,125);ctx.lineTo(135,18);ctx.lineTo(190,100);ctx.lineTo(250,60);ctx.lineTo(270,190);ctx.closePath();ctx.fill();
             ctx.strokeStyle='rgba(226,200,160,.35)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-170,125);ctx.lineTo(-105,20);ctx.lineTo(-58,105);ctx.moveTo(65,125);ctx.lineTo(135,18);ctx.lineTo(190,100);ctx.stroke();
+            // Estratos minerais expostos e formações antigas dão profundidade ao vale.
+            drawPolygon([[-270,188],[-246,132],[-221,151],[-198,112],[-173,164],[-142,140],[-118,188]],'rgba(41,37,36,.72)');
+            drawPolygon([[108,190],[136,143],[158,158],[181,105],[205,151],[235,127],[270,186]],'rgba(41,37,36,.78)');
+            ctx.strokeStyle='rgba(214,184,139,.22)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-248,166);ctx.lineTo(-220,151);ctx.lineTo(-198,112);ctx.lineTo(-173,164);ctx.moveTo(136,143);ctx.lineTo(181,105);ctx.lineTo(205,151);ctx.stroke();
+            const fissure=ctx.createLinearGradient(-150,175,160,220);fissure.addColorStop(0,'rgba(56,189,248,0)');fissure.addColorStop(.48,'rgba(167,139,250,.42)');fissure.addColorStop(1,'rgba(56,189,248,0)');
+            ctx.strokeStyle=fissure;ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(-250,190);ctx.quadraticCurveTo(-40,160,250,196);ctx.stroke();
+
             // Mineral outcrops.
             for(let i=0;i<9;i++){const x=-210+i*51;const y=130+Math.sin(i*2.1)*24;drawCrystal(x,y,8+(i%3)*2,['#b6a18a','#a78bfa','#9ca3af','#d6b88b'][i%4], '#8b7355',i*.2);}
             // Fundadora representada pelo sistema de silhuetas.
             const palette=COLOR_PALETTES[state.firstDiamond.colorKey]||COLOR_PALETTES.white,customColor=state.firstDiamond.colorHex||palette.hex;
             const founderProfile=state.firstDiamond.bodySilhouette==='broad'?{shape:'heavy',hair:'crown',outfit:'armor',gemPos:state.firstDiamond.gemPos,expression:'calm'}:state.firstDiamond.bodySilhouette==='slender'?{shape:'slender',hair:'flowing',outfit:'gown',gemPos:state.firstDiamond.gemPos,expression:'calm'}:{shape:'broad',hair:'angular',outfit:'gown',gemPos:state.firstDiamond.gemPos,expression:'calm'};
             drawGemSilhouette(ctx,0,31,.53,{color:customColor,profile:founderProfile,glow:true,gemColor:'#fff4d8'});
+            // Camada frontal com estratos rochosos aparentes.
+            const foreground=ctx.createLinearGradient(0,178,0,235);foreground.addColorStop(0,'#594637');foreground.addColorStop(1,'#211b18');
+            ctx.fillStyle=foreground;drawPolygon([[-270,184],[-220,171],[-175,186],[-112,174],[-58,190],[0,177],[66,192],[128,174],[190,188],[242,172],[270,186],[270,240],[-270,240]],foreground);
             ctx.strokeStyle='rgba(226,200,160,.42)';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(-250,181);ctx.lineTo(250,181);ctx.stroke();
+            ctx.strokeStyle='rgba(214,184,139,.25)';ctx.lineWidth=1;for(let layer=0;layer<3;layer++){ctx.beginPath();ctx.moveTo(-230,198+layer*9);ctx.quadraticCurveTo(-30,188+layer*10,235,205+layer*8);ctx.stroke();}
+            drawCrystal(-188,169,13,'#a78bfa','#8b5cf6',-.2);drawCrystal(202,165,17,'#9ca3af','#cbd5e1',.18);
             ctx.restore();
         }
 
@@ -3788,6 +3800,127 @@
             ctx.fillText('SISTEMA ESTELAR IMPERIAL', cx, 28);
         }
 
+
+        // --- ARQUITETURA MODULAR DE HOMEWORLD ---
+        const STRUCTURE_VISUALS={
+          essence_chamber:{kind:'chamber',color:'#a78bfa',accent:'#e9d5ff',glow:'#8b5cf6'},
+          injector:{kind:'injector',color:'#38bdf8',accent:'#bae6fd',glow:'#0ea5e9'},
+          mineral_extractor:{kind:'drill',color:'#b6a18a',accent:'#f5d0a0',glow:'#d6b88b'},
+          workshop:{kind:'hall',color:'#a8a29e',accent:'#e7e5e4',glow:'#a8a29e'},
+          refinery:{kind:'furnace',color:'#d97706',accent:'#fed7aa',glow:'#f97316'},
+          research_center:{kind:'observatory',color:'#818cf8',accent:'#c7d2fe',glow:'#a5b4fc'},
+          reactor:{kind:'reactor',color:'#22d3ee',accent:'#cffafe',glow:'#06b6d4'},
+          administration_center:{kind:'palace',color:'#e2e8f0',accent:'#fff',glow:'#cbd5e1'},
+          defense_tower:{kind:'sentinel',color:'#ef4444',accent:'#fecaca',glow:'#f87171'},
+          teleporter:{kind:'portal',color:'#c084fc',accent:'#f5d0fe',glow:'#d8b4fe'},
+          shipyard:{kind:'hangar',color:'#64748b',accent:'#cbd5e1',glow:'#94a3b8'},
+          terraformer:{kind:'terraformer',color:'#2dd4bf',accent:'#99f6e4',glow:'#5eead4'},
+          shield_generator:{kind:'shield',color:'#60a5fa',accent:'#dbeafe',glow:'#93c5fd'},
+          orbital_station:{kind:'orbital',color:'#94a3b8',accent:'#e2e8f0',glow:'#7dd3fc'},
+          planetary_network:{kind:'network',color:'#a78bfa',accent:'#ddd6fe',glow:'#c4b5fd'}
+        };
+
+        function drawGemStructureModel(id,x,y,size,operational,time,progress=100){
+          const v=STRUCTURE_VISUALS[id];if(!v||!ctx)return;
+          const active=!!operational,c=v.color,a=v.accent,g=v.glow;
+          ctx.save();ctx.translate(x,y);ctx.scale(size,size);ctx.lineJoin='round';ctx.lineCap='round';ctx.globalAlpha=active?1:.7;
+          ctx.shadowColor=active?g:'transparent';ctx.shadowBlur=active?7+Math.sin(time*.003)*2:0;
+          drawPolygon([[-24,12],[0,3],[24,12],[0,22]],'#172033','#64748b',1);
+          drawPolygon([[-20,10],[0,4],[20,10],[0,16]],'#334155','rgba(255,255,255,.26)',.7);ctx.shadowBlur=0;
+          switch(v.kind){
+            case'chamber':
+              drawPolygon([[-15,8],[-12,-23],[0,-34],[12,-23],[15,8]],'#334155',c,1.4);
+              drawPolygon([[-8,-19],[0,-31],[8,-19],[0,4]],active?g:'#475569','rgba(255,255,255,.7)',.7);
+              ctx.strokeStyle=active?g:'#64748b';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(0,-8,18,5,0,0,Math.PI*2);ctx.stroke();drawCrystal(0,-37,5,a,g);
+              break;
+            case'injector':
+              drawPolygon([[-20,10],[-17,-18],[-10,-27],[-5,-18],[-4,10]],'#334155',c,1.2);drawPolygon([[4,10],[5,-18],[10,-27],[17,-18],[20,10]],'#334155',c,1.2);
+              const beam=ctx.createLinearGradient(0,-25,0,8);beam.addColorStop(0,active?'rgba(186,230,253,.9)':'rgba(71,85,105,.4)');beam.addColorStop(1,'rgba(14,165,233,0)');ctx.fillStyle=beam;ctx.fillRect(-3,-22,6,30);drawCrystal(0,-13,4,a,g);
+              break;
+            case'drill':
+              drawPolygon([[-18,8],[-13,-14],[0,-31],[13,-14],[18,8]],'#57534e',c,1.2);drawPolygon([[-6,-19],[0,-35],[6,-19],[0,-6]],a,'rgba(255,255,255,.55)',.7);
+              ctx.strokeStyle=c;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,-4);ctx.lineTo(0,15);ctx.moveTo(-13,-4);ctx.lineTo(-18,8);ctx.moveTo(13,-4);ctx.lineTo(18,8);ctx.stroke();
+              break;
+            case'hall':
+              drawPolygon([[-22,10],[-22,-10],[-9,-21],[9,-21],[22,-10],[22,10]],'#44403c',c,1.2);drawPolygon([[-17,-10],[-8,-18],[0,-10],[0,8],[-17,8]],'#78716c');drawPolygon([[2,-10],[10,-18],[17,-10],[17,8],[2,8]],'#57534e');
+              ctx.strokeStyle=a;ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(-20,-10);ctx.lineTo(20,-10);ctx.stroke();
+              break;
+            case'furnace':
+              for(let k=0;k<2;k++){let ox=k*19-10;drawPolygon([[ox-8,9],[ox-8,-13],[ox,-22],[ox+8,-13],[ox+8,9]],'#7c2d12',c,1.1);ctx.fillStyle=active?'#fb923c':'#57534e';ctx.beginPath();ctx.ellipse(ox,-7,4,6,0,0,Math.PI*2);ctx.fill();}
+              ctx.fillStyle='#78716c';ctx.fillRect(-17,-25,6,10);ctx.fillRect(10,-29,6,14);if(active){ctx.fillStyle='rgba(251,146,60,.55)';ctx.beginPath();ctx.arc(13,-33,3+Math.sin(time*.01)*1.2,0,Math.PI*2);ctx.fill();}
+              break;
+            case'observatory':
+              ctx.fillStyle='#312e81';ctx.fillRect(-19,-4,38,15);ctx.beginPath();ctx.arc(0,-5,17,Math.PI,0);ctx.closePath();ctx.fill();ctx.strokeStyle=c;ctx.lineWidth=1.4;ctx.stroke();
+              ctx.strokeStyle=a;ctx.lineWidth=1.4;ctx.beginPath();ctx.moveTo(0,-28);ctx.lineTo(0,-39);ctx.moveTo(-11,-21);ctx.lineTo(-19,-27);ctx.moveTo(11,-21);ctx.lineTo(19,-27);ctx.stroke();drawCrystal(0,-30,4,a,g);
+              break;
+            case'reactor':
+              for(let k=0;k<4;k++){ctx.save();ctx.rotate(k*Math.PI/2);drawPolygon([[-4,-8],[-9,-27],[0,-35],[9,-27],[4,-8]],'#164e63',c,1);ctx.restore();}
+              ctx.shadowColor=active?g:'transparent';ctx.shadowBlur=active?12:0;ctx.fillStyle=active?g:'#475569';ctx.beginPath();ctx.arc(0,-15,9,0,Math.PI*2);ctx.fill();ctx.fillStyle='#ecfeff';ctx.beginPath();ctx.arc(0,-15,3.5,0,Math.PI*2);ctx.fill();
+              break;
+            case'palace':
+              drawPolygon([[-23,9],[-21,-10],[-14,-18],[14,-18],[21,-10],[23,9]],'#475569',c,1.2);drawPolygon([[-14,-18],[-10,-29],[0,-36],[10,-29],[14,-18]],'#64748b',a,1);drawPolygon([[-5,8],[-5,-9],[0,-15],[5,-9],[5,8]],active?g:'#64748b');
+              ctx.strokeStyle=a;ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(-24,-3);ctx.lineTo(24,-3);ctx.stroke();
+              break;
+            case'sentinel':
+              drawPolygon([[-13,10],[-8,-23],[0,-34],[8,-23],[13,10]],'#7f1d1d',c,1.2);drawPolygon([[-10,-21],[0,-29],[10,-21],[0,-13]],active?g:'#64748b',a,.8);
+              ctx.strokeStyle=a;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,-31);ctx.lineTo(0,-39);ctx.moveTo(-9,-22);ctx.lineTo(-17,-27);ctx.moveTo(9,-22);ctx.lineTo(17,-27);ctx.stroke();
+              break;
+            case'portal':
+              ctx.strokeStyle=active?g:'#64748b';ctx.lineWidth=4;ctx.beginPath();ctx.ellipse(0,-13,15,21,0,0,Math.PI*2);ctx.stroke();ctx.strokeStyle=a;ctx.lineWidth=1.2;ctx.beginPath();ctx.ellipse(0,-13,9,15,0,0,Math.PI*2);ctx.stroke();drawPolygon([[-19,8],[-15,0],[15,0],[19,8]],'#334155',c,1);
+              break;
+            case'hangar':
+              drawPolygon([[-23,9],[-21,-10],[0,-29],[21,-10],[23,9]],'#334155',c,1.2);drawPolygon([[-13,8],[-10,-7],[0,-16],[10,-7],[13,8]],'#0f172a',a,.8);drawPolygon([[-8,-9],[0,-20],[8,-9],[0,-4]],active?g:'#64748b');
+              ctx.strokeStyle=a;ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(-20,-10);ctx.lineTo(20,-10);ctx.stroke();
+              break;
+            case'terraformer':
+              drawPolygon([[-12,9],[-9,-21],[0,-33],[9,-21],[12,9]],'#134e4a',c,1.2);ctx.strokeStyle=a;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-20,-4);ctx.lineTo(-29,-15);ctx.moveTo(20,-4);ctx.lineTo(29,-15);ctx.moveTo(-29,-15);ctx.lineTo(-34,-20);ctx.moveTo(29,-15);ctx.lineTo(34,-20);ctx.stroke();
+              ctx.strokeStyle=active?g:'#64748b';ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(0,-10,22,Math.PI*.12,Math.PI*.88);ctx.stroke();
+              break;
+            case'shield':
+              drawPolygon([[-13,10],[-10,-19],[0,-31],[10,-19],[13,10]],'#1e3a8a',c,1.2);ctx.strokeStyle=active?g:'#64748b';ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,-18,26,Math.PI*1.12,Math.PI*1.88);ctx.stroke();drawCrystal(0,-22,5,a,g);
+              break;
+            case'orbital':
+              drawPolygon([[-21,8],[-14,-3],[14,-3],[21,8]],'#334155',c,1);ctx.strokeStyle=active?g:'#64748b';ctx.lineWidth=3;ctx.beginPath();ctx.ellipse(0,-16,25,9,-.22,0,Math.PI*2);ctx.stroke();ctx.strokeStyle=a;ctx.lineWidth=1;ctx.beginPath();ctx.ellipse(0,-16,13,5,-.22,0,Math.PI*2);ctx.stroke();drawCrystal(0,-19,4,a,g);
+              break;
+            case'network':
+              ctx.strokeStyle=active?g:'#64748b';ctx.lineWidth=1.5;for(let k=0;k<6;k++){let ang=k*Math.PI/3;ctx.beginPath();ctx.moveTo(0,-17);ctx.lineTo(Math.cos(ang)*22,-17+Math.sin(ang)*14);ctx.stroke();ctx.fillStyle=active?a:'#64748b';ctx.beginPath();ctx.arc(Math.cos(ang)*22,-17+Math.sin(ang)*14,3,0,Math.PI*2);ctx.fill();}drawCrystal(0,-17,7,active?g:'#64748b',g,time*.0003);
+              break;
+          }
+          ctx.shadowColor=active?g:'#64748b';ctx.shadowBlur=active?8:0;ctx.fillStyle=active?'#86efac':'#64748b';ctx.beginPath();ctx.arc(0,15,2.3,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
+          if(progress<100){ctx.strokeStyle='#fbbf24';ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,0,29,-Math.PI/2,-Math.PI/2+Math.PI*2*Math.max(0,Math.min(1,progress/100)));ctx.stroke();ctx.strokeStyle='rgba(251,191,36,.55)';ctx.setLineDash([3,3]);ctx.beginPath();ctx.arc(0,0,25,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);}
+          ctx.restore();
+        }
+
+        function drawStructureConstructionSite(x,y,size,progress){
+          ctx.save();ctx.translate(x,y);ctx.scale(size,size);ctx.strokeStyle='rgba(251,191,36,.85)';ctx.lineWidth=1.8;ctx.setLineDash([3,3]);
+          ctx.strokeRect(-20,-15,40,28);ctx.beginPath();ctx.moveTo(-22,12);ctx.lineTo(0,-24);ctx.lineTo(22,12);ctx.stroke();ctx.setLineDash([]);
+          ctx.fillStyle='rgba(148,163,184,.28)';ctx.fillRect(-15,2,30,9);ctx.fillStyle='#fbbf24';ctx.fillRect(-15,13,30*Math.max(0,Math.min(1,progress/100)),3);ctx.restore();
+          drawGemSilhouette(ctx,x+22*size,y+11*size,size*.052,{color:'#d6b88b',profile:gemSilhouetteProfile('bismuth'),glow:false,gemSize:2});
+        }
+
+        function drawHomeworldStructures(planet,cx,cy,radius,camera,time){
+          if(!planet||planet.id!=='homeworld')return;
+          const size=Math.max(.5,Math.min(1.05,radius/225));
+          if(structureCount('planetary_network')>0){
+            ctx.save();ctx.strokeStyle=structureIsOperational('planetary_network')?'rgba(196,181,253,.58)':'rgba(100,116,139,.28)';ctx.lineWidth=Math.max(1,radius*.006);ctx.setLineDash([5,5]);
+            for(let k=0;k<8;k++){const a=camera.rotation+k*Math.PI/4,b=camera.rotation+(k+1)*Math.PI/4;ctx.beginPath();ctx.moveTo(cx+Math.cos(a)*radius*.22,cy+Math.sin(a)*radius*.18);ctx.quadraticCurveTo(cx,cy,cx+Math.cos(b)*radius*.22,cy+Math.sin(b)*radius*.18);ctx.stroke();}
+            ctx.setLineDash([]);ctx.restore();
+          }
+          STRUCTURE_CATALOG.forEach((def,index)=>{
+            const count=structureCount(def.id);if(count<=0)return;
+            const baseAngle=index*2.399963229728653+.55+camera.rotation,baseRatio=.25+(index%3)*.105;
+            for(let instance=0;instance<Math.min(count,def.maxCount||1);instance++){
+              const spread=(instance-(Math.min(count,def.maxCount||1)-1)/2)*.095,angle=baseAngle+spread,ratio=baseRatio+Math.abs(spread)*.18;
+              const x=cx+Math.cos(angle)*radius*ratio,y=cy+Math.sin(angle)*radius*ratio*.78,active=structureIsOperational(def.id);
+              drawGemStructureModel(def.id,x,y,size*(instance?.9:1),active,time);
+              const assigned=state.structureAssignments&&state.structureAssignments[def.id]||{};let workerIndex=0;
+              Object.entries(assigned).forEach(([type,amount])=>{for(let w=0;w<Math.min(2,Number(amount)||0);w++){const side=workerIndex%2===0?-1:1,wx=x+side*(17+Math.floor(workerIndex/2)*7)*size,wy=y+13*size,profile=gemSilhouetteProfile(type),gemColor=(FOUNDING_GEM_DATA[type]&&FOUNDING_GEM_DATA[type].color)||'#d7c2e8';drawGemSilhouette(ctx,wx,wy,size*.045,{color:gemColor,profile,glow:active,gemSize:1.8});workerIndex++;}});
+              if(count>1){ctx.fillStyle='#e2e8f0';ctx.font='bold '+Math.max(8,9*size)+'px Segoe UI';ctx.textAlign='center';ctx.fillText(String(count),x+22*size,y-18*size);}
+            }
+          });
+          if(state.construction&&state.construction.active){const idx=Math.max(0,STRUCTURE_CATALOG.findIndex(d=>d.id===state.construction.id)),angle=idx*2.399963229728653+.77+camera.rotation,x=cx+Math.cos(angle)*radius*.57,y=cy+Math.sin(angle)*radius*.57*.78;drawStructureConstructionSite(x,y,size,state.construction.progress||0);}
+        }
+
         function drawColony(time) {
             const planet = PLANETS[state.activeColonyPlanetId] || PLANETS.homeworld;
             const { cx, cy } = getVisibleCenter(canvasWidth, canvasHeight);
@@ -3895,6 +4028,9 @@
                     ctx.stroke();
                 }
             });
+
+            // Instalações físicas acompanham a quantidade e a operação reais.
+            drawHomeworldStructures(planet,cx,cy,radius,cam,time);
 
             // População representada por miniaturas de silhuetas, não pontos coloridos.
             planet.walkingGems.forEach((gem,index)=>{
