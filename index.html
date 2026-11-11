@@ -1278,7 +1278,7 @@
             ],
 
             census: {
-                quartz: 3, peridot: 2, lapis: 1, sapphire: 1,
+                quartz: 3, peridot: 2, lapis: 1, sapphire: 1, hessonite: 0,
                 bismuth: 1, ruby: 2, pearl: 1, prime: 2, offcolor: 0
             },
             researchedTechs: {
@@ -2011,7 +2011,9 @@
         function updateStructureSimulation(dt) {
             if (state.construction && state.construction.active) {
                 const def = structureDefinition(state.construction.id);
-                state.construction.progress = Math.min(100, state.construction.progress + dt * 100 / Math.max(1, def ? def.buildTime : 20));
+                const bismuthCount=Math.max(0,Number(state.census.bismuth)||0);
+                const bismuthBuildFactor=Math.max(0.8,1-Math.min(10,bismuthCount)*0.02);
+                state.construction.progress = Math.min(100, state.construction.progress + dt * 100 / (Math.max(1, def ? def.buildTime : 20)*bismuthBuildFactor));
                 if (state.construction.progress >= 100) finishStructureConstruction();
             }
             if (structureIsOperational('essence_chamber') && Number(state.founding.diamondEssence) > 0) {
@@ -2352,7 +2354,7 @@
                     </div>
                     <button class="btn btn-block" onclick="buildColonySpire()">
                         <span>🗼 Espiral Lunar (+Pureza S / -Dissidência)</span>
-                        <span style="color:#fde047">${Math.max(40, 80 - state.census.bismuth * 5)} MAT</span>
+                        <span style="color:#fde047">${Math.max(40, 80 - state.census.bismuth * 1)} MAT</span>
                     </button>
                     <button class="btn btn-block" onclick="buildColonyWarpPad()">
                         <span>🛸 Portal Galáctico (+15% Perfuração)</span>
@@ -4277,7 +4279,7 @@
             state.construction = null;
             state.order = 100;
             state.matriarchs = [];
-            state.census = {quartz:0,peridot:0,lapis:0,sapphire:0,bismuth:0,ruby:0,pearl:0,jasper:0,prime:0,offcolor:0};
+            state.census = {quartz:0,peridot:0,lapis:0,sapphire:0,hessonite:0,bismuth:0,ruby:0,pearl:0,prime:0,offcolor:0};
             state.chronicleLog = [{cycle:1,title:'O Primeiro Despertar',desc:`${state.firstDiamond.name} despertou em Homeworld, um mundo primitivo sem população ou estruturas.`,impact:'Início da Era Primitiva'}];
             for (const p of Object.values(PLANETS)) {
                 p.walkingGems = [];
