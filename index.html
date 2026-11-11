@@ -896,8 +896,8 @@
         };
 
         const STRUCTURE_CATALOG = [
-            {id:'essence_chamber',name:'Câmara de Extração de Essência',category:'Extração',desc:'Retira essência da reserva interna da Primeira Diamante e a transfere ao estoque conectado ao Injetor.',cost:{minerals:20,tech:0},buildTime:18,prerequisites:[],workers:{peridot:1},interaction:'Transfere essência da Diamante para o estoque da colônia.',maxCount:1},
-            {id:'injector',name:'Injetor',category:'Criação',desc:'Recebe essência da Câmara e substratos minerais para formar novas Gems.',cost:{minerals:35,tech:0},buildTime:28,prerequisites:['essence_chamber'],workers:{peridot:1},interaction:'Abre a produção de Gems por injeção.',maxCount:1},
+            {id:'essence_chamber',name:'Câmara de Extração de Essência',category:'Extração',desc:'Cada Câmara dobra a essência obtida pela ação de extração da Primeira Diamante.',cost:{minerals:20,tech:0},buildTime:18,prerequisites:[],workers:{peridot:1},interaction:'Amplifica a extração de essência da Diamante.',maxCount:5},
+            {id:'injector',name:'Injetor',category:'Criação',desc:'Coleta essência automaticamente e injeta no veio mineral local, formando lotes de até cinco Gems do material presente.',cost:{minerals:35,tech:0},buildTime:28,prerequisites:['essence_chamber'],workers:{peridot:1},interaction:'Produção automática de até cinco Gems por ciclo.',maxCount:5},
             {id:'mineral_extractor',name:'Extrator Mineral',category:'Extração',desc:'Permite que Quartzos extraiam minerais continuamente.',cost:{minerals:25,tech:0},buildTime:20,prerequisites:[],workers:{quartz:1},interaction:'Produção contínua de minerais.',maxCount:3},
             {id:'workshop',name:'Oficina de Engenharia',category:'Indústria',desc:'Bismutos constroem ferramentas, peças e componentes para instalações avançadas.',cost:{minerals:40,tech:0},buildTime:24,prerequisites:['mineral_extractor'],workers:{bismuth:1},interaction:'Fabrica ferramentas e componentes.',maxCount:2},
             {id:'refinery',name:'Refinaria',category:'Indústria',desc:'Peridotos e Quartzos processam matérias-primas em materiais refinados.',cost:{minerals:45,tech:0},buildTime:26,prerequisites:['mineral_extractor','workshop'],workers:{peridot:1,quartz:1},interaction:'Converte minerais brutos em materiais refinados.',maxCount:2},
@@ -1920,11 +1920,12 @@
             const type = state.founding.selectedGem;
             const gem = FOUNDING_GEM_DATA[type];
             if (!gem) return;
-            if ((state.founding.gatheredMinerals[gem.mineral] || 0) < 1) { setStatusTicker('O Injetor precisa de uma amostra de ' + gem.mineralName + '.'); return; }
-            const essenceKey = ['white','yellow','blue','pink'].includes(state.firstDiamond.colorKey) ? state.firstDiamond.colorKey : 'white';
-            if ((state.founding.injectorEssence || 0) < 12) { setStatusTicker('A Câmara ainda não transferiu 12 unidades de essência ao reservatório do Injetor.'); return; }
-            state.founding.gatheredMinerals[gem.mineral]--;
-            state.founding.injectorEssence -= 12;
+            const availableMinerals=Number(state.founding.gatheredMinerals[gem.mineral])||0;
+            if (availableMinerals < 5) { setStatusTicker('O Injetor aguarda cinco unidades de ' + gem.mineralName + ' no veio local.'); return; }
+            if ((state.founding.injectorEssence || 0) < 50) { setStatusTicker('O Injetor aguarda 50 unidades de essência no reservatório.'); return; }
+            state.founding.gatheredMinerals[gem.mineral] -= 5;
+            state.founding.injectorEssence -= 50;
+            state.founding.creationBatchCount = 5;
             state.founding.creationTarget = type;
             state.founding.creationSource = 'injector';
             state.founding.creationProgress = 0;
@@ -2014,10 +2015,12 @@
                 if (state.construction.progress >= 100) finishStructureConstruction();
             }
             if (structureIsOperational('essence_chamber') && Number(state.founding.diamondEssence) > 0) {
-                const moved = Math.min(state.founding.diamondEssence, dt * 0.5);
+                const chamberCount=structureCount('essence_chamber');
+                const moved = Math.min(state.founding.diamondEssence, dt * 0.5 * chamberCount);
                 state.founding.diamondEssence -= moved;
                 state.founding.injectorEssence = (Number(state.founding.injectorEssence) || 0) + moved;
             }
+            if (structureIsOperational('injector') && !state.founding.creationActive) startInjectorProduction();
             if (structureIsOperational('mineral_extractor')) state.minerals += dt * 0.3;
             if (structureIsOperational('reactor')) state.energy += dt * 0.35;
         }
@@ -4298,8 +4301,10 @@
                 setStatusTicker('A Diamante precisa recuperar o fôlego por mais ' + founding.essenceCooldown.toFixed(1) + 's.');
                 return;
             }
-            const amount = 2;
-            founding.essenceCooldown = 1.5;
+            const chamberCount=structureCount('essence_chamber');
+            const amount = 2 * Math.pow(2,chamberCount);
+            const pearlBuff=(Number(state.census.pearl)||0)>0?1.5:1;
+            founding.essenceCooldown = 1.5 / pearlBuff;
             const key = ['white','yellow','blue','pink'].includes(fd.colorKey) ? fd.colorKey : 'white';
             if (structureIsOperational('essence_chamber')) {
                 state.founding.diamondEssence += amount;
@@ -4379,6 +4384,8 @@
             const data = FOUNDING_GEM_DATA[type];
             if (!data) return;
             const isFirst = !state.founding.firstGemCreated;
+            const batchCount=state.founding.creationSource==='injector'?Math.max(1,Math.min(5,Number(state.founding.creationBatchCount)||5)):1;
+            state.founding.creationBatchCount=0;
             state.founding.creationActive = false;
             state.founding.firstGemCreated = true;
             state.founding.gemsCreatedCount = (state.founding.gemsCreatedCount || 0) + 1;
@@ -4387,12 +4394,12 @@
             const source = state.founding.creationSource || 'manual';
             state.founding.creationSource = 'manual';
             if (!Object.prototype.hasOwnProperty.call(state.census, type)) state.census[type] = 0;
-            state.census[type]++;
-            PLANETS.homeworld.walkingGems.push({caste:type,color:data.color,grade:'A',isOrbiting:false,bubbleText:'✨ Recém-emergida',angle:Math.random()*Math.PI*2,dir:1,speed:0.0005,bobPhase:0});
-            const title = isFirst ? 'A primeira Gem nasceu' : 'Nova Gem nasceu';
-            const description = state.firstDiamond.name + ' formou uma ' + data.label + ' através de ' + (source === 'injector' ? 'um ciclo de injeção' : 'essência e substrato mineral') + '. Função: ' + data.role + '.';
+            state.census[type]+=batchCount;
+            for(let i=0;i<batchCount;i++) PLANETS.homeworld.walkingGems.push({caste:type,color:data.color,grade:'A',isOrbiting:false,bubbleText:'✨ Recém-emergida',angle:Math.random()*Math.PI*2,dir:1,speed:0.0005,bobPhase:0});
+            const title = batchCount>1?'Lote de Gems produzido':(isFirst ? 'A primeira Gem nasceu' : 'Nova Gem nasceu');
+            const description = state.firstDiamond.name + ' formou ' + batchCount + ' ' + data.label + '(s) através de ' + (source === 'injector' ? 'um ciclo automático de injeção no veio local' : 'essência e substrato mineral') + '. Função: ' + data.role + '.');
             addChronicle(title, description, isFirst ? 'Primeira Gem criada' : 'População ampliada');
-            setStatusTicker((isFirst ? 'A primeira Gem emergiu: ' : 'Nova Gem emergiu: ') + data.label + '. Ela já conhece sua função e pode ser designada a uma estrutura.');
+            setStatusTicker(batchCount>1?batchCount+' Gems '+data.label+' emergiram do veio local.':(isFirst ? 'A primeira Gem emergiu: ' : 'Nova Gem emergiu: ') + data.label + '. Ela já conhece sua função e pode ser designada a uma estrutura.');
             updateHUD(); renderDrawerContent(); renderBottomBar();
         }
 
