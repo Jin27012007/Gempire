@@ -1975,6 +1975,10 @@
             const def = structureDefinition(job.id);
             if (def) {
                 state.structures[def.id] = structureCount(def.id) + 1;
+                if(def.id==='mineral_extractor'){
+                    state.founding.gatheredMinerals={quartz:0,silicate:0,corundum:0,metallic:0,nacre:0,garnet:0,olivine:0,lapisrock:0};
+                    setStatusTicker('Extrator construído: a coleta manual foi encerrada e o inventário mineral foi integrado ao estoque imperial.');
+                }
                 addChronicle('Estrutura concluída', def.name + ' foi concluída. ' + def.interaction, 'Aguardando operadores');
                 setStatusTicker(def.name + ' concluída. Designe Gems com a função adequada para operá-la.');
             }
@@ -4765,6 +4769,7 @@ function drawColony(time){
 
         function gatherPrimitiveMineral() {
             const found=state.founding;
+            if(structureCount('mineral_extractor')>0){setStatusTicker('A coleta manual foi desativada: o Extrator Mineral assumiu o abastecimento do Império.');return;}
             if((Number(found.gatherCooldown)||0)>0){
                 setStatusTicker('Aguarde '+found.gatherCooldown.toFixed(1)+'s antes de procurar outra rocha.',true);
                 return;
@@ -4862,9 +4867,9 @@ function drawColony(time){
             if(hasInjector && found.injectorGemType && FOUNDING_GEM_DATA[found.injectorGemType]) found.selectedGem=found.injectorGemType;
             container.innerHTML =
                 '<div class="card card-cyan"><div class="card-header"><span class="card-title title-font">🌑 Fundação de Homeworld</span><span class="badge">Era Primitiva</span></div>' +
-                '<div style="font-size:12px;line-height:1.55;color:#cbd5e1">' + escapeHTML(fd.name) + ' iniciou a civilização sem infraestrutura. Gems já nascem conhecendo sua função; ferramentas e estruturas determinam o que conseguem executar.</div>' +
+                '<div style="font-size:12px;line-height:1.55;color:#cbd5e1">' + escapeHTML(fd.name) + ' iniciou a civilização sem infraestrutura. Gems já nascem conhecendo sua função e podem ser integradas à população imperial.</div>' +
                 '<div class="stat-box">Gems criadas: <b>' + (found.gemsCreatedCount || 0) + '</b> · Minerais brutos: <b>' + Math.floor(state.minerals) + '</b> · Materiais refinados: <b>' + Math.floor(state.refinedMaterials || 0) + '</b></div>' +
-                '<button class="btn btn-amber btn-block" onclick="switchDrawerTab(\'structures\')">🏗️ Abrir catálogo de estruturas</button></div>' +
+                '</div>' +
                 '<div class="card"><div class="card-header"><span class="card-title title-font">⛏️ Exploração manual</span></div><div class="founding-note">Cada busca encontra uma rocha aleatória. Materiais comuns aparecem com frequência; coríndon, lápis-lazúli e granada hessonítica são achados mais raros. Safiras e Rubis dependem do coríndon, por isso sua formação exige mais exploração.</div><div class="stat-box"><span class="stat-label">Próximo encontro</span><b>' + ((found.gatherCooldown||0)>0?'⏳ Disponível em '+found.gatherCooldown.toFixed(1)+'s':'Pronto para explorar') + '</b></div><button id="gather-mineral-button" class="btn btn-amber btn-block" onclick="gatherPrimitiveMineral()" ' + ((found.gatherCooldown||0)>0?'disabled':'') + '>⛏️ Procurar rochas · 5s entre encontros</button><div class="grid-2">' + mineralCards + '</div></div>' +
                 '<div class="card"><div class="card-header"><span class="card-title title-font">✨ Essência da Diamante</span></div>' +
                 '<div class="founding-note">'+(structureCount('essence_chamber')>0?'A Câmara funciona como uma sauna ou piscina de essência. O banho dura 30 segundos e produz 50 vezes a essência de uma atividade física comum.':'Sem uma Câmara construída, a Diamante produz essência por meio de exercícios físicos.')+'</div>' +
