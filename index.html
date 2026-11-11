@@ -4789,7 +4789,7 @@ function drawColony(time){
             return true;
         }
         function getQuartzVariantForPlanet(planet,index=0){
-            const temp=Number(planet&&planet.temperatureC??8),pressure=Number(planet&&planet.corePressure??0);
+            const temp=Number(planet ? planet.temperatureC : 8),pressure=Number(planet ? planet.corePressure : 0);
             const variants=['carnelian','amethyst','jasper','rose','citrine','ruby','onyx','tigerEye','chalcedony','rutile'];
             if(temp>100)return 'carnelian';
             if(temp<0)return 'amethyst';
