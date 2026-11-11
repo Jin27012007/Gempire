@@ -1191,6 +1191,8 @@
             }
         }
         initializePlanetaryReserves();
+        const PLANET_TEMPERATURES={homeworld:8,ignis_prime:180,thalassa_9:12,caelum_gelidus:-80};
+        Object.entries(PLANET_TEMPERATURES).forEach(([id,temp])=>{if(PLANETS[id])PLANETS[id].temperatureC=temp;});
 
 
         const state = {
@@ -2816,19 +2818,24 @@ ${hasAristocrats ? `
             let recipe = recipes[0];
             let bestScore = Infinity;
             for (const candidate of recipes) {
+                const coldWorld=Number(planet.temperatureC??(planet.id==='caelum_gelidus'?-80:planet.id==='ignis_prime'?180:planet.id==='thalassa_9'?12:8))<0;
+                const climateAllowed=candidate.id==='sapphire'?coldWorld:candidate.id==='ruby'?!coldWorld:true;
                 const veinPenalty = candidate.requiredVein === vein.type ? 0 : 35;
+                const climatePenalty=climateAllowed?0:1000;
                 const formulaPenalty = ['white', 'yellow', 'blue', 'pink'].reduce((sum, key) => {
                     return sum + Math.abs(values[key] - candidate.essence[key]);
                 }, 0);
-                const score = veinPenalty + formulaPenalty;
+                const score = veinPenalty + formulaPenalty + climatePenalty;
                 if (score < bestScore) {
                     bestScore = score;
                     recipe = candidate;
                 }
             }
 
-            const veinMatches = recipe.requiredVein === vein.type;
-            const isOptimalPlanet = recipe.optimalPlanets.includes(planet.id);
+            const coldWorld=Number(planet.temperatureC??(planet.id==='caelum_gelidus'?-80:planet.id==='ignis_prime'?180:planet.id==='thalassa_9'?12:8))<0;
+            const climateMatches=recipe.id==='sapphire'?coldWorld:recipe.id==='ruby'?!coldWorld:true;
+            const veinMatches = recipe.requiredVein === vein.type && climateMatches;
+            const isOptimalPlanet = recipe.optimalPlanets.includes(planet.id) && climateMatches;
             const formulaPenalty = ['white', 'yellow', 'blue', 'pink'].reduce((sum, key) => {
                 return sum + Math.abs(values[key] - recipe.essence[key]);
             }, 0);
@@ -4751,7 +4758,7 @@ function drawColony(time){
             {type:'metallic',weight:16,label:'Minério metálico'},
             {type:'olivine',weight:12,label:'Olivina'},
             {type:'nacre',weight:10,label:'Sedimento carbonático'},
-            {type:'corundum',weight:7,label:'Coríndon'},
+            {type:'corundum',weight:40,label:'Coríndon (Rubi/Safira)'},
             {type:'lapisrock',weight:5,label:'Lápis-lazúli bruto'},
             {type:'garnet',weight:4,label:'Granada hessonítica'}
         ];
