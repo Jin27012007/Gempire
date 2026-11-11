@@ -1914,15 +1914,15 @@
             state.construction = null;
             updateStructureUI();
         }
-        function startInjectorProduction() {
-            if (!structureIsOperational('injector')) { setStatusTicker('O Injetor precisa estar construído e receber um Peridoto operador.', true); return; }
-            if (state.founding.creationActive) { setStatusTicker('Já existe um ciclo de formação em andamento.'); return; }
+        function startInjectorProduction(automatic=false) {
+            if (!structureIsOperational('injector')) { if(!automatic) setStatusTicker('O Injetor precisa estar construído e receber um Peridoto operador.', true); return; }
+            if (state.founding.creationActive) { if(!automatic) setStatusTicker('Já existe um ciclo de formação em andamento.'); return; }
             const type = state.founding.selectedGem;
             const gem = FOUNDING_GEM_DATA[type];
             if (!gem) return;
             const availableMinerals=Number(state.founding.gatheredMinerals[gem.mineral])||0;
-            if (availableMinerals < 5) { setStatusTicker('O Injetor aguarda cinco unidades de ' + gem.mineralName + ' no veio local.'); return; }
-            if ((state.founding.injectorEssence || 0) < 50) { setStatusTicker('O Injetor aguarda 50 unidades de essência no reservatório.'); return; }
+            if (availableMinerals < 5) { if(!automatic) setStatusTicker('O Injetor aguarda cinco unidades de ' + gem.mineralName + ' no veio local.'); return; }
+            if ((state.founding.injectorEssence || 0) < 50) { if(!automatic) setStatusTicker('O Injetor aguarda 50 unidades de essência no reservatório.'); return; }
             state.founding.gatheredMinerals[gem.mineral] -= 5;
             state.founding.injectorEssence -= 50;
             state.founding.creationBatchCount = 5;
@@ -2022,7 +2022,7 @@
                 state.founding.diamondEssence -= moved;
                 state.founding.injectorEssence = (Number(state.founding.injectorEssence) || 0) + moved;
             }
-            if (structureIsOperational('injector') && !state.founding.creationActive) startInjectorProduction();
+            if (structureIsOperational('injector') && !state.founding.creationActive) startInjectorProduction(true);
             if (structureIsOperational('mineral_extractor')) state.minerals += dt * 0.3;
             if (structureIsOperational('reactor')) state.energy += dt * 0.35;
         }
