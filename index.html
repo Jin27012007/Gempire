@@ -1737,7 +1737,18 @@
                 }
             ];
 
-            return dynamicPool[Math.floor(Math.random() * dynamicPool.length)];
+            const eligibleEvents = dynamicPool.filter(event => {
+                if (event.arcTag.includes('Jurisprudência de Fusão')) return (Number(state.census.quartz)||0)>0 && (Number(state.census.peridot)||0)>0 && structureIsOperational('injector');
+                if (event.arcTag.includes('Anomalia da Biosfera')) return (Number(state.census.lapis)||0)>0 && (Number(state.census.pearl)||0)>0 && (Number(randPlanet.terraformLevel)||0)>0;
+                return false;
+            });
+            if (!eligibleEvents.length) return {
+                arcTag:'📜 Fundação em andamento',speaker:'Registro Imperial de Homeworld',
+                text:'A Corte ainda está consolidando sua população e infraestrutura. Nenhuma audiência extraordinária foi convocada.',
+                consequenceHint:'Continue criando Gems e construindo as estruturas necessárias para liberar novos assuntos da Corte.',
+                choices:[{label:'✓ Manter o foco na fundação',action:()=>addChronicle('Fundação em andamento','A Primeira Diamante manteve a prioridade na expansão da população e da infraestrutura.','Progressão mantida')}]
+            };
+            return eligibleEvents[Math.floor(Math.random()*eligibleEvents.length)];
         }
 
         // --- 8. CONTROLE DE TELAS, ABAS E MODAIS ---
@@ -1879,7 +1890,7 @@
             if (state.drawerTab === 'guide') { renderGemGuide(body); return; }
             if (state.drawerTab === 'chronicle') { renderChronicleTab(body); return; }
             if (state.drawerTab === 'dynasty') { renderDynastyTab(body); return; }
-            if (state.firstGameStarted && state.founding && (!state.founding.firstGemCreated || structureCount('injector') > 0)) {
+            if (state.firstGameStarted && state.founding) {
                 renderFoundingContext(body);
                 return;
             }
@@ -2340,12 +2351,7 @@
                 <div class="stat-label">Nodo #${vein.id+1} • ${vein.label} • Pureza ${vein.purity}%</div>
                 <p style="font-size:11px;color:var(--text-muted);line-height:1.5;margin:7px 0;">Peridots coordenam a implantação e a operação dos injetores, ancorados na borda do planeta e conectados aos estratos minerais.</p>
                 <div class="stat-box" style="display:flex;justify-content:space-between;align-items:center;"><span>Injetores ativos neste mundo</span><b style="color:var(--cyan)">${activeInjectors} / ${p.veins.length}</b></div><div id="injector-action-area">${buildInjectorActionHTML(vein)}</div></div>
-                <div class="card"><div class="card-header"><span class="card-title title-font">🏗️ Megaestruturas & Segurança</span></div>
-                <button class="btn btn-block" onclick="buildColonySpire()"><span>🗼 Espiral Lunar (+Pureza S / -Dissidência)</span><span style="color:#fde047">${Math.max(40,80-state.census.bismuth)} MAT</span></button>
-                <button class="btn btn-block" onclick="buildColonyWarpPad()"><span>🛸 Portal Galáctico (+15% Perfuração)</span><span style="color:#7dd3fc">60 MAT / 25 TEC</span></button>
-                <button class="btn btn-block" onclick="buildThermalSink()"><span>❄️ Dissipador Geotérmico (-35% Calor)</span><span style="color:#6ee7b7">70 MAT / 20 TEC</span></button>
-                <button class="btn btn-block" ${p.hasOrbitalRing?'disabled':''} onclick="buildColonyOrbitalRing()"><span>🪐 ${p.hasOrbitalRing?'Anel Orbital Concluído ✓':'Anel Orbital (+15 MAT/s)'}</span><span style="color:#c084fc">${p.hasOrbitalRing?'Ativo':'180 MAT / 60 TEC'}</span></button>
-                <button class="btn btn-block btn-pink" onclick="pacifyPlanetRebellion()"><span>⚔️ Pacificar Dissidência / Insurgência</span><span>25 Amarela</span></button></div>`;
+                `;
         }
 
         function buildForecastHTML(evalData) {
@@ -2373,7 +2379,10 @@
 
         function buildInjectorActionHTML(vein) {
             if(vein.rebelBlocked)return `<div class="stat-box" style="border-color:#fb7185;color:#fecdd3;"><div style="font-weight:700;margin-bottom:4px;">🚩 ESTRATO TOMADO POR REBELDES!</div><button class="btn btn-pink" style="width:100%;" onclick="pacifyPlanetRebellion()">⚔️ Mobilizar Guarnição (25 Amarela)</button></div>`;
-            if(!vein.injector)return `<button class="btn active" style="width:100%;padding:9px;" onclick="startConfiguredInjection()">💚 Designar Peridot e implantar no Nodo #${vein.id+1}</button>`;
+            if(!vein.injector){
+                if(freeGemWorkers('peridot')<1)return `<div class="stat-box" style="color:var(--text-muted);">${(Number(state.census.peridot)||0)>0?'Todos os Peridots estão ocupados. Libere um operador para implantar o injetor.':'É necessário criar uma Peridot antes de implantar e operar este injetor.'}</div>`;
+                return `<button class="btn active" style="width:100%;padding:9px;" onclick="startConfiguredInjection()">💚 Designar Peridot e implantar no Nodo #${vein.id+1}</button>`;
+            }
             const pct=Math.min(100,Math.round(vein.injector.progress));
             return `<div class="stat-box" style="display:flex;flex-direction:column;gap:6px;"><div style="display:flex;justify-content:space-between;font-size:11px;"><span style="color:#6ee7b7;font-weight:700;">💚 Peridot operando • ${vein.injector.evalData.recipe.shortName}</span><b style="color:#fff;">${pct}%</b></div><div style="width:100%;height:7px;background:#090d16;border-radius:99px;overflow:hidden;"><div style="width:${pct}%;height:100%;background:linear-gradient(90deg,#34d399,#38bdf8);"></div></div><div style="font-size:10px;color:var(--text-muted);">Bacteriófago ancorado na borda do planeta durante a maturação.</div></div>`;
         }
@@ -2842,6 +2851,7 @@
                 setStatusTicker('⚠️ Já existe um Injetor ativo neste estrato.');
                 return;
             }
+            if (freeGemWorkers('peridot') < 1) { setStatusTicker('É necessário ter uma Peridot livre para operar e implantar o injetor.', true); return; }
             const evaluation = evaluateAlchemicalFormula();
             const costs = { ...evaluation.costs };
             const mineralCost=Math.max(25,Math.ceil((Number(planet.resourceTotal)||10000)*0.002));
