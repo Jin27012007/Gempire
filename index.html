@@ -632,6 +632,7 @@
                     <button id="tab-dynasty" class="btn" onclick="switchDrawerTab('dynasty')">👑 Dinastia</button>
                     <button id="tab-structures" class="btn" onclick="switchDrawerTab('structures')">🏗️ Estruturas</button>
                     <button id="tab-guide" class="btn" onclick="switchDrawerTab('guide')">📖 Guia de Gems</button>
+                    <button id="tab-population" class="btn" onclick="switchDrawerTab('population')">👥 Relatório populacional</button>
                 </div>
                 <button class="btn" onclick="toggleDrawer()" title="Fechar Painel">✕</button>
             </div>
@@ -1788,7 +1789,7 @@
         }
 
         function syncDrawerTabButtons() {
-            ['context', 'chronicle', 'dynasty', 'structures', 'guide'].forEach(t => {
+            ['context', 'chronicle', 'dynasty', 'structures', 'guide', 'population'].forEach(t => {
                 const btn = document.getElementById('tab-' + t);
                 if (btn) btn.classList.toggle('active', state.drawerTab === t);
             });
@@ -1889,6 +1890,7 @@
             if (!body) return;
             if (state.drawerTab === 'structures') { renderStructuresTab(body); return; }
             if (state.drawerTab === 'guide') { renderGemGuide(body); return; }
+            if (state.drawerTab === 'population') { renderPopulationReport(body); return; }
             if (state.drawerTab === 'chronicle') { renderChronicleTab(body); return; }
             if (state.drawerTab === 'dynasty') { renderDynastyTab(body); return; }
             if (state.firstGameStarted && state.founding) {
@@ -3701,6 +3703,31 @@ ${hasAristocrats ? `
             container.querySelectorAll('[data-silhouette]').forEach(button=>{button.addEventListener('click',()=>selectSilhouettePreview(button.dataset.silhouette));});
         }
         function selectSilhouettePreview(type){if(!FOUNDING_GEM_DATA[type])return;silhouettePreviewSelection=type;const body=document.getElementById('drawer-body');if(body&&state.drawerTab==='guide')renderGemGuide(body);}
+
+
+        function renderPopulationReport(container){
+            if(!container)return;
+            const totals={quartz:0,peridot:0,bismuth:0,lapis:0,sapphire:0,ruby:0,pearl:0,hessonite:0,prime:0,offcolor:0};
+            const variants={jasper:0,amethyst:0,rose:0,other:0};
+            let observed=0;
+            Object.values(PLANETS).forEach(planet=>(planet.walkingGems||[]).forEach(gem=>{
+                const caste=gem.caste||gem.type;
+                if(Object.prototype.hasOwnProperty.call(totals,caste))totals[caste]++;
+                if(caste==='quartz'){
+                    const variant=String(gem.variant||gem.subtype||gem.quartzVariant||gem.name||'').toLowerCase();
+                    if(variant.includes('jasper')||variant.includes('jaspe'))variants.jasper++;
+                    else if(variant.includes('amethyst')||variant.includes('ametista'))variants.amethyst++;
+                    else if(variant.includes('rose')||variant.includes('rosa'))variants.rose++;
+                    else variants.other++;
+                }
+                observed++;
+            }));
+            if(!observed)Object.keys(totals).forEach(key=>totals[key]=Math.max(0,Number(state.census[key])||0));
+            const labels={quartz:'Quartzo',peridot:'Peridoto',bismuth:'Bismuto',lapis:'Lápis-Lazúli',sapphire:'Safira',ruby:'Rubi',pearl:'Pérola',hessonite:'Hessonita',prime:'Aristocratas · Rank S',offcolor:'Off-Colors'};
+            const total=Object.values(totals).reduce((a,b)=>a+b,0);
+            const rows=Object.entries(labels).map(([key,label])=>'<div class="stat-box" style="display:flex;justify-content:space-between;gap:8px"><span>'+label+'</span><b>'+totals[key].toLocaleString('pt-BR')+'</b></div>').join('');
+            container.innerHTML='<div class="card card-cyan"><div class="card-header"><span class="card-title title-font">👥 Relatório populacional</span><span class="badge">Império inteiro</span></div><div class="stat-box">População total registrada: <b>'+total.toLocaleString('pt-BR')+' Gems</b></div><p style="font-size:10px;color:#94a3b8">Contagem agregada de todas as colônias e mundos do Império.</p></div><div class="card"><div class="card-header"><span class="card-title">População por tipo</span></div>'+rows+'</div><div class="card"><div class="card-header"><span class="card-title">Família Quartzo · variantes</span></div><div class="stat-box">Jaspers: <b>'+variants.jasper+'</b></div><div class="stat-box">Ametistas: <b>'+variants.amethyst+'</b></div><div class="stat-box">Roses: <b>'+variants.rose+'</b></div><div class="stat-box">Quartzos sem variante identificada: <b>'+variants.other+'</b></div><p style="font-size:10px;color:#94a3b8">As variantes são separadas quando a Gem possui identificação própria nos seus dados.</p></div>';
+        }
 
         function renderGemGuide(container){
             if(!container)return;
