@@ -703,104 +703,22 @@
 
         // --- 1. CATÁLOGO DE RECEITAS GEM (7 CASTAS) ---
         const GEM_RECIPES = {
-            peridot: {
-                id: 'peridot',
-                shortName: 'Peridot',
-                name: 'Peridot (Engenheira de Jardim)',
-                primeTitle: 'Peridot Faceta-Prime [Rank S]',
-                offcolorTitle: 'Peridot Descalibrada [Off-Color]',
-                requiredVein: 'silicate',
-                veinLabel: 'Silicato Verde',
-                optimalPlanets: ['homeworld', 'thalassa_9', 'terra_veritas'],
-                optimalLabel: 'Homeworld, Thalassa-9, Terra-Veritas',
-                essence: { white: 15, yellow: 25, blue: 0, pink: 10 },
-                idealMaturation: 2,
-                color: '#10b981',
-                bubbleText: '🔧 Calibrando',
-                roleDesc: '+6 TEC/s e reduz o desgaste tectônico dos Injetores.'
-            },
-            hessonite: { id:'hessonite', shortName:'Hessonita', name:'Hessonita (Mobilização e Comando)', primeTitle:'Hessonita Marechal [Rank S]', offcolorTitle:'Hessonita de Tom Turvo [Off-Color]', requiredVein:'garnet', veinLabel:'Granada Hessonítica', optimalPlanets:['ignis_prime','homeworld'], optimalLabel:'Ignis-Prime, Homeworld', essence:{white:15,yellow:25,blue:10,pink:20}, idealMaturation:2, color:'#d97745', bubbleText:'⚔️ Coordenando', roleDesc:'Mobiliza tropas, organiza formações e coordena ataques.'
-            },
-            bismuth: {
-                id: 'bismuth',
-                shortName: 'Bismuto',
-                name: 'Bismuto (Arquiteta de Megaestruturas)',
-                primeTitle: 'Bismuto Mestre-Forjadora [Rank S]',
-                offcolorTitle: 'Bismuto de Liga Instável [Off-Color]',
-                requiredVein: 'metallic',
-                veinLabel: 'Veio Metálico Dourado',
-                optimalPlanets: ['ignis_prime', 'homeworld'],
-                optimalLabel: 'Ignis-Prime, Homeworld',
-                essence: { white: 20, yellow: 20, blue: 20, pink: 15 },
-                idealMaturation: 2,
-                color: '#facc15',
-                bubbleText: '🔨 Construindo',
-                roleDesc: '+10 MAT/s e reduz custos de Megaestruturas Planetárias.'
-            },
-            sapphire: {
-                id: 'sapphire',
-                shortName: 'Safira',
-                name: 'Safira (Aristocrata Vidente)',
-                primeTitle: 'Safira Real de Visão Futura [Rank S]',
-                offcolorTitle: 'Padparadscha [Visão do Passado]',
-                requiredVein: 'corundum',
-                veinLabel: 'Coríndon Azul',
-                optimalPlanets: ['caelum_gelidus', 'homeworld'],
-                optimalLabel: 'Caelum-Gelidus, Homeworld',
-                essence: { white: 25, yellow: 0, blue: 45, pink: 10 },
-                idealMaturation: 3,
-                color: '#818cf8',
-                bubbleText: '👁️ Prevendo',
-                roleDesc: '+8 TEC/s, +4 Essência Branca/s e eleva a pureza da colônia.'
-            },
-            lapis: {
-                id: 'lapis',
-                shortName: 'Lápis',
-                name: 'Lápis-Lazúli (Terraformadora Orbital)',
-                primeTitle: 'Lápis-Lazúli Soberana dos Mares [Rank S]',
-                offcolorTitle: 'Lápis de Asas Instáveis [Off-Color]',
-                requiredVein: 'corundum',
-                veinLabel: 'Coríndon Azul',
-                optimalPlanets: ['thalassa_9', 'homeworld'],
-                optimalLabel: 'Thalassa-9, Homeworld',
-                essence: { white: 20, yellow: 0, blue: 50, pink: 25 },
-                idealMaturation: 3,
-                color: '#38bdf8',
-                bubbleText: '🌊 Resfriando',
-                roleDesc: 'Voa em órbita com asas d’água! (+5 Azul/s e resfria o Calor Sísmico).'
-            },
-            ruby: {
-                id: 'ruby',
-                shortName: 'Rubi',
-                name: 'Rubi (Esquadrão de Guarnição)',
-                primeTitle: 'Rubi Comandante de Elite [Rank S]',
-                offcolorTitle: 'Rubi Hiperativa Desfocada [Off-Color]',
-                requiredVein: 'metallic',
-                veinLabel: 'Veio Metálico Dourado',
-                optimalPlanets: ['ignis_prime', 'homeworld'],
-                optimalLabel: 'Ignis-Prime, Homeworld',
-                essence: { white: 5, yellow: 20, blue: 5, pink: 15 },
-                idealMaturation: 1,
-                color: '#f43f5e',
-                bubbleText: '🛡️ Em Guarda',
-                roleDesc: 'Maturação rápida (5s). Contém rebeliões (+4 MAT/s e reduz Dissidência).'
-            },
-            pearl: {
-                id: 'pearl',
-                shortName: 'Pérola',
-                name: 'Pérola Imperial (Harmonia da Corte)',
-                primeTitle: 'Pérola Real Cristalina [Rank S]',
-                offcolorTitle: 'Pérola de Nácar Livre [Off-Color]',
-                requiredVein: 'nacre',
-                veinLabel: 'Sedimento Nacarado',
-                optimalPlanets: ['thalassa_9', 'homeworld', 'caelum_gelidus'],
-                optimalLabel: 'Thalassa-9, Homeworld, Caelum-Gelidus',
-                essence: { white: 35, yellow: 10, blue: 25, pink: 10 },
-                idealMaturation: 3,
-                color: '#f8fafc',
-                bubbleText: '🤍 Harmonia',
-                roleDesc: '+5 Essência Branca/s, +2% Ordem Imperial e acalma colônias.'
-            }
+            quartz:{id:'quartz',shortName:'Quartzo',name:'Quartzo Soldado',primeTitle:'Quartzo de Corte Perfeito [Rank S]',offcolorTitle:'Quartzo Off-Color',requiredVein:'quartz',veinLabel:'Veio de Quartzo',optimalPlanets:['homeworld','terra_veritas'],optimalLabel:'Homeworld, Terra-Veritas',essence:{white:15,yellow:10,blue:5,pink:5},idealMaturation:1,color:'#e2e8f0',bubbleText:'⛏️ Em serviço',family:'quartz',roleDesc:'Infantaria padrão; variantes geológicas compartilham força e habilidades.'},
+            agate:{id:'agate',shortName:'Ágata',name:'Ágata (Comandante de Esquadrões)',primeTitle:'Ágata de Comando [Rank S]',offcolorTitle:'Ágata Irregular',requiredVein:'quartz',refinedMaterial:'quartz',veinLabel:'Quartzo Refinado',optimalPlanets:['homeworld'],optimalLabel:'Homeworld',essence:{white:25,yellow:25,blue:5,pink:10},idealMaturation:2,color:'#d6a77a',bubbleText:'🎖️ Comandando',roleDesc:'Comanda grupos de até 20 soldados Quartzo por Ágata.'},
+            peridot:{id:'peridot',shortName:'Peridoto',name:'Peridoto (Engenharia e Jardins)',primeTitle:'Peridoto Técnica [Rank S]',offcolorTitle:'Peridoto Descalibrada [Off-Color]',requiredVein:'silicate',veinLabel:'Silicato',optimalPlanets:['homeworld','thalassa_9','terra_veritas'],optimalLabel:'Homeworld, Thalassa-9, Terra-Veritas',essence:{white:15,yellow:25,blue:0,pink:10},idealMaturation:2,color:'#10b981',bubbleText:'🔧 Calibrando',roleDesc:'Opera estruturas tecnológicas, jardins de infância e análises de terreno.'},
+            nephrite:{id:'nephrite',shortName:'Nefrita',name:'Nefrita (Piloto de Guerra)',primeTitle:'Nefrita de Vanguarda [Rank S]',offcolorTitle:'Nefrita Instável',requiredVein:'pyroxene',veinLabel:'Piroxênio Comum',optimalPlanets:['homeworld','ignis_prime'],optimalLabel:'Homeworld, Ignis-Prime',essence:{white:20,yellow:20,blue:5,pink:10},idealMaturation:2,color:'#65a30d',bubbleText:'🚀 Pilotando',roleDesc:'Pilota naves com velocidade dobrada e é a única casta apta a pilotar naves de guerra.'},
+            jade:{id:'jade',shortName:'Jade',name:'Jade (Aristocrata da Corte)',primeTitle:'Jade de Corte [Rank S]',offcolorTitle:'Jade Irregular',requiredVein:'pyroxene',refinedMaterial:'pyroxene',veinLabel:'Piroxênio Refinado',optimalPlanets:['terra_veritas'],optimalLabel:'Terra-Veritas',essence:{white:20,yellow:15,blue:20,pink:25},idealMaturation:3,color:'#34d399',bubbleText:'🎭 Preparando baile',roleDesc:'Aristocrata social, reservada a bailes e eventos da Corte; sistema social futuro.'},
+            bismuth:{id:'bismuth',shortName:'Bismuto',name:'Bismuto (Construção e Fabricação)',primeTitle:'Bismuto Mestre-Forjadora [Rank S]',offcolorTitle:'Bismuto de Liga Instável [Off-Color]',requiredVein:'metallic',veinLabel:'Veio Metálico',optimalPlanets:['ignis_prime','homeworld'],optimalLabel:'Ignis-Prime, Homeworld',essence:{white:20,yellow:20,blue:20,pink:15},idealMaturation:2,color:'#facc15',bubbleText:'🔨 Construindo',roleDesc:'Constrói estruturas e fabrica ferramentas e componentes.'},
+            sapphire:{id:'sapphire',shortName:'Safira',name:'Safira (Aristocrata Vidente)',primeTitle:'Safira Real de Visão Futura [Rank S]',offcolorTitle:'Padparadscha [Visão do Passado]',requiredVein:'corundum',veinLabel:'Coríndon',optimalPlanets:['caelum_gelidus'],optimalLabel:'Caelum-Gelidus',essence:{white:25,yellow:0,blue:45,pink:10},idealMaturation:3,color:'#818cf8',bubbleText:'👁️ Prevendo',roleDesc:'Aristocrata. Cada Safira acrescenta 5% de chance de prever um evento possível a cada 5 minutos.'},
+            ruby:{id:'ruby',shortName:'Rubi',name:'Rubi (Soldado de Guarda)',primeTitle:'Rubi de Guarda [Rank S]',offcolorTitle:'Rubi Hiperativa Desfocada [Off-Color]',requiredVein:'corundum',veinLabel:'Coríndon',optimalPlanets:['ignis_prime','homeworld'],optimalLabel:'Ignis-Prime, Homeworld',essence:{white:5,yellow:20,blue:5,pink:15},idealMaturation:1,color:'#f43f5e',bubbleText:'🛡️ Em Guarda',family:'quartz',roleDesc:'Variante soldado Quartzo abundante; atua em grupos de três ou mais como guarda pessoal e pode fundir-se somente com outros Rubis.'},
+            lapis:{id:'lapis',shortName:'Lápis-Lazúli',name:'Lápis-Lazúli (Aristocrata Terraformadora)',primeTitle:'Lápis-Lazúli Soberana dos Mares [Rank S]',offcolorTitle:'Lápis de Asas Instáveis [Off-Color]',requiredVein:'lapisrock',veinLabel:'Lápis-lazúli',optimalPlanets:['thalassa_9'],optimalLabel:'Thalassa-9',essence:{white:20,yellow:0,blue:50,pink:25},idealMaturation:3,color:'#38bdf8',bubbleText:'🌊 Transformando',roleDesc:'Aristocrata. Duas Lápis, com grandes reservas de água, podem abrir mundos oceânicos e criar terra firme.'},
+            morganite:{id:'morganite',shortName:'Morganita',name:'Morganita (Matriarca das Obras)',primeTitle:'Morganita Regente [Rank S]',offcolorTitle:'Morganita Irregular',requiredVein:'beryllium',refinedMaterial:'beryllium',veinLabel:'Berílio Refinado',optimalPlanets:['ignis_prime'],optimalLabel:'Ignis-Prime',essence:{white:25,yellow:15,blue:10,pink:35},idealMaturation:3,color:'#f0a6c2',bubbleText:'🏗️ Coordenando obras',roleDesc:'Aristocrata que comanda automaticamente as Bismutos e supervisiona a construção de estruturas.'},
+            aquamarine:{id:'aquamarine',shortName:'Água-marinha',name:'Água-marinha (Comando Logístico)',primeTitle:'Água-marinha Almirante [Rank S]',offcolorTitle:'Água-marinha Turva',requiredVein:'beryllium',refinedMaterial:'beryllium',veinLabel:'Berílio Refinado',optimalPlanets:['thalassa_9','caelum_gelidus'],optimalLabel:'Thalassa-9, Caelum-Gelidus',essence:{white:15,yellow:5,blue:40,pink:25},idealMaturation:3,color:'#67e8f9',bubbleText:'🧭 Ordenando rotas',roleDesc:'Aristocrata que coordena e envia Lápis-Lazúlis automaticamente para mundos elegíveis.'},
+            emerald:{id:'emerald',shortName:'Esmeralda',name:'Esmeralda (Comando de Exércitos)',primeTitle:'Esmeralda Estrategista [Rank S]',offcolorTitle:'Esmeralda Fraturada',requiredVein:'beryllium',refinedMaterial:'beryllium',veinLabel:'Berílio Refinado',optimalPlanets:['terra_veritas','homeworld'],optimalLabel:'Terra-Veritas, Homeworld',essence:{white:20,yellow:25,blue:15,pink:20},idealMaturation:3,color:'#34d399',bubbleText:'⚔️ Mobilizando',roleDesc:'Aristocrata que coordena Hessonitas e amplia a capacidade de mobilização em larga escala.'},
+            pyrope:{id:'pyrope',shortName:'Piropo',name:'Piropo (General de Exércitos)',primeTitle:'Piropo Marechal [Rank S]',offcolorTitle:'Piropo de Corte Irregular',requiredVein:'garnet',veinLabel:'Granada Piropo',optimalPlanets:['ignis_prime','homeworld'],optimalLabel:'Ignis-Prime, Homeworld',essence:{white:10,yellow:35,blue:10,pink:15},idealMaturation:2,color:'#b91c1c',bubbleText:'⚔️ Formando legiões',roleDesc:'General de alto escalão, especializado em organizar grandes exércitos.'},
+            hessonite:{id:'hessonite',shortName:'Hessonita',name:'Hessonita (General e Mobilização)',primeTitle:'Hessonita Marechal [Rank S]',offcolorTitle:'Hessonita de Tom Turvo',requiredVein:'garnet',veinLabel:'Granada Hessonítica',optimalPlanets:['ignis_prime','homeworld'],optimalLabel:'Ignis-Prime, Homeworld',essence:{white:15,yellow:25,blue:10,pink:20},idealMaturation:2,color:'#d97745',bubbleText:'⚔️ Coordenando',roleDesc:'General responsável por organizar tropas e coordenar ataques.'},
+            topaz:{id:'topaz',shortName:'Topázio',name:'Topázio (Guarda Palaciana)',primeTitle:'Topázio Sentinela [Rank S]',offcolorTitle:'Topázio Irregular',requiredVein:'topaz',veinLabel:'Bolsa de Topázio',optimalPlanets:['caelum_gelidus','ignis_prime'],optimalLabel:'Caelum-Gelidus, Ignis-Prime',essence:{white:30,yellow:15,blue:15,pink:5},idealMaturation:3,color:'#f59e0b',bubbleText:'🏛️ Em guarda',roleDesc:'Soldado raro, reservado à proteção de palácios e comitivas de Gems importantes.'},
+            pearl:{id:'pearl',shortName:'Pérola',name:'Pérola Imperial (Assistência da Corte)',primeTitle:'Pérola Real Cristalina [Rank S]',offcolorTitle:'Pérola de Nácar Livre [Off-Color]',requiredVein:'nacre',veinLabel:'Sedimento Nacarado',optimalPlanets:['thalassa_9','homeworld','caelum_gelidus'],optimalLabel:'Thalassa-9, Homeworld, Caelum-Gelidus',essence:{white:35,yellow:10,blue:25,pink:10},idealMaturation:3,color:'#f8fafc',bubbleText:'🤍 Aguardando dona',roleDesc:'Servente de uma única dona; Pérolas de Nácar concedem ×1,5 e Pérolas legítimas de Recife ×2.'}
         };
 
         // --- 2. DOUTRINAS & PERSONALIDADES AUTÔNOMAS DAS DIAMANTES ---
@@ -2850,6 +2768,22 @@ ${hasAristocrats ? `
             }
         }
 
+        function gemRecipeAllowedOnPlanet(candidate,planet){
+            const temperature=Number(planet.temperatureC??(planet.id==='caelum_gelidus'?-80:planet.id==='ignis_prime'?180:planet.id==='thalassa_9'?12:8));
+            const coldFar=temperature<0&&Number(planet.orbitRadius||0)>=180;
+            const refined=state.refinedResources||{};
+            if(candidate.id==='sapphire')return coldFar;
+            if(candidate.id==='ruby')return !coldFar;
+            if(candidate.id==='jade')return Number(refined.pyroxene||0)>0;
+            if(candidate.id==='nephrite')return Number(refined.pyroxene||0)<=0;
+            if(['morganite','aquamarine','emerald'].includes(candidate.id)&&Number(refined.beryllium||0)<1)return false;
+            if(candidate.id==='morganite')return temperature>100;
+            if(candidate.id==='aquamarine')return temperature<0||planet.hasOcean===true;
+            if(candidate.id==='emerald')return temperature>0&&temperature<100;
+            if(candidate.refinedMaterial==='quartz'&&Number(refined.quartz||0)<1)return false;
+            return true;
+        }
+
         function evaluateAlchemicalFormula() {
             const planet = PLANETS[state.activeColonyPlanetId] || PLANETS.homeworld;
             const vein = planet.veins[state.selectedVeinIndex] || planet.veins[0];
@@ -2859,12 +2793,11 @@ ${hasAristocrats ? `
                 blue: Number(state.sliders.blue) || 0,
                 pink: Number(state.sliders.pink) || 0
             };
-            const recipes = Object.values(GEM_RECIPES);
-            let recipe = recipes[0];
+            const recipes = Object.values(GEM_RECIPES).filter(candidate=>gemRecipeAllowedOnPlanet(candidate,planet));
+            let recipe = recipes[0] || GEM_RECIPES.quartz;
             let bestScore = Infinity;
             for (const candidate of recipes) {
-                const coldWorld=Number(planet.temperatureC??(planet.id==='caelum_gelidus'?-80:planet.id==='ignis_prime'?180:planet.id==='thalassa_9'?12:8))<0&&Number(planet.orbitRadius||0)>=180;
-                const climateAllowed=candidate.id==='sapphire'?coldWorld:candidate.id==='ruby'?!coldWorld:true;
+                const climateAllowed=gemRecipeAllowedOnPlanet(candidate,planet);
                 const veinPenalty = candidate.requiredVein === vein.type ? 0 : 35;
                 const climatePenalty=climateAllowed?0:1000;
                 const formulaPenalty = ['white', 'yellow', 'blue', 'pink'].reduce((sum, key) => {
@@ -2877,8 +2810,7 @@ ${hasAristocrats ? `
                 }
             }
 
-            const coldWorld=Number(planet.temperatureC??(planet.id==='caelum_gelidus'?-80:planet.id==='ignis_prime'?180:planet.id==='thalassa_9'?12:8))<0&&Number(planet.orbitRadius||0)>=180;
-            const climateMatches=recipe.id==='sapphire'?coldWorld:recipe.id==='ruby'?!coldWorld:true;
+            const climateMatches=gemRecipeAllowedOnPlanet(recipe,planet);
             const veinMatches = recipe.requiredVein === vein.type && climateMatches;
             const isOptimalPlanet = recipe.optimalPlanets.includes(planet.id) && climateMatches;
             const formulaPenalty = ['white', 'yellow', 'blue', 'pink'].reduce((sum, key) => {
@@ -2945,9 +2877,14 @@ ${hasAristocrats ? `
             if (freeGemWorkers('peridot') < 1) { setStatusTicker('É necessário ter uma Peridot livre para operar e implantar o injetor.', true); return; }
             const evaluation = evaluateAlchemicalFormula();
             const costs = { ...evaluation.costs };
-            const mineralCost=Math.max(25,Math.ceil((Number(planet.resourceTotal)||10000)*0.002));
-            const mineralAvailable=Math.max(0,Number(planet.resourcesByType&&planet.resourcesByType[vein.type])||0);
-            if(mineralAvailable<mineralCost){setStatusTicker('O veio não possui '+mineralCost+' unidades de '+vein.label+' disponíveis para formar esta Gem.',true);return;}
+            if(evaluation.recipe.id==='pearl'&&structureCount('reef')<1){setStatusTicker('A produção de Pérolas em massa exige um Recife construído para armazenar as Pérolas sem dona.',true);return;}
+            const refinedMaterial=evaluation.recipe.refinedMaterial||null;
+            const refinedCost=refinedMaterial?1:0;
+            if(refinedMaterial&&Number(state.refinedResources&&state.refinedResources[refinedMaterial]||0)<refinedCost){setStatusTicker('A receita exige '+refinedMaterial+' refinado na Refinaria.',true);return;}
+            const mineralCost=refinedMaterial?0:Math.max(25,Math.ceil((Number(planet.resourceTotal)||10000)*0.002));
+            const mineralType=evaluation.recipe.requiredVein||vein.type;
+            const mineralAvailable=Math.max(0,Number(planet.resourcesByType&&planet.resourcesByType[mineralType])||0);
+            if(mineralAvailable<mineralCost){setStatusTicker('O veio não possui '+mineralCost+' unidades de '+mineralType+' disponíveis para formar esta Gem.',true);return;}
             if (state.researchedTechs.automated_reefs) costs.white = Math.ceil(costs.white * 0.75);
             if (!hasEnoughEssence(costs)) {
                 setStatusTicker('⚠️ Essências insuficientes para iniciar esta injeção.');
@@ -2958,8 +2895,10 @@ ${hasAristocrats ? `
                 progress: 0,
                 evalData: evaluation,
                 durationSec: evaluation.durationSec,
-                mineralType: vein.type,
+                mineralType,
                 mineralCost,
+                refinedMaterial,
+                refinedCost,
                 speedMultiplier: 1,
                 stabilized: false
             };
@@ -3005,15 +2944,16 @@ ${hasAristocrats ? `
             const recipe = result.recipe;
             const mineralType=injector.mineralType||vein.type;
             const mineralCost=Math.max(0,Number(injector.mineralCost)||0);
+            const refinedMaterial=injector.refinedMaterial||null,refinedCost=Math.max(0,Number(injector.refinedCost)||0);
             const mineralAvailable=Math.max(0,Number(planet.resourcesByType&&planet.resourcesByType[mineralType])||0);
-            if(mineralAvailable<mineralCost){
+            if(mineralAvailable<mineralCost||(refinedMaterial&&Number(state.refinedResources&&state.refinedResources[refinedMaterial]||0)<refinedCost)){
                 for(const [key,value] of Object.entries(result.costs||{})) state.essence[key]=(Number(state.essence[key])||0)+Number(value||0);
                 vein.injector=null;
                 setStatusTicker('Injeção cancelada: o veio não tinha mais matéria-prima suficiente. As essências foram devolvidas.',true);
                 updateHUD();renderDrawerContent();renderBottomBar();return;
             }
-            planet.resourcesByType[mineralType]-=mineralCost;
-            planet.resourcesRemaining=Math.max(0,(Number(planet.resourcesRemaining)||0)-mineralCost);
+            if(mineralCost>0){planet.resourcesByType[mineralType]-=mineralCost;planet.resourcesRemaining=Math.max(0,Object.values(planet.resourcesByType||{}).reduce((sum,value)=>sum+Math.max(0,Number(value)||0),0));}
+            if(refinedMaterial)state.refinedResources[refinedMaterial]=Math.max(0,(Number(state.refinedResources[refinedMaterial])||0)-refinedCost);
             if(planet.resourcesRemaining<=0)planet.resourceDepleted=true;
             const isPrime = result.grade === 'S';
             if(recipe.id==='pearl') state.pearlOriginPlanetId=planet.id;
@@ -3026,7 +2966,12 @@ ${hasAristocrats ? `
                 state.census.prime++;
             }
             const censusKey = recipe.id;
-            if (Object.prototype.hasOwnProperty.call(state.census, censusKey)) state.census[censusKey]++;
+            if(!Object.prototype.hasOwnProperty.call(state.census,censusKey))state.census[censusKey]=0;
+            state.census[censusKey]++;
+            if(recipe.id==='pearl'){
+                if(!Array.isArray(state.founding.reefPearlInventory))state.founding.reefPearlInventory=[];
+                state.founding.reefPearlInventory.push({planetId:planet.id,originOcean:planet.hasOcean===true,quality:isPrime?'S':result.grade});
+            }
             const gem = {
                 caste: recipe.id,
                 color,
@@ -3038,7 +2983,7 @@ ${hasAristocrats ? `
                 speed: recipe.id === 'lapis' ? 0.0036 : 0.0017,
                 bobPhase: Math.random() * Math.PI * 2
             };
-            planet.walkingGems.push(gem);
+            if(recipe.id!=='pearl')planet.walkingGems.push(gem);
             planet.emergedHoles.push({ angle: vein.angle, size: 7 + Math.random() * 4 });
             vein.injector = null;
             if (recipe.id === 'ruby') planet.dissent = Math.max(0, planet.dissent - 5);
