@@ -3730,7 +3730,7 @@
             drawPrimarySceneImage(image,'rgba(16,9,28,.10)');
             const {cx}=getVisibleCenter(canvasWidth,canvasHeight);
             const isMobile=window.matchMedia('(max-width:600px)').matches;
-            const scale=Math.min(isMobile?.49:.58,canvasWidth/760);
+            const scale=Math.min(isMobile ? 0.49 : 0.58,canvasWidth/760);
             const y=canvasHeight*.73;
             const color=state.firstDiamond.colorHex||'#f8fafc';
             drawDiamondVitral(ctx,cx,y,scale,state.firstDiamond.bodySilhouette,color,state.firstDiamond.gemPos,state.firstDiamond.gemCut);
