@@ -2958,6 +2958,9 @@
             }
             const evaluation = evaluateAlchemicalFormula();
             const costs = { ...evaluation.costs };
+            const mineralCost=Math.max(25,Math.ceil((Number(planet.resourceTotal)||10000)*0.002));
+            const mineralAvailable=Math.max(0,Number(planet.resourcesByType&&planet.resourcesByType[vein.type])||0);
+            if(mineralAvailable<mineralCost){setStatusTicker('O veio não possui '+mineralCost+' unidades de '+vein.label+' disponíveis para formar esta Gem.',true);return;}
             if (state.researchedTechs.automated_reefs) costs.white = Math.ceil(costs.white * 0.75);
             if (!hasEnoughEssence(costs)) {
                 setStatusTicker('⚠️ Essências insuficientes para iniciar esta injeção.');
@@ -2968,6 +2971,8 @@
                 progress: 0,
                 evalData: evaluation,
                 durationSec: evaluation.durationSec,
+                mineralType: vein.type,
+                mineralCost,
                 speedMultiplier: 1,
                 stabilized: false
             };
@@ -3011,6 +3016,18 @@
             if (!injector) return;
             const result = injector.evalData;
             const recipe = result.recipe;
+            const mineralType=injector.mineralType||vein.type;
+            const mineralCost=Math.max(0,Number(injector.mineralCost)||0);
+            const mineralAvailable=Math.max(0,Number(planet.resourcesByType&&planet.resourcesByType[mineralType])||0);
+            if(mineralAvailable<mineralCost){
+                for(const [key,value] of Object.entries(result.costs||{})) state.essence[key]=(Number(state.essence[key])||0)+Number(value||0);
+                vein.injector=null;
+                setStatusTicker('Injeção cancelada: o veio não tinha mais matéria-prima suficiente. As essências foram devolvidas.',true);
+                updateHUD();renderDrawerContent();renderBottomBar();return;
+            }
+            planet.resourcesByType[mineralType]-=mineralCost;
+            planet.resourcesRemaining=Math.max(0,(Number(planet.resourcesRemaining)||0)-mineralCost);
+            if(planet.resourcesRemaining<=0)planet.resourceDepleted=true;
             const isPrime = result.grade === 'S';
             if(recipe.id==='pearl') state.pearlOriginPlanetId=planet.id;
             let color = recipe.color;
