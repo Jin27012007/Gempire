@@ -3702,14 +3702,40 @@
         }
         function selectSilhouettePreview(type){if(!FOUNDING_GEM_DATA[type])return;silhouettePreviewSelection=type;const body=document.getElementById('drawer-body');if(body&&state.drawerTab==='silhouettes')renderSilhouetteStudio(body);}
 
-        const PRIMARY_SCENE_IMAGES = {};
-        function getPrimarySceneImage(key,path){
-            if(PRIMARY_SCENE_IMAGES[key])return PRIMARY_SCENE_IMAGES[key];
+        const PRIMARY_SCENE_IMAGES = Object.create(null);
+        const PRIMARY_SCENE_ASSETS = {
+            era0: {
+                portrait: 'assets/backgrounds/homeworld-era0-portrait.webp',
+                landscape: 'assets/backgrounds/homeworld-era0-landscape.webp'
+            },
+            authority: {
+                portrait: 'assets/backgrounds/diamond-authority-portrait.webp',
+                landscape: 'assets/backgrounds/diamond-authority-landscape.webp'
+            }
+        };
+        const PRIMARY_SCENE_FALLBACKS = {
+            era0: 'assets/backgrounds/homeworld-era0.webp',
+            authority: 'assets/backgrounds/diamond-authority.webp'
+        };
+
+        function getPrimarySceneImage(key){
+            const orientation = canvasHeight > canvasWidth ? 'portrait' : 'landscape';
+            const cacheKey = key + '-' + orientation;
+            if(PRIMARY_SCENE_IMAGES[cacheKey])return PRIMARY_SCENE_IMAGES[cacheKey];
+
+            const path = PRIMARY_SCENE_ASSETS[key]?.[orientation];
+            if(!path)return null;
+
             const image=new Image();
             image.decoding='async';
+            image.onerror=()=>{
+                console.error('Falha ao carregar cenário principal:',path);
+                if(image.dataset.fallbackLoaded==='1')return;
+                image.dataset.fallbackLoaded='1';
+                image.src=PRIMARY_SCENE_FALLBACKS[key]||'';
+            };
             image.src=path;
-            image.onerror=()=>console.error('Falha ao carregar cenário principal:',path);
-            PRIMARY_SCENE_IMAGES[key]=image;
+            PRIMARY_SCENE_IMAGES[cacheKey]=image;
             return image;
         }
         function drawPrimarySceneImage(image,overlay='rgba(8,7,20,.08)'){
@@ -3726,7 +3752,7 @@
         }
 
         function drawPrimitiveHomeworld(time) {
-            const image=getPrimarySceneImage('era0','assets/backgrounds/homeworld-era0.webp');
+            const image=getPrimarySceneImage('era0');
             drawPrimarySceneImage(image,'rgba(16,9,28,.10)');
             const {cx}=getVisibleCenter(canvasWidth,canvasHeight);
             const isMobile=window.matchMedia('(max-width:600px)').matches;
@@ -3774,7 +3800,7 @@
         }
 
         function drawDiamondAuthorityScene(time){
-            const image=getPrimarySceneImage('authority','assets/backgrounds/diamond-authority.webp');
+            const image=getPrimarySceneImage('authority');
             drawPrimarySceneImage(image,'rgba(20,8,34,.14)');
             const cx=canvasWidth*.5,isMobile=window.matchMedia('(max-width:600px)').matches;
             const founder=state.firstDiamond;
