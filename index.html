@@ -4340,13 +4340,22 @@
             const name = document.getElementById('founder-name')?.value.trim();
             const colorHex = document.getElementById('founder-color')?.value;
             const gemCut = document.getElementById('founder-cut')?.value;
-            const bodySilhouette = document.getElementById('founder-silhouette')?.value;
+            // A silhueta é escolhida pelos cartões ilustrados; não existe um select founder-silhouette.
+            const bodySilhouette = state.firstDiamond.bodySilhouette || 'regal';
             const gemPos = document.getElementById('founder-gem-position')?.value;
-            if (!name) { setGameMenuStatus('Dê um nome à Primeira Diamante.', true); return; }
-            if (!/^#[0-9a-fA-F]{6}$/.test(colorHex || '') || !['lozenge','octagon','teardrop','star'].includes(gemCut) || !Object.prototype.hasOwnProperty.call(DIAMOND_VITRAL_STYLES,bodySilhouette) || !['belly','head','chest'].includes(gemPos)) return;
+            if (!name) { setGameMenuStatus('Dê um nome à Primeira Diamante.', true); document.getElementById('founder-name')?.focus(); return; }
+            if (!/^#[0-9a-fA-F]{6}$/.test(colorHex || '')) { setGameMenuStatus('Escolha uma cor válida para a fundadora.', true); return; }
+            if (!['lozenge','octagon','teardrop','star'].includes(gemCut)) { setGameMenuStatus('Escolha uma forma válida para a gema.', true); return; }
+            if (!Object.prototype.hasOwnProperty.call(DIAMOND_VITRAL_STYLES,bodySilhouette)) { setGameMenuStatus('Escolha um dos cinco modelos visuais.', true); return; }
+            if (!['belly','head','chest'].includes(gemPos)) { setGameMenuStatus('Escolha a posição da gema.', true); return; }
             Object.assign(state.firstDiamond,{name,colorHex:colorHex.toLowerCase(),gemCut,bodySilhouette,gemPos,title:'A Fundadora'});
-            beginPrimitiveEra();
-            startGame();
+            try {
+                beginPrimitiveEra();
+                startGame();
+            } catch (error) {
+                console.error('Falha ao iniciar a Era Primitiva:',error);
+                setGameMenuStatus('Não foi possível iniciar Homeworld: '+(error?.message||'erro inesperado')+'. Tente novamente.',true);
+            }
         }
 
         function beginPrimitiveEra() {
