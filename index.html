@@ -2001,8 +2001,9 @@
             const f=state.founding,active=!!f.creationActive&&f.creationSource==='injector',progress=active?Math.min(100,Number(f.creationProgress)||0):100;
             const count=structureCount('injector'),type=active?f.creationTarget:(f.injectorGemType||f.selectedGem),gem=FOUNDING_GEM_DATA[type]||FOUNDING_GEM_DATA.quartz;
             const expected=active?Math.max(1,Number(f.creationBatchCount)||5):0;
+            const remaining=active?Math.ceil(42*(1-progress/100)/Math.max(.01,getPearlMultiplierFor('firstDiamond'))):0;
             const reports=(f.productionReports||[]).slice(-8).reverse();
-            body.innerHTML='<div class="stat-box"><span class="stat-label">Unidades instaladas</span><b>'+count+'</b> · setores de produção paralelos</div><div class="stat-box"><span class="stat-label">Ciclo atual</span><b>'+(active?'Em andamento':'Injetores livres para reutilização')+'</b><div class="founding-progress"><div style="width:'+progress+'%"></div></div><small>'+Math.floor(progress)+'% concluído</small></div><div class="stat-box"><span class="stat-label">Previsão do lote</span><b>'+(active?expected+' '+gem.label+'(s)':'Aguardando essência e substrato')+'</b><small style="display:block;color:#94a3b8">'+(active?gem.mineralName+' · Qualidade prevista A':'Os Injetores iniciarão outro ciclo quando os recursos estiverem disponíveis.')+'</small></div><div class="card"><b>Últimos lotes concluídos</b>'+(reports.length?reports.map(r=>'<div class="stat-box">'+escapeHTML(r.gemLabel)+' × '+Number(r.quantity||0)+' · '+escapeHTML(r.grade||'A')+'</div>').join(''):'<small style="color:#94a3b8">Nenhum lote concluído ainda.</small>')+'</div><button class="btn btn-block" onclick="closeInjectorProductionWindow()">Fechar relatório</button>';
+            body.innerHTML='<div class="stat-box"><span class="stat-label">Unidades instaladas</span><b>'+count+'</b> · setores de produção paralelos</div><div class="stat-box"><span class="stat-label">Ciclo atual</span><b>'+(active?'Em andamento':'Injetores livres para reutilização')+'</b><div class="founding-progress"><div style="width:'+progress+'%"></div></div><small>'+Math.floor(progress)+'% concluído · '+(active?remaining+'s restantes':'sem ciclo ativo')+'</small></div><div class="stat-box"><span class="stat-label">Previsão do lote</span><b>'+(active?expected+' '+gem.label+'(s)':'Aguardando essência e substrato')+'</b><small style="display:block;color:#94a3b8">'+(active?gem.mineralName+' · Qualidade prevista A':'Os Injetores iniciarão outro ciclo quando os recursos estiverem disponíveis.')+'</small></div><div class="card"><b>Últimos lotes concluídos</b>'+(reports.length?reports.map(r=>'<div class="stat-box">'+escapeHTML(r.gemLabel)+' × '+Number(r.quantity||0)+' · '+escapeHTML(r.grade||'A')+'</div>').join(''):'<small style="color:#94a3b8">Nenhum lote concluído ainda.</small>')+'</div><button class="btn btn-block" onclick="closeInjectorProductionWindow()">Fechar relatório</button>';
         }
 
         function startInjectorProduction(automatic=false) {
@@ -2822,7 +2823,7 @@ ${hasAristocrats ? `
             let recipe = recipes[0];
             let bestScore = Infinity;
             for (const candidate of recipes) {
-                const coldWorld=Number(planet.temperatureC??(planet.id==='caelum_gelidus'?-80:planet.id==='ignis_prime'?180:planet.id==='thalassa_9'?12:8))<0;
+                const coldWorld=Number(planet.temperatureC??(planet.id==='caelum_gelidus'?-80:planet.id==='ignis_prime'?180:planet.id==='thalassa_9'?12:8))<0&&Number(planet.orbitRadius||0)>=180;
                 const climateAllowed=candidate.id==='sapphire'?coldWorld:candidate.id==='ruby'?!coldWorld:true;
                 const veinPenalty = candidate.requiredVein === vein.type ? 0 : 35;
                 const climatePenalty=climateAllowed?0:1000;
@@ -2836,7 +2837,7 @@ ${hasAristocrats ? `
                 }
             }
 
-            const coldWorld=Number(planet.temperatureC??(planet.id==='caelum_gelidus'?-80:planet.id==='ignis_prime'?180:planet.id==='thalassa_9'?12:8))<0;
+            const coldWorld=Number(planet.temperatureC??(planet.id==='caelum_gelidus'?-80:planet.id==='ignis_prime'?180:planet.id==='thalassa_9'?12:8))<0&&Number(planet.orbitRadius||0)>=180;
             const climateMatches=recipe.id==='sapphire'?coldWorld:recipe.id==='ruby'?!coldWorld:true;
             const veinMatches = recipe.requiredVein === vein.type && climateMatches;
             const isOptimalPlanet = recipe.optimalPlanets.includes(planet.id) && climateMatches;
