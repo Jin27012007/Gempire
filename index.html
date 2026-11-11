@@ -1373,7 +1373,8 @@
             }
 
             Object.assign(state.firstDiamond, founderIdentity);
-            state.currentScreen = 'colony';
+            // A campanha começa na cena principal; o Globo 360° continua acessível pela navegação.
+            state.currentScreen = 'throne';
             state.activeColonyPlanetId = 'homeworld';
             state.selectedStarMapPlanetId = 'homeworld';
             state.selectedVeinIndex = 0;
@@ -3787,7 +3788,7 @@
             ctx.fillText('HIERARQUIA IMPERIAL · HOMEWORLD',cx,Math.max(44,canvasHeight*.09+18));
             ctx.restore();
 
-            const topY=canvasHeight*.29;
+            const topY=canvasHeight*.20;
             const topW=Math.min(isMobile?76:106,canvasWidth*.22),topH=topW*1.28;
             drawAuthorityDiamondNode(cx,topY,topW,topH,founder,true,0);
             const members=state.matriarchs.slice();
