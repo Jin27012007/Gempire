@@ -2123,7 +2123,10 @@
                 state.founding.injectorEssence = (Number(state.founding.injectorEssence) || 0) + moved;
             }
             if (structureIsOperational('injector') && !state.founding.creationActive) startInjectorProduction(true);
-            if(state.currentScreen==='colony'&&state.drawerOpen&&state.drawerTab==='context')renderColonyContext(document.getElementById('drawer-body'));
+            if(state.currentScreen==='colony'&&state.drawerOpen&&state.drawerTab==='context'){
+                state.resourceChartAccumulator=(Number(state.resourceChartAccumulator)||0)+dt;
+                if(state.resourceChartAccumulator>=1){state.resourceChartAccumulator=0;renderColonyContext(document.getElementById('drawer-body'));}
+            }
             if (structureIsOperational('mineral_extractor')) {
                 const planet=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld;
                 const available=Math.max(0,Number(planet.resourcesRemaining)||0);
