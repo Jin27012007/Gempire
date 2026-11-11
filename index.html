@@ -3718,12 +3718,13 @@ ${hasAristocrats ? `
 
         function renderPopulationReport(container){
             if(!container)return;
-            const totals={quartz:0,peridot:0,bismuth:0,lapis:0,sapphire:0,ruby:0,pearl:0,hessonite:0,prime:0,offcolor:0};
+            const totals={quartz:0,peridot:0,bismuth:0,lapis:0,sapphire:0,ruby:0,pearl:0,hessonite:0};
             const variants={jasper:0,amethyst:0,rose:0,other:0};
-            let observed=0;
+            let observed=0,rankS=0,offcolors=0;
             Object.values(PLANETS).forEach(planet=>(planet.walkingGems||[]).forEach(gem=>{
                 const caste=gem.caste||gem.type;
                 if(Object.prototype.hasOwnProperty.call(totals,caste))totals[caste]++;
+                if(gem.grade==='S')rankS++;else if(gem.grade)offcolors++;
                 if(caste==='quartz'){
                     const variant=String(gem.variant||gem.subtype||gem.quartzVariant||gem.name||'').toLowerCase();
                     if(variant.includes('jasper')||variant.includes('jaspe'))variants.jasper++;
@@ -3733,11 +3734,11 @@ ${hasAristocrats ? `
                 }
                 observed++;
             }));
-            if(!observed)Object.keys(totals).forEach(key=>totals[key]=Math.max(0,Number(state.census[key])||0));
-            const labels={quartz:'Quartzo',peridot:'Peridoto',bismuth:'Bismuto',lapis:'Lápis-Lazúli',sapphire:'Safira',ruby:'Rubi',pearl:'Pérola',hessonite:'Hessonita',prime:'Aristocratas · Rank S',offcolor:'Off-Colors'};
+            if(!observed){Object.keys(totals).forEach(key=>totals[key]=Math.max(0,Number(state.census[key])||0));rankS=Math.max(0,Number(state.census.prime)||0);offcolors=Math.max(0,Number(state.census.offcolor)||0);}
+            const labels={quartz:'Quartzo',peridot:'Peridoto',bismuth:'Bismuto',lapis:'Lápis-Lazúli',sapphire:'Safira',ruby:'Rubi',pearl:'Pérola',hessonite:'Hessonita'};
             const total=Object.values(totals).reduce((a,b)=>a+b,0);
             const rows=Object.entries(labels).map(([key,label])=>'<div class="stat-box" style="display:flex;justify-content:space-between;gap:8px"><span>'+label+'</span><b>'+totals[key].toLocaleString('pt-BR')+'</b></div>').join('');
-            container.innerHTML='<div class="card card-cyan"><div class="card-header"><span class="card-title title-font">👥 Relatório populacional</span><span class="badge">Império inteiro</span></div><div class="stat-box">População total registrada: <b>'+total.toLocaleString('pt-BR')+' Gems</b></div><p style="font-size:10px;color:#94a3b8">Contagem agregada de todas as colônias e mundos do Império.</p></div><div class="card"><div class="card-header"><span class="card-title">População por tipo</span></div>'+rows+'</div><div class="card"><div class="card-header"><span class="card-title">Família Quartzo · variantes</span></div><div class="stat-box">Jaspers: <b>'+variants.jasper+'</b></div><div class="stat-box">Ametistas: <b>'+variants.amethyst+'</b></div><div class="stat-box">Roses: <b>'+variants.rose+'</b></div><div class="stat-box">Quartzos sem variante identificada: <b>'+variants.other+'</b></div><p style="font-size:10px;color:#94a3b8">As variantes são separadas quando a Gem possui identificação própria nos seus dados.</p></div>';
+            container.innerHTML='<div class="card card-cyan"><div class="card-header"><span class="card-title title-font">👥 Relatório populacional</span><span class="badge">Império inteiro</span></div><div class="stat-box">População total registrada: <b>'+total.toLocaleString('pt-BR')+' Gems</b></div><div class="grid-2"><div class="stat-box">Rank S: <b>'+rankS+'</b></div><div class="stat-box">Off-Colors: <b>'+offcolors+'</b></div></div><p style="font-size:10px;color:#94a3b8">Contagem agregada de todas as colônias e mundos do Império.</p></div><div class="card"><div class="card-header"><span class="card-title">População por tipo</span></div>'+rows+'</div><div class="card"><div class="card-header"><span class="card-title">Família Quartzo · variantes</span></div><div class="stat-box">Jaspers: <b>'+variants.jasper+'</b></div><div class="stat-box">Ametistas: <b>'+variants.amethyst+'</b></div><div class="stat-box">Roses: <b>'+variants.rose+'</b></div><div class="stat-box">Quartzos sem variante identificada: <b>'+variants.other+'</b></div><p style="font-size:10px;color:#94a3b8">As variantes são separadas quando a Gem possui identificação própria nos seus dados.</p></div>';
         }
 
         function renderGemGuide(container){
@@ -4818,7 +4819,7 @@ function drawColony(time){
             const data = FOUNDING_GEM_DATA[type];
             if (!data) return;
             const isFirst = !state.founding.firstGemCreated;
-            const batchCount=state.founding.creationSource==='injector'?Math.max(1,Math.min(5,Number(state.founding.creationBatchCount)||5)):1;
+            const batchCount=state.founding.creationSource==='injector'?Math.max(1,Math.min(60,Number(state.founding.creationBatchCount)||5)):1;
             state.founding.creationBatchCount=0;
             state.founding.creationActive = false;
             state.founding.firstGemCreated = true;
@@ -4834,7 +4835,10 @@ function drawColony(time){
             }
             if (!Object.prototype.hasOwnProperty.call(state.census, type)) state.census[type] = 0;
             state.census[type]+=batchCount;
-            for(let i=0;i<batchCount;i++) PLANETS.homeworld.walkingGems.push({caste:type,color:data.color,grade:'A',isOrbiting:false,bubbleText:'✨ Recém-emergida',angle:Math.random()*Math.PI*2,dir:1,speed:0.0005,bobPhase:0});
+            for(let i=0;i<batchCount;i++){
+                const quartzVariant=type==='quartz'?['jasper','amethyst','rose'][(Number(state.founding.gemsCreatedCount)+i-1)%3]:null;
+                PLANETS.homeworld.walkingGems.push({caste:type,variant:quartzVariant,color:data.color,grade:'A',isOrbiting:false,bubbleText:'✨ Recém-emergida',angle:Math.random()*Math.PI*2,dir:1,speed:0.0005,bobPhase:0});
+            }
             const title = batchCount>1?'Lote de Gems produzido':(isFirst ? 'A primeira Gem nasceu' : 'Nova Gem nasceu');
             const description = state.firstDiamond.name + ' formou ' + batchCount + ' ' + data.label + '(s) através de ' + (source === 'injector' ? 'um ciclo automático de injeção no veio local' : 'essência e substrato mineral') + '. Função: ' + data.role + '.';
             addChronicle(title, description, isFirst ? 'Primeira Gem criada' : 'População ampliada');
@@ -4870,7 +4874,7 @@ function drawColony(time){
                 '<div style="font-size:12px;line-height:1.55;color:#cbd5e1">' + escapeHTML(fd.name) + ' iniciou a civilização sem infraestrutura. Gems já nascem conhecendo sua função e podem ser integradas à população imperial.</div>' +
                 '<div class="stat-box">Gems criadas: <b>' + (found.gemsCreatedCount || 0) + '</b> · Minerais brutos: <b>' + Math.floor(state.minerals) + '</b> · Materiais refinados: <b>' + Math.floor(state.refinedMaterials || 0) + '</b></div>' +
                 '</div>' +
-                '<div class="card"><div class="card-header"><span class="card-title title-font">⛏️ Exploração manual</span></div><div class="founding-note">Cada busca encontra uma rocha aleatória. Materiais comuns aparecem com frequência; coríndon, lápis-lazúli e granada hessonítica são achados mais raros. Safiras e Rubis dependem do coríndon, por isso sua formação exige mais exploração.</div><div class="stat-box"><span class="stat-label">Próximo encontro</span><b>' + ((found.gatherCooldown||0)>0?'⏳ Disponível em '+found.gatherCooldown.toFixed(1)+'s':'Pronto para explorar') + '</b></div><button id="gather-mineral-button" class="btn btn-amber btn-block" onclick="gatherPrimitiveMineral()" ' + ((found.gatherCooldown||0)>0||structureCount('mineral_extractor')>0?'disabled':'') + '>'+(structureCount('mineral_extractor')>0?'⛏️ Coleta manual encerrada pelo Extrator':'⛏️ Procurar rochas · 5s entre encontros')+'</button><div class="grid-2">' + mineralCards + '</div></div>' +
+                '<div class="card"><div class="card-header"><span class="card-title title-font">⛏️ Exploração manual</span></div><div class="founding-note">Cada busca encontra uma rocha aleatória. Coríndon, matéria-prima de Safiras e Rubis, é abundante; a temperatura do planeta determina qual das duas variedades pode se formar. Lápis-lazúli e granada hessonítica continuam menos comuns.</div><div class="stat-box"><span class="stat-label">Próximo encontro</span><b>' + ((found.gatherCooldown||0)>0?'⏳ Disponível em '+found.gatherCooldown.toFixed(1)+'s':'Pronto para explorar') + '</b></div><button id="gather-mineral-button" class="btn btn-amber btn-block" onclick="gatherPrimitiveMineral()" ' + ((found.gatherCooldown||0)>0||structureCount('mineral_extractor')>0?'disabled':'') + '>'+(structureCount('mineral_extractor')>0?'⛏️ Coleta manual encerrada pelo Extrator':'⛏️ Procurar rochas · 5s entre encontros')+'</button><div class="grid-2">' + mineralCards + '</div></div>' +
                 '<div class="card"><div class="card-header"><span class="card-title title-font">✨ Essência da Diamante</span></div>' +
                 '<div class="founding-note">'+(structureCount('essence_chamber')>0?'A Câmara funciona como uma sauna de essência. O banho dura 30 segundos, produz 10.000 unidades (100× o rendimento anterior) e exige até 3 horas de recuperação.':'Sem uma Câmara construída, a Diamante produz essência por meio de exercícios físicos.')+'</div>' +
                 '<div class="stat-box">Essência armazenada: <b>' + Object.values(state.essence).reduce((a,b)=>a+b,0).toFixed(1) + '</b> · Reserva interna da Diamante: <b>' + (found.diamondEssence || 0).toFixed(1) + '</b> · Recebida pelo Injetor: <b>' + (found.injectorEssence || 0).toFixed(1) + '</b></div>' +
