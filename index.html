@@ -651,6 +651,7 @@
             <div id="game-menu-main" class="game-menu-content">
                 <div class="game-menu-subtitle">Centro de comando imperial</div>
                 <button id="menu-start-button" class="btn btn-emerald" onclick="startGame()">▶ Nova civilização</button>
+                <button id="menu-new-game-button" class="btn btn-pink hidden" onclick="startFreshCivilization()">✦ Começar outra civilização</button>
                 <button class="btn" onclick="showMenuPanel('saves')">▣ Salvamento e carregamento</button>
                 <button class="btn" onclick="showMenuPanel('settings')">⚙ Configurações</button>
                 <button id="menu-return-button" class="btn hidden" onclick="startGame()">↩ Voltar ao jogo</button>
@@ -1355,6 +1356,35 @@
                 });
             });
         })();
+
+        // Modelos limpos para permitir iniciar uma nova civilização mesmo após carregar um save.
+        // Configurações e slots de salvamento ficam fora deste reset.
+        const NEW_CAMPAIGN_STATE_TEMPLATE = JSON.parse(JSON.stringify(state));
+        const NEW_CAMPAIGN_PLANETS_TEMPLATE = JSON.parse(JSON.stringify(PLANETS));
+
+        function resetCampaignForNewGame(founderIdentity) {
+            for (const key of Object.keys(state)) delete state[key];
+            Object.assign(state, JSON.parse(JSON.stringify(NEW_CAMPAIGN_STATE_TEMPLATE)));
+
+            for (const id of Object.keys(PLANETS)) {
+                const freshPlanet = JSON.parse(JSON.stringify(NEW_CAMPAIGN_PLANETS_TEMPLATE[id]));
+                for (const key of Object.keys(PLANETS[id])) delete PLANETS[id][key];
+                Object.assign(PLANETS[id], freshPlanet);
+            }
+
+            Object.assign(state.firstDiamond, founderIdentity);
+            state.currentScreen = 'colony';
+            state.activeColonyPlanetId = 'homeworld';
+            state.selectedStarMapPlanetId = 'homeworld';
+            state.selectedVeinIndex = 0;
+            state.drawerTab = 'context';
+            state.drawerOpen = true;
+            gameHasStarted = false;
+            menuActive = true;
+            autoSaveAccumulator = 0;
+            founderStartInProgress = false;
+            state.planetCamera.autoRotate = gameSettings.autoRotate;
+        }
 
         // --- 6. CAPACIDADE ADMINISTRATIVA & CRÔNICAS ---
         function getAdminStats() {
@@ -4279,6 +4309,8 @@
             if (main) main.classList.remove('hidden');
             if (panel) { panel.classList.add('hidden'); panel.innerHTML = ''; }
             if (start) start.textContent = gameHasStarted ? '▶ Continuar partida' : '▶ Iniciar jogo';
+            const newGameButton = document.getElementById('menu-new-game-button');
+            if (newGameButton) newGameButton.classList.toggle('hidden', !(gameHasStarted || state.firstGameStarted));
             if (back) back.classList.toggle('hidden', !gameHasStarted);
         }
 
@@ -4296,6 +4328,12 @@
             gameHasStarted = true;
             setGameMenuVisible(false);
             setStatusTicker('A fundadora retorna a Homeworld.');
+        }
+
+        function startFreshCivilization() {
+            founderStartInProgress = false;
+            showFoundingSetup();
+            setGameMenuStatus('Configure uma nova fundadora. Os salvamentos anteriores serão preservados.');
         }
 
         function showFoundingSetup() {
@@ -4349,7 +4387,7 @@
 
         let founderStartInProgress = false;
         function confirmFoundingSetup() {
-            if(founderStartInProgress || state.firstGameStarted) return false;
+            if(founderStartInProgress) return false;
             setGameMenuStatus('Iniciando a fundação de Homeworld…');
             const name = (document.getElementById('founder-name')?.value || '').trim();
             const colorRaw = document.getElementById('founder-color')?.value;
@@ -4369,9 +4407,8 @@
             const button=document.getElementById('founder-start-button');
             if(button){button.disabled=true;button.textContent='Despertando Homeworld…';}
             try {
-                Object.assign(state.firstDiamond,{name,colorHex:colorHex.toLowerCase(),gemCut,bodySilhouette,gemPos,title:'A Fundadora'});
-                if(!state.founding) throw new Error('Estado inicial da fundação não foi carregado.');
-                if(!state.essence) state.essence={white:0,yellow:0,blue:0,pink:0};
+                const founderIdentity={name,colorHex:colorHex.toLowerCase(),gemCut,bodySilhouette,gemPos,title:'A Fundadora'};
+                resetCampaignForNewGame(founderIdentity);
                 initializePlanetaryReserves();
                 beginPrimitiveEra();
                 gameHasStarted = true;
@@ -4383,7 +4420,7 @@
                 try { renderBottomBar(); } catch(error) { console.error('Barra inicial:',error); }
                 try { renderDrawerContent(); } catch(error) { console.error('Painel inicial:',error); }
                 setGameMenuStatus('Homeworld iniciado.');
-                saveGame('autosave',true);
+                // Não sobrescreve um autosave anterior no instante de criar outra civilização.
                 return true;
             } catch (error) {
                 console.error('Falha ao iniciar a Era Primitiva:',error);
