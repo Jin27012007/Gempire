@@ -1038,6 +1038,7 @@
                 name: 'Thalassa-9 (Oceânico Profundo)',
                 shortName: 'Thalassa-9',
                 biomeTag: 'Oceânico Profundo & Recife Nacarado',
+                hasOcean: true,
                 lore: 'Um globo oceânico profundo envolto por névoas luminescentes e plataformas de recife. Ideal para emergir Lápis-Lazúlis Soberanas e Pérolas Imperiais.',
                 optimalText: 'Lápis-Lazúlis [Rank S], Pérolas Imperiais e Peridots',
                 badText: '⚠️ Baixa concentração férrica para Soldados Quartzo.',
@@ -1124,6 +1125,7 @@
                 name: 'Terra-Veritas (Orgânico Fértil)',
                 shortName: 'Terra-Veritas',
                 biomeTag: 'Biosfera Orgânica • Alta Essência Vital',
+                hasOcean: true,
                 lore: 'Um globo fértil de continentes verdes e oceanos azuis. Sua biosfera favorece a formação de Quartzos e Gems de alta pureza, mas tem alto risco rebelde.',
                 optimalText: 'Quartzos de alta pureza, Hessonitas e Peridots',
                 badText: '⚠️ A extração intensa gera Dissidência rápida se sem Governadora ou Quartzos.',
@@ -1240,6 +1242,7 @@
 
             // Primeira Diamante Customizável
             pearlTarget: 'firstDiamond',
+            pearlOriginPlanetId: 'homeworld',
             firstDiamond: {
                 name: 'Primeira Diamante',
                 title: 'A Fundadora',
@@ -1936,7 +1939,10 @@
             if (reason) { setStatusTicker(reason, true); return; }
             state.minerals -= def.cost.minerals || 0;
             state.tech -= def.cost.tech || 0;
-            if(id==='injector') state.founding.injectorGemType=state.founding.selectedGem||'quartz';
+            if(id==='injector') {
+                state.founding.injectorGemType=state.founding.selectedGem||'quartz';
+                state.founding.injectorSpecializationLocked=true;
+            }
             state.construction = {id:id,progress:0,active:true,builder:'bismuth'};
             setStatusTicker('Construção iniciada: ' + def.name + '.');
             addChronicle('Construção iniciada', def.name + ' está sendo construída em Homeworld.', 'Infraestrutura em desenvolvimento');
@@ -2991,6 +2997,7 @@
             const result = injector.evalData;
             const recipe = result.recipe;
             const isPrime = result.grade === 'S';
+            if(recipe.id==='pearl') state.pearlOriginPlanetId=planet.id;
             let color = recipe.color;
             if (!isPrime) {
                 const offColors = ['#a855f7', '#64748b', '#ec4899', '#84cc16'];
@@ -3729,12 +3736,12 @@
                 pearl:'Multiplicador aplicado a todas as ações da Gem acompanhada: criação de Gems, extração de essência, busca de pedras e demais atividades executadas por ela.',
                 hessonite:'Coordena mobilização e ataques; sua especialidade é logística militar.'
             };
-            const targetOptions=[['firstDiamond',state.firstDiamond.name],...state.matriarchs.map(m=>['matriarch_'+m.id,m.name+' · Diamante'])];
+            const targetOptions=[['firstDiamond',state.firstDiamond.name],['aristocrats','Gems Aristocratas · Rank S'],...state.matriarchs.map(m=>['matriarch_'+m.id,m.name+' · Diamante'])];
             const selectedTarget=targetOptions.some(([id])=>id===state.pearlTarget)?state.pearlTarget:'firstDiamond';
             container.innerHTML=
                 '<div class="card card-cyan"><div class="card-header"><span class="card-title title-font">📖 Guia de Gems</span><span class="badge">Funções e efeitos</span></div><p style="font-size:11px;color:#cbd5e1;line-height:1.5">Consulte a especialidade de cada tipo e como ela altera as operações da civilização.</p></div>'+
                 entries.map(([key,gem])=>'<div class="card"><div class="card-header"><span class="card-title" style="color:'+gem.color+'">'+gem.label+'</span><span class="badge">'+(GEM_ROLE_NAMES[key]||'Especialista')+'</span></div><p style="font-size:11px;color:#cbd5e1;line-height:1.5">'+roles[key]+'</p><div class="stat-box"><b>Buffs e efeitos no jogo</b><p style="font-size:10px;color:#94a3b8;margin-top:4px;line-height:1.5">'+buffs[key]+'</p></div></div>').join('')+
-                '<div class="card card-amber"><div class="card-header"><span class="card-title title-font">Pérolas · vínculo e multiplicadores</span><span class="badge">1 dona por Pérola</span></div><p style="font-size:11px;color:#cbd5e1">A Pérola só pode ser direcionada a Diamantes. Quando vinculada, o multiplicador afeta todas as ações da dona, não apenas uma categoria.</p><label class="stat-label" for="pearl-target-select">Direcionar Pérola para</label><select id="pearl-target-select" onchange="setPearlTarget(this.value)">'+targetOptions.map(([id,label])=>'<option value="'+id+'" '+(selectedTarget===id?'selected':'')+'>'+escapeHTML(label)+'</option>').join('')+'</select><div class="grid-2"><div class="stat-box"><b>Pérola de Nácar</b><br><span style="color:#c4b5fd">×1,5</span><small style="display:block;color:#94a3b8">Variação comum.</small></div><div class="stat-box"><b>Pérola de Recife</b><br><span style="color:#7dd3fc">×2,0</span><small style="display:block;color:#94a3b8">Só surge em planetas aquáticos; Homeworld não possui oceano.</small></div></div><p style="font-size:10px;color:#94a3b8">O vínculo atual usa o tipo de Pérola e o planeta da dona. No momento, os alvos disponíveis são a Diamante fundadora e as Diamantes subordinadas.</p></div>'+
+                '<div class="card card-amber"><div class="card-header"><span class="card-title title-font">Pérolas · vínculo e multiplicadores</span><span class="badge">1 dona por Pérola</span></div><p style="font-size:11px;color:#cbd5e1">A Pérola só pode ser direcionada à Diamante fundadora, às Diamantes subordinadas ou às Gems Aristocratas de Rank S. Quando vinculada, o multiplicador afeta todas as ações da dona, não apenas uma categoria.</p><label class="stat-label" for="pearl-target-select">Direcionar Pérola para</label><select id="pearl-target-select" onchange="setPearlTarget(this.value)">'+targetOptions.map(([id,label])=>'<option value="'+id+'" '+(selectedTarget===id?'selected':'')+'>'+escapeHTML(label)+'</option>').join('')+'</select><div class="grid-2"><div class="stat-box"><b>Pérola de Nácar</b><br><span style="color:#c4b5fd">×1,5</span><small style="display:block;color:#94a3b8">Variação comum.</small></div><div class="stat-box"><b>Pérola de Recife</b><br><span style="color:#7dd3fc">×2,0</span><small style="display:block;color:#94a3b8">Só surge em planetas aquáticos; Homeworld não possui oceano.</small></div></div><p style="font-size:10px;color:#94a3b8">A origem determina a variedade: Nácar concede ×1,5; Pérola de Recife concede ×2,0 e só pode nascer em um mundo com oceano. Homeworld não possui oceano. O alvo selecionado recebe o multiplicador em todas as ações que executar.</p></div>'+
                 '<div class="card card-amber"><div class="card-header"><span class="card-title title-font">Injetores e Jardins de Infância</span></div><p style="font-size:11px;color:#cbd5e1;line-height:1.5">Cada Injetor deve ser especializado em uma única tipagem: um Injetor de Quartzo só consome substrato de Quartzo e cria Quartzos. Materiais incompatíveis não são consumidos por ele; devem ser recolhidos pelo Extrator Mineral e encaminhados para outro Jardim de Infância especializado. A operação automática exige um Peridoto designado.</p></div>'+
                 '<div class="card"><div class="card-header"><span class="card-title">Operação de máquinas</span></div><p style="font-size:11px;color:#cbd5e1">Toda máquina operacional exige pelo menos um Peridoto em serviço, além dos especialistas próprios de cada instalação.</p></div>';
         }
@@ -4650,15 +4657,16 @@
         function getPearlMultiplierFor(targetId) {
             const pearlCount=Math.max(0,Number(state.census&&state.census.pearl)||0);
             if(!pearlCount || state.pearlTarget!==targetId) return 1;
-            const targetPlanet=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld;
-            return targetPlanet&&targetPlanet.hasOcean===true?2:1.5;
+            const origin=PLANETS[state.pearlOriginPlanetId||'homeworld'];
+            return origin&&origin.hasOcean===true?2:1.5;
         }
 
         function setPearlTarget(targetId) {
-            const allowed=new Set(['firstDiamond',...state.matriarchs.map(m=>'matriarch_'+m.id)]);
+            const allowed=new Set(['firstDiamond','aristocrats',...state.matriarchs.map(m=>'matriarch_'+m.id)]);
             if(!allowed.has(targetId)) return;
             state.pearlTarget=targetId;
-            setStatusTicker('A Pérola foi direcionada para '+(targetId==='firstDiamond'?state.firstDiamond.name:(state.matriarchs.find(m=>'matriarch_'+m.id===targetId)?.name||'uma Diamante'))+'.');
+            const targetLabel=targetId==='firstDiamond'?state.firstDiamond.name:targetId==='aristocrats'?'Gems Aristocratas (Rank S)':(state.matriarchs.find(m=>'matriarch_'+m.id===targetId)?.name||'uma Diamante');
+            setStatusTicker('A Pérola foi direcionada para '+targetLabel+'.');
             renderGemGuide(document.getElementById('drawer-body'));
         }
 
@@ -4777,7 +4785,7 @@
         }
 
         function selectFoundingGem(type) {
-            if (!FOUNDING_GEM_DATA[type] || state.founding.creationActive) return;
+            if (!FOUNDING_GEM_DATA[type] || state.founding.creationActive || state.founding.injectorSpecializationLocked) return;
             state.founding.selectedGem = type;
             renderDrawerContent();
         }
@@ -4791,10 +4799,11 @@
             }).join('');
             const selected = FOUNDING_GEM_DATA[found.selectedGem] || FOUNDING_GEM_DATA.quartz;
             const gemCatalog = Object.entries(FOUNDING_GEM_DATA).map(([key,g]) =>
-                '<button type="button" class="founding-gem-option ' + (found.selectedGem===key?'selected':'') + '" data-gem="' + key + '" onclick="selectFoundingGem(this.dataset.gem)" ' + (found.creationActive?'disabled':'') + ' aria-pressed="' + (found.selectedGem===key?'true':'false') + '">' +
+                '<button type="button" class="founding-gem-option ' + (found.selectedGem===key?'selected':'') + '" data-gem="' + key + '" onclick="selectFoundingGem(this.dataset.gem)" ' + (found.creationActive||found.injectorSpecializationLocked?'disabled':'') + ' aria-pressed="' + (found.selectedGem===key?'true':'false') + '">' +
                 '<strong>' + g.label + (found.selectedGem===key?' ✓':'') + '</strong><small>' + g.mineralName + '</small><small>' + g.role + '</small></button>'
             ).join('');
             const hasInjector = structureCount('injector') > 0;
+            if(hasInjector && found.injectorGemType && FOUNDING_GEM_DATA[found.injectorGemType]) found.selectedGem=found.injectorGemType;
             container.innerHTML =
                 '<div class="card card-cyan"><div class="card-header"><span class="card-title title-font">🌑 Fundação de Homeworld</span><span class="badge">Era Primitiva</span></div>' +
                 '<div style="font-size:12px;line-height:1.55;color:#cbd5e1">' + escapeHTML(fd.name) + ' iniciou a civilização sem infraestrutura. Gems já nascem conhecendo sua função; ferramentas e estruturas determinam o que conseguem executar.</div>' +
@@ -4806,7 +4815,7 @@
                 '<div class="stat-box">Essência armazenada: <b>' + Object.values(state.essence).reduce((a,b)=>a+b,0).toFixed(1) + '</b> · Reserva interna da Diamante: <b>' + (found.diamondEssence || 0).toFixed(1) + '</b> · Recebida pelo Injetor: <b>' + (found.injectorEssence || 0).toFixed(1) + '</b></div>' +
                 '<button id="founder-activity-button" class="btn btn-pink btn-block" onclick="performFounderActivity()" ' + (found.creationActive || (found.essenceCooldown || 0) > 0 ? 'disabled' : '') + '>' + (found.creationActive ? '💎 Concentração na formação da Gem' : (found.essenceCooldown || 0) > 0 ? '⏳ Recuperando fôlego · ' + found.essenceCooldown.toFixed(1) + 's' : '💪 Produzir 2 unidades de essência') + '</button></div>' +
                 '<div class="card"><div class="card-header"><span class="card-title title-font">💎 Formação manual de Gems</span></div>' +
-                (hasInjector ? '<div class="founding-note">O Injetor já foi construído. Use a aba Estruturas para iniciar novos ciclos de produção.</div>' :
+                (hasInjector ? '<div class="founding-note">O Injetor já foi construído e está especializado em ' + (FOUNDING_GEM_DATA[found.injectorGemType||'quartz']?.label||'Quartzo') + '. A produção ocorre automaticamente quando há Peridoto em serviço, substrato compatível e essência suficiente.</div>' :
                     '<div class="card-header"><span class="card-title title-font">📚 Catálogo de tipos de Gem</span><span class="badge">Sempre aberto</span></div><div class="founding-note">Todos os tipos ficam visíveis aqui. Toque em uma opção para selecioná-la; não há lista suspensa.</div><div class="founding-gem-catalog" role="group" aria-label="Catálogo de tipos de Gem">' + gemCatalog + '</div>' +
                     '<div class="founding-note" style="margin-top:8px"><b>' + selected.label + '</b><br>Substrato: ' + selected.mineralName + '<br>Composição: ' + selected.elements + '<br>Função natural: ' + selected.role + '<br>Requer 12 unidades de essência e uma amostra compatível.</div>' +
                     (found.creationActive ? '<div class="founding-progress"><div id="founder-creation-progress" style="width:' + found.creationProgress + '%"></div></div><div id="founder-creation-progress-label" style="font-size:10px;color:#cbd5e1">Formação em andamento: ' + Math.floor(found.creationProgress) + '% · a Diamante não pode realizar outra atividade durante este processo.</div>' :
@@ -4965,6 +4974,7 @@
                 state.founding.gatherCooldown = Number(state.founding.gatherCooldown) || 0;
                 state.founding.injectorGemType = state.founding.injectorGemType || state.founding.selectedGem || 'quartz';
                 state.pearlTarget = state.pearlTarget || 'firstDiamond';
+                state.pearlOriginPlanetId = state.pearlOriginPlanetId || 'homeworld';
                 state.founding.injectorEssence = Number(state.founding.injectorEssence) || 0;
                 state.founding.gemsCreatedCount = Number(state.founding.gemsCreatedCount) || 0;
                 state.founding.selectedGem = state.founding.selectedGem || 'quartz';
