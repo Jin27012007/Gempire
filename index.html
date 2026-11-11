@@ -4320,10 +4320,19 @@
                 '<option value="teardrop" ' + (fd.gemCut==='teardrop'?'selected':'') + '>◆ Gota</option>' +
                 '<option value="star" ' + (fd.gemCut==='star'?'selected':'') + '>✦ Estrela</option></select></div>' +
                 '<div><label for="founder-gem-position">Posição da Gem</label><select id="founder-gem-position" onchange="renderDiamondVitralGallery(document.getElementById(\'founder-vitral-gallery\'))"><option value="belly" ' + (fd.gemPos==='belly'?'selected':'') + '>Barriga</option><option value="head" ' + (fd.gemPos==='head'?'selected':'') + '>Cabeça</option><option value="chest" ' + (fd.gemPos==='chest'?'selected':'') + '>Peito</option></select></div></div>' +
-                '<button id="founder-start-button" type="button" class="btn btn-emerald">Despertar em Homeworld</button></div>';
+                '<button id="founder-start-button" type="button" class="btn btn-emerald" onclick="return window.startNewGameFromFounder(event)">Despertar em Homeworld</button></div>';
             renderDiamondVitralGallery(document.getElementById('founder-vitral-gallery'));
-            const startButton=document.getElementById('founder-start-button');
-            if(startButton) startButton.addEventListener('click',event=>{event.preventDefault();confirmFoundingSetup();});
+            // Delegação no painel: sobrevive à recriação do formulário por innerHTML.
+            if(!panel.dataset.founderStartBound){
+                panel.addEventListener('click',event=>{
+                    const button=event.target && event.target.closest ? event.target.closest('#founder-start-button') : null;
+                    if(!button)return;
+                    event.preventDefault();
+                    event.stopPropagation();
+                    window.startNewGameFromFounder(event);
+                },true);
+                panel.dataset.founderStartBound='1';
+            }
             setGameMenuStatus('A fundadora começa sem personalidade predeterminada e sem infraestrutura.');
         }
 
@@ -4338,27 +4347,56 @@
             showFoundingSetup();
         }
 
+        let founderStartInProgress = false;
         function confirmFoundingSetup() {
-            const name = document.getElementById('founder-name')?.value.trim();
-            const colorHex = document.getElementById('founder-color')?.value;
-            const gemCut = document.getElementById('founder-cut')?.value;
-            // A silhueta é escolhida pelos cartões ilustrados; não existe um select founder-silhouette.
-            const bodySilhouette = state.firstDiamond.bodySilhouette || 'regal';
-            const gemPos = document.getElementById('founder-gem-position')?.value;
-            if (!name) { setGameMenuStatus('Dê um nome à Primeira Diamante.', true); document.getElementById('founder-name')?.focus(); return; }
-            if (!/^#[0-9a-fA-F]{6}$/.test(colorHex || '')) { setGameMenuStatus('Escolha uma cor válida para a fundadora.', true); return; }
-            if (!['lozenge','octagon','teardrop','star'].includes(gemCut)) { setGameMenuStatus('Escolha uma forma válida para a gema.', true); return; }
-            if (!Object.prototype.hasOwnProperty.call(DIAMOND_VITRAL_STYLES,bodySilhouette)) { setGameMenuStatus('Escolha um dos cinco modelos visuais.', true); return; }
-            if (!['belly','head','chest'].includes(gemPos)) { setGameMenuStatus('Escolha a posição da gema.', true); return; }
-            Object.assign(state.firstDiamond,{name,colorHex:colorHex.toLowerCase(),gemCut,bodySilhouette,gemPos,title:'A Fundadora'});
+            if(founderStartInProgress || state.firstGameStarted) return false;
+            setGameMenuStatus('Iniciando a fundação de Homeworld…');
+            const name = (document.getElementById('founder-name')?.value || '').trim();
+            const colorRaw = document.getElementById('founder-color')?.value;
+            const gemCutRaw = document.getElementById('founder-cut')?.value;
+            const silhouetteRaw = state.firstDiamond.bodySilhouette;
+            const gemPosRaw = document.getElementById('founder-gem-position')?.value;
+            const colorHex = /^#[0-9a-fA-F]{6}$/.test(colorRaw||'') ? colorRaw : (state.firstDiamond.colorHex||'#f8fafc');
+            const gemCut = ['lozenge','octagon','teardrop','star'].includes(gemCutRaw) ? gemCutRaw : 'lozenge';
+            const bodySilhouette = Object.prototype.hasOwnProperty.call(DIAMOND_VITRAL_STYLES,silhouetteRaw) ? silhouetteRaw : 'regal';
+            const gemPos = ['belly','head','chest'].includes(gemPosRaw) ? gemPosRaw : 'chest';
+            if (!name) {
+                setGameMenuStatus('Digite um nome para a Primeira Diamante antes de despertar.',true);
+                document.getElementById('founder-name')?.focus();
+                return false;
+            }
+            founderStartInProgress = true;
+            const button=document.getElementById('founder-start-button');
+            if(button){button.disabled=true;button.textContent='Despertando Homeworld…';}
             try {
+                Object.assign(state.firstDiamond,{name,colorHex:colorHex.toLowerCase(),gemCut,bodySilhouette,gemPos,title:'A Fundadora'});
+                if(!state.founding) throw new Error('Estado inicial da fundação não foi carregado.');
+                if(!state.essence) state.essence={white:0,yellow:0,blue:0,pink:0};
+                initializePlanetaryReserves();
                 beginPrimitiveEra();
-                startGame();
+                gameHasStarted = true;
+                menuActive = false;
+                const menu=document.getElementById('game-menu');
+                if(menu) menu.classList.add('hidden');
+                setStatusTicker('Homeworld é primitivo. Nenhuma Gem existe ainda.');
+                try { updateHUD(); } catch(error) { console.error('HUD inicial:',error); }
+                try { renderBottomBar(); } catch(error) { console.error('Barra inicial:',error); }
+                try { renderDrawerContent(); } catch(error) { console.error('Painel inicial:',error); }
+                setGameMenuStatus('Homeworld iniciado.');
+                saveGame('autosave',true);
+                return true;
             } catch (error) {
                 console.error('Falha ao iniciar a Era Primitiva:',error);
-                setGameMenuStatus('Não foi possível iniciar Homeworld: '+(error?.message||'erro inesperado')+'. Tente novamente.',true);
+                founderStartInProgress = false;
+                if(button){button.disabled=false;button.textContent='Despertar em Homeworld';}
+                setGameMenuStatus('Falha ao iniciar Homeworld: '+(error?.message||String(error)),true);
+                return false;
             }
         }
+        window.startNewGameFromFounder = function(event){
+            if(event){event.preventDefault();event.stopPropagation();}
+            return confirmFoundingSetup();
+        };
 
         function beginPrimitiveEra() {
             if (state.firstGameStarted) return;
