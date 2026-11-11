@@ -2579,7 +2579,7 @@
             const cost=Math.ceil(total*.22);
             if(remaining<cost||cost<1){setStatusTicker('A forja exige '+cost.toLocaleString('pt-BR')+' unidades minerais ainda disponíveis em '+planet.shortName+'.',true);return;}
             const pressure=Number(planet.corePressure)||35;
-            state.diamondForge={planetId:planet.id,progress:0,duration:Number(planet.diamondForgeSeconds)||180,pressure,mineralCost:cost,power:Number(planet.diamondPower)||1};
+            state.diamondForge={planetId:planet.id,progress:0,duration:(Number(planet.diamondForgeSeconds)||180)/getPearlMultiplierFor('firstDiamond'),pressure,mineralCost:cost,power:Number(planet.diamondPower)||1};
             setStatusTicker('Forja iniciada no núcleo de '+planet.shortName+'. A pressão está cristalizando a nova Diamante.');
             updateHUD();
         }
