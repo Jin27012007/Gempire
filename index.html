@@ -1979,8 +1979,22 @@
         }
         function requestGemProductionReport() {
             state.founding.productionReportRequested=true;
-            setStatusTicker('Relatório de produção solicitado. Exibindo os lotes concluídos pelo Injetor.');
-            renderDrawerContent();
+            showInjectorProductionWindow();
+        }
+        function showInjectorProductionWindow(){
+            let modal=document.getElementById('injector-production-window');
+            if(!modal){modal=document.createElement('div');modal.id='injector-production-window';modal.className='modal-backdrop';modal.innerHTML='<div class="modal-window" style="max-width:460px;width:94%;max-height:82vh;overflow:auto"><div class="card-header"><b class="title-font">📊 Relatório dos Injetores</b><button class="btn" onclick="closeInjectorProductionWindow()">✕</button></div><div id="injector-production-window-body"></div></div>';document.body.appendChild(modal);}
+            modal.classList.remove('hidden');updateInjectorProductionWindow();
+            setStatusTicker('Relatório detalhado dos Injetores aberto.');
+        }
+        function closeInjectorProductionWindow(){const modal=document.getElementById('injector-production-window');if(modal)modal.classList.add('hidden');}
+        function updateInjectorProductionWindow(){
+            const body=document.getElementById('injector-production-window-body');if(!body)return;
+            const f=state.founding,active=!!f.creationActive&&f.creationSource==='injector',progress=active?Math.min(100,Number(f.creationProgress)||0):100;
+            const count=structureCount('injector'),type=active?f.creationTarget:(f.injectorGemType||f.selectedGem),gem=FOUNDING_GEM_DATA[type]||FOUNDING_GEM_DATA.quartz;
+            const expected=active?Math.max(1,Number(f.creationBatchCount)||5):0;
+            const reports=(f.productionReports||[]).slice(-8).reverse();
+            body.innerHTML='<div class="stat-box"><span class="stat-label">Unidades instaladas</span><b>'+count+'</b> · setores de produção paralelos</div><div class="stat-box"><span class="stat-label">Ciclo atual</span><b>'+(active?'Em andamento':'Injetores livres para reutilização')+'</b><div class="founding-progress"><div style="width:'+progress+'%"></div></div><small>'+Math.floor(progress)+'% concluído</small></div><div class="stat-box"><span class="stat-label">Previsão do lote</span><b>'+(active?expected+' '+gem.label+'(s)':'Aguardando essência e substrato')+'</b><small style="display:block;color:#94a3b8">'+(active?gem.mineralName+' · Qualidade prevista A':'Os Injetores iniciarão outro ciclo quando os recursos estiverem disponíveis.')+'</small></div><div class="card"><b>Últimos lotes concluídos</b>'+(reports.length?reports.map(r=>'<div class="stat-box">'+escapeHTML(r.gemLabel)+' × '+Number(r.quantity||0)+' · '+escapeHTML(r.grade||'A')+'</div>').join(''):'<small style="color:#94a3b8">Nenhum lote concluído ainda.</small>')+'</div><button class="btn btn-block" onclick="closeInjectorProductionWindow()">Fechar relatório</button>';
         }
 
         function startInjectorProduction(automatic=false) {
@@ -1989,12 +2003,15 @@
             const type = state.founding.injectorGemType || state.founding.selectedGem;
             const gem = FOUNDING_GEM_DATA[type];
             if (!gem) return;
-            const availableMinerals=Number(state.founding.gatheredMinerals[gem.mineral])||0;
-            if (availableMinerals < 5) { if(!automatic) setStatusTicker('O Injetor aguarda cinco unidades de ' + gem.mineralName + ' no veio local.'); return; }
-            if ((state.founding.injectorEssence || 0) < 50) { if(!automatic) setStatusTicker('O Injetor aguarda 50 unidades de essência no reservatório.'); return; }
-            state.founding.gatheredMinerals[gem.mineral] -= 5;
-            state.founding.injectorEssence -= 50;
-            state.founding.creationBatchCount = 5;
+            const injectorCount=Math.max(1,structureCount('injector'));
+            const mineralCost=5*injectorCount,essenceCost=50*injectorCount;
+            const extractorBuilt=structureCount('mineral_extractor')>0;
+            const availableMinerals=extractorBuilt?(Number(state.minerals)||0):(Number(state.founding.gatheredMinerals[gem.mineral])||0);
+            if (availableMinerals < mineralCost) { if(!automatic) setStatusTicker('A frota de Injetores aguarda '+mineralCost+' unidades de '+gem.mineralName+'.'); return; }
+            if ((state.founding.injectorEssence || 0) < essenceCost) { if(!automatic) setStatusTicker('A frota de Injetores aguarda '+essenceCost+' unidades de essência no reservatório.'); return; }
+            if(extractorBuilt)state.minerals-=mineralCost;else state.founding.gatheredMinerals[gem.mineral]-=mineralCost;
+            state.founding.injectorEssence -= essenceCost;
+            state.founding.creationBatchCount = 5*injectorCount;
             state.founding.creationTarget = type;
             state.founding.creationSource = 'injector';
             state.founding.creationProgress = 0;
@@ -3362,6 +3379,7 @@ ${hasAristocrats ? `
                 updateHUD();
                 updateInjectorProgressUI();
                 if (state.firstGameStarted && state.founding) updateFoundingLiveUI();
+                if(document.getElementById('injector-production-window')&&!document.getElementById('injector-production-window').classList.contains('hidden'))updateInjectorProductionWindow();
                 updateConstructionProgressUI();
                 if(state.diamondForge&&state.drawerOpen&&state.drawerTab==='dynasty')renderDrawerContent();
             }
@@ -4772,7 +4790,7 @@ function drawColony(time){
             state.founding.creationSource = 'manual';
             if(source==='injector'){
                 if(!Array.isArray(state.founding.productionReports))state.founding.productionReports=[];
-                state.founding.productionReports.push({type,gemLabel:data.label,quantity:batchCount,grade:'A',mineralName:data.mineralName,cycle:Number(state.cycleCount)||1,description:'Lote produzido automaticamente pelo Injetor com operação de Peridot.'});
+                state.founding.productionReports.push({type,gemLabel:data.label,quantity:batchCount,grade:'A',mineralName:data.mineralName,cycle:Number(state.cycleCount)||1,description:'Lote produzido pela frota de '+Math.max(1,structureCount('injector'))+' Injetor(es), operados por Peridots.'});
                 if(state.founding.productionReports.length>50)state.founding.productionReports.shift();
             }
             if (!Object.prototype.hasOwnProperty.call(state.census, type)) state.census[type] = 0;
