@@ -904,7 +904,7 @@
 
         const STRUCTURE_CATALOG = [
             {id:'essence_chamber',name:'Câmara de Extração de Essência',category:'Extração',desc:'Uma sauna ou piscina de essência onde a Primeira Diamante toma um banho de 30 segundos. Ao terminar, produz 50 vezes a essência de uma atividade física comum.',cost:{minerals:20,tech:0},buildTime:18,prerequisites:[],workers:{peridot:1},interaction:'Desbloqueia o banho de essência de 30 segundos.',maxCount:1},
-            {id:'injector',name:'Injetor',category:'Criação',desc:'Coleta essência automaticamente e injeta no veio mineral local, formando lotes de até cinco Gems do material presente.',cost:{minerals:35,tech:0},buildTime:28,prerequisites:['essence_chamber'],workers:{peridot:1},interaction:'Produção automática de até cinco Gems por ciclo.',maxCount:5},
+            {id:'injector',name:'Injetor',category:'Criação',desc:'Cada unidade opera em paralelo em um setor do planeta, formando lotes simultâneos de Gems do material presente.',cost:{minerals:35,tech:0},buildTime:28,prerequisites:['essence_chamber'],workers:{peridot:1},interaction:'Produção paralela: cada Injetor acrescenta cinco Gems por ciclo.',maxCount:12},
             {id:'mineral_extractor',name:'Extrator Mineral',category:'Extração',desc:'Quartzos extraem minerais continuamente; um Peridoto mantém os sistemas de perfuração e transporte em operação.',cost:{minerals:25,tech:0},buildTime:20,prerequisites:[],workers:{quartz:1,peridot:1},interaction:'Produção contínua de minerais.',maxCount:3},
             {id:'workshop',name:'Oficina de Engenharia',category:'Indústria',desc:'Bismutos constroem ferramentas, peças e componentes; um Peridoto mantém as máquinas operacionais.',cost:{minerals:40,tech:0},buildTime:24,prerequisites:['mineral_extractor'],workers:{bismuth:1,peridot:1},interaction:'Fabrica ferramentas e componentes.',maxCount:2},
             {id:'refinery',name:'Refinaria',category:'Indústria',desc:'Peridotos e Quartzos processam matérias-primas em materiais refinados.',cost:{minerals:45,tech:0},buildTime:26,prerequisites:['mineral_extractor','workshop'],workers:{peridot:1,quartz:1},interaction:'Converte minerais brutos em materiais refinados.',maxCount:2},
@@ -1221,6 +1221,7 @@
                 bathActive: false,
                 bathProgress: 0,
                 bathDuration: 30,
+                bathCooldown: 0,
                 diamondEssence: 0,
                 productionReports: [],
                 productionReportRequested: false,
@@ -3257,6 +3258,7 @@ ${hasAristocrats ? `
             if (state.founding) {
                 state.founding.essenceCooldown = Math.max(0, (Number(state.founding.essenceCooldown) || 0) - dt);
                 state.founding.gatherCooldown = Math.max(0, (Number(state.founding.gatherCooldown) || 0) - dt);
+                state.founding.bathCooldown = Math.max(0, (Number(state.founding.bathCooldown) || 0) - dt);
             }
             if (state.founding && state.founding.bathActive) {
                 state.founding.bathProgress=Math.min(100,(Number(state.founding.bathProgress)||0)+dt*100/Math.max(1,Number(state.founding.bathDuration)||30));
@@ -4067,9 +4069,13 @@ ${hasAristocrats ? `
               ctx.strokeStyle=active?g:'#64748b';ctx.lineWidth=2;ctx.beginPath();ctx.ellipse(0,-8,18,5,0,0,Math.PI*2);ctx.stroke();drawCrystal(0,-37,5,a,g);
               break;
             case'injector':
-              drawPolygon([[-20,10],[-17,-18],[-10,-27],[-5,-18],[-4,10]],'#334155',c,1.2);drawPolygon([[4,10],[5,-18],[10,-27],[17,-18],[20,10]],'#334155',c,1.2);
-              const beam=ctx.createLinearGradient(0,-25,0,8);beam.addColorStop(0,active?'rgba(186,230,253,.9)':'rgba(71,85,105,.4)');beam.addColorStop(1,'rgba(14,165,233,0)');ctx.fillStyle=beam;ctx.fillRect(-3,-22,6,30);drawCrystal(0,-13,4,a,g);
-              break;
+              drawPolygon([[-12,-30],[-18,-20],[-16,-8],[0,-1],[16,-8],[18,-20],[12,-30],[0,-36]],'#164e63',c,1.6);
+              drawPolygon([[-8,-27],[0,-33],[8,-27],[10,-16],[0,-8],[-10,-16]],active?g:'#475569',a,.8);
+              ctx.fillStyle='#e0f2fe';ctx.fillRect(-3,-2,6,8);ctx.fillStyle='#334155';ctx.fillRect(-2,5,4,20);
+              ctx.strokeStyle=a;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-8,-1);ctx.lineTo(8,-1);ctx.stroke();
+              ctx.strokeStyle=active?g:'#64748b';ctx.lineWidth=1.7;
+              [[-2,22,-17,37],[-1,22,-9,42],[0,22,0,44],[2,22,17,37],[1,22,9,42]].forEach(([x1,y1,x2,y2])=>{ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.stroke();ctx.beginPath();ctx.arc(x2,y2,2,0,Math.PI*2);ctx.fillStyle=a;ctx.fill();});
+              drawCrystal(0,-18,3,a,g);break;
             case'drill':
               drawPolygon([[-18,8],[-13,-14],[0,-31],[13,-14],[18,8]],'#57534e',c,1.2);drawPolygon([[-6,-19],[0,-35],[6,-19],[0,-6]],a,'rgba(255,255,255,.55)',.7);
               ctx.strokeStyle=c;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(0,-4);ctx.lineTo(0,15);ctx.moveTo(-13,-4);ctx.lineTo(-18,8);ctx.moveTo(13,-4);ctx.lineTo(18,8);ctx.stroke();
@@ -4650,19 +4656,21 @@ function drawColony(time){
             renderGemGuide(document.getElementById('drawer-body'));
         }
 
+        function formatDuration(seconds){const value=Math.max(0,Math.ceil(Number(seconds)||0)),h=Math.floor(value/3600),m=Math.floor((value%3600)/60),sec=value%60;return h+'h '+String(m).padStart(2,'0')+'m '+String(sec).padStart(2,'0')+'s';}
         function startEssenceBath() {
             const f=state.founding;
             if(!structureIsOperational('essence_chamber')){setStatusTicker('A Câmara precisa de uma Peridot operadora para iniciar o banho.',true);return;}
             if(f.bathActive||f.creationActive){setStatusTicker('A Diamante já está ocupada.',true);return;}
+            if((Number(f.bathCooldown)||0)>0){setStatusTicker('A Câmara ainda está em recuperação. Próximo banho em '+formatDuration(f.bathCooldown)+'.',true);return;}
             f.bathActive=true;f.bathProgress=0;f.bathDuration=30;
             setStatusTicker('A Diamante entrou na Câmara de Extração de Essência. O banho levará 30 segundos.');
             addChronicle('Banho de essência iniciado',state.firstDiamond.name+' entrou na sauna de essência por 30 segundos.','Câmara em operação');
             updateHUD();renderDrawerContent();renderBottomBar();
         }
         function completeEssenceBath() {
-            const f=state.founding,amount=100*getPearlMultiplierFor('firstDiamond');
+            const f=state.founding,amount=10000*getPearlMultiplierFor('firstDiamond');
             f.diamondEssence=(Number(f.diamondEssence)||0)+amount;f.essenceOutput=(Number(f.essenceOutput)||0)+amount;
-            f.activityCount=(Number(f.activityCount)||0)+1;f.bathActive=false;f.bathProgress=100;f.stage='essence';
+            f.activityCount=(Number(f.activityCount)||0)+1;f.bathActive=false;f.bathProgress=100;f.bathCooldown=10800;f.stage='essence';
             setStatusTicker('Banho concluído: a Diamante produziu '+amount+' unidades de essência (50× uma atividade física).');
             addChronicle('Banho de essência concluído',state.firstDiamond.name+' concluiu o banho de 30 segundos e produziu '+amount+' unidades de essência.','+'+amount+' essência');
             updateHUD();renderDrawerContent();renderBottomBar();
@@ -4826,11 +4834,12 @@ function drawColony(time){
             if (button) {
                 const cooling=(found.essenceCooldown||0)>0,chamberBuilt=structureCount('essence_chamber')>0,chamberReady=structureIsOperational('essence_chamber');
                 button.disabled=Boolean(found.creationActive||found.bathActive||(!chamberBuilt&&cooling)||(chamberBuilt&&!chamberReady));
-                button.textContent=chamberBuilt?(found.bathActive?'🛁 Banho de essência · '+Math.floor(found.bathProgress||0)+'%':chamberReady?'🛁 Iniciar banho de essência · 30s':'⏳ Aguardando Peridot na Câmara'):cooling?'⏳ Recuperando fôlego · '+found.essenceCooldown.toFixed(1)+'s':'💪 Exercício físico · produzir 2 essência';
+                button.textContent=chamberBuilt?(found.bathActive?'🛁 Banho de essência · '+Math.floor(found.bathProgress||0)+'%':chamberReady?(found.bathCooldown>0?'⏳ Próximo banho em '+formatDuration(found.bathCooldown):'🛁 Iniciar banho · 30s'):'⏳ Aguardando Peridot na Câmara'):cooling?'⏳ Recuperando fôlego · '+found.essenceCooldown.toFixed(1)+'s':'💪 Exercício físico · produzir 2 essência';
             }
             const bathProgress=document.getElementById('founder-bath-progress'),bathLabel=document.getElementById('founder-bath-label');
             if(bathProgress)bathProgress.style.width=Math.floor(found.bathProgress||0)+'%';
             if(bathLabel)bathLabel.textContent='Banho de essência: '+Math.floor(found.bathProgress||0)+'% · '+Math.max(0,Math.ceil(30*(1-(Number(found.bathProgress)||0)/100)))+'s restantes';
+            const cooldownLabel=document.getElementById('founder-bath-cooldown');if(cooldownLabel)cooldownLabel.textContent=formatDuration(found.bathCooldown);
             const gatherButton=document.getElementById('gather-mineral-button');
             if(gatherButton){
                 const gathering=(Number(found.gatherCooldown)||0)>0;
