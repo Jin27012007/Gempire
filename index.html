@@ -903,7 +903,7 @@
         };
 
         const STRUCTURE_CATALOG = [
-            {id:'essence_chamber',name:'Câmara de Extração de Essência',category:'Extração',desc:'Cada Câmara dobra a essência obtida pela ação de extração da Primeira Diamante.',cost:{minerals:20,tech:0},buildTime:18,prerequisites:[],workers:{peridot:1},interaction:'Amplifica a extração de essência da Diamante.',maxCount:5},
+            {id:'essence_chamber',name:'Câmara de Extração de Essência',category:'Extração',desc:'Uma sauna ou piscina de essência onde a Primeira Diamante toma um banho de 30 segundos. Ao terminar, produz 50 vezes a essência de uma atividade física comum.',cost:{minerals:20,tech:0},buildTime:18,prerequisites:[],workers:{peridot:1},interaction:'Desbloqueia o banho de essência de 30 segundos.',maxCount:1},
             {id:'injector',name:'Injetor',category:'Criação',desc:'Coleta essência automaticamente e injeta no veio mineral local, formando lotes de até cinco Gems do material presente.',cost:{minerals:35,tech:0},buildTime:28,prerequisites:['essence_chamber'],workers:{peridot:1},interaction:'Produção automática de até cinco Gems por ciclo.',maxCount:5},
             {id:'mineral_extractor',name:'Extrator Mineral',category:'Extração',desc:'Quartzos extraem minerais continuamente; um Peridoto mantém os sistemas de perfuração e transporte em operação.',cost:{minerals:25,tech:0},buildTime:20,prerequisites:[],workers:{quartz:1,peridot:1},interaction:'Produção contínua de minerais.',maxCount:3},
             {id:'workshop',name:'Oficina de Engenharia',category:'Indústria',desc:'Bismutos constroem ferramentas, peças e componentes; um Peridoto mantém as máquinas operacionais.',cost:{minerals:40,tech:0},buildTime:24,prerequisites:['mineral_extractor'],workers:{bismuth:1,peridot:1},interaction:'Fabrica ferramentas e componentes.',maxCount:2},
@@ -1218,7 +1218,11 @@
                 activityCount: 0,
                 essenceCooldown: 0,
                 gatherCooldown: 0,
+                bathActive: false,
+                bathProgress: 0,
+                bathDuration: 30,
                 diamondEssence: 0,
+                productionReports: [],
                 injectorEssence: 0,
                 gemsCreatedCount: 0,
                 terraformLevel: 0,
@@ -1874,7 +1878,7 @@
             if (state.drawerTab === 'guide') { renderGemGuide(body); return; }
             if (state.drawerTab === 'chronicle') { renderChronicleTab(body); return; }
             if (state.drawerTab === 'dynasty') { renderDynastyTab(body); return; }
-            if (state.firstGameStarted && state.founding && (!state.founding.firstGemCreated || !structureCount('injector'))) {
+            if (state.firstGameStarted && state.founding && (!state.founding.firstGemCreated || structureCount('injector') > 0)) {
                 renderFoundingContext(body);
                 return;
             }
@@ -1962,7 +1966,7 @@
         }
         function startInjectorProduction(automatic=false) {
             if (!structureIsOperational('injector')) { if(!automatic) setStatusTicker('O Injetor precisa estar construído e receber um Peridoto operador.', true); return; }
-            if (state.founding.creationActive) { if(!automatic) setStatusTicker('Já existe um ciclo de formação em andamento.'); return; }
+            if (state.founding.creationActive || state.founding.bathActive) { if(!automatic) setStatusTicker('A Diamante está ocupada. Aguarde a atividade atual.'); return; }
             const type = state.founding.injectorGemType || state.founding.selectedGem;
             const gem = FOUNDING_GEM_DATA[type];
             if (!gem) return;
@@ -2065,7 +2069,7 @@
             }
             if (structureIsOperational('essence_chamber') && Number(state.founding.diamondEssence) > 0) {
                 const chamberCount=structureCount('essence_chamber');
-                const moved = Math.min(state.founding.diamondEssence, dt * 0.5 * chamberCount);
+                const moved = Math.min(state.founding.diamondEssence, dt * 50 * chamberCount);
                 state.founding.diamondEssence -= moved;
                 state.founding.injectorEssence = (Number(state.founding.injectorEssence) || 0) + moved;
             }
@@ -3342,6 +3346,10 @@
             if (state.founding) {
                 state.founding.essenceCooldown = Math.max(0, (Number(state.founding.essenceCooldown) || 0) - dt);
                 state.founding.gatherCooldown = Math.max(0, (Number(state.founding.gatherCooldown) || 0) - dt);
+            }
+            if (state.founding && state.founding.bathActive) {
+                state.founding.bathProgress=Math.min(100,(Number(state.founding.bathProgress)||0)+dt*100/Math.max(1,Number(state.founding.bathDuration)||30));
+                if(state.founding.bathProgress>=100)completeEssenceBath();
             }
             if (state.founding && state.founding.creationActive) {
                 state.founding.creationProgress = Math.min(100, state.founding.creationProgress + dt * 100 * getPearlMultiplierFor('firstDiamond') / 42);
@@ -4718,34 +4726,35 @@
             renderGemGuide(document.getElementById('drawer-body'));
         }
 
+        function startEssenceBath() {
+            const f=state.founding;
+            if(!structureIsOperational('essence_chamber')){setStatusTicker('A Câmara precisa de uma Peridot operadora para iniciar o banho.',true);return;}
+            if(f.bathActive||f.creationActive){setStatusTicker('A Diamante já está ocupada.',true);return;}
+            f.bathActive=true;f.bathProgress=0;f.bathDuration=30;
+            setStatusTicker('A Diamante entrou na Câmara de Extração de Essência. O banho levará 30 segundos.');
+            addChronicle('Banho de essência iniciado',state.firstDiamond.name+' entrou na sauna de essência por 30 segundos.','Câmara em operação');
+            updateHUD();renderDrawerContent();renderBottomBar();
+        }
+        function completeEssenceBath() {
+            const f=state.founding,amount=100*getPearlMultiplierFor('firstDiamond');
+            f.diamondEssence=(Number(f.diamondEssence)||0)+amount;f.essenceOutput=(Number(f.essenceOutput)||0)+amount;
+            f.activityCount=(Number(f.activityCount)||0)+1;f.bathActive=false;f.bathProgress=100;f.stage='essence';
+            setStatusTicker('Banho concluído: a Diamante produziu '+amount+' unidades de essência (50× uma atividade física).');
+            addChronicle('Banho de essência concluído',state.firstDiamond.name+' concluiu o banho de 30 segundos e produziu '+amount+' unidades de essência.','+'+amount+' essência');
+            updateHUD();renderDrawerContent();renderBottomBar();
+        }
         function performFounderActivity() {
-            const fd = state.firstDiamond;
-            const founding = state.founding;
-            if (founding.creationActive) {
-                setStatusTicker('A Diamante está concentrada na formação da Gem. Não pode produzir essência ao mesmo tempo.');
-                return;
-            }
-            if ((founding.essenceCooldown || 0) > 0) {
-                setStatusTicker('A Diamante precisa recuperar o fôlego por mais ' + founding.essenceCooldown.toFixed(1) + 's.');
-                return;
-            }
-            const chamberCount=structureCount('essence_chamber');
-            const pearlBuff=getPearlMultiplierFor('firstDiamond');
-            const amount = 2 * Math.pow(2,chamberCount) * pearlBuff;
-            founding.essenceCooldown = 1.5 / pearlBuff;
-            const key = ['white','yellow','blue','pink'].includes(fd.colorKey) ? fd.colorKey : 'white';
-            if (structureIsOperational('essence_chamber')) {
-                state.founding.diamondEssence += amount;
-                setStatusTicker('A Diamante concentrou ' + amount + ' unidades de essência em sua reserva interna. A Câmara fará a transferência.');
-            } else {
-                state.essence[key] += amount;
-                setStatusTicker('A Diamante produziu ' + amount + ' unidades de essência por esforço próprio.');
-            }
-            state.founding.essenceOutput += amount;
-            state.founding.activityCount++;
-            state.founding.stage = 'essence';
-            addChronicle('Essência produzida', fd.name + ' realizou uma atividade e produziu ' + amount + ' unidades de essência.', '+' + amount + ' essência');
-            updateHUD(); renderDrawerContent(); renderBottomBar();
+            const fd=state.firstDiamond,f=state.founding;
+            if(structureCount('essence_chamber')>0){startEssenceBath();return;}
+            if(f.creationActive||f.bathActive){setStatusTicker('A Diamante está ocupada e não pode realizar outra atividade.');return;}
+            if((f.essenceCooldown||0)>0){setStatusTicker('A Diamante precisa recuperar o fôlego por mais '+f.essenceCooldown.toFixed(1)+'s.');return;}
+            const amount=2*getPearlMultiplierFor('firstDiamond');
+            f.essenceCooldown=1.5/getPearlMultiplierFor('firstDiamond');
+            const key=['white','yellow','blue','pink'].includes(fd.colorKey)?fd.colorKey:'white';
+            state.essence[key]+=amount;f.essenceOutput+=amount;f.activityCount++;f.stage='essence';
+            setStatusTicker('A Diamante produziu '+amount+' unidades de essência por esforço físico.');
+            addChronicle('Essência produzida',fd.name+' realizou uma atividade física e produziu '+amount+' unidades de essência.','+'+amount+' essência');
+            updateHUD();renderDrawerContent();renderBottomBar();
         }
 
         const FOUNDING_GEM_DATA = {
@@ -4829,6 +4838,11 @@
             state.founding.creationTarget = null;
             const source = state.founding.creationSource || 'manual';
             state.founding.creationSource = 'manual';
+            if(source==='injector'){
+                if(!Array.isArray(state.founding.productionReports))state.founding.productionReports=[];
+                state.founding.productionReports.push({type,gemLabel:data.label,quantity:batchCount,grade:'A',mineralName:data.mineralName,cycle:Number(state.cycleCount)||1,description:'Lote produzido automaticamente pelo Injetor com operação de Peridot.'});
+                if(state.founding.productionReports.length>50)state.founding.productionReports.shift();
+            }
             if (!Object.prototype.hasOwnProperty.call(state.census, type)) state.census[type] = 0;
             state.census[type]+=batchCount;
             for(let i=0;i<batchCount;i++) PLANETS.homeworld.walkingGems.push({caste:type,color:data.color,grade:'A',isOrbiting:false,bubbleText:'✨ Recém-emergida',angle:Math.random()*Math.PI*2,dir:1,speed:0.0005,bobPhase:0});
@@ -4857,7 +4871,10 @@
                 '<button type="button" class="founding-gem-option ' + (found.selectedGem===key?'selected':'') + '" data-gem="' + key + '" onclick="selectFoundingGem(this.dataset.gem)" ' + (found.creationActive||found.injectorSpecializationLocked?'disabled':'') + ' aria-pressed="' + (found.selectedGem===key?'true':'false') + '">' +
                 '<strong>' + g.label + (found.selectedGem===key?' ✓':'') + '</strong><small>' + g.mineralName + '</small><small>' + g.role + '</small></button>'
             ).join('');
-            const hasInjector = structureCount('injector') > 0;
+            const hasInjector = structureIsOperational('injector');
+            const hasChamber = structureIsOperational('essence_chamber');
+            const reports=(found.productionReports||[]).slice().reverse();
+            const reportHtml=reports.length?reports.map(r=>'<div class="stat-box"><b>'+escapeHTML(r.gemLabel||r.type||'Gem')+' × '+Number(r.quantity||0)+'</b><small style="display:block;color:var(--text-muted)">Qualidade: '+escapeHTML(r.grade||'A')+' · Substrato: '+escapeHTML(r.mineralName||'Não informado')+' · Ciclo '+Number(r.cycle||0)+'</small><small>'+escapeHTML(r.description||'Produção automática concluída.')+'</small></div>').join(''):'<div class="stat-box" style="color:#94a3b8">Nenhum lote produzido ainda. Os resultados aparecerão aqui após o primeiro ciclo do Injetor.</div>';
             if(hasInjector && found.injectorGemType && FOUNDING_GEM_DATA[found.injectorGemType]) found.selectedGem=found.injectorGemType;
             container.innerHTML =
                 '<div class="card card-cyan"><div class="card-header"><span class="card-title title-font">🌑 Fundação de Homeworld</span><span class="badge">Era Primitiva</span></div>' +
@@ -4866,25 +4883,30 @@
                 '<button class="btn btn-amber btn-block" onclick="switchDrawerTab(\'structures\')">🏗️ Abrir catálogo de estruturas</button></div>' +
                 '<div class="card"><div class="card-header"><span class="card-title title-font">⛏️ Exploração manual</span></div><div class="founding-note">Cada busca encontra uma rocha aleatória. Materiais comuns aparecem com frequência; coríndon, lápis-lazúli e granada hessonítica são achados mais raros. Safiras e Rubis dependem do coríndon, por isso sua formação exige mais exploração.</div><div class="stat-box"><span class="stat-label">Próximo encontro</span><b>' + ((found.gatherCooldown||0)>0?'⏳ Disponível em '+found.gatherCooldown.toFixed(1)+'s':'Pronto para explorar') + '</b></div><button id="gather-mineral-button" class="btn btn-amber btn-block" onclick="gatherPrimitiveMineral()" ' + ((found.gatherCooldown||0)>0?'disabled':'') + '>⛏️ Procurar rochas · 5s entre encontros</button><div class="grid-2">' + mineralCards + '</div></div>' +
                 '<div class="card"><div class="card-header"><span class="card-title title-font">✨ Essência da Diamante</span></div>' +
-                '<div class="founding-note">A atividade física produz essência. Antes de a Câmara estar operacional, ela pode ser usada diretamente; depois, a reserva interna é transferida pela Câmara para o estoque.</div>' +
+                '<div class="founding-note">'+(structureCount('essence_chamber')>0?'A Câmara funciona como uma sauna ou piscina de essência. O banho dura 30 segundos e produz 50 vezes a essência de uma atividade física comum.':'Sem uma Câmara construída, a Diamante produz essência por meio de exercícios físicos.')+'</div>' +
                 '<div class="stat-box">Essência armazenada: <b>' + Object.values(state.essence).reduce((a,b)=>a+b,0).toFixed(1) + '</b> · Reserva interna da Diamante: <b>' + (found.diamondEssence || 0).toFixed(1) + '</b> · Recebida pelo Injetor: <b>' + (found.injectorEssence || 0).toFixed(1) + '</b></div>' +
-                '<button id="founder-activity-button" class="btn btn-pink btn-block" onclick="performFounderActivity()" ' + (found.creationActive || (found.essenceCooldown || 0) > 0 ? 'disabled' : '') + '>' + (found.creationActive ? '💎 Concentração na formação da Gem' : (found.essenceCooldown || 0) > 0 ? '⏳ Recuperando fôlego · ' + found.essenceCooldown.toFixed(1) + 's' : '💪 Produzir 2 unidades de essência') + '</button></div>' +
+                (found.bathActive?'<div class="founding-progress"><div id="founder-bath-progress" style="width:'+Math.floor(found.bathProgress||0)+'%"></div></div><div id="founder-bath-label" style="font-size:10px;color:#cbd5e1">Banho de essência: '+Math.floor(found.bathProgress||0)+'% · '+Math.max(0,Math.ceil(30*(1-(Number(found.bathProgress)||0)/100)))+'s restantes</div>':'')+
+                '<button id="founder-activity-button" class="btn btn-pink btn-block" onclick="performFounderActivity()" '+(found.bathActive||found.creationActive||(structureCount('essence_chamber')>0&&!hasChamber)||(!hasChamber&&structureCount('essence_chamber')===0&&(found.essenceCooldown||0)>0)?'disabled':'')+'>'+(structureCount('essence_chamber')>0?(found.bathActive?'🛁 Banho de essência em andamento':hasChamber?'🛁 Iniciar banho de essência · 30s':'⏳ Aguardando Peridot na Câmara'):(found.essenceCooldown||0)>0?'⏳ Recuperando fôlego · '+found.essenceCooldown.toFixed(1)+'s':'💪 Exercício físico · produzir 2 essência')+'</button></div>' +
+                (hasInjector?'<div class="card"><div class="card-header"><span class="card-title title-font">📊 Relatório de produção de Gems</span><span class="badge">Injetor operacional</span></div><div class="founding-note">A Primeira Diamante não participa mais da criação. A Peridot opera o Injetor e os ciclos são executados automaticamente.</div><div class="stat-box">Lotes concluídos: <b>'+(found.productionReports||[]).length+'</b> · Gems produzidas: <b>'+(found.gemsCreatedCount||0)+'</b></div>'+reportHtml+'</div>':
                 '<div class="card"><div class="card-header"><span class="card-title title-font">💎 Formação manual de Gems</span></div>' +
-                (hasInjector ? '<div class="founding-note">O Injetor já foi construído e está especializado em ' + (FOUNDING_GEM_DATA[found.injectorGemType||'quartz']?.label||'Quartzo') + '. A produção ocorre automaticamente quando há Peridoto em serviço, substrato compatível e essência suficiente.</div>' :
-                    '<div class="card-header"><span class="card-title title-font">📚 Catálogo de tipos de Gem</span><span class="badge">Sempre aberto</span></div><div class="founding-note">Todos os tipos ficam visíveis aqui. Toque em uma opção para selecioná-la; não há lista suspensa.</div><div class="founding-gem-catalog" role="group" aria-label="Catálogo de tipos de Gem">' + gemCatalog + '</div>' +
-                    '<div class="founding-note" style="margin-top:8px"><b>' + selected.label + '</b><br>Substrato: ' + selected.mineralName + '<br>Composição: ' + selected.elements + '<br>Função natural: ' + selected.role + '<br>Requer 12 unidades de essência e uma amostra compatível.</div>' +
-                    (found.creationActive ? '<div class="founding-progress"><div id="founder-creation-progress" style="width:' + found.creationProgress + '%"></div></div><div id="founder-creation-progress-label" style="font-size:10px;color:#cbd5e1">Formação em andamento: ' + Math.floor(found.creationProgress) + '% · a Diamante não pode realizar outra atividade durante este processo.</div>' :
-                    '<button class="btn btn-emerald btn-block" onclick="startFirstGemCreation()">🤲 Formar Gem manualmente</button>')) +
-                '</div>';
+                '<div class="card-header"><span class="card-title title-font">📚 Catálogo de tipos de Gem</span><span class="badge">Sempre aberto</span></div><div class="founding-note">Todos os tipos ficam visíveis aqui. Toque em uma opção para selecioná-la; não há lista suspensa.</div><div class="founding-gem-catalog" role="group" aria-label="Catálogo de tipos de Gem">' + gemCatalog + '</div>' +
+                '<div class="founding-note" style="margin-top:8px"><b>' + selected.label + '</b><br>Substrato: ' + selected.mineralName + '<br>Composição: ' + selected.elements + '<br>Função natural: ' + selected.role + '<br>Requer 12 unidades de essência e uma amostra compatível.</div>' +
+                (found.creationActive ? '<div class="founding-progress"><div id="founder-creation-progress" style="width:' + found.creationProgress + '%"></div></div><div id="founder-creation-progress-label" style="font-size:10px;color:#cbd5e1">Formação em andamento: ' + Math.floor(found.creationProgress) + '% · a Diamante não pode realizar outra atividade durante este processo.</div>' :
+                '<button class="btn btn-emerald btn-block" onclick="startFirstGemCreation()">🤲 Formar Gem manualmente</button>')) +
+                '</div>');
         }
 
         function updateFoundingLiveUI() {
             const found = state.founding;
             const button = document.getElementById('founder-activity-button');
             if (button) {
-                const cooling = (found.essenceCooldown || 0) > 0;
-                button.disabled = Boolean(found.creationActive || cooling);
-                button.textContent = found.creationActive ? '💎 Concentração na formação da Gem' : cooling ? '⏳ Recuperando fôlego · ' + found.essenceCooldown.toFixed(1) + 's' : '💪 Produzir 2 unidades de essência';
+                const cooling=(found.essenceCooldown||0)>0,chamberBuilt=structureCount('essence_chamber')>0,chamberReady=structureIsOperational('essence_chamber');
+                button.disabled=Boolean(found.creationActive||found.bathActive||(!chamberBuilt&&cooling)||(chamberBuilt&&!chamberReady));
+                button.textContent=chamberBuilt?(found.bathActive?'🛁 Banho de essência · '+Math.floor(found.bathProgress||0)+'%':chamberReady?'🛁 Iniciar banho de essência · 30s':'⏳ Aguardando Peridot na Câmara'):cooling?'⏳ Recuperando fôlego · '+found.essenceCooldown.toFixed(1)+'s':'💪 Exercício físico · produzir 2 essência';
+            }
+            const bathProgress=document.getElementById('founder-bath-progress'),bathLabel=document.getElementById('founder-bath-label');
+            if(bathProgress)bathProgress.style.width=Math.floor(found.bathProgress||0)+'%';
+            if(bathLabel)bathLabel.textContent='Banho de essência: '+Math.floor(found.bathProgress||0)+'% · '+Math.max(0,Math.ceil(30*(1-(Number(found.bathProgress)||0)/100)))+'s restantes';
             }
             const gatherButton=document.getElementById('gather-mineral-button');
             if(gatherButton){
