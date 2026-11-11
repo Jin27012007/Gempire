@@ -3996,76 +3996,85 @@
         function drawStarMap(time) {
             const { cx, cy } = getVisibleCenter(canvasWidth, canvasHeight);
             const isMobile = window.matchMedia('(max-width: 600px)').matches;
-            const maxOrbit = isMobile
-                ? Math.min(canvasWidth * 0.43, canvasHeight * 0.45, 330)
-                : Math.min(canvasWidth * 0.39, canvasHeight * 0.43, 300);
-            const sun = ctx.createRadialGradient(cx, cy, 2, cx, cy, 58);
-            sun.addColorStop(0, '#fff1d6');
-            sun.addColorStop(0.12, '#fca5a5');
-            sun.addColorStop(0.34, '#c2410c');
-            sun.addColorStop(1, 'rgba(127,29,29,0)');
-            ctx.fillStyle = sun;
-            ctx.beginPath();
-            ctx.arc(cx, cy, 58, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.strokeStyle = 'rgba(251,146,60,.22)';
-            ctx.lineWidth = 1;
-            ctx.beginPath();
-            ctx.arc(cx, cy, 23 + Math.sin(time * 0.0007) * 2, 0, Math.PI * 2);
-            ctx.stroke();
-            ctx.fillStyle = '#fb923c';
-            ctx.beginPath();
-            ctx.arc(cx, cy, 7, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.font = '10px Segoe UI';
-            ctx.textAlign = 'center';
-            ctx.fillStyle = '#fca5a5';
-            ctx.fillText('ESTRELA MORIBUNDA', cx, cy - 68);
+            const orbitRadius = isMobile
+                ? Math.min(canvasWidth * 0.39, canvasHeight * 0.34, 270)
+                : Math.min(canvasWidth * 0.34, canvasHeight * 0.38, 280);
 
+            // A estrela é o corpo central do sistema; Homeworld nunca ocupa o foco.
+            const corona = ctx.createRadialGradient(cx, cy, 5, cx, cy, 76);
+            corona.addColorStop(0, 'rgba(255,244,214,.98)');
+            corona.addColorStop(.13, 'rgba(248,113,113,.86)');
+            corona.addColorStop(.36, 'rgba(194,65,12,.34)');
+            corona.addColorStop(1, 'rgba(127,29,29,0)');
+            ctx.fillStyle = corona;
+            ctx.beginPath();
+            ctx.arc(cx, cy, 76, 0, Math.PI * 2);
+            ctx.fill();
+
+            ctx.save();
+            ctx.shadowColor = '#fb7185';
+            ctx.shadowBlur = 26;
+            const starCore = ctx.createRadialGradient(cx - 5, cy - 5, 1, cx, cy, 19);
+            starCore.addColorStop(0, '#fff7ed');
+            starCore.addColorStop(.35, '#fdba74');
+            starCore.addColorStop(1, '#b91c1c');
+            ctx.fillStyle = starCore;
+            ctx.beginPath();
+            ctx.arc(cx, cy, 19, 0, Math.PI * 2);
+            ctx.fill();
+            ctx.restore();
+
+            ctx.strokeStyle = 'rgba(251,146,60,.34)';
+            ctx.lineWidth = 1.5;
+            ctx.beginPath();
+            ctx.ellipse(cx, cy, 28 + Math.sin(time * .0006) * 2, 17 + Math.sin(time * .0006), -.2, 0, Math.PI * 2);
+            ctx.stroke();
+
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#fda4af';
+            ctx.font = 'bold 11px Segoe UI';
+            ctx.fillText('ESTRELA MORIBUNDA', cx, cy - 91);
+
+            // O sistema de Homeworld contém um único planeta conhecido.
+            const planet = PLANETS.homeworld;
             starMapHitTargets = [];
-            const planets = [PLANETS.homeworld].filter(Boolean);
-            for (const planet of planets) {
-                const orbit = planet.orbitRadius === 0 ? 0 : (planet.orbitRadius / 278) * maxOrbit;
-                if (orbit > 0) {
-                    ctx.strokeStyle = 'rgba(148,163,184,.18)';
-                    ctx.lineWidth = 1;
-                    ctx.beginPath();
-                    ctx.ellipse(cx, cy, orbit, orbit * 0.62, 0, 0, Math.PI * 2);
-                    ctx.stroke();
-                }
-                const angle = (planet.orbitAngle || 0) + (planet.id === 'homeworld' ? 0 : time * (planet.orbitSpeed || 0) * 0.25);
-                const x = cx + Math.cos(angle) * orbit;
-                const y = cy + Math.sin(angle) * orbit * 0.62;
-                const radius = planet.id === 'homeworld' ? 17 : 10 + (planet.sphereRadius - 23) * 0.25;
+            if (planet) {
+                ctx.strokeStyle = 'rgba(203,213,225,.34)';
+                ctx.lineWidth = 1.2;
+                ctx.setLineDash([5, 7]);
+                ctx.beginPath();
+                ctx.ellipse(cx, cy, orbitRadius, orbitRadius * .66, 0, 0, Math.PI * 2);
+                ctx.stroke();
+                ctx.setLineDash([]);
+
+                const angle = (planet.orbitAngle || 1.15) + time * .000055;
+                const x = cx + Math.cos(angle) * orbitRadius;
+                const y = cy + Math.sin(angle) * orbitRadius * .66;
+                const radius = 22;
                 planet._mapX = x;
                 planet._mapY = y;
                 planet._mapRadius = radius;
                 const selected = state.selectedStarMapPlanetId === planet.id;
                 drawPlanetDisc(x, y, radius, planet, selected);
-                if (selected) {
-                    ctx.strokeStyle = 'rgba(56,189,248,.45)';
-                    ctx.lineWidth = 1;
-                    ctx.beginPath();
-                    ctx.arc(x, y, radius + 8 + Math.sin(time * 0.003) * 2, 0, Math.PI * 2);
-                    ctx.stroke();
-                }
-                ctx.font = '11px Segoe UI';
+
                 ctx.textAlign = 'center';
-                ctx.fillStyle = planet.colonized ? '#e2e8f0' : '#94a3b8';
-                ctx.fillText(planet.shortName, x, y + radius + 18);
-                if (!planet.colonized) {
-                    ctx.font = '10px Segoe UI';
-                    ctx.fillStyle = '#facc15';
-                    ctx.fillText('BLOQUEADO', x, y + radius + 31);
-                }
-                starMapHitTargets.push({ id: planet.id, x, y, radius: radius + 8 });
+                ctx.font = 'bold 12px Segoe UI';
+                ctx.fillStyle = '#f1f5f9';
+                ctx.fillText('HOMEWORLD', x, y + radius + 22);
+                ctx.font = '10px Segoe UI';
+                ctx.fillStyle = '#94a3b8';
+                ctx.fillText('PLANETA ROCOSO', x, y + radius + 36);
+                starMapHitTargets.push({ id: planet.id, x, y, radius: radius + 10 });
             }
+
             ctx.textAlign = 'center';
             ctx.fillStyle = '#cbd5e1';
             ctx.font = 'bold 12px Georgia';
-            ctx.fillText('HOMEWORLD · ÓRBITA DE ESTRELA MORIBUNDA', cx, 28);
+            ctx.fillText('SISTEMA ESTELAR DE HOMEWORLD', cx, 28);
+            ctx.font = '10px Segoe UI';
+            ctx.fillStyle = '#94a3b8';
+            ctx.fillText('UM PLANETA · UMA ESTRELA MORIBUNDA', cx, 45);
         }
-
 
         // --- ARQUITETURA MODULAR DE HOMEWORLD ---
         const STRUCTURE_VISUALS={
