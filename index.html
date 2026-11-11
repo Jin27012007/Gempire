@@ -3691,34 +3691,125 @@
         }
         function selectSilhouettePreview(type){if(!FOUNDING_GEM_DATA[type])return;silhouettePreviewSelection=type;const body=document.getElementById('drawer-body');if(body&&state.drawerTab==='silhouettes')renderSilhouetteStudio(body);}
 
-        function drawPrimitiveHomeworld(time) {
-            const {cx,cy}=getVisibleCenter(canvasWidth,canvasHeight);
-            const scale=Math.min(window.innerWidth<600?1.35:1.65,canvasWidth/360,canvasHeight/430);
-            ctx.save();ctx.translate(cx,cy+20);ctx.scale(scale,scale);
-            // Unformed rocky horizon and mineral cliffs.
-            const ground=ctx.createLinearGradient(0,40,0,240);ground.addColorStop(0,'#766451');ground.addColorStop(1,'#211d1a');
-            ctx.fillStyle=ground;ctx.beginPath();ctx.moveTo(-260,180);ctx.lineTo(-220,90);ctx.lineTo(-170,125);ctx.lineTo(-105,20);ctx.lineTo(-58,105);ctx.lineTo(5,55);ctx.lineTo(65,125);ctx.lineTo(135,18);ctx.lineTo(190,100);ctx.lineTo(250,60);ctx.lineTo(270,190);ctx.closePath();ctx.fill();
-            ctx.strokeStyle='rgba(226,200,160,.35)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-170,125);ctx.lineTo(-105,20);ctx.lineTo(-58,105);ctx.moveTo(65,125);ctx.lineTo(135,18);ctx.lineTo(190,100);ctx.stroke();
-            // Estratos minerais expostos e formações antigas dão profundidade ao vale.
-            drawPolygon([[-270,188],[-246,132],[-221,151],[-198,112],[-173,164],[-142,140],[-118,188]],'rgba(41,37,36,.72)');
-            drawPolygon([[108,190],[136,143],[158,158],[181,105],[205,151],[235,127],[270,186]],'rgba(41,37,36,.78)');
-            ctx.strokeStyle='rgba(214,184,139,.22)';ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-248,166);ctx.lineTo(-220,151);ctx.lineTo(-198,112);ctx.lineTo(-173,164);ctx.moveTo(136,143);ctx.lineTo(181,105);ctx.lineTo(205,151);ctx.stroke();
-            const fissure=ctx.createLinearGradient(-150,175,160,220);fissure.addColorStop(0,'rgba(56,189,248,0)');fissure.addColorStop(.48,'rgba(167,139,250,.42)');fissure.addColorStop(1,'rgba(56,189,248,0)');
-            ctx.strokeStyle=fissure;ctx.lineWidth=4;ctx.beginPath();ctx.moveTo(-250,190);ctx.quadraticCurveTo(-40,160,250,196);ctx.stroke();
+        const PRIMARY_SCENE_IMAGES = {};
+        function getPrimarySceneImage(key,path){
+            if(PRIMARY_SCENE_IMAGES[key])return PRIMARY_SCENE_IMAGES[key];
+            const image=new Image();
+            image.decoding='async';
+            image.src=path;
+            image.onerror=()=>console.error('Falha ao carregar cenário principal:',path);
+            PRIMARY_SCENE_IMAGES[key]=image;
+            return image;
+        }
+        function drawPrimarySceneImage(image,overlay='rgba(8,7,20,.08)'){
+            const w=canvasWidth,h=canvasHeight;
+            if(!image||!image.complete||!image.naturalWidth){
+                const fallback=ctx.createLinearGradient(0,0,0,h);
+                fallback.addColorStop(0,'#27203e');fallback.addColorStop(1,'#0b0b1a');
+                ctx.fillStyle=fallback;ctx.fillRect(0,0,w,h);return;
+            }
+            const scale=Math.max(w/image.naturalWidth,h/image.naturalHeight);
+            const dw=image.naturalWidth*scale,dh=image.naturalHeight*scale;
+            ctx.drawImage(image,(w-dw)*.5,(h-dh)*.5,dw,dh);
+            if(overlay){ctx.fillStyle=overlay;ctx.fillRect(0,0,w,h);}
+        }
 
-            // Mineral outcrops.
-            for(let i=0;i<9;i++){const x=-210+i*51;const y=130+Math.sin(i*2.1)*24;drawCrystal(x,y,8+(i%3)*2,['#b6a18a','#a78bfa','#9ca3af','#d6b88b'][i%4], '#8b7355',i*.2);}
-            // Fundadora representada pelo sistema de silhuetas.
-            const palette=COLOR_PALETTES[state.firstDiamond.colorKey]||COLOR_PALETTES.white,customColor=state.firstDiamond.colorHex||palette.hex;
-            const founderStyle=state.firstDiamond.bodySilhouette;const founderProfile={shape:founderStyle,hair:founderStyle==='slender'?'flowing':founderStyle==='radiant'?'cloud':founderStyle==='regal-angular'?'crest':founderStyle==='broad'?'crown':'angular',outfit:founderStyle==='broad'?'armor':'gown',gemPos:state.firstDiamond.gemPos,expression:'calm',width:founderStyle==='broad'?1.08:founderStyle==='slender'?.92:1,height:founderStyle==='radiant'?1.1:1};
-            drawDiamondVitral(ctx,0,31,.53,founderStyle,customColor,state.firstDiamond.gemPos,state.firstDiamond.gemCut);
-            // Camada frontal com estratos rochosos aparentes.
-            const foreground=ctx.createLinearGradient(0,178,0,235);foreground.addColorStop(0,'#594637');foreground.addColorStop(1,'#211b18');
-            ctx.fillStyle=foreground;drawPolygon([[-270,184],[-220,171],[-175,186],[-112,174],[-58,190],[0,177],[66,192],[128,174],[190,188],[242,172],[270,186],[270,240],[-270,240]],foreground);
-            ctx.strokeStyle='rgba(226,200,160,.42)';ctx.lineWidth=1.5;ctx.beginPath();ctx.moveTo(-250,181);ctx.lineTo(250,181);ctx.stroke();
-            ctx.strokeStyle='rgba(214,184,139,.25)';ctx.lineWidth=1;for(let layer=0;layer<3;layer++){ctx.beginPath();ctx.moveTo(-230,198+layer*9);ctx.quadraticCurveTo(-30,188+layer*10,235,205+layer*8);ctx.stroke();}
-            drawCrystal(-188,169,13,'#a78bfa','#8b5cf6',-.2);drawCrystal(202,165,17,'#9ca3af','#cbd5e1',.18);
+        function drawPrimitiveHomeworld(time) {
+            const image=getPrimarySceneImage('era0','assets/backgrounds/homeworld-era0.webp');
+            drawPrimarySceneImage(image,'rgba(16,9,28,.10)');
+            const {cx}=getVisibleCenter(canvasWidth,canvasHeight);
+            const isMobile=window.matchMedia('(max-width:600px)').matches;
+            const scale=Math.min(isMobile?.49:.58,canvasWidth/760);
+            const y=canvasHeight*.73;
+            const color=state.firstDiamond.colorHex||'#f8fafc';
+            drawDiamondVitral(ctx,cx,y,scale,state.firstDiamond.bodySilhouette,color,state.firstDiamond.gemPos,state.firstDiamond.gemCut);
+            ctx.save();
+            const fade=ctx.createLinearGradient(0,canvasHeight*.72,0,canvasHeight);
+            fade.addColorStop(0,'rgba(12,8,25,0)');fade.addColorStop(1,'rgba(9,7,20,.40)');
+            ctx.fillStyle=fade;ctx.fillRect(0,canvasHeight*.7,canvasWidth,canvasHeight*.3);
+            ctx.textAlign='center';ctx.fillStyle='rgba(255,247,255,.92)';
+            ctx.font='600 '+(isMobile?13:17)+'px Georgia';
+            ctx.fillText('HOMEWORLD · ERA 0',cx,Math.max(28,canvasHeight*.10));
+            ctx.fillStyle='rgba(239,225,248,.72)';ctx.font=(isMobile?10:12)+'px Segoe UI';
+            ctx.fillText('UM MUNDO AINDA NÃO TOCADO PELA COLONIZAÇÃO',cx,Math.max(45,canvasHeight*.10+19));
             ctx.restore();
+        }
+
+        function drawAuthorityDiamondNode(x,y,w,h,entity,isFounder,index){
+            const color=entity.colorHex||'#c4b5fd';
+            ctx.save();ctx.translate(x,y);
+            const gradient=ctx.createLinearGradient(-w*.45,-h*.45,w*.45,h*.45);
+            gradient.addColorStop(0,'rgba(255,255,255,.92)');
+            gradient.addColorStop(.24,color);
+            gradient.addColorStop(1,'rgba(42,25,76,.94)');
+            ctx.shadowColor=color;ctx.shadowBlur=isFounder?24:13;
+            ctx.fillStyle=gradient;ctx.strokeStyle='rgba(255,238,255,.88)';ctx.lineWidth=isFounder?2:1.25;
+            ctx.beginPath();ctx.moveTo(0,-h*.5);ctx.lineTo(w*.5,0);ctx.lineTo(0,h*.5);ctx.lineTo(-w*.5,0);ctx.closePath();ctx.fill();ctx.stroke();
+            ctx.shadowBlur=0;
+            ctx.fillStyle='rgba(255,255,255,.27)';
+            ctx.beginPath();ctx.moveTo(0,-h*.5);ctx.lineTo(w*.5,0);ctx.lineTo(0,0);ctx.closePath();ctx.fill();
+            ctx.fillStyle='rgba(28,18,48,.64)';
+            ctx.beginPath();ctx.moveTo(0,0);ctx.lineTo(w*.5,0);ctx.lineTo(0,h*.5);ctx.closePath();ctx.fill();
+            ctx.strokeStyle='rgba(255,255,255,.48)';ctx.lineWidth=1;
+            ctx.beginPath();ctx.moveTo(0,-h*.36);ctx.lineTo(0,h*.36);ctx.stroke();
+            ctx.restore();
+            ctx.save();ctx.textAlign='center';ctx.fillStyle='#fff9ff';
+            ctx.font='bold '+Math.max(9,isFounder?12:10)+'px Segoe UI';
+            ctx.shadowColor='rgba(20,10,35,.9)';ctx.shadowBlur=5;
+            ctx.fillText(entity.name||'Diamante',x,y+h*.5+15);
+            ctx.fillStyle='rgba(241,226,255,.78)';ctx.font=Math.max(8,9)+'px Segoe UI';
+            ctx.fillText(isFounder?'MATRIARCA · AUTORIDADE MÁXIMA':'AUTORIDADE '+(index+1),x,y+h*.5+27);
+            ctx.restore();
+        }
+
+        function drawDiamondAuthorityScene(time){
+            const image=getPrimarySceneImage('authority','assets/backgrounds/diamond-authority.webp');
+            drawPrimarySceneImage(image,'rgba(20,8,34,.14)');
+            const cx=canvasWidth*.5,isMobile=window.matchMedia('(max-width:600px)').matches;
+            const founder=state.firstDiamond;
+            ctx.save();
+            ctx.textAlign='center';ctx.fillStyle='rgba(255,248,255,.96)';
+            ctx.font='bold '+(isMobile?16:21)+'px Georgia';
+            ctx.shadowColor='rgba(28,7,45,.8)';ctx.shadowBlur=10;
+            ctx.fillText('AUTORIDADE DIAMANTE',cx,Math.max(28,canvasHeight*.09));
+            ctx.shadowBlur=0;ctx.font=(isMobile?9:11)+'px Segoe UI';
+            ctx.fillStyle='rgba(248,226,255,.76)';
+            ctx.fillText('HIERARQUIA IMPERIAL · HOMEWORLD',cx,Math.max(44,canvasHeight*.09+18));
+            ctx.restore();
+
+            const topY=canvasHeight*.29;
+            const topW=Math.min(isMobile?76:106,canvasWidth*.22),topH=topW*1.28;
+            drawAuthorityDiamondNode(cx,topY,topW,topH,founder,true,0);
+            const members=state.matriarchs.slice();
+            if(!members.length){
+                ctx.save();ctx.textAlign='center';ctx.fillStyle='rgba(250,238,255,.86)';
+                ctx.font=(isMobile?10:12)+'px Segoe UI';
+                ctx.fillText('A próxima Diamante ocupará uma posição abaixo da Matriarca.',cx,canvasHeight*.53);
+                ctx.restore();return;
+            }
+            const rowCaps=[2,3,4,5,6,7,8];
+            let cursor=0,row=0;
+            const availableHeight=canvasHeight*.43;
+            const rowCount=(()=>{let c=0,r=0;while(c<members.length){c+=rowCaps[Math.min(r,rowCaps.length-1)];r++;}return r;})();
+            const rowStep=Math.min(isMobile?112:132,availableHeight/Math.max(1,rowCount));
+            while(cursor<members.length&&row<rowCaps.length){
+                const count=Math.min(rowCaps[row],members.length-cursor);
+                const y=canvasHeight*.48+row*rowStep;
+                const gap=Math.min(isMobile?88:116,canvasWidth/(count+.6));
+                const nodeW=Math.min(isMobile?53:69,gap*.72),nodeH=nodeW*1.25;
+                for(let i=0;i<count;i++){
+                    const x=cx+(i-(count-1)/2)*gap;
+                    const member=members[cursor+i];
+                    ctx.save();ctx.strokeStyle='rgba(246,220,255,.52)';ctx.lineWidth=1;
+                    ctx.beginPath();ctx.moveTo(cx,topY+topH*.5);ctx.lineTo(x,y-nodeH*.5);ctx.stroke();ctx.restore();
+                    drawAuthorityDiamondNode(x,y,nodeW,nodeH,member,false,cursor+i);
+                }
+                cursor+=count;row++;
+            }
+            if(cursor<members.length){
+                ctx.save();ctx.textAlign='center';ctx.fillStyle='#f5d0fe';
+                ctx.font='bold 11px Segoe UI';ctx.fillText('+'+(members.length-cursor)+' DIAMANTES NA HIERARQUIA',cx,canvasHeight*.94);ctx.restore();
+            }
         }
 
         function drawThrone(time) {
@@ -4196,10 +4287,13 @@
         function drawGame(time) {
             if (!ctx || !canvasWidth || !canvasHeight) return;
             drawBackground(time);
+            // Mapa Estelar e Globo 360° mantêm suas renderizações originais.
             if (state.currentScreen === 'colony') drawColony(time);
+            else if (state.currentScreen === 'starmap') drawStarMap(time);
+            // Apenas a cena primária alterna entre a superfície primitiva e a Autoridade.
             else if (state.firstGameStarted && !state.founding.firstGemCreated) drawPrimitiveHomeworld(time);
-            else if (state.currentScreen === 'throne') drawThrone(time);
-            else drawStarMap(time);
+            else if (state.firstGameStarted && state.founding.firstGemCreated) drawDiamondAuthorityScene(time);
+            else drawThrone(time);
         }
 
         function handleCanvasClick(x, y) {
