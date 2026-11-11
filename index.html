@@ -2362,7 +2362,7 @@ ${hasAristocrats ? `
         function renderColonyContext(container) {
             const p=PLANETS[state.activeColonyPlanetId],vein=p.veins[state.selectedVeinIndex]||p.veins[0];
             const activeInjectors=p.veins.filter(v=>v.injector).length,peridotAvailable=Math.max(0,Number(state.census.peridot)||0);
-            const resourceLabels={quartz:'Quartzo',silicate:'Silicatos',corundum:'Coríndon',metallic:'Minérios metálicos',nacre:'Nácar',garnet:'Granada hessonítica',olivine:'Olivina',lapisrock:'Lápis-lazúli'};
+            const resourceLabels={quartz:'Quartzo',silicate:'Silicatos',corundum:'Coríndon',metallic:'Minérios metálicos',nacre:'Nácar',garnet:'Granada',olivine:'Olivina',lapisrock:'Lápis-lazúli',pyroxene:'Piroxênio',beryllium:'Berílio',topaz:'Topázio'};
             const resourceTotal=Object.values(p.resourcesByType||{}).reduce((sum,value)=>sum+Math.max(0,Number(value)||0),0);
             const resourceChart=Object.entries(resourceLabels).map(([key,label])=>{const amount=Math.max(0,Number(p.resourcesByType&&p.resourcesByType[key])||0);const pct=resourceTotal>0?Math.max(0,Math.min(100,amount/Math.max(1,Number(p.resourceTotal)||resourceTotal)*100)):0;return '<div style="display:grid;grid-template-columns:100px 1fr 58px;gap:7px;align-items:center;margin:7px 0;font-size:10px"><span>'+label+'</span><div style="height:8px;background:#0b1220;border-radius:8px;overflow:hidden"><div style="height:100%;width:'+pct.toFixed(2)+'%;background:linear-gradient(90deg,#0e7490,#67e8f9)"></div></div><b style="text-align:right">'+Math.floor(amount).toLocaleString('pt-BR')+'</b></div>';}).join('');
             container.innerHTML=`
@@ -2960,7 +2960,7 @@ ${hasAristocrats ? `
             if (!injector) return;
             const result = injector.evalData;
             const recipe = result.recipe;
-            const mineralType=injector.mineralType||vein.type;
+            const mineralType=vein.type;
             const mineralCost=Math.max(0,Number(injector.mineralCost)||0);
             const refinedMaterial=injector.refinedMaterial||null,refinedCost=Math.max(0,Number(injector.refinedCost)||0);
             const mineralAvailable=Math.max(0,Number(planet.resourcesByType&&planet.resourcesByType[mineralType])||0);
@@ -2992,6 +2992,7 @@ ${hasAristocrats ? `
             }
             const gem = {
                 caste: recipe.id,
+                variant: recipe.id==='quartz'?getQuartzVariantForPlanet(planet,Number(state.census.quartz)||0):recipe.id==='ruby'?'ruby':null,
                 color,
                 grade: result.grade,
                 isOrbiting: recipe.id === 'lapis',
@@ -3001,6 +3002,10 @@ ${hasAristocrats ? `
                 speed: recipe.id === 'lapis' ? 0.0036 : 0.0017,
                 bobPhase: Math.random() * Math.PI * 2
             };
+            if(recipe.id==='quartz'&&gem.variant){
+                const variants=state.founding.quartzVariantCounts||(state.founding.quartzVariantCounts={});
+                variants[gem.variant]=(Number(variants[gem.variant])||0)+1;
+            }
             if(recipe.id!=='pearl')planet.walkingGems.push(gem);
             planet.emergedHoles.push({ angle: vein.angle, size: 7 + Math.random() * 4 });
             vein.injector = null;
@@ -3286,6 +3291,80 @@ ${hasAristocrats ? `
         let cycleAccumulator = 0;
         let petitionAccumulator = 0;
 
+        function updateSapphirePredictions(dt){
+            if(!state.firstGameStarted||!state.founding)return;
+            const count=Math.max(0,Number(state.census.sapphire)||0);
+            if(!count)return;
+            state.founding.sapphirePredictionTimer=(Number(state.founding.sapphirePredictionTimer)||0)+dt;
+            if(state.founding.sapphirePredictionTimer<300)return;
+            state.founding.sapphirePredictionTimer%=300;
+            const chance=1-Math.pow(.95,count);
+            if(Math.random()>=chance)return;
+            const worlds=Object.values(PLANETS);
+            const lowResourceWorld=worlds.find(p=>Object.values(p.resourcesByType||{}).some(v=>Number(v)<100));
+            const highDissentWorld=worlds.find(p=>Number(p.dissent||0)>=55);
+            const options=[
+                {title:'Presságio de esgotamento mineral',description:lowResourceWorld?'Um depósito de '+lowResourceWorld.shortName+' pode se esgotar em breve.':'A extração intensa poderá esgotar um veio importante.',planet:lowResourceWorld?.shortName||'Império'},
+                {title:'Presságio de instabilidade colonial',description:highDissentWorld?'A dissidência em '+highDissentWorld.shortName+' pode desencadear uma crise.':'Uma colônia pode sofrer tensões políticas se a extração continuar.',planet:highDissentWorld?.shortName||'Colônias'},
+                {title:'Presságio de oportunidade geológica',description:'Um novo veio ou material raro poderá ser encontrado em uma futura prospecção.',planet:'Fronteira imperial'},
+                {title:'Presságio de expansão',description:'Uma rota de expansão poderá abrir novas oportunidades de colonização e logística.',planet:'Sistema estelar'}
+            ];
+            const item=options[Math.floor(Math.random()*options.length)];
+            const report={...item,chance:chance*100,cycle:Number(state.cycleCount)||1};
+            state.founding.sapphireForecasts=state.founding.sapphireForecasts||[];
+            state.founding.sapphireForecasts.push(report);
+            if(state.founding.sapphireForecasts.length>12)state.founding.sapphireForecasts.shift();
+            addChronicle('Visão de Safira: '+item.title,item.description,'Probabilidade agregada '+(chance*100).toFixed(1)+'%');
+            setStatusTicker('🔮 Uma Safira registrou um presságio possível: '+item.title+'.');
+            if(state.drawerOpen&&state.drawerTab==='population')renderPopulationReport(document.getElementById('drawer-body'));
+        }
+
+        function updateAquamarineOrders(dt){
+            if(!state.firstGameStarted)return;
+            const count=Math.max(0,Number(state.census.aquamarine)||0);
+            if(!count)return;
+            state.founding.aquamarineDispatchTimer=(Number(state.founding.aquamarineDispatchTimer)||0)+dt;
+            const interval=Math.max(20,300/count);
+            if(state.founding.aquamarineDispatchTimer<interval)return;
+            state.founding.aquamarineDispatchTimer%=interval;
+            const candidates=Object.values(PLANETS).filter(p=>p.hasOcean===true||Number(p.waterReserve||0)>=2500);
+            for(const target of candidates){
+                if(target.walkingGems.some(g=>g.caste==='lapis'))continue;
+                let source=null,index=-1;
+                for(const planet of Object.values(PLANETS)){
+                    const found=(planet.walkingGems||[]).findIndex(g=>g.caste==='lapis');
+                    if(found>=0){source=planet;index=found;break;}
+                }
+                if(!source)break;
+                const lapis=source.walkingGems.splice(index,1)[0];
+                lapis.bubbleText='🧭 Enviada por Água-marinha';
+                lapis.isOrbiting=true;
+                target.walkingGems.push(lapis);
+                addChronicle('Ordem de Água-marinha','Uma Lápis-Lazúli foi enviada para '+target.shortName+' para apoiar operações hídricas e terraformação.','Logística aristocrática automática');
+                if(state.drawerOpen&&state.drawerTab==='population')renderPopulationReport(document.getElementById('drawer-body'));
+                break;
+            }
+        }
+
+        function updateLapisTerraforming(dt){
+            for(const planet of Object.values(PLANETS)){
+                if(!planet.colonized||planet.landmassCreated)continue;
+                planet.lapisTerraformAccumulator=(Number(planet.lapisTerraformAccumulator)||0)+dt;
+                if(planet.lapisTerraformAccumulator<1)continue;
+                planet.lapisTerraformAccumulator=0;
+                const lapisCount=(planet.walkingGems||[]).filter(g=>g.caste==='lapis').length;
+                const mountain=planet.mountainous===true||/montanh|montanha/i.test(String(planet.biomeTag||''));
+                if(lapisCount<2||(!planet.hasOcean&&!mountain)||Number(planet.waterReserve||0)<2500)continue;
+                planet.waterReserve-=2500;
+                planet.landmassCreated=true;
+                planet.mountainous=false;
+                planet.terraformLevel=(Number(planet.terraformLevel)||0)+1;
+                planet.seismicHeat=Math.max(0,Number(planet.seismicHeat||0)-5);
+                addChronicle('Terraformação Lápis-Lazúli','Duas Lápis utilizaram grandes reservas hídricas em '+planet.shortName+' para criar terra firme e aplainar os terrenos montanhosos.','Massa terrestre ampliada');
+                setStatusTicker('🌊 Duas Lápis concluíram uma grande obra de terraformação em '+planet.shortName+'.');
+            }
+        }
+
         function updateWorld(deltaMs) {
             const dt = Math.min(0.05, Math.max(0, deltaMs / 1000));
             const elapsedMs = dt * 1000;
@@ -3318,6 +3397,9 @@ ${hasAristocrats ? `
                 }
             }
             if (state.firstGameStarted) updateStructureSimulation(dt);
+            updateSapphirePredictions(dt);
+            updateAquamarineOrders(dt);
+            updateLapisTerraforming(dt);
             for (const planet of Object.values(PLANETS)) {
                 planet.orbitAngle = (planet.orbitAngle || 0) + (planet.orbitSpeed || 0) * elapsedMs;
                 for (const gem of planet.walkingGems) {
