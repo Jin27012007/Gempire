@@ -4320,8 +4320,10 @@
                 '<option value="teardrop" ' + (fd.gemCut==='teardrop'?'selected':'') + '>◆ Gota</option>' +
                 '<option value="star" ' + (fd.gemCut==='star'?'selected':'') + '>✦ Estrela</option></select></div>' +
                 '<div><label for="founder-gem-position">Posição da Gem</label><select id="founder-gem-position" onchange="renderDiamondVitralGallery(document.getElementById(\'founder-vitral-gallery\'))"><option value="belly" ' + (fd.gemPos==='belly'?'selected':'') + '>Barriga</option><option value="head" ' + (fd.gemPos==='head'?'selected':'') + '>Cabeça</option><option value="chest" ' + (fd.gemPos==='chest'?'selected':'') + '>Peito</option></select></div></div>' +
-                '<button class="btn btn-emerald" onclick="confirmFoundingSetup()">Despertar em Homeworld</button></div>';
+                '<button id="founder-start-button" type="button" class="btn btn-emerald">Despertar em Homeworld</button></div>';
             renderDiamondVitralGallery(document.getElementById('founder-vitral-gallery'));
+            const startButton=document.getElementById('founder-start-button');
+            if(startButton) startButton.addEventListener('click',event=>{event.preventDefault();confirmFoundingSetup();});
             setGameMenuStatus('A fundadora começa sem personalidade predeterminada e sem infraestrutura.');
         }
 
@@ -4390,7 +4392,10 @@
             home.spireCount = 0; home.spiresCount = 0; home.warpPadsCount = 0; home.thermalSinks = 0; home.hasOrbitalRing = false;
             home.crustHealth = 100; home.seismicHeat = 0; home.dissent = 0;
             setStatusTicker('Homeworld é primitivo. Nenhuma Gem existe ainda.');
-            updateHUD();renderBottomBar();renderDrawerContent();
+            // A falha de uma atualização visual não pode impedir a abertura da partida.
+            try { updateHUD(); } catch(error) { console.error('Falha ao atualizar HUD inicial:',error); }
+            try { renderBottomBar(); } catch(error) { console.error('Falha ao montar a barra inicial:',error); }
+            try { renderDrawerContent(); } catch(error) { console.error('Falha ao montar o painel inicial:',error); }
         }
 
         function performFounderActivity() {
