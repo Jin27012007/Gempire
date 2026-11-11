@@ -526,6 +526,12 @@
         .founding-gem-option small { color:var(--text-muted); font-size:10px; line-height:1.35; }
         .founding-progress { height:7px; background:#111827; border-radius:99px; overflow:hidden; }
         .founding-progress>div { height:100%; background:linear-gradient(90deg,#f9a8d4,#facc15,#bae6fd); transition:width .2s; }
+        .diamond-vitral-gallery{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
+        .diamond-vitral-option{display:flex;flex-direction:column;align-items:center;gap:5px;min-width:0;padding:8px;border:1px solid var(--border-light);border-radius:10px;background:rgba(12,17,34,.92);color:var(--text-main);cursor:pointer}
+        .diamond-vitral-option.selected{border-color:#d8b4fe;box-shadow:0 0 0 1px rgba(216,180,254,.25),0 0 18px rgba(192,132,252,.16)}
+        .diamond-vitral-option canvas{width:100%;height:145px;object-fit:contain}
+        .diamond-vitral-option b{font-size:11px}.diamond-vitral-option small{min-height:24px;color:var(--text-muted);font-size:9px;text-align:center}
+        @media(max-width:600px){.diamond-vitral-option canvas{height:130px}}
         .silhouette-studio-intro{color:#cbd5e1;font-size:11px;line-height:1.55}
         .silhouette-gallery{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
         .silhouette-card{min-width:0;overflow:hidden;padding:8px;display:flex;flex-direction:column;align-items:stretch;gap:6px;text-align:left;color:var(--text-main);background:linear-gradient(155deg,rgba(40,43,72,.94),rgba(13,18,35,.98));border:1px solid rgba(210,190,236,.2);border-radius:11px;cursor:pointer}
@@ -3552,6 +3558,65 @@
             c.lineTo(gx-gs*.68,gy);c.closePath();c.fill();
             c.restore();c.restore();
         }
+        // Cinco modelos originais para a Primeira Diamante: silhuetas geométricas, sem roupa ou detalhes internos.
+        const DIAMOND_VITRAL_STYLES = {
+            regal:{label:'Auréola',desc:'Halo facetado e postura simétrica',head:'crown',body:'column',halo:'sun'},
+            slender:{label:'Lâmina',desc:'Figura alta, estreita e alongada',head:'spire',body:'slender',halo:'none'},
+            broad:{label:'Bastião',desc:'Ombros amplos e presença monumental',head:'shield',body:'broad',halo:'arch'},
+            radiant:{label:'Eclipse',desc:'Silhueta arredondada com raios orbitais',head:'round',body:'flare',halo:'orbit'},
+            'regal-angular':{label:'Prisma',desc:'Contornos agudos e proporções cristalinas',head:'diamond',body:'prism',halo:'crown'}
+        };
+        function drawDiamondVitral(ctx,cx,cy,scale,style,color,gemPos='chest',gemCut='lozenge'){
+            if(!ctx)return;
+            const cfg=DIAMOND_VITRAL_STYLES[style]||DIAMOND_VITRAL_STYLES.regal;
+            const body=color||'#f8fafc',gem=lightenGemColor(body);
+            ctx.save();ctx.translate(cx,cy);ctx.scale(scale,scale);ctx.lineJoin='miter';ctx.lineCap='round';
+            ctx.fillStyle='rgba(205,190,235,.12)';ctx.strokeStyle='rgba(224,210,245,.5)';ctx.lineWidth=2;
+            if(cfg.halo==='sun'||cfg.halo==='arch'||cfg.halo==='orbit'||cfg.halo==='crown'){
+                ctx.beginPath();ctx.ellipse(0,-103,cfg.halo==='arch'?61:cfg.halo==='orbit'?65:54,cfg.halo==='arch'?82:cfg.halo==='orbit'?57:54,0,0,Math.PI*2);ctx.fill();ctx.stroke();
+                if(cfg.halo==='sun'||cfg.halo==='crown'){for(let n=0;n<8;n++){const a=n*Math.PI/4;ctx.beginPath();ctx.moveTo(Math.cos(a)*58,-103+Math.sin(a)*58);ctx.lineTo(Math.cos(a)*70,-103+Math.sin(a)*70);ctx.stroke();}}
+                if(cfg.halo==='orbit'){ctx.beginPath();ctx.ellipse(0,-103,76,27,-.35,0,Math.PI*2);ctx.stroke();}
+            }
+            ctx.fillStyle=body;ctx.shadowColor=body;ctx.shadowBlur=9;
+            // Cabeça e cabelo são massas únicas: a leitura depende do contorno, não de roupa.
+            ctx.beginPath();
+            if(cfg.head==='crown'){ctx.moveTo(-26,-91);ctx.lineTo(-31,-132);ctx.lineTo(-12,-119);ctx.lineTo(0,-151);ctx.lineTo(13,-119);ctx.lineTo(31,-132);ctx.lineTo(26,-91);ctx.quadraticCurveTo(0,-72,-26,-91);}
+            else if(cfg.head==='spire'){ctx.moveTo(-25,-87);ctx.lineTo(-21,-132);ctx.lineTo(0,-158);ctx.lineTo(22,-132);ctx.lineTo(25,-87);ctx.quadraticCurveTo(0,-70,-25,-87);}
+            else if(cfg.head==='shield'){ctx.moveTo(-34,-90);ctx.lineTo(-28,-132);ctx.lineTo(0,-148);ctx.lineTo(28,-132);ctx.lineTo(34,-90);ctx.lineTo(0,-72);}
+            else if(cfg.head==='round'){ctx.ellipse(0,-111,34,42,0,0,Math.PI*2);}
+            else {ctx.moveTo(0,-157);ctx.lineTo(34,-116);ctx.lineTo(25,-83);ctx.lineTo(0,-72);ctx.lineTo(-25,-83);ctx.lineTo(-34,-116);}
+            ctx.closePath();ctx.fill();
+            // Pescoço e tronco formam uma única peça facetada.
+            ctx.beginPath();
+            if(cfg.body==='column'){ctx.moveTo(-9,-76);ctx.lineTo(9,-76);ctx.lineTo(17,-45);ctx.lineTo(29,28);ctx.lineTo(48,105);ctx.lineTo(-48,105);ctx.lineTo(-29,28);ctx.lineTo(-17,-45);}
+            else if(cfg.body==='slender'){ctx.moveTo(-8,-76);ctx.lineTo(8,-76);ctx.lineTo(13,-38);ctx.lineTo(20,28);ctx.lineTo(34,112);ctx.lineTo(-34,112);ctx.lineTo(-20,28);ctx.lineTo(-13,-38);}
+            else if(cfg.body==='broad'){ctx.moveTo(-12,-76);ctx.lineTo(12,-76);ctx.lineTo(32,-52);ctx.lineTo(66,-45);ctx.lineTo(52,24);ctx.lineTo(62,112);ctx.lineTo(-62,112);ctx.lineTo(-52,24);ctx.lineTo(-66,-45);ctx.lineTo(-32,-52);}
+            else if(cfg.body==='flare'){ctx.moveTo(-10,-76);ctx.lineTo(10,-76);ctx.lineTo(27,-42);ctx.lineTo(38,18);ctx.lineTo(72,112);ctx.lineTo(-72,112);ctx.lineTo(-38,18);ctx.lineTo(-27,-42);}
+            else {ctx.moveTo(-10,-76);ctx.lineTo(10,-76);ctx.lineTo(36,-42);ctx.lineTo(24,18);ctx.lineTo(57,112);ctx.lineTo(-57,112);ctx.lineTo(-24,18);ctx.lineTo(-36,-42);}
+            ctx.closePath();ctx.fill();
+            // Braços e pernas simplificados como prolongamentos sólidos da silhueta.
+            ctx.strokeStyle=body;ctx.lineWidth=cfg.body==='broad'?17:cfg.body==='slender'?9:12;
+            ctx.beginPath();ctx.moveTo(-24,-49);ctx.lineTo(-48,4);ctx.lineTo(-65,48);ctx.moveTo(24,-49);ctx.lineTo(48,4);ctx.lineTo(65,48);ctx.stroke();
+            ctx.lineWidth=cfg.body==='slender'?13:18;ctx.beginPath();ctx.moveTo(-17,96);ctx.lineTo(-29,155);ctx.moveTo(17,96);ctx.lineTo(29,155);ctx.stroke();
+            ctx.shadowBlur=0;
+            // Gema da fundadora sempre ligeiramente mais clara que a cor corporal.
+            let gx=0,gy=gemPos==='head'?-111:gemPos==='belly'?42:-25;
+            ctx.fillStyle=gem;ctx.strokeStyle='rgba(255,255,255,.85)';ctx.lineWidth=2;ctx.beginPath();
+            if(gemCut==='octagon'){for(let n=0;n<8;n++){const a=-Math.PI/2+n*Math.PI/4;const x=gx+Math.cos(a)*10,y=gy+Math.sin(a)*13;n?ctx.lineTo(x,y):ctx.moveTo(x,y);}ctx.closePath();}
+            else if(gemCut==='teardrop'){ctx.moveTo(0,gy-14);ctx.quadraticCurveTo(16,gy+3,0,gy+14);ctx.quadraticCurveTo(-16,gy+3,0,gy-14);}
+            else if(gemCut==='star'){for(let n=0;n<8;n++){const a=-Math.PI/2+n*Math.PI/4,r=n%2?7:14;const x=Math.cos(a)*r,y=gy+Math.sin(a)*r;n?ctx.lineTo(x,y):ctx.moveTo(x,y);}ctx.closePath();}
+            else {ctx.moveTo(0,gy-15);ctx.lineTo(11,gy);ctx.lineTo(0,gy+15);ctx.lineTo(-11,gy);ctx.closePath();}
+            ctx.fill();ctx.stroke();ctx.restore();
+        }
+        function renderDiamondVitralGallery(container){
+            const color=document.getElementById('founder-color')?.value||state.firstDiamond.colorHex||'#f8fafc';
+            const pos=document.getElementById('founder-gem-position')?.value||state.firstDiamond.gemPos||'chest';
+            const cut=document.getElementById('founder-cut')?.value||state.firstDiamond.gemCut||'lozenge';
+            const chosen=state.firstDiamond.bodySilhouette||'regal';
+            container.innerHTML=Object.entries(DIAMOND_VITRAL_STYLES).map(([key,v])=>'<button type="button" class="diamond-vitral-option '+(key===chosen?'selected':'')+'" data-vitral="'+key+'"><canvas width="130" height="190"></canvas><b>'+v.label+'</b><small>'+v.desc+'</small></button>').join('');
+            [...container.querySelectorAll('button')].forEach((button,i)=>{const key=button.dataset.vitral;drawDiamondVitral(button.querySelector('canvas').getContext('2d'),65,90,.53,key,color,pos,cut);button.addEventListener('click',()=>{state.firstDiamond.bodySilhouette=key;renderDiamondVitralGallery(container);});});
+        }
+
         function renderSilhouetteStudio(container){
             const types=Object.keys(FOUNDING_GEM_DATA),selected=FOUNDING_GEM_DATA[silhouettePreviewSelection]||FOUNDING_GEM_DATA.quartz,profile=gemSilhouetteProfile(silhouettePreviewSelection);
             let cards='';
@@ -3585,7 +3650,7 @@
             // Fundadora representada pelo sistema de silhuetas.
             const palette=COLOR_PALETTES[state.firstDiamond.colorKey]||COLOR_PALETTES.white,customColor=state.firstDiamond.colorHex||palette.hex;
             const founderStyle=state.firstDiamond.bodySilhouette;const founderProfile={shape:founderStyle,hair:founderStyle==='slender'?'flowing':founderStyle==='radiant'?'cloud':founderStyle==='regal-angular'?'crest':founderStyle==='broad'?'crown':'angular',outfit:founderStyle==='broad'?'armor':'gown',gemPos:state.firstDiamond.gemPos,expression:'calm',width:founderStyle==='broad'?1.08:founderStyle==='slender'?.92:1,height:founderStyle==='radiant'?1.1:1};
-            drawGemSilhouette(ctx,0,31,.53,{color:customColor,profile:founderProfile,glow:true,gemColor:'#fff4d8'});
+            drawDiamondVitral(ctx,0,31,.53,founderStyle,customColor,state.firstDiamond.gemPos,state.firstDiamond.gemCut);
             // Camada frontal com estratos rochosos aparentes.
             const foreground=ctx.createLinearGradient(0,178,0,235);foreground.addColorStop(0,'#594637');foreground.addColorStop(1,'#211b18');
             ctx.fillStyle=foreground;drawPolygon([[-270,184],[-220,171],[-175,186],[-112,174],[-58,190],[0,177],[66,192],[128,174],[190,188],[242,172],[270,186],[270,240],[-270,240]],foreground);
@@ -3631,7 +3696,7 @@
             // A Primeira Diamante usa a mesma linguagem de silhueta da população.
             const palette=COLOR_PALETTES[state.firstDiamond.colorKey]||COLOR_PALETTES.white,customColor=state.firstDiamond.colorHex||palette.hex;
             const throneStyle=state.firstDiamond.bodySilhouette;const throneProfile={shape:throneStyle,hair:throneStyle==='slender'?'flowing':throneStyle==='radiant'?'cloud':throneStyle==='regal-angular'?'crest':throneStyle==='broad'?'crown':'angular',outfit:throneStyle==='broad'?'armor':'gown',gemPos:state.firstDiamond.gemPos,expression:'calm',width:throneStyle==='broad'?1.08:throneStyle==='slender'?.92:1,height:throneStyle==='radiant'?1.1:1};
-            drawGemSilhouette(ctx,0,-35,.78,{color:customColor,profile:throneProfile,glow:true,gemSize:11,gemColor:'#fff4d8'});
+            drawDiamondVitral(ctx,0,-35,.78,throneStyle,customColor,state.firstDiamond.gemPos,state.firstDiamond.gemCut);
 
             // Diamantes da corte orbitando o trono
             state.matriarchs.forEach((m, i) => {
@@ -4216,20 +4281,16 @@
                 '<div class="founding-note">Você define apenas a identidade da fundadora. Sua personalidade será formada pelas decisões e ações tomadas durante a partida. Ela desperta sem Corte, população ou estruturas.</div>' +
                 '<div><label for="founder-name">Nome da Primeira Diamante</label><input id="founder-name" maxlength="28" value="' + escapeHTML(fd.name) + '" placeholder="Nome da Diamante"></div>' +
                 '<div><label for="founder-color">Cor livre</label><input id="founder-color" type="color" value="' + currentColor + '" aria-label="Cor da Primeira Diamante" style="height:46px;padding:4px;cursor:pointer"></div>' +
+                '<div><label>Modelo visual da Diamante</label><div id="founder-vitral-gallery" class="diamond-vitral-gallery"></div></div>' +
                 '<div class="founding-grid">' +
-                '<div><label for="founder-cut">Forma da gema</label><select id="founder-cut">' +
+                '<div><label for="founder-cut">Forma da gema</label><select id="founder-cut" onchange="renderDiamondVitralGallery(document.getElementById(\'founder-vitral-gallery\'))">' +
                 '<option value="lozenge" ' + (fd.gemCut==='lozenge'?'selected':'') + '>◇ Losango</option>' +
                 '<option value="octagon" ' + (fd.gemCut==='octagon'?'selected':'') + '>⬡ Octogonal</option>' +
                 '<option value="teardrop" ' + (fd.gemCut==='teardrop'?'selected':'') + '>◆ Gota</option>' +
                 '<option value="star" ' + (fd.gemCut==='star'?'selected':'') + '>✦ Estrela</option></select></div>' +
-                '<div><label for="founder-silhouette">Silhueta corporal</label><select id="founder-silhouette">' +
-                '<option value="regal" ' + (fd.bodySilhouette==='regal'?'selected':'') + '>Vitral Real</option>' +
-                '<option value="slender" ' + (fd.bodySilhouette==='slender'?'selected':'') + '>Vitral Esbelto</option>' +
-                '<option value="broad" ' + (fd.bodySilhouette==='broad'?'selected':'') + '>Vitral Imponente</option>' +
-                '<option value="radiant" ' + (fd.bodySilhouette==='radiant'?'selected':'') + '>Vitral Radiante</option>' +
-                '<option value="regal-angular" ' + (fd.bodySilhouette==='regal-angular'?'selected':'') + '>Vitral Angular</option></select></div>' +
-                '<div><label for="founder-gem-position">Posição da Gem</label><select id="founder-gem-position"><option value="belly" ' + (fd.gemPos==='belly'?'selected':'') + '>Barriga</option><option value="head" ' + (fd.gemPos==='head'?'selected':'') + '>Cabeça</option><option value="chest" ' + (fd.gemPos==='chest'?'selected':'') + '>Peito</option></select></div></div>' +
+                '<div><label for="founder-gem-position">Posição da Gem</label><select id="founder-gem-position" onchange="renderDiamondVitralGallery(document.getElementById(\'founder-vitral-gallery\'))"><option value="belly" ' + (fd.gemPos==='belly'?'selected':'') + '>Barriga</option><option value="head" ' + (fd.gemPos==='head'?'selected':'') + '>Cabeça</option><option value="chest" ' + (fd.gemPos==='chest'?'selected':'') + '>Peito</option></select></div></div>' +
                 '<button class="btn btn-emerald" onclick="confirmFoundingSetup()">Despertar em Homeworld</button></div>';
+            renderDiamondVitralGallery(document.getElementById('founder-vitral-gallery'));
             setGameMenuStatus('A fundadora começa sem personalidade predeterminada e sem infraestrutura.');
         }
 
@@ -4251,7 +4312,7 @@
             const bodySilhouette = document.getElementById('founder-silhouette')?.value;
             const gemPos = document.getElementById('founder-gem-position')?.value;
             if (!name) { setGameMenuStatus('Dê um nome à Primeira Diamante.', true); return; }
-            if (!/^#[0-9a-fA-F]{6}$/.test(colorHex || '') || !['lozenge','octagon','teardrop','star'].includes(gemCut) || !['regal','slender','broad','radiant','regal-angular'].includes(bodySilhouette) || !['belly','head','chest'].includes(gemPos)) return;
+            if (!/^#[0-9a-fA-F]{6}$/.test(colorHex || '') || !['lozenge','octagon','teardrop','star'].includes(gemCut) || !Object.prototype.hasOwnProperty.call(DIAMOND_VITRAL_STYLES,bodySilhouette) || !['belly','head','chest'].includes(gemPos)) return;
             Object.assign(state.firstDiamond,{name,colorHex:colorHex.toLowerCase(),gemCut,bodySilhouette,gemPos,title:'A Fundadora'});
             beginPrimitiveEra();
             startGame();
