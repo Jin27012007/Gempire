@@ -4023,7 +4023,7 @@
             ctx.fillText('ESTRELA MORIBUNDA', cx, cy - 68);
 
             starMapHitTargets = [];
-            const planets = Object.values(PLANETS);
+            const planets = [PLANETS.homeworld].filter(Boolean);
             for (const planet of planets) {
                 const orbit = planet.orbitRadius === 0 ? 0 : (planet.orbitRadius / 278) * maxOrbit;
                 if (orbit > 0) {
@@ -4063,7 +4063,7 @@
             ctx.textAlign = 'center';
             ctx.fillStyle = '#cbd5e1';
             ctx.font = 'bold 12px Georgia';
-            ctx.fillText('SISTEMA ESTELAR IMPERIAL', cx, 28);
+            ctx.fillText('HOMEWORLD · ÓRBITA DE ESTRELA MORIBUNDA', cx, 28);
         }
 
 
