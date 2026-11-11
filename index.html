@@ -4781,9 +4781,16 @@
             let discovery=PRIMITIVE_MINERAL_FINDS[0];
             for(const item of PRIMITIVE_MINERAL_FINDS){roll-=item.weight;if(roll<0){discovery=item;break;}}
             const pearlBuff=getPearlMultiplierFor('firstDiamond');
+            const sourcePlanet=PLANETS.homeworld;
+            const extractionAmount=10*pearlBuff;
+            const mineralAvailable=Math.max(0,Number(sourcePlanet.resourcesByType&&sourcePlanet.resourcesByType[discovery.type])||0);
+            if(mineralAvailable<extractionAmount){setStatusTicker('O depósito de '+discovery.label+' está esgotado. Procure outro veio.',true);return;}
+            sourcePlanet.resourcesByType[discovery.type]-=extractionAmount;
+            sourcePlanet.resourcesRemaining=Math.max(0,(Number(sourcePlanet.resourcesRemaining)||0)-extractionAmount);
+            if(sourcePlanet.resourcesRemaining<=0)sourcePlanet.resourceDepleted=true;
             found.gatheredMinerals[discovery.type]=(Number(found.gatheredMinerals[discovery.type])||0)+pearlBuff;
             found.gatherCooldown=5/pearlBuff;
-            state.minerals+=10*pearlBuff;
+            state.minerals+=extractionAmount;
             setStatusTicker('Encontro mineral: '+discovery.label+'. Amostra adicionada ao estoque.');
             updateHUD();renderDrawerContent();
         }
