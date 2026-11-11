@@ -2070,7 +2070,24 @@
                 state.founding.injectorEssence = (Number(state.founding.injectorEssence) || 0) + moved;
             }
             if (structureIsOperational('injector') && !state.founding.creationActive) startInjectorProduction(true);
-            if (structureIsOperational('mineral_extractor')) state.minerals += dt * 0.3;
+            if (structureIsOperational('mineral_extractor')) {
+                const planet=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld;
+                const available=Math.max(0,Number(planet.resourcesRemaining)||0);
+                const extracted=Math.min(available,dt*0.3);
+                if(extracted>0){
+                    let left=extracted;
+                    const pools=planet.resourcesByType||{};
+                    for(const [key,value] of Object.entries(pools)){
+                        if(left<=0)break;
+                        const take=Math.min(Math.max(0,Number(value)||0),left);
+                        pools[key]-=take;left-=take;
+                    }
+                    const actual=extracted-left;
+                    planet.resourcesRemaining=Math.max(0,available-actual);
+                    state.minerals+=actual;
+                    if(planet.resourcesRemaining<=0)planet.resourceDepleted=true;
+                }
+            }
             if (structureIsOperational('reactor')) state.energy += dt * 0.35;
         }
         function updateStructureUI() {
@@ -2556,7 +2573,7 @@
 
             container.innerHTML=
                 '<div class="card card-cyan"><div class="card-header"><span class="card-title title-font">👑 '+escapeHTML(fd.name)+'</span><span class="badge">Diamante Principal · Jogador</span></div><p style="font-size:11px;color:#cbd5e1">A Diamante fundadora. Sua identidade foi definida no início da partida e não pode ser alterada.</p><div class="grid-2"><div class="stat-box"><span class="stat-label">Influência imperial</span><b style="color:#7dd3fc">'+influence+'%</b></div><div class="stat-box"><span class="stat-label">Reputação</span><b style="color:#f9a8d4">'+reputation+'%</b></div></div><div class="stat-box"><small style="color:var(--text-muted)">Influência acompanha o crescimento da dinastia e das colônias. Reputação acompanha a estabilidade e as decisões ideológicas do império.</small></div></div>'+
-                '<div class="card card-amber"><div class="card-header"><span class="card-title title-font">💎 Forjar nova Diamante</span><span class="badge">Núcleo planetário</span></div><p style="font-size:11px;color:#cbd5e1">A Diamante é formada sob pressão extrema no centro do planeta. A Primeira Diamante é monocromática: a forja não exige essências coloridas. A composição mineral define a cor; a pressão determina o tempo e a potência.</p><div class="stat-box"><b>Planeta de origem: '+escapeHTML(planet.shortName)+'</b><small style="display:block;color:var(--text-muted)">Reserva disponível: '+Math.floor(remaining).toLocaleString('pt-BR')+' / '+Math.floor(total).toLocaleString('pt-BR')+'</small></div><div class="stat-box"><span class="stat-label">Custo mineral</span><b>'+mineralCost.toLocaleString('pt-BR')+' unidades (22% da reserva original)</b><small style="display:block;color:'+(remaining>=mineralCost?'#6ee7b7':'#fb7185')+'">'+(remaining>=mineralCost?'Disponível':'Recursos insuficientes neste planeta')+'</small></div><div class="grid-2"><div class="stat-box"><span class="stat-label">Pressão do núcleo</span><b>'+pressure+' GPa</b></div><div class="stat-box"><span class="stat-label">Potência estimada</span><b>'+forgePower.toFixed(1)+'x</b></div></div><div class="stat-box"><span class="stat-label">Tempo de formação</span><b>'+forgeSeconds+' segundos</b><small style="display:block;color:var(--text-muted)">Quanto maior a pressão, mais rápida e poderosa será a Diamante.</small></div>'+(activeForge?'<div class="stat-box"><b>Forja em andamento · '+escapeHTML(PLANETS[activeForge.planetId]?.shortName||'Núcleo')+'</b><div class="founding-progress" style="margin-top:8px"><div style="width:'+Math.floor(activeForge.progress)+'%"></div></div><small>'+Math.floor(activeForge.progress)+'% · '+Math.max(0,Math.ceil(activeForge.duration*(1-activeForge.progress/100)))+'s restantes</small></div>':'')+'<div class="stat-box"><span class="stat-label">Colônias ativas</span><b>'+admin.colonizedCount+' / '+admin.maxCap+'</b></div><button class="btn active" style="width:100%;padding:10px" onclick="synthesizeCustomDiamond()" '+(canForge?'':'disabled')+'>'+(activeForge?'💎 Forja em andamento':'💎 Iniciar forja no núcleo')+'</button>'+(canForge?'':'<small style="display:block;color:#fb7185;margin-top:6px">'+(activeForge?'Aguarde a conclusão da formação.':'Recursos minerais insuficientes para iniciar a forja.')+'</small>')+'</div>'+
+                '<div class="card card-amber"><div class="card-header"><span class="card-title title-font">💎 Forjar nova Diamante</span><span class="badge">Núcleo planetário</span></div><p style="font-size:11px;color:#cbd5e1">A Diamante é formada sob pressão extrema no centro do planeta. A Primeira Diamante é monocromática: a forja não exige essências coloridas. A composição mineral define a cor; a pressão determina o tempo e a potência.</p><div class="stat-box"><b>Planeta de origem: '+escapeHTML(planet.shortName)+'</b><small style="display:block;color:var(--text-muted)">Reserva disponível: '+Math.floor(remaining).toLocaleString('pt-BR')+' / '+Math.floor(total).toLocaleString('pt-BR')+'</small></div><div class="stat-box"><span class="stat-label">Custo mineral</span><b>'+mineralCost.toLocaleString('pt-BR')+' unidades (22% da reserva original)</b><small style="display:block;color:'+(remaining>=mineralCost?'#6ee7b7':'#fb7185')+'">'+(remaining>=mineralCost?'Disponível':'Recursos insuficientes neste planeta')+'</small></div><div class="grid-2"><div class="stat-box"><span class="stat-label">Pressão do núcleo</span><b>'+pressure+' GPa</b></div><div class="stat-box"><span class="stat-label">Potência estimada</span><b>'+forgePower.toFixed(1)+'x</b></div></div><div class="stat-box"><span class="stat-label">Tempo de formação</span><b>'+forgeSeconds+' segundos</b><small style="display:block;color:var(--text-muted)">Primeiro, um Injetor exclusivo precisa perfurar até o núcleo. Planetas maiores demoram mais; planetas menores são perfurados mais rápido. A qualidade e a potência da Diamante aumentam com o porte e a pressão do planeta.</small></div>'+(activeForge?'<div class="stat-box"><b>'+(activeForge.stage==='drilling'?'💉 Injetor perfurando · ':'💎 Cristalização no núcleo · ')+escapeHTML(PLANETS[activeForge.planetId]?.shortName||'Núcleo')+'</b><div class="founding-progress" style="margin-top:8px"><div style="width:'+Math.floor(activeForge.stage==='drilling'?activeForge.drillProgress:activeForge.progress)+'%"></div></div><small>'+(activeForge.stage==='drilling'?'Perfuração: ':'Formação: ')+Math.floor(activeForge.stage==='drilling'?activeForge.drillProgress:activeForge.progress)+'% · '+Math.max(0,Math.ceil((activeForge.stage==='drilling'?activeForge.drillDuration*(1-activeForge.drillProgress/100):activeForge.duration*(1-activeForge.progress/100))))+'s restantes</small></div>':'')+'<div class="stat-box"><span class="stat-label">Colônias ativas</span><b>'+admin.colonizedCount+' / '+admin.maxCap+'</b></div><button class="btn active" style="width:100%;padding:10px" onclick="synthesizeCustomDiamond()" '+(canForge?'':'disabled')+'>'+(activeForge?'💎 Forja em andamento':'💎 Iniciar forja no núcleo')+'</button>'+(canForge?'':'<small style="display:block;color:#fb7185;margin-top:6px">'+(activeForge?'Aguarde a conclusão da formação.':'Recursos minerais insuficientes para iniciar a forja.')+'</small>')+'</div>'+
                 '<div class="card"><div class="card-header"><span class="card-title title-font">Dinastia · '+state.matriarchs.length+' Diamante(s) subordinada(s)</span></div><p style="font-size:10px;color:#94a3b8">A ordem da lista define a posição no painel de Autoridade. Use as setas para elevar ou rebaixar cada Diamante.</p>'+matriarchCards+'</div>';
         }
 
@@ -2579,8 +2596,11 @@
             const cost=Math.ceil(total*.22);
             if(remaining<cost||cost<1){setStatusTicker('A forja exige '+cost.toLocaleString('pt-BR')+' unidades minerais ainda disponíveis em '+planet.shortName+'.',true);return;}
             const pressure=Number(planet.corePressure)||35;
-            state.diamondForge={planetId:planet.id,progress:0,duration:(Number(planet.diamondForgeSeconds)||180)/getPearlMultiplierFor('firstDiamond'),pressure,mineralCost:cost,power:Number(planet.diamondPower)||1};
-            setStatusTicker('Forja iniciada no núcleo de '+planet.shortName+'. A pressão está cristalizando a nova Diamante.');
+            const size=String(planet.resourceSize||'pequeno').toLowerCase();
+            const drillBase=size.includes('gigante')?70:size.includes('grande')?48:size.includes('médio')?28:14;
+            const drillDuration=drillBase/Math.max(0.75,getPearlMultiplierFor('firstDiamond'));
+            state.diamondForge={planetId:planet.id,stage:'drilling',drillProgress:0,drillDuration,progress:0,duration:(Number(planet.diamondForgeSeconds)||180)/getPearlMultiplierFor('firstDiamond'),pressure,mineralCost:cost,power:Number(planet.diamondPower)||1};
+            setStatusTicker('Injetor exclusivo lançado em '+planet.shortName+'. A perfuração até o núcleo começou; a formação só iniciará quando ele chegar ao centro.');
             updateHUD();
         }
 
@@ -2769,7 +2789,7 @@
 
         // --- 13. SISTEMAS DE PRODUÇÃO, COLONIZAÇÃO E ADMINISTRAÇÃO ---
         function calculatePlanetYield(planet) {
-            const result = { min: 0.25, tech: 0, white: 0, yellow: 0, blue: 0, pink: 0, order: 0 };
+            const result = { min: 0, tech: 0, white: 0, yellow: 0, blue: 0, pink: 0, order: 0 };
             if (!planet || !planet.colonized) return result;
 
             for (const gem of planet.walkingGems) {
@@ -3311,8 +3331,19 @@
                 if (state.founding.creationProgress >= 100) finishFirstGemCreation();
             }
             if(state.diamondForge){
-                state.diamondForge.progress=Math.min(100,state.diamondForge.progress+dt*100/Math.max(1,state.diamondForge.duration));
-                if(state.diamondForge.progress>=100)completeDiamondForge();
+                const forge=state.diamondForge;
+                if(forge.stage==='drilling'){
+                    forge.drillProgress=Math.min(100,(Number(forge.drillProgress)||0)+dt*100/Math.max(1,Number(forge.drillDuration)||1));
+                    if(forge.drillProgress>=100){
+                        forge.stage='forming';
+                        forge.progress=0;
+                        setStatusTicker('O Injetor alcançou o núcleo de '+(PLANETS[forge.planetId]?.shortName||'planeta')+'. A cristalização da Diamante começou.');
+                        if(state.drawerOpen&&state.drawerTab==='dynasty')renderDrawerContent();
+                    }
+                }else{
+                    forge.progress=Math.min(100,forge.progress+dt*100/Math.max(1,forge.duration));
+                    if(forge.progress>=100)completeDiamondForge();
+                }
             }
             if (state.firstGameStarted) updateStructureSimulation(dt);
             for (const planet of Object.values(PLANETS)) {
@@ -3354,11 +3385,7 @@
             for (const planet of Object.values(PLANETS)) {
                 if (!planet.colonized) continue;
                 const yieldRate = calculatePlanetYield(planet);
-                const available= Math.max(0,Number(planet.resourcesRemaining)||0);
-                const extracted=Math.min(available,Math.max(0,yieldRate.min*dt));
-                planet.resourcesRemaining=Math.max(0,available-extracted);
-                state.minerals += extracted;
-                if(planet.resourcesRemaining<=0)planet.resourceDepleted=true;
+                // Reservas minerais são estáticas: só operações explícitas de mineração as consomem.
                 state.tech += yieldRate.tech * dt;
                 state.essence.white += yieldRate.white * dt;
                 state.essence.yellow += yieldRate.yellow * dt;
