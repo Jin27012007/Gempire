@@ -3560,54 +3560,85 @@
         }
         // Cinco modelos originais para a Primeira Diamante: silhuetas geométricas, sem roupa ou detalhes internos.
         const DIAMOND_VITRAL_STYLES = {
-            regal:{label:'Auréola',desc:'Halo facetado e postura simétrica',head:'crown',body:'column',halo:'sun'},
-            slender:{label:'Lâmina',desc:'Figura alta, estreita e alongada',head:'spire',body:'slender',halo:'none'},
-            broad:{label:'Bastião',desc:'Ombros amplos e presença monumental',head:'shield',body:'broad',halo:'arch'},
-            radiant:{label:'Eclipse',desc:'Silhueta arredondada com raios orbitais',head:'round',body:'flare',halo:'orbit'},
-            'regal-angular':{label:'Prisma',desc:'Contornos agudos e proporções cristalinas',head:'diamond',body:'prism',halo:'crown'}
+            regal:{label:'Auréola',desc:'Manto facetado, braços abertos e halo radial',asset:'aurora.svg'},
+            slender:{label:'Lâmina',desc:'Silhueta sinuosa e cabelo em grandes massas curvas',asset:'lamina.svg'},
+            broad:{label:'Bastião',desc:'Forma monumental, angular e simétrica',asset:'bastiao.svg'},
+            radiant:{label:'Eclipse',desc:'Figura alongada com coroa de pontas e cauda facetada',asset:'eclipse.svg'},
+            'regal-angular':{label:'Prisma',desc:'Silhueta volumosa com ornamentos orbitais',asset:'prisma.svg'}
         };
+        const DIAMOND_VITRAL_IMAGES = {};
+        const DIAMOND_VITRAL_TINTS = new Map();
+
+        function loadDiamondVitralImage(style){
+            const cfg=DIAMOND_VITRAL_STYLES[style]||DIAMOND_VITRAL_STYLES.regal;
+            if(DIAMOND_VITRAL_IMAGES[style])return DIAMOND_VITRAL_IMAGES[style];
+            const image=new Image();
+            image.onload=()=>{
+                DIAMOND_VITRAL_TINTS.clear();
+                const gallery=document.getElementById('founder-vitral-gallery');
+                if(gallery)renderDiamondVitralGallery(gallery);
+            };
+            image.onerror=()=>setGameMenuStatus('Não foi possível carregar o modelo visual '+cfg.label+'.',true);
+            image.src='assets/diamond-silhouettes/'+cfg.asset;
+            DIAMOND_VITRAL_IMAGES[style]=image;
+            return image;
+        }
+
+        function getTintedDiamondVitral(style,color){
+            const image=loadDiamondVitralImage(style);
+            if(!image.complete||!image.naturalWidth)return null;
+            const tint=/^#[0-9a-f]{6}$/i.test(color||'')?color:'#f8fafc';
+            const key=style+'|'+tint.toLowerCase();
+            if(DIAMOND_VITRAL_TINTS.has(key))return DIAMOND_VITRAL_TINTS.get(key);
+            const canvas=document.createElement('canvas');
+            canvas.width=image.naturalWidth;canvas.height=image.naturalHeight;
+            const c=canvas.getContext('2d',{willReadFrequently:true});
+            c.drawImage(image,0,0);
+            const frame=c.getImageData(0,0,canvas.width,canvas.height);
+            const pixels=frame.data;
+            const base=[parseInt(tint.slice(1,3),16),parseInt(tint.slice(3,5),16),parseInt(tint.slice(5,7),16)];
+            for(let i=0;i<pixels.length;i+=4){
+                if(pixels[i+3]===0)continue;
+                const lum=.2126*pixels[i]+.7152*pixels[i+1]+.0722*pixels[i+2];
+                const shade=Math.max(.25,Math.min(1.42,1+((lum-128)/128)*.86));
+                pixels[i]=Math.min(255,Math.round(base[0]*shade));
+                pixels[i+1]=Math.min(255,Math.round(base[1]*shade));
+                pixels[i+2]=Math.min(255,Math.round(base[2]*shade));
+            }
+            c.putImageData(frame,0,0);
+            DIAMOND_VITRAL_TINTS.set(key,canvas);
+            return canvas;
+        }
+
         function drawDiamondVitral(ctx,cx,cy,scale,style,color,gemPos='chest',gemCut='lozenge'){
             if(!ctx)return;
-            const cfg=DIAMOND_VITRAL_STYLES[style]||DIAMOND_VITRAL_STYLES.regal;
-            const body=color||'#f8fafc',gem=lightenGemColor(body);
-            ctx.save();ctx.translate(cx,cy);ctx.scale(scale,scale);ctx.lineJoin='miter';ctx.lineCap='round';
-            ctx.fillStyle='rgba(205,190,235,.12)';ctx.strokeStyle='rgba(224,210,245,.5)';ctx.lineWidth=2;
-            if(cfg.halo==='sun'||cfg.halo==='arch'||cfg.halo==='orbit'||cfg.halo==='crown'){
-                ctx.beginPath();ctx.ellipse(0,-103,cfg.halo==='arch'?61:cfg.halo==='orbit'?65:54,cfg.halo==='arch'?82:cfg.halo==='orbit'?57:54,0,0,Math.PI*2);ctx.fill();ctx.stroke();
-                if(cfg.halo==='sun'||cfg.halo==='crown'){for(let n=0;n<8;n++){const a=n*Math.PI/4;ctx.beginPath();ctx.moveTo(Math.cos(a)*58,-103+Math.sin(a)*58);ctx.lineTo(Math.cos(a)*70,-103+Math.sin(a)*70);ctx.stroke();}}
-                if(cfg.halo==='orbit'){ctx.beginPath();ctx.ellipse(0,-103,76,27,-.35,0,Math.PI*2);ctx.stroke();}
-            }
-            ctx.fillStyle=body;ctx.shadowColor=body;ctx.shadowBlur=9;
-            // Cabeça e cabelo são massas únicas: a leitura depende do contorno, não de roupa.
-            ctx.beginPath();
-            if(cfg.head==='crown'){ctx.moveTo(-26,-91);ctx.lineTo(-31,-132);ctx.lineTo(-12,-119);ctx.lineTo(0,-151);ctx.lineTo(13,-119);ctx.lineTo(31,-132);ctx.lineTo(26,-91);ctx.quadraticCurveTo(0,-72,-26,-91);}
-            else if(cfg.head==='spire'){ctx.moveTo(-25,-87);ctx.lineTo(-21,-132);ctx.lineTo(0,-158);ctx.lineTo(22,-132);ctx.lineTo(25,-87);ctx.quadraticCurveTo(0,-70,-25,-87);}
-            else if(cfg.head==='shield'){ctx.moveTo(-34,-90);ctx.lineTo(-28,-132);ctx.lineTo(0,-148);ctx.lineTo(28,-132);ctx.lineTo(34,-90);ctx.lineTo(0,-72);}
-            else if(cfg.head==='round'){ctx.ellipse(0,-111,34,42,0,0,Math.PI*2);}
-            else {ctx.moveTo(0,-157);ctx.lineTo(34,-116);ctx.lineTo(25,-83);ctx.lineTo(0,-72);ctx.lineTo(-25,-83);ctx.lineTo(-34,-116);}
-            ctx.closePath();ctx.fill();
-            // Pescoço e tronco formam uma única peça facetada.
-            ctx.beginPath();
-            if(cfg.body==='column'){ctx.moveTo(-9,-76);ctx.lineTo(9,-76);ctx.lineTo(17,-45);ctx.lineTo(29,28);ctx.lineTo(48,105);ctx.lineTo(-48,105);ctx.lineTo(-29,28);ctx.lineTo(-17,-45);}
-            else if(cfg.body==='slender'){ctx.moveTo(-8,-76);ctx.lineTo(8,-76);ctx.lineTo(13,-38);ctx.lineTo(20,28);ctx.lineTo(34,112);ctx.lineTo(-34,112);ctx.lineTo(-20,28);ctx.lineTo(-13,-38);}
-            else if(cfg.body==='broad'){ctx.moveTo(-12,-76);ctx.lineTo(12,-76);ctx.lineTo(32,-52);ctx.lineTo(66,-45);ctx.lineTo(52,24);ctx.lineTo(62,112);ctx.lineTo(-62,112);ctx.lineTo(-52,24);ctx.lineTo(-66,-45);ctx.lineTo(-32,-52);}
-            else if(cfg.body==='flare'){ctx.moveTo(-10,-76);ctx.lineTo(10,-76);ctx.lineTo(27,-42);ctx.lineTo(38,18);ctx.lineTo(72,112);ctx.lineTo(-72,112);ctx.lineTo(-38,18);ctx.lineTo(-27,-42);}
-            else {ctx.moveTo(-10,-76);ctx.lineTo(10,-76);ctx.lineTo(36,-42);ctx.lineTo(24,18);ctx.lineTo(57,112);ctx.lineTo(-57,112);ctx.lineTo(-24,18);ctx.lineTo(-36,-42);}
-            ctx.closePath();ctx.fill();
-            // Braços e pernas simplificados como prolongamentos sólidos da silhueta.
-            ctx.strokeStyle=body;ctx.lineWidth=cfg.body==='broad'?17:cfg.body==='slender'?9:12;
-            ctx.beginPath();ctx.moveTo(-24,-49);ctx.lineTo(-48,4);ctx.lineTo(-65,48);ctx.moveTo(24,-49);ctx.lineTo(48,4);ctx.lineTo(65,48);ctx.stroke();
-            ctx.lineWidth=cfg.body==='slender'?13:18;ctx.beginPath();ctx.moveTo(-17,96);ctx.lineTo(-29,155);ctx.moveTo(17,96);ctx.lineTo(29,155);ctx.stroke();
+            const image=loadDiamondVitralImage(style);
+            const tinted=getTintedDiamondVitral(style,color||'#f8fafc');
+            if(!tinted)return;
+            const height=320*scale;
+            const width=height*(tinted.width/tinted.height);
+            ctx.save();
+            ctx.translate(cx,cy);
+            ctx.shadowColor=color||'#f8fafc';ctx.shadowBlur=10*scale;
+            ctx.drawImage(tinted,-width/2,-height/2,width,height);
             ctx.shadowBlur=0;
-            // Gema da fundadora sempre ligeiramente mais clara que a cor corporal.
-            let gx=0,gy=gemPos==='head'?-111:gemPos==='belly'?42:-25;
-            ctx.fillStyle=gem;ctx.strokeStyle='rgba(255,255,255,.85)';ctx.lineWidth=2;ctx.beginPath();
-            if(gemCut==='octagon'){for(let n=0;n<8;n++){const a=-Math.PI/2+n*Math.PI/4;const x=gx+Math.cos(a)*10,y=gy+Math.sin(a)*13;n?ctx.lineTo(x,y):ctx.moveTo(x,y);}ctx.closePath();}
-            else if(gemCut==='teardrop'){ctx.moveTo(0,gy-14);ctx.quadraticCurveTo(16,gy+3,0,gy+14);ctx.quadraticCurveTo(-16,gy+3,0,gy-14);}
-            else if(gemCut==='star'){for(let n=0;n<8;n++){const a=-Math.PI/2+n*Math.PI/4,r=n%2?7:14;const x=Math.cos(a)*r,y=gy+Math.sin(a)*r;n?ctx.lineTo(x,y):ctx.moveTo(x,y);}ctx.closePath();}
-            else {ctx.moveTo(0,gy-15);ctx.lineTo(11,gy);ctx.lineTo(0,gy+15);ctx.lineTo(-11,gy);ctx.closePath();}
+            // O cristal de identidade é independente da cor corporal e acompanha a posição escolhida.
+            const gemY=-height/2+height*(gemPos==='head'?.18:gemPos==='belly'?.64:.39);
+            const radius=9*scale,gem=lightenGemColor(color||'#f8fafc');
+            ctx.fillStyle=gem;ctx.strokeStyle='rgba(255,255,255,.92)';ctx.lineWidth=Math.max(1,1.5*scale);
+            ctx.shadowColor=gem;ctx.shadowBlur=8*scale;ctx.beginPath();
+            if(gemCut==='octagon'){
+                for(let n=0;n<8;n++){const a=-Math.PI/2+n*Math.PI/4,x=Math.cos(a)*radius,y=gemY+Math.sin(a)*radius*1.2;n?ctx.lineTo(x,y):ctx.moveTo(x,y);}ctx.closePath();
+            }else if(gemCut==='teardrop'){
+                ctx.moveTo(0,gemY-radius*1.25);ctx.quadraticCurveTo(radius*1.3,gemY+radius*.3,0,gemY+radius*1.25);ctx.quadraticCurveTo(-radius*1.3,gemY+radius*.3,0,gemY-radius*1.25);
+            }else if(gemCut==='star'){
+                for(let n=0;n<8;n++){const a=-Math.PI/2+n*Math.PI/4,r=n%2?radius*.52:radius*1.25,x=Math.cos(a)*r,y=gemY+Math.sin(a)*r;n?ctx.lineTo(x,y):ctx.moveTo(x,y);}ctx.closePath();
+            }else{
+                ctx.moveTo(0,gemY-radius*1.3);ctx.lineTo(radius*.85,gemY);ctx.lineTo(0,gemY+radius*1.3);ctx.lineTo(-radius*.85,gemY);ctx.closePath();
+            }
             ctx.fill();ctx.stroke();ctx.restore();
         }
+
         function renderDiamondVitralGallery(container){
             const color=document.getElementById('founder-color')?.value||state.firstDiamond.colorHex||'#f8fafc';
             const pos=document.getElementById('founder-gem-position')?.value||state.firstDiamond.gemPos||'chest';
