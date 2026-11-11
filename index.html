@@ -4280,7 +4280,7 @@
                 '<div class="founding-intro">' +
                 '<div class="founding-note">Você define apenas a identidade da fundadora. Sua personalidade será formada pelas decisões e ações tomadas durante a partida. Ela desperta sem Corte, população ou estruturas.</div>' +
                 '<div><label for="founder-name">Nome da Primeira Diamante</label><input id="founder-name" maxlength="28" value="' + escapeHTML(fd.name) + '" placeholder="Nome da Diamante"></div>' +
-                '<div><label for="founder-color">Cor livre</label><input id="founder-color" type="color" value="' + currentColor + '" aria-label="Cor da Primeira Diamante" style="height:46px;padding:4px;cursor:pointer"></div>' +
+                '<div><label for="founder-color">Cor livre</label><input id="founder-color" type="color" value="' + currentColor + '" aria-label="Cor da Primeira Diamante" onchange="renderDiamondVitralGallery(document.getElementById(\'founder-vitral-gallery\'))" style="height:46px;padding:4px;cursor:pointer"></div>' +
                 '<div><label>Modelo visual da Diamante</label><div id="founder-vitral-gallery" class="diamond-vitral-gallery"></div></div>' +
                 '<div class="founding-grid">' +
                 '<div><label for="founder-cut">Forma da gema</label><select id="founder-cut" onchange="renderDiamondVitralGallery(document.getElementById(\'founder-vitral-gallery\'))">' +
