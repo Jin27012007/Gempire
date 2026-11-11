@@ -2013,14 +2013,18 @@
             const gem = FOUNDING_GEM_DATA[type];
             if (!gem) return;
             const injectorCount=Math.max(1,structureCount('injector'));
-            const mineralCost=5*injectorCount,essenceCost=50*injectorCount;
-            const extractorBuilt=structureCount('mineral_extractor')>0;
-            const availableMinerals=extractorBuilt?(Number(state.minerals)||0):(Number(state.founding.gatheredMinerals[gem.mineral])||0);
-            if (availableMinerals < mineralCost) { if(!automatic) setStatusTicker('A frota de Injetores aguarda '+mineralCost+' unidades de '+gem.mineralName+'.'); return; }
-            if ((state.founding.injectorEssence || 0) < essenceCost) { if(!automatic) setStatusTicker('A frota de Injetores aguarda '+essenceCost+' unidades de essência no reservatório.'); return; }
-            if(extractorBuilt)state.minerals-=mineralCost;else state.founding.gatheredMinerals[gem.mineral]-=mineralCost;
+            const batchCount=5*injectorCount;
+            const mineralCost=batchCount,essenceCost=12*batchCount;
+            const planet=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld;
+            if(!planet.resourcesByType)planet.resourcesByType={};
+            const availableMinerals=Math.max(0,Number(planet.resourcesByType[gem.mineral])||0);
+            if (availableMinerals < mineralCost) { if(!automatic) setStatusTicker('Produção suspensa: o depósito planetário de '+gem.mineralName+' não possui '+mineralCost+' unidades.'); return; }
+            if ((state.founding.injectorEssence || 0) < essenceCost) { if(!automatic) setStatusTicker('A frota de Injetores aguarda '+essenceCost+' unidades de essência (12 por Gem).'); return; }
+            planet.resourcesByType[gem.mineral]=Math.max(0,availableMinerals-mineralCost);
+            planet.resourcesRemaining=Math.max(0,Object.values(planet.resourcesByType).reduce((sum,value)=>sum+Math.max(0,Number(value)||0),0));
+            planet.resourceDepleted=planet.resourcesRemaining<=0;
             state.founding.injectorEssence -= essenceCost;
-            state.founding.creationBatchCount = 5*injectorCount;
+            state.founding.creationBatchCount = batchCount;
             state.founding.creationTarget = type;
             state.founding.creationSource = 'injector';
             state.founding.creationProgress = 0;
@@ -2119,6 +2123,7 @@
                 state.founding.injectorEssence = (Number(state.founding.injectorEssence) || 0) + moved;
             }
             if (structureIsOperational('injector') && !state.founding.creationActive) startInjectorProduction(true);
+            if(state.currentScreen==='colony'&&state.drawerOpen&&state.drawerTab==='context')renderColonyContext(document.getElementById('drawer-body'));
             if (structureIsOperational('mineral_extractor')) {
                 const planet=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld;
                 const available=Math.max(0,Number(planet.resourcesRemaining)||0);
@@ -2209,7 +2214,11 @@
                             const labels = {workshop:'🔧 Fabricar componentes',refinery:'⚗️ Refinar materiais',research_center:'🔬 Pesquisar',shipyard:'🚀 Construir nave',terraformer:'🌊 Terraformar',defense_tower:'🛡️ Calibrar defesa',shield_generator:'🔰 Ativar escudo',teleporter:'🌀 Sincronizar teletransporte',administration_center:'📋 Organizar equipes',reactor:'⚡ Verificar reator',orbital_station:'🛰️ Iniciar operação orbital',planetary_network:'🌐 Expandir rede planetária'};
                             html += '<button class="btn btn-block" onclick="executeStructureInteraction(\'' + def.id + '\')" ' + (!structureIsOperational(def.id) ? 'disabled' : '') + '>' + labels[def.id] + '</button>';
                         } else if (def.id === 'mineral_extractor') html += '<div class="founding-note">Produz minerais continuamente enquanto houver um Quartzo designado.</div>';
-                        else if (def.id === 'essence_chamber') html += '<div class="founding-note">Transfere até 0,5 essência por segundo da reserva interna da Diamante para o estoque.</div>';
+                        else if (def.id === 'essence_chamber') html += '<div class="founding-note">Transfere essência da reserva interna da Diamante para o estoque.</div>';
+                        if (def.id === 'injector' && count < (def.maxCount || 1)) {
+                            const nextReason = canBuildStructure(def);
+                            html += '<div class="founding-note">Frota instalada: ' + count + ' / ' + def.maxCount + ' Injetores.</div><button class="btn btn-block" onclick="buildStructure(\'injector\')" ' + (nextReason ? 'disabled' : '') + '>🏗️ Construir outro Injetor · ' + costText + ' · ' + def.buildTime + 's</button>';
+                        }
                     } else {
                         html += '<div class="structure-locked">' + (reason || 'Disponível para construção.') + '</div>' +
                             '<button class="btn btn-block" onclick="buildStructure(\'' + def.id + '\')" ' + (reason ? 'disabled' : '') + '>🏗️ Construir · ' + costText + ' · ' + def.buildTime + 's</button>';
@@ -2390,8 +2399,12 @@ ${hasAristocrats ? `
         function renderColonyContext(container) {
             const p=PLANETS[state.activeColonyPlanetId],vein=p.veins[state.selectedVeinIndex]||p.veins[0];
             const activeInjectors=p.veins.filter(v=>v.injector).length,peridotAvailable=Math.max(0,Number(state.census.peridot)||0);
+            const resourceLabels={quartz:'Quartzo',silicate:'Silicatos',corundum:'Coríndon',metallic:'Minérios metálicos',nacre:'Nácar',garnet:'Granada hessonítica',olivine:'Olivina',lapisrock:'Lápis-lazúli'};
+            const resourceTotal=Object.values(p.resourcesByType||{}).reduce((sum,value)=>sum+Math.max(0,Number(value)||0),0);
+            const resourceChart=Object.entries(resourceLabels).map(([key,label])=>{const amount=Math.max(0,Number(p.resourcesByType&&p.resourcesByType[key])||0);const pct=resourceTotal>0?Math.max(0,Math.min(100,amount/Math.max(1,Number(p.resourceTotal)||resourceTotal)*100)):0;return '<div style="display:grid;grid-template-columns:100px 1fr 58px;gap:7px;align-items:center;margin:7px 0;font-size:10px"><span>'+label+'</span><div style="height:8px;background:#0b1220;border-radius:8px;overflow:hidden"><div style="height:100%;width:'+pct.toFixed(2)+'%;background:linear-gradient(90deg,#0e7490,#67e8f9)"></div></div><b style="text-align:right">'+Math.floor(amount).toLocaleString('pt-BR')+'</b></div>';}).join('');
             container.innerHTML=`
                 <div class="card"><div class="card-header"><span class="card-title title-font">🌍 ${p.shortName}</span><span class="badge">Crosta: ${p.crustHealth}%</span></div>
+                <div class="card card-cyan"><div class="card-header"><span class="card-title">📊 Reservas minerais do planeta</span><b>${Math.floor(resourceTotal).toLocaleString('pt-BR')}</b></div><div>${resourceChart}</div><small style="color:var(--text-muted)">As barras representam o estoque real de cada matéria-prima. A largura diminui conforme a extração e a produção consomem o depósito.</small></div>
                 <div class="grid-2"><div class="stat-box" style="display:flex;justify-content:space-between;"><span style="color:var(--text-muted)">Calor Sísmico:</span><b style="color:${p.seismicHeat>=75?'#fb7185':'#fde047'}">${Math.round(p.seismicHeat)}%</b></div><div class="stat-box" style="display:flex;justify-content:space-between;"><span style="color:var(--text-muted)">Dissidência:</span><b style="color:${p.dissent>=70?'#fb7185':'#7dd3fc'}">${Math.round(p.dissent)}%</b></div></div></div>
                 <div class="card card-cyan"><div class="card-header"><span class="card-title title-font">💚 Operação de Peridot</span><span class="badge">${peridotAvailable} disponíveis</span></div>
                 <div class="stat-label">Nodo #${vein.id+1} • ${vein.label} • Pureza ${vein.purity}%</div>
