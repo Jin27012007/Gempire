@@ -1117,8 +1117,8 @@
                 name: 'Terra-Veritas (Orgânico Fértil)',
                 shortName: 'Terra-Veritas',
                 biomeTag: 'Biosfera Orgânica • Alta Essência Vital',
-                lore: 'Um globo fértil de continentes verdes e oceanos azuis. Sua biosfera fornece alta Essência Vital para formar Jaspers e Ametistas perfeitas, mas tem alto risco rebelde.',
-                optimalText: 'Jaspers [Rank S], Quartzos Soldados e Peridots',
+                lore: 'Um globo fértil de continentes verdes e oceanos azuis. Sua biosfera favorece a formação de Quartzos e Gems de alta pureza, mas tem alto risco rebelde.',
+                optimalText: 'Quartzos de alta pureza, Hessonitas e Peridots',
                 badText: '⚠️ A extração intensa gera Dissidência rápida se sem Governadora ou Quartzos.',
                 colonized: false,
                 unlockCost: { minerals: 310, white: 95 },
@@ -1204,7 +1204,7 @@
                 stage: 'setup',
                 firstGemCreated: false,
                 mineralSamples: { quartz: 0, silicate: 0, corundum: 0, metallic: 0, nacre: 0, garnet: 0, olivine: 0, lapisrock: 0 },
-                gatheredMinerals: { quartz: 0, silicate: 0, corundum: 0, metallic: 0, nacre: 0, jasperrock: 0, olivine: 0, lapisrock: 0 },
+                gatheredMinerals: { quartz: 0, silicate: 0, corundum: 0, metallic: 0, nacre: 0, garnet: 0, olivine: 0, lapisrock: 0 },
                 essenceOutput: 0,
                 activityCount: 0,
                 essenceCooldown: 0,
@@ -2964,7 +2964,7 @@
             planet.walkingGems.push(gem);
             planet.emergedHoles.push({ angle: vein.angle, size: 7 + Math.random() * 4 });
             vein.injector = null;
-            if (recipe.id === 'jasper' || recipe.id === 'ruby') planet.dissent = Math.max(0, planet.dissent - 5);
+            if (recipe.id === 'ruby') planet.dissent = Math.max(0, planet.dissent - 5);
             if (recipe.id === 'lapis') planet.seismicHeat = Math.max(0, planet.seismicHeat - 8);
             if (recipe.id === 'pearl') state.order = Math.min(100, state.order + 2);
             addChronicle(
@@ -3276,7 +3276,7 @@
                         let calming = 0.025;
                         if (planet.governor === 'agate') calming += 0.20;
                         if (planet.governor === 'pearl') calming += 0.25;
-                        if (planet.walkingGems.some(g => g.caste === 'jasper' || g.caste === 'ruby')) calming += 0.07;
+                        if (planet.walkingGems.some(g => g.caste === 'ruby')) calming += 0.07;
                         if (state.researchedTechs.orbital_pacification) calming += 0.12;
                         if (state.firstDiamond.doctrine === 'lifeseeder' && planet.id === 'terra_veritas') calming += 0.15;
                         planet.dissent = Math.max(0, planet.dissent - calming * dt);
@@ -3558,7 +3558,7 @@
             types.forEach(type=>{const gem=FOUNDING_GEM_DATA[type];cards+='<button type="button" class="silhouette-card '+(type===silhouettePreviewSelection?'selected':'')+'" data-silhouette="'+type+'"><canvas class="silhouette-preview" data-profile="'+type+'" width="180" height="220"></canvas><strong>'+gem.label+'</strong><small>'+gem.role+'</small></button>';});
             container.innerHTML='<div class="card card-cyan"><div class="card-header"><span class="card-title title-font">◇ Estúdio de Silhuetas</span><span class="badge">Perfis anatômicos</span></div><div class="silhouette-studio-intro">Cada variedade possui proporções, cabelo, quantidade de olhos e posição de gema próprios. São referências visuais por espécie; variantes individuais poderão ser adicionadas sem apagar a anatomia-base.</div></div>'+
                 '<div class="silhouette-selected-detail"><canvas id="silhouette-selected-preview" width="180" height="220"></canvas><div><b>'+selected.label+'</b><div style="font-size:10px;color:#cbd5e1;margin-top:4px">'+selected.role+'</div><div style="font-size:9px;color:#b9a9c8;margin-top:6px">'+profile.summary+'</div><div style="font-size:9px;color:#b9a9c8;margin-top:5px">Olhos: '+profile.eyeCount+' · Gema: '+profile.gemPos+'</div></div></div>'+
-                '<div class="silhouette-gallery">'+cards+'</div><div class="card"><div class="card-header"><span class="card-title">Regras de leitura</span></div><div class="founding-note">Ruby e Sapphire têm um olho; Pearl é alta e esguia; Bismuth e Jasper têm estruturas largas, mas silhuetas distintas; Peridot é compacta; Lapis tem gema nas costas. A categoria Quartz permanece uma base de família, não uma espécie visual única.</div></div>';
+                '<div class="silhouette-gallery">'+cards+'</div><div class="card"><div class="card-header"><span class="card-title">Regras de leitura</span></div><div class="founding-note">Ruby e Sapphire têm um olho; Pearl é alta e esguia; Bismuth e Hessonita têm estruturas largas, mas silhuetas distintas; Peridot é compacta; Lapis tem gema nas costas. A categoria Quartz permanece uma base de família, não uma espécie visual única.</div></div>';
             const main=document.getElementById('silhouette-selected-preview');if(main)drawGemSilhouette(main.getContext('2d'),90,112,.62,{color:selected.color,profile:profile,glow:true});
             container.querySelectorAll('.silhouette-preview').forEach(canvas=>{const type=canvas.dataset.profile,gem=FOUNDING_GEM_DATA[type];drawGemSilhouette(canvas.getContext('2d'),90,112,.62,{color:gem.color,profile:gemSilhouetteProfile(type),glow:true});});
             container.querySelectorAll('[data-silhouette]').forEach(button=>{button.addEventListener('click',()=>selectSilhouettePreview(button.dataset.silhouette));});
@@ -4390,7 +4390,7 @@
             state.founding.creationBatchCount=0;
             state.founding.creationActive = false;
             state.founding.firstGemCreated = true;
-            state.founding.gemsCreatedCount = (state.founding.gemsCreatedCount || 0) + 1;
+            state.founding.gemsCreatedCount = (state.founding.gemsCreatedCount || 0) + batchCount;
             state.founding.stage = 'first-gem';
             state.founding.creationTarget = null;
             const source = state.founding.creationSource || 'manual';
@@ -4399,7 +4399,7 @@
             state.census[type]+=batchCount;
             for(let i=0;i<batchCount;i++) PLANETS.homeworld.walkingGems.push({caste:type,color:data.color,grade:'A',isOrbiting:false,bubbleText:'✨ Recém-emergida',angle:Math.random()*Math.PI*2,dir:1,speed:0.0005,bobPhase:0});
             const title = batchCount>1?'Lote de Gems produzido':(isFirst ? 'A primeira Gem nasceu' : 'Nova Gem nasceu');
-            const description = state.firstDiamond.name + ' formou ' + batchCount + ' ' + data.label + '(s) através de ' + (source === 'injector' ? 'um ciclo automático de injeção no veio local' : 'essência e substrato mineral') + '. Função: ' + data.role + '.');
+            const description = state.firstDiamond.name + ' formou ' + batchCount + ' ' + data.label + '(s) através de ' + (source === 'injector' ? 'um ciclo automático de injeção no veio local' : 'essência e substrato mineral') + '. Função: ' + data.role + '.';
             addChronicle(title, description, isFirst ? 'Primeira Gem criada' : 'População ampliada');
             setStatusTicker(batchCount>1?batchCount+' Gems '+data.label+' emergiram do veio local.':(isFirst ? 'A primeira Gem emergiu: ' : 'Nova Gem emergiu: ') + data.label + '. Ela já conhece sua função e pode ser designada a uma estrutura.');
             updateHUD(); renderDrawerContent(); renderBottomBar();
@@ -4413,7 +4413,7 @@
 
         function renderFoundingContext(container) {
             const fd = state.firstDiamond, found = state.founding;
-            const mineralLabels = {quartz:'Quartzo',silicate:'Silicato',corundum:'Coríndon (Safiras/Rubis)',metallic:'Metal',nacre:'Nácar (Pérolas)',jasperrock:'Jaspe',olivine:'Olivina (Peridotos)',lapisrock:'Lápis-lazúli (Lápis)'};
+            const mineralLabels = {quartz:'Quartzo',silicate:'Silicato',corundum:'Coríndon (Safiras/Rubis)',metallic:'Metal',nacre:'Nácar (Pérolas)',garnet:'Granada hessonítica',olivine:'Olivina (Peridotos)',lapisrock:'Lápis-lazúli (Lápis)'};
             const mineralCards = Object.entries(mineralLabels).map(([key,label]) => {
                 const n = found.gatheredMinerals[key] || 0;
                 return '<div class="stat-box" style="display:flex;justify-content:space-between;gap:6px;align-items:center"><span>' + label + '</span><b>' + n + '</b></div>';
@@ -4429,7 +4429,7 @@
                 '<div style="font-size:12px;line-height:1.55;color:#cbd5e1">' + escapeHTML(fd.name) + ' iniciou a civilização sem infraestrutura. Gems já nascem conhecendo sua função; ferramentas e estruturas determinam o que conseguem executar.</div>' +
                 '<div class="stat-box">Gems criadas: <b>' + (found.gemsCreatedCount || 0) + '</b> · Minerais brutos: <b>' + Math.floor(state.minerals) + '</b> · Materiais refinados: <b>' + Math.floor(state.refinedMaterials || 0) + '</b></div>' +
                 '<button class="btn btn-amber btn-block" onclick="switchDrawerTab(\'structures\')">🏗️ Abrir catálogo de estruturas</button></div>' +
-                '<div class="card"><div class="card-header"><span class="card-title title-font">⛏️ Exploração manual</span></div><div class="founding-note">Cada busca encontra uma rocha aleatória. Materiais comuns aparecem com frequência; coríndon, lápis-lazúli e jaspe são achados mais raros. Safiras e Rubis dependem do coríndon, por isso sua formação exige mais exploração.</div><div class="stat-box"><span class="stat-label">Próximo encontro</span><b>' + ((found.gatherCooldown||0)>0?'⏳ Disponível em '+found.gatherCooldown.toFixed(1)+'s':'Pronto para explorar') + '</b></div><button id="gather-mineral-button" class="btn btn-amber btn-block" onclick="gatherPrimitiveMineral()" ' + ((found.gatherCooldown||0)>0?'disabled':'') + '>⛏️ Procurar rochas · 5s entre encontros</button><div class="grid-2">' + mineralCards + '</div></div>' +
+                '<div class="card"><div class="card-header"><span class="card-title title-font">⛏️ Exploração manual</span></div><div class="founding-note">Cada busca encontra uma rocha aleatória. Materiais comuns aparecem com frequência; coríndon, lápis-lazúli e granada hessonítica são achados mais raros. Safiras e Rubis dependem do coríndon, por isso sua formação exige mais exploração.</div><div class="stat-box"><span class="stat-label">Próximo encontro</span><b>' + ((found.gatherCooldown||0)>0?'⏳ Disponível em '+found.gatherCooldown.toFixed(1)+'s':'Pronto para explorar') + '</b></div><button id="gather-mineral-button" class="btn btn-amber btn-block" onclick="gatherPrimitiveMineral()" ' + ((found.gatherCooldown||0)>0?'disabled':'') + '>⛏️ Procurar rochas · 5s entre encontros</button><div class="grid-2">' + mineralCards + '</div></div>' +
                 '<div class="card"><div class="card-header"><span class="card-title title-font">✨ Essência da Diamante</span></div>' +
                 '<div class="founding-note">A atividade física produz essência. Antes de a Câmara estar operacional, ela pode ser usada diretamente; depois, a reserva interna é transferida pela Câmara para o estoque.</div>' +
                 '<div class="stat-box">Essência armazenada: <b>' + Object.values(state.essence).reduce((a,b)=>a+b,0).toFixed(1) + '</b> · Reserva interna da Diamante: <b>' + (found.diamondEssence || 0).toFixed(1) + '</b> · Recebida pelo Injetor: <b>' + (found.injectorEssence || 0).toFixed(1) + '</b></div>' +
@@ -4604,7 +4604,15 @@
                 state.firstDiamond.colorHex = state.firstDiamond.colorHex || COLOR_PALETTES[state.firstDiamond.colorKey]?.hex || '#f8fafc';
                 state.firstDiamond.bodySilhouette = state.firstDiamond.bodySilhouette || 'regal';
                 state.firstDiamond.doctrine = 'emergent';
-                if (!Number.isFinite(Number(state.census.jasper))) state.census.jasper = 0;
+                if (Number(state.census.jasper) > 0) state.census.quartz = (Number(state.census.quartz)||0) + Number(state.census.jasper);
+                delete state.census.jasper;
+                state.census.hessonite = Number(state.census.hessonite)||0;
+                state.founding.mineralSamples = state.founding.mineralSamples || {};
+                state.founding.gatheredMinerals = state.founding.gatheredMinerals || {};
+                if (Number(state.founding.gatheredMinerals.jasperrock)>0) state.founding.gatheredMinerals.quartz = (Number(state.founding.gatheredMinerals.quartz)||0) + Number(state.founding.gatheredMinerals.jasperrock);
+                delete state.founding.gatheredMinerals.jasperrock;
+                state.founding.mineralSamples.garnet = Number(state.founding.mineralSamples.garnet)||0;
+                state.founding.gatheredMinerals.garnet = Number(state.founding.gatheredMinerals.garnet)||0;
                 if (typeof state.firstGameStarted !== 'boolean') state.firstGameStarted = true;
                 state.activePetition = null;
                 for (const id of Object.keys(PLANETS)) {
