@@ -4358,19 +4358,15 @@
                 '<option value="teardrop" ' + (fd.gemCut==='teardrop'?'selected':'') + '>◆ Gota</option>' +
                 '<option value="star" ' + (fd.gemCut==='star'?'selected':'') + '>✦ Estrela</option></select></div>' +
                 '<div><label for="founder-gem-position">Posição da Gem</label><select id="founder-gem-position" onchange="renderDiamondVitralGallery(document.getElementById(\'founder-vitral-gallery\'))"><option value="belly" ' + (fd.gemPos==='belly'?'selected':'') + '>Barriga</option><option value="head" ' + (fd.gemPos==='head'?'selected':'') + '>Cabeça</option><option value="chest" ' + (fd.gemPos==='chest'?'selected':'') + '>Peito</option></select></div></div>' +
-                '<button id="founder-start-button" type="button" class="btn btn-emerald" onclick="return window.startNewGameFromFounder(event)">Despertar em Homeworld</button></div>';
+                '<button id="founder-start-button" type="button" class="btn btn-emerald">Despertar em Homeworld</button></div>';
             renderDiamondVitralGallery(document.getElementById('founder-vitral-gallery'));
-            // Delegação no painel: sobrevive à recriação do formulário por innerHTML.
-            if(!panel.dataset.founderStartBound){
-                panel.addEventListener('click',event=>{
-                    const button=event.target && event.target.closest ? event.target.closest('#founder-start-button') : null;
-                    if(!button)return;
-                    event.preventDefault();
-                    event.stopPropagation();
-                    window.startNewGameFromFounder(event);
-                },true);
-                panel.dataset.founderStartBound='1';
-            }
+            // O botão é recriado junto com o formulário; o listener direto evita falhas de delegação no mobile.
+            const startButton=document.getElementById('founder-start-button');
+            if(startButton) startButton.addEventListener('click',event=>{
+                event.preventDefault();
+                event.stopPropagation();
+                confirmFoundingSetup();
+            });
             setGameMenuStatus('A fundadora começa sem personalidade predeterminada e sem infraestrutura.');
         }
 
