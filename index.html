@@ -529,9 +529,9 @@
         .diamond-vitral-gallery{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px}
         .diamond-vitral-option{display:flex;flex-direction:column;align-items:center;gap:5px;min-width:0;padding:8px;border:1px solid var(--border-light);border-radius:10px;background:rgba(12,17,34,.92);color:var(--text-main);cursor:pointer}
         .diamond-vitral-option.selected{border-color:#d8b4fe;box-shadow:0 0 0 1px rgba(216,180,254,.25),0 0 18px rgba(192,132,252,.16)}
-        .diamond-vitral-option canvas{width:100%;height:145px;object-fit:contain}
+        .diamond-vitral-option canvas{width:auto;height:180px;max-width:100%;object-fit:contain;display:block;margin:0 auto}
         .diamond-vitral-option b{font-size:11px}.diamond-vitral-option small{min-height:24px;color:var(--text-muted);font-size:9px;text-align:center}
-        @media(max-width:600px){.diamond-vitral-option canvas{height:130px}}
+        @media(max-width:600px){.diamond-vitral-option canvas{height:165px}}
         .silhouette-studio-intro{color:#cbd5e1;font-size:11px;line-height:1.55}
         .silhouette-gallery{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:9px}
         .silhouette-card{min-width:0;overflow:hidden;padding:8px;display:flex;flex-direction:column;align-items:stretch;gap:6px;text-align:left;color:var(--text-main);background:linear-gradient(155deg,rgba(40,43,72,.94),rgba(13,18,35,.98));border:1px solid rgba(210,190,236,.2);border-radius:11px;cursor:pointer}
@@ -3623,7 +3623,7 @@
             ctx.drawImage(tinted,-width/2,-height/2,width,height);
             ctx.shadowBlur=0;
             // O cristal de identidade é independente da cor corporal e acompanha a posição escolhida.
-            const gemY=-height/2+height*(gemPos==='head'?.18:gemPos==='belly'?.64:.39);
+            const gemY=-height/2+height*(gemPos==='head'?0.18:gemPos==='belly'?0.64:0.39);
             const radius=9*scale,gem=lightenGemColor(color||'#f8fafc');
             ctx.fillStyle=gem;ctx.strokeStyle='rgba(255,255,255,.92)';ctx.lineWidth=Math.max(1,1.5*scale);
             ctx.shadowColor=gem;ctx.shadowBlur=8*scale;ctx.beginPath();
