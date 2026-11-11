@@ -631,7 +631,7 @@
                     <button id="tab-chronicle" class="btn" onclick="switchDrawerTab('chronicle')">📜 Crônicas</button>
                     <button id="tab-dynasty" class="btn" onclick="switchDrawerTab('dynasty')">👑 Dinastia</button>
                     <button id="tab-structures" class="btn" onclick="switchDrawerTab('structures')">🏗️ Estruturas</button>
-                    <button id="tab-silhouettes" class="btn" onclick="switchDrawerTab('silhouettes')">◇ Silhuetas</button>
+                    <button id="tab-guide" class="btn" onclick="switchDrawerTab('guide')">📖 Guia de Gems</button>
                 </div>
                 <button class="btn" onclick="toggleDrawer()" title="Fechar Painel">✕</button>
             </div>
@@ -905,13 +905,13 @@
         const STRUCTURE_CATALOG = [
             {id:'essence_chamber',name:'Câmara de Extração de Essência',category:'Extração',desc:'Cada Câmara dobra a essência obtida pela ação de extração da Primeira Diamante.',cost:{minerals:20,tech:0},buildTime:18,prerequisites:[],workers:{peridot:1},interaction:'Amplifica a extração de essência da Diamante.',maxCount:5},
             {id:'injector',name:'Injetor',category:'Criação',desc:'Coleta essência automaticamente e injeta no veio mineral local, formando lotes de até cinco Gems do material presente.',cost:{minerals:35,tech:0},buildTime:28,prerequisites:['essence_chamber'],workers:{peridot:1},interaction:'Produção automática de até cinco Gems por ciclo.',maxCount:5},
-            {id:'mineral_extractor',name:'Extrator Mineral',category:'Extração',desc:'Permite que Quartzos extraiam minerais continuamente.',cost:{minerals:25,tech:0},buildTime:20,prerequisites:[],workers:{quartz:1},interaction:'Produção contínua de minerais.',maxCount:3},
-            {id:'workshop',name:'Oficina de Engenharia',category:'Indústria',desc:'Bismutos constroem ferramentas, peças e componentes para instalações avançadas.',cost:{minerals:40,tech:0},buildTime:24,prerequisites:['mineral_extractor'],workers:{bismuth:1},interaction:'Fabrica ferramentas e componentes.',maxCount:2},
+            {id:'mineral_extractor',name:'Extrator Mineral',category:'Extração',desc:'Quartzos extraem minerais continuamente; um Peridoto mantém os sistemas de perfuração e transporte em operação.',cost:{minerals:25,tech:0},buildTime:20,prerequisites:[],workers:{quartz:1,peridot:1},interaction:'Produção contínua de minerais.',maxCount:3},
+            {id:'workshop',name:'Oficina de Engenharia',category:'Indústria',desc:'Bismutos constroem ferramentas, peças e componentes; um Peridoto mantém as máquinas operacionais.',cost:{minerals:40,tech:0},buildTime:24,prerequisites:['mineral_extractor'],workers:{bismuth:1,peridot:1},interaction:'Fabrica ferramentas e componentes.',maxCount:2},
             {id:'refinery',name:'Refinaria',category:'Indústria',desc:'Peridotos e Quartzos processam matérias-primas em materiais refinados.',cost:{minerals:45,tech:0},buildTime:26,prerequisites:['mineral_extractor','workshop'],workers:{peridot:1,quartz:1},interaction:'Converte minerais brutos em materiais refinados.',maxCount:2},
             {id:'research_center',name:'Centro de Pesquisa',category:'Ciência',desc:'Safiras analisam os processos da colônia e transformam materiais refinados em tecnologia.',cost:{minerals:55,tech:8},buildTime:30,prerequisites:['workshop','refinery'],workers:{sapphire:1,peridot:1},interaction:'Permite desenvolver tecnologias.',maxCount:2},
             {id:'reactor',name:'Reator de Energia',category:'Energia',desc:'Peridotos operam o reator e mantêm uma reserva energética.',cost:{minerals:65,tech:15},buildTime:32,prerequisites:['refinery'],workers:{peridot:1},interaction:'Gera energia para estruturas dependentes.',maxCount:2},
-            {id:'administration_center',name:'Centro Administrativo',category:'Administração',desc:'Pérolas organizam equipes, prioridades de produção e distribuição de trabalhadores.',cost:{minerals:50,tech:10},buildTime:28,prerequisites:['workshop'],workers:{pearl:1},interaction:'Libera organização da força de trabalho.',maxCount:1},
-            {id:'defense_tower',name:'Torre de Defesa',category:'Defesa',desc:'Rubis operam sistemas de vigilância e proteção das instalações locais.',cost:{minerals:40,tech:5},buildTime:22,prerequisites:['workshop'],workers:{ruby:1},interaction:'Amplia a defesa local.',maxCount:4},
+            {id:'administration_center',name:'Centro Administrativo',category:'Administração',desc:'Pérolas organizam equipes, prioridades de produção e distribuição de trabalhadores; um Peridoto mantém os sistemas administrativos.',cost:{minerals:50,tech:10},buildTime:28,prerequisites:['workshop'],workers:{pearl:1,peridot:1},interaction:'Libera organização da força de trabalho.',maxCount:1},
+            {id:'defense_tower',name:'Torre de Defesa',category:'Defesa',desc:'Rubis operam os sistemas de vigilância e proteção; um Peridoto mantém a infraestrutura energética e mecânica.',cost:{minerals:40,tech:5},buildTime:22,prerequisites:['workshop'],workers:{ruby:1,peridot:1},interaction:'Amplia a defesa local.',maxCount:4},
             {id:'teleporter',name:'Teletransportador',category:'Transporte',desc:'Peridotos e Pérolas sincronizam pontos para deslocar Gems e cargas entre locais conectados.',cost:{minerals:75,tech:30},buildTime:36,prerequisites:['reactor','research_center'],workers:{peridot:1,pearl:1},interaction:'Abre a rede de transporte.',maxCount:3},
             {id:'shipyard',name:'Estaleiro',category:'Exploração espacial',desc:'Bismutos constroem naves e Peridotos integram seus sistemas.',cost:{minerals:90,tech:40},buildTime:40,prerequisites:['workshop','refinery','reactor'],workers:{bismuth:1,peridot:1},interaction:'Permite construir naves.',maxCount:1},
             {id:'terraformer',name:'Terraformador',category:'Planetária',desc:'Lápis-Lazúlis controlam água e transformações ambientais; Peridotos mantêm os equipamentos.',cost:{minerals:80,tech:35},buildTime:38,prerequisites:['reactor','research_center'],workers:{lapis:1,peridot:1},interaction:'Desbloqueia intervenções ambientais.',maxCount:1},
@@ -951,8 +951,8 @@
                 id: 'homeworld',
                 name: 'Homeworld Primitivo',
                 shortName: 'Homeworld',
-                biomeTag: 'Mundo Rochoso • Era Primitiva',
-                lore: 'Um planeta ainda selvagem, formado por montanhas minerais, cânions e cavernas. Não há cidades, estruturas Gem nem vida orgânica conhecida.',
+                biomeTag: 'Planeta Rochoso • Órbita de Estrela Moribunda',
+                lore: 'O único planeta conhecido deste sistema, isolado em uma órbita distante ao redor de uma estrela moribunda. Seu ambiente é árido, sem oceanos, cidades ou vida orgânica conhecida.',
                 optimalText: 'Minerais ainda não catalogados',
                 badText: 'Nenhuma estrutura ou população existe neste mundo.',
                 colonized: true,
@@ -967,7 +967,7 @@
                 spiresCount: 0,
                 warpPadsCount: 0,
                 hasOrbitalRing: false,
-                orbitRadius: 0, orbitAngle: 0, orbitSpeed: 0,
+                orbitRadius: 112, orbitAngle: 1.15, orbitSpeed: 0.00012,
                 sphereRadius: 34,
                 colors: {
                     primary: '#665b50', secondary: '#a18b70', core: '#d6b88b',
@@ -1224,6 +1224,7 @@
                 selectedGem: 'quartz',
                 creationProgress: 0,
                 creationActive: false,
+                injectorGemType: 'quartz',
                 creationTarget: null,
                 creationSource: 'manual'
             },
@@ -1238,6 +1239,7 @@
             },
 
             // Primeira Diamante Customizável
+            pearlTarget: 'firstDiamond',
             firstDiamond: {
                 name: 'Primeira Diamante',
                 title: 'A Fundadora',
@@ -1766,7 +1768,7 @@
         }
 
         function syncDrawerTabButtons() {
-            ['context', 'chronicle', 'dynasty', 'structures', 'silhouettes'].forEach(t => {
+            ['context', 'chronicle', 'dynasty', 'structures', 'guide'].forEach(t => {
                 const btn = document.getElementById('tab-' + t);
                 if (btn) btn.classList.toggle('active', state.drawerTab === t);
             });
@@ -1866,7 +1868,7 @@
             const body = document.getElementById('drawer-body');
             if (!body) return;
             if (state.drawerTab === 'structures') { renderStructuresTab(body); return; }
-            if (state.drawerTab === 'silhouettes') { renderSilhouetteStudio(body); return; }
+            if (state.drawerTab === 'guide') { renderGemGuide(body); return; }
             if (state.drawerTab === 'chronicle') { renderChronicleTab(body); return; }
             if (state.drawerTab === 'dynasty') { renderDynastyTab(body); return; }
             if (state.firstGameStarted && state.founding && (!state.founding.firstGemCreated || !structureCount('injector'))) {
@@ -1934,6 +1936,7 @@
             if (reason) { setStatusTicker(reason, true); return; }
             state.minerals -= def.cost.minerals || 0;
             state.tech -= def.cost.tech || 0;
+            if(id==='injector') state.founding.injectorGemType=state.founding.selectedGem||'quartz';
             state.construction = {id:id,progress:0,active:true,builder:'bismuth'};
             setStatusTicker('Construção iniciada: ' + def.name + '.');
             addChronicle('Construção iniciada', def.name + ' está sendo construída em Homeworld.', 'Infraestrutura em desenvolvimento');
@@ -1954,7 +1957,7 @@
         function startInjectorProduction(automatic=false) {
             if (!structureIsOperational('injector')) { if(!automatic) setStatusTicker('O Injetor precisa estar construído e receber um Peridoto operador.', true); return; }
             if (state.founding.creationActive) { if(!automatic) setStatusTicker('Já existe um ciclo de formação em andamento.'); return; }
-            const type = state.founding.selectedGem;
+            const type = state.founding.injectorGemType || state.founding.selectedGem;
             const gem = FOUNDING_GEM_DATA[type];
             if (!gem) return;
             const availableMinerals=Number(state.founding.gatheredMinerals[gem.mineral])||0;
@@ -2049,8 +2052,9 @@
             if (state.construction && state.construction.active) {
                 const def = structureDefinition(state.construction.id);
                 const bismuthCount=Math.max(0,Number(state.census.bismuth)||0);
-                const bismuthBuildFactor=Math.max(0.8,1-Math.min(10,bismuthCount)*0.02);
-                state.construction.progress = Math.min(100, state.construction.progress + dt * 100 / (Math.max(1, def ? def.buildTime : 20)*bismuthBuildFactor));
+                const bismuthBuildFactor=Math.max(0.85,1-Math.min(5,bismuthCount)*0.03);
+                const constructionTime=Math.max(1,def?def.buildTime:20)*2.5;
+                state.construction.progress = Math.min(100, state.construction.progress + dt * 100 / (constructionTime*bismuthBuildFactor));
                 if (state.construction.progress >= 100) finishStructureConstruction();
             }
             if (structureIsOperational('essence_chamber') && Number(state.founding.diamondEssence) > 0) {
@@ -3301,7 +3305,7 @@
                 state.founding.gatherCooldown = Math.max(0, (Number(state.founding.gatherCooldown) || 0) - dt);
             }
             if (state.founding && state.founding.creationActive) {
-                state.founding.creationProgress = Math.min(100, state.founding.creationProgress + dt * 100 / 42);
+                state.founding.creationProgress = Math.min(100, state.founding.creationProgress + dt * 100 * getPearlMultiplierFor('firstDiamond') / 42);
                 if (state.founding.creationProgress >= 100) finishFirstGemCreation();
             }
             if(state.diamondForge){
@@ -3700,7 +3704,40 @@
             container.querySelectorAll('.silhouette-preview').forEach(canvas=>{const type=canvas.dataset.profile,gem=FOUNDING_GEM_DATA[type];drawGemSilhouette(canvas.getContext('2d'),90,112,.62,{color:gem.color,profile:gemSilhouetteProfile(type),glow:true});});
             container.querySelectorAll('[data-silhouette]').forEach(button=>{button.addEventListener('click',()=>selectSilhouettePreview(button.dataset.silhouette));});
         }
-        function selectSilhouettePreview(type){if(!FOUNDING_GEM_DATA[type])return;silhouettePreviewSelection=type;const body=document.getElementById('drawer-body');if(body&&state.drawerTab==='silhouettes')renderSilhouetteStudio(body);}
+        function selectSilhouettePreview(type){if(!FOUNDING_GEM_DATA[type])return;silhouettePreviewSelection=type;const body=document.getElementById('drawer-body');if(body&&state.drawerTab==='guide')renderGemGuide(body);}
+
+        function renderGemGuide(container){
+            if(!container)return;
+            const entries=Object.entries(FOUNDING_GEM_DATA);
+            const roles={
+                quartz:'Extração de minerais e trabalho pesado. Sustenta o fluxo de matéria-prima para a colônia.',
+                peridot:'Engenharia, operação e manutenção. Sem Peridot designada, máquinas e estruturas operacionais não funcionam.',
+                bismuth:'Construção de estruturas e fabricação de componentes. A velocidade de construção foi reduzida para evitar que uma única Bismuto erga tudo rapidamente.',
+                lapis:'Controle de água, transporte hídrico e terraformação. Atua em alterações ambientais e estabilidade planetária.',
+                sapphire:'Análise, previsão e planejamento. Converte observação e materiais em pesquisa e tecnologia.',
+                ruby:'Defesa e segurança. Opera torres, vigilância e proteção das instalações.',
+                pearl:'Administração e assistência direta. Uma Pérola acompanha uma única Gem elegível e multiplica todas as ações dessa dona.',
+                hessonite:'Mobilização de tropas, organização de formações e coordenação de ataques.'
+            };
+            const buffs={
+                quartz:'Aumenta a capacidade de extração mineral quando designada a um Extrator.',
+                peridot:'Habilita a operação de máquinas; também contribui para engenharia, pesquisa, energia e manutenção.',
+                bismuth:'Permite construir estruturas e fabricar componentes. Mais Bismutos reduzem o tempo apenas modestamente.',
+                lapis:'Reduz calor sísmico e habilita terraformação e gestão hídrica.',
+                sapphire:'Gera tecnologia e melhora análise e planejamento.',
+                ruby:'Aumenta defesa e reduz dissidência em ações de segurança.',
+                pearl:'Multiplicador aplicado a todas as ações da Gem acompanhada: criação de Gems, extração de essência, busca de pedras e demais atividades executadas por ela.',
+                hessonite:'Coordena mobilização e ataques; sua especialidade é logística militar.'
+            };
+            const targetOptions=[['firstDiamond',state.firstDiamond.name],...state.matriarchs.map(m=>['matriarch_'+m.id,m.name+' · Diamante'])];
+            const selectedTarget=targetOptions.some(([id])=>id===state.pearlTarget)?state.pearlTarget:'firstDiamond';
+            container.innerHTML=
+                '<div class="card card-cyan"><div class="card-header"><span class="card-title title-font">📖 Guia de Gems</span><span class="badge">Funções e efeitos</span></div><p style="font-size:11px;color:#cbd5e1;line-height:1.5">Consulte a especialidade de cada tipo e como ela altera as operações da civilização.</p></div>'+
+                entries.map(([key,gem])=>'<div class="card"><div class="card-header"><span class="card-title" style="color:'+gem.color+'">'+gem.label+'</span><span class="badge">'+(GEM_ROLE_NAMES[key]||'Especialista')+'</span></div><p style="font-size:11px;color:#cbd5e1;line-height:1.5">'+roles[key]+'</p><div class="stat-box"><b>Buffs e efeitos no jogo</b><p style="font-size:10px;color:#94a3b8;margin-top:4px;line-height:1.5">'+buffs[key]+'</p></div></div>').join('')+
+                '<div class="card card-amber"><div class="card-header"><span class="card-title title-font">Pérolas · vínculo e multiplicadores</span><span class="badge">1 dona por Pérola</span></div><p style="font-size:11px;color:#cbd5e1">A Pérola só pode ser direcionada a Diamantes. Quando vinculada, o multiplicador afeta todas as ações da dona, não apenas uma categoria.</p><label class="stat-label" for="pearl-target-select">Direcionar Pérola para</label><select id="pearl-target-select" onchange="setPearlTarget(this.value)">'+targetOptions.map(([id,label])=>'<option value="'+id+'" '+(selectedTarget===id?'selected':'')+'>'+escapeHTML(label)+'</option>').join('')+'</select><div class="grid-2"><div class="stat-box"><b>Pérola de Nácar</b><br><span style="color:#c4b5fd">×1,5</span><small style="display:block;color:#94a3b8">Variação comum.</small></div><div class="stat-box"><b>Pérola de Recife</b><br><span style="color:#7dd3fc">×2,0</span><small style="display:block;color:#94a3b8">Só surge em planetas aquáticos; Homeworld não possui oceano.</small></div></div><p style="font-size:10px;color:#94a3b8">O vínculo atual usa o tipo de Pérola e o planeta da dona. No momento, os alvos disponíveis são a Diamante fundadora e as Diamantes subordinadas.</p></div>'+
+                '<div class="card card-amber"><div class="card-header"><span class="card-title title-font">Injetores e Jardins de Infância</span></div><p style="font-size:11px;color:#cbd5e1;line-height:1.5">Cada Injetor deve ser especializado em uma única tipagem: um Injetor de Quartzo só consome substrato de Quartzo e cria Quartzos. Materiais incompatíveis não são consumidos por ele; devem ser recolhidos pelo Extrator Mineral e encaminhados para outro Jardim de Infância especializado. A operação automática exige um Peridoto designado.</p></div>'+
+                '<div class="card"><div class="card-header"><span class="card-title">Operação de máquinas</span></div><p style="font-size:11px;color:#cbd5e1">Toda máquina operacional exige pelo menos um Peridoto em serviço, além dos especialistas próprios de cada instalação.</p></div>';
+        }
 
         const PRIMARY_SCENE_IMAGES = Object.create(null);
         const PRIMARY_SCENE_ASSETS = {
@@ -3960,18 +3997,28 @@
             const maxOrbit = isMobile
                 ? Math.min(canvasWidth * 0.43, canvasHeight * 0.45, 330)
                 : Math.min(canvasWidth * 0.39, canvasHeight * 0.43, 300);
-            const sun = ctx.createRadialGradient(cx, cy, 2, cx, cy, 48);
-            sun.addColorStop(0, '#ffffff');
-            sun.addColorStop(0.25, '#fef08a');
-            sun.addColorStop(1, 'rgba(249,115,22,0)');
+            const sun = ctx.createRadialGradient(cx, cy, 2, cx, cy, 58);
+            sun.addColorStop(0, '#fff1d6');
+            sun.addColorStop(0.12, '#fca5a5');
+            sun.addColorStop(0.34, '#c2410c');
+            sun.addColorStop(1, 'rgba(127,29,29,0)');
             ctx.fillStyle = sun;
             ctx.beginPath();
-            ctx.arc(cx, cy, 48, 0, Math.PI * 2);
+            ctx.arc(cx, cy, 58, 0, Math.PI * 2);
             ctx.fill();
-            ctx.fillStyle = '#fde68a';
+            ctx.strokeStyle = 'rgba(251,146,60,.22)';
+            ctx.lineWidth = 1;
             ctx.beginPath();
-            ctx.arc(cx, cy, 8, 0, Math.PI * 2);
+            ctx.arc(cx, cy, 23 + Math.sin(time * 0.0007) * 2, 0, Math.PI * 2);
+            ctx.stroke();
+            ctx.fillStyle = '#fb923c';
+            ctx.beginPath();
+            ctx.arc(cx, cy, 7, 0, Math.PI * 2);
             ctx.fill();
+            ctx.font = '10px Segoe UI';
+            ctx.textAlign = 'center';
+            ctx.fillStyle = '#fca5a5';
+            ctx.fillText('ESTRELA MORIBUNDA', cx, cy - 68);
 
             starMapHitTargets = [];
             const planets = Object.values(PLANETS);
@@ -4600,6 +4647,21 @@
             try { renderDrawerContent(); } catch(error) { console.error('Falha ao montar o painel inicial:',error); }
         }
 
+        function getPearlMultiplierFor(targetId) {
+            const pearlCount=Math.max(0,Number(state.census&&state.census.pearl)||0);
+            if(!pearlCount || state.pearlTarget!==targetId) return 1;
+            const targetPlanet=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld;
+            return targetPlanet&&targetPlanet.hasOcean===true?2:1.5;
+        }
+
+        function setPearlTarget(targetId) {
+            const allowed=new Set(['firstDiamond',...state.matriarchs.map(m=>'matriarch_'+m.id)]);
+            if(!allowed.has(targetId)) return;
+            state.pearlTarget=targetId;
+            setStatusTicker('A Pérola foi direcionada para '+(targetId==='firstDiamond'?state.firstDiamond.name:(state.matriarchs.find(m=>'matriarch_'+m.id===targetId)?.name||'uma Diamante'))+'.');
+            renderGemGuide(document.getElementById('drawer-body'));
+        }
+
         function performFounderActivity() {
             const fd = state.firstDiamond;
             const founding = state.founding;
@@ -4612,8 +4674,8 @@
                 return;
             }
             const chamberCount=structureCount('essence_chamber');
-            const amount = 2 * Math.pow(2,chamberCount);
-            const pearlBuff=(Number(state.census.pearl)||0)>0?1.5:1;
+            const pearlBuff=getPearlMultiplierFor('firstDiamond');
+            const amount = 2 * Math.pow(2,chamberCount) * pearlBuff;
             founding.essenceCooldown = 1.5 / pearlBuff;
             const key = ['white','yellow','blue','pink'].includes(fd.colorKey) ? fd.colorKey : 'white';
             if (structureIsOperational('essence_chamber')) {
@@ -4662,9 +4724,10 @@
             let roll=Math.random()*totalWeight;
             let discovery=PRIMITIVE_MINERAL_FINDS[0];
             for(const item of PRIMITIVE_MINERAL_FINDS){roll-=item.weight;if(roll<0){discovery=item;break;}}
-            found.gatheredMinerals[discovery.type]=(Number(found.gatheredMinerals[discovery.type])||0)+1;
-            found.gatherCooldown=5;
-            state.minerals+=10;
+            const pearlBuff=getPearlMultiplierFor('firstDiamond');
+            found.gatheredMinerals[discovery.type]=(Number(found.gatheredMinerals[discovery.type])||0)+pearlBuff;
+            found.gatherCooldown=5/pearlBuff;
+            state.minerals+=10*pearlBuff;
             setStatusTicker('Encontro mineral: '+discovery.label+'. Amostra adicionada ao estoque.');
             updateHUD();renderDrawerContent();
         }
@@ -4900,6 +4963,8 @@
                 state.founding.diamondEssence = Number(state.founding.diamondEssence) || 0;
                 state.founding.essenceCooldown = Number(state.founding.essenceCooldown) || 0;
                 state.founding.gatherCooldown = Number(state.founding.gatherCooldown) || 0;
+                state.founding.injectorGemType = state.founding.injectorGemType || state.founding.selectedGem || 'quartz';
+                state.pearlTarget = state.pearlTarget || 'firstDiamond';
                 state.founding.injectorEssence = Number(state.founding.injectorEssence) || 0;
                 state.founding.gemsCreatedCount = Number(state.founding.gemsCreatedCount) || 0;
                 state.founding.selectedGem = state.founding.selectedGem || 'quartz';
