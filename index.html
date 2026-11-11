@@ -2723,7 +2723,7 @@
             for (const gem of planet.walkingGems) {
                 switch (gem.caste) {
                     case 'peridot': result.tech += 6; break;
-                    case 'hessonite': result.min += 7; break;
+                    case 'hessonite': break;
                     case 'bismuth': result.min += 10; break;
                     case 'sapphire': result.tech += 8; result.white += 4; break;
                     case 'lapis': result.blue += 5; break;
@@ -2948,7 +2948,7 @@
             } else {
                 state.census.prime++;
             }
-            const censusKey = recipe.id === 'jasper' ? 'quartz' : recipe.id;
+            const censusKey = recipe.id;
             if (Object.prototype.hasOwnProperty.call(state.census, censusKey)) state.census[censusKey]++;
             const gem = {
                 caste: recipe.id,
@@ -4611,11 +4611,14 @@
                 state.founding.gatheredMinerals = state.founding.gatheredMinerals || {};
                 if (Number(state.founding.gatheredMinerals.jasperrock)>0) state.founding.gatheredMinerals.quartz = (Number(state.founding.gatheredMinerals.quartz)||0) + Number(state.founding.gatheredMinerals.jasperrock);
                 delete state.founding.gatheredMinerals.jasperrock;
+                if (Number(state.founding.mineralSamples.jasperrock)>0) state.founding.mineralSamples.quartz = (Number(state.founding.mineralSamples.quartz)||0) + Number(state.founding.mineralSamples.jasperrock);
+                delete state.founding.mineralSamples.jasperrock;
                 state.founding.mineralSamples.garnet = Number(state.founding.mineralSamples.garnet)||0;
                 state.founding.gatheredMinerals.garnet = Number(state.founding.gatheredMinerals.garnet)||0;
                 if (typeof state.firstGameStarted !== 'boolean') state.firstGameStarted = true;
                 state.activePetition = null;
                 for (const id of Object.keys(PLANETS)) {
+                    for (const gem of (data.planets[id]?.walkingGems||[])) if(gem.caste==='jasper') gem.caste='quartz';
                     for (const key of Object.keys(PLANETS[id])) delete PLANETS[id][key];
                     Object.assign(PLANETS[id], data.planets[id]);
                 }
