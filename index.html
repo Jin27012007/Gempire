@@ -1150,8 +1150,8 @@
             founding: {
                 stage: 'setup',
                 firstGemCreated: false,
-                mineralSamples: { quartz: 0, silicate: 0, corundum: 0, metallic: 0, nacre: 0, garnet: 0, olivine: 0, lapisrock: 0 },
-                gatheredMinerals: { quartz: 0, silicate: 0, corundum: 0, metallic: 0, nacre: 0, garnet: 0, olivine: 0, lapisrock: 0 },
+                mineralSamples: { quartz: 0, silicate: 0, corundum: 0, metallic: 0, nacre: 0, garnet: 0, olivine: 0, lapisrock: 0, pyroxene:0, beryllium:0, topaz:0 },
+                gatheredMinerals: { quartz: 0, silicate: 0, corundum: 0, metallic: 0, nacre: 0, garnet: 0, olivine: 0, lapisrock: 0, pyroxene:0, beryllium:0, topaz:0 },
                 essenceOutput: 0,
                 activityCount: 0,
                 essenceCooldown: 0,
@@ -1918,7 +1918,7 @@
             if (def) {
                 state.structures[def.id] = structureCount(def.id) + 1;
                 if(def.id==='mineral_extractor'){
-                    state.founding.gatheredMinerals={quartz:0,silicate:0,corundum:0,metallic:0,nacre:0,garnet:0,olivine:0,lapisrock:0};
+                    state.founding.gatheredMinerals={quartz:0,silicate:0,corundum:0,metallic:0,nacre:0,garnet:0,olivine:0,lapisrock:0,pyroxene:0,beryllium:0,topaz:0};
                     setStatusTicker('Extrator construído: a coleta manual foi encerrada e o inventário mineral foi integrado ao estoque imperial.');
                 }
                 addChronicle('Estrutura concluída', def.name + ' foi concluída. ' + def.interaction, 'Aguardando operadores');
@@ -1951,20 +1951,25 @@
         function startInjectorProduction(automatic=false) {
             if (!structureIsOperational('injector')) { if(!automatic) setStatusTicker('O Injetor precisa estar construído e receber um Peridoto operador.', true); return; }
             if (state.founding.creationActive || state.founding.bathActive) { if(!automatic) setStatusTicker('A Diamante está ocupada. Aguarde a atividade atual.'); return; }
-            const type = state.founding.injectorGemType || state.founding.selectedGem;
-            const gem = FOUNDING_GEM_DATA[type];
-            if (!gem) return;
+            let type = state.founding.injectorGemType || state.founding.selectedGem;
             const injectorCount=Math.max(1,structureCount('injector'));
             const batchCount=5*injectorCount;
-            const mineralCost=batchCount,essenceCost=12*batchCount;
+            const essenceCost=12*batchCount;
             const planet=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld;
+            if(type==='jade'&&Number(state.refinedResources.pyroxene||0)<batchCount)type='nephrite';
+            const gem = FOUNDING_GEM_DATA[type];
+            if (!gem) return;
+            if(gem.stored&&structureCount('reef')<1){if(!automatic)setStatusTicker('Produção de Pérolas pausada: construa um Recife para armazenar as Pérolas sem dona.');return;}
+            if(gem.climate&&!foundingGemClimateAllowed(gem,planet)){if(!automatic)setStatusTicker('Este planeta não possui as condições climáticas necessárias para produzir '+gem.label+'.');return;}
+            const refinedMaterial=gem.refinedMaterial||null;
+            const mineralCost=refinedMaterial?0:batchCount;
+            if(refinedMaterial&&Number(state.refinedResources&&state.refinedResources[refinedMaterial]||0)<batchCount){if(!automatic)setStatusTicker('Produção suspensa: faltam '+batchCount+' unidades de '+refinedMaterial+' refinado.');return;}
             if(!planet.resourcesByType)planet.resourcesByType={};
             const availableMinerals=Math.max(0,Number(planet.resourcesByType[gem.mineral])||0);
             if (availableMinerals < mineralCost) { if(!automatic) setStatusTicker('Produção suspensa: o depósito planetário de '+gem.mineralName+' não possui '+mineralCost+' unidades.'); return; }
             if ((state.founding.injectorEssence || 0) < essenceCost) { if(!automatic) setStatusTicker('A frota de Injetores aguarda '+essenceCost+' unidades de essência (12 por Gem).'); return; }
-            planet.resourcesByType[gem.mineral]=Math.max(0,availableMinerals-mineralCost);
-            planet.resourcesRemaining=Math.max(0,Object.values(planet.resourcesByType).reduce((sum,value)=>sum+Math.max(0,Number(value)||0),0));
-            planet.resourceDepleted=planet.resourcesRemaining<=0;
+            if(mineralCost>0){planet.resourcesByType[gem.mineral]=Math.max(0,availableMinerals-mineralCost);planet.resourcesRemaining=Math.max(0,Object.values(planet.resourcesByType).reduce((sum,value)=>sum+Math.max(0,Number(value)||0),0));planet.resourceDepleted=planet.resourcesRemaining<=0;}
+            if(refinedMaterial)state.refinedResources[refinedMaterial]=Math.max(0,(Number(state.refinedResources[refinedMaterial])||0)-batchCount);
             state.founding.injectorEssence -= essenceCost;
             state.founding.creationBatchCount = batchCount;
             state.founding.creationTarget = type;
@@ -4742,14 +4747,22 @@ function drawColony(time){
         }
 
         const FOUNDING_GEM_DATA = {
-            quartz:{label:'Quartzo',mineral:'quartz',color:'#e2e8f0',role:'Extração mineral e trabalho pesado',elements:'SiO₂ cristalino',mineralName:'Quartzo bruto'},
-            peridot:{label:'Peridoto',mineral:'olivine',color:'#10b981',role:'Engenharia, máquinas e tecnologia',elements:'(Mg,Fe)₂SiO₄ — olivina gemológica',mineralName:'Olivina'},
-            bismuth:{label:'Bismuto',mineral:'metallic',color:'#facc15',role:'Construção de estruturas e instalações',elements:'Bi (elemento nativo) / minerais de bismuto',mineralName:'Minério de bismuto'},
-            lapis:{label:'Lápis-Lazúli',mineral:'lapisrock',color:'#38bdf8',role:'Água, transporte hídrico e terraformação',elements:'Rocha composta: lazurita, calcita e pirita',mineralName:'Lápis-lazúli'},
-            sapphire:{label:'Safira',mineral:'corundum',color:'#818cf8',role:'Análise, previsão e planejamento',elements:'Al₂O₃ com elementos-traço',mineralName:'Coríndon'},
-            ruby:{label:'Rubi',mineral:'corundum',color:'#f43f5e',role:'Defesa e segurança',elements:'Al₂O₃ com Cr³⁺ como cromóforo típico',mineralName:'Coríndon'},
-            pearl:{label:'Pérola',mineral:'nacre',color:'#f5d0fe',role:'Administração, organização e assistência',elements:'Material carbonático de origem biogênica',mineralName:'Sedimento carbonático'},
-            hessonite:{label:'Hessonita',mineral:'garnet',color:'#d97745',role:'Mobilização de tropas e coordenação de ataques',elements:'Granada grossulária com tonalidade hessonítica',mineralName:'Granada hessonítica'}
+            quartz:{label:'Quartzo',mineral:'quartz',color:'#e2e8f0',role:'Soldado de infantaria; variante determinada por solo, temperatura, material e pressão',elements:'SiO₂ cristalino',mineralName:'Quartzo bruto',family:'quartz'},
+            peridot:{label:'Peridoto',mineral:'olivine',color:'#10b981',role:'Operação técnica, jardins de infância e análise de terreno',elements:'(Mg,Fe)₂SiO₄',mineralName:'Olivina'},
+            bismuth:{label:'Bismuto',mineral:'metallic',color:'#facc15',role:'Construção de estruturas e fabricação',elements:'Bi e minerais de bismuto',mineralName:'Minério metálico'},
+            lapis:{label:'Lápis-Lazúli',mineral:'lapisrock',color:'#38bdf8',role:'Terraformação, controle hídrico e logística planetária',elements:'Lazurita, calcita e pirita',mineralName:'Lápis-lazúli'},
+            sapphire:{label:'Safira',mineral:'corundum',color:'#818cf8',role:'Aristocrata vidente; previsões de eventos possíveis',elements:'Al₂O₃',mineralName:'Coríndon',climate:'coldFar'},
+            ruby:{label:'Rubi',mineral:'corundum',color:'#f43f5e',role:'Soldado Quartzo de guarda pessoal; fusão apenas entre Rubis',elements:'Al₂O₃ com Cr³⁺',mineralName:'Coríndon',family:'quartz',climate:'notColdFar'},
+            pearl:{label:'Pérola',mineral:'nacre',color:'#f5d0fe',role:'Servente vinculada a uma única dona; Pérolas de Recife concedem ×2',elements:'Material carbonático biogênico',mineralName:'Nácar',stored:true},
+            hessonite:{label:'Hessonita',mineral:'garnet',color:'#d97745',role:'General; mobilização e coordenação de tropas',elements:'Granada grossulária',mineralName:'Granada hessonítica'},
+            pyrope:{label:'Piropo',mineral:'garnet',color:'#b91c1c',role:'General de exércitos e operações em larga escala',elements:'Granada piropo',mineralName:'Granada piropo'},
+            agate:{label:'Ágata',mineral:'quartz',refinedMaterial:'quartz',color:'#d6a77a',role:'Comanda grupos de até 20 soldados Quartzo por Ágata',elements:'Quartzo microcristalino refinado',mineralName:'Quartzo refinado'},
+            nephrite:{label:'Nefrita',mineral:'pyroxene',color:'#65a30d',role:'Pilota naves com velocidade dobrada; única casta apta a pilotar naves de guerra',elements:'Piroxênio',mineralName:'Piroxênio comum'},
+            jade:{label:'Jade',mineral:'pyroxene',refinedMaterial:'pyroxene',color:'#34d399',role:'Aristocrata de eventos sociais e bailes; sistema social futuro',elements:'Piroxênio refinado',mineralName:'Piroxênio refinado'},
+            morganite:{label:'Morganita',mineral:'beryllium',refinedMaterial:'beryllium',color:'#f0a6c2',role:'Aristocrata que comanda Bismutos e supervisiona construções',elements:'Berílio refinado',mineralName:'Berílio refinado',climate:'hot'},
+            aquamarine:{label:'Água-marinha',mineral:'beryllium',refinedMaterial:'beryllium',color:'#67e8f9',role:'Aristocrata que envia Lápis-Lazúlis a mundos elegíveis',elements:'Berílio refinado',mineralName:'Berílio refinado',climate:'coldOrOcean'},
+            emerald:{label:'Esmeralda',mineral:'beryllium',refinedMaterial:'beryllium',color:'#34d399',role:'Aristocrata que comanda Hessonitas e mobilização em larga escala',elements:'Berílio refinado',mineralName:'Berílio refinado',climate:'temperate'},
+            topaz:{label:'Topázio',mineral:'topaz',color:'#f59e0b',role:'Soldado raro reservado à guarda de palácios e comitivas importantes',elements:'Topázio',mineralName:'Topázio bruto'}
         };
 
         const PRIMITIVE_MINERAL_FINDS = [
@@ -4760,8 +4773,31 @@ function drawColony(time){
             {type:'nacre',weight:10,label:'Sedimento carbonático'},
             {type:'corundum',weight:55,label:'Coríndon (Rubi/Safira)'},
             {type:'lapisrock',weight:5,label:'Lápis-lazúli bruto'},
-            {type:'garnet',weight:4,label:'Granada hessonítica'}
+            {type:'garnet',weight:5,label:'Granada (Hessonita/Piropo)'},
+            {type:'pyroxene',weight:6,label:'Piroxênio'},
+            {type:'beryllium',weight:1,label:'Berílio (raro)'},
+            {type:'topaz',weight:2,label:'Topázio'}
         ];
+
+        function foundingGemClimateAllowed(gem,planet){
+            const temperature=Number(planet.temperatureC??8),coldFar=temperature<0&&Number(planet.orbitRadius||0)>=180;
+            if(gem.climate==='coldFar')return coldFar;
+            if(gem.climate==='notColdFar')return !coldFar;
+            if(gem.climate==='hot')return temperature>100;
+            if(gem.climate==='coldOrOcean')return temperature<0||planet.hasOcean===true;
+            if(gem.climate==='temperate')return temperature>0&&temperature<100;
+            return true;
+        }
+        function getQuartzVariantForPlanet(planet,index=0){
+            const temp=Number(planet&&planet.temperatureC??8),pressure=Number(planet&&planet.corePressure??0);
+            const variants=['carnelian','amethyst','jasper','rose','citrine','ruby','onyx','tigerEye','chalcedony','rutile'];
+            if(temp>100)return 'carnelian';
+            if(temp<0)return 'amethyst';
+            if(planet&&planet.hasOcean)return index%2?'rose':'chalcedony';
+            if(pressure>=140)return index%2?'onyx':'tigerEye';
+            if(planet&&planet.id==='ignis_prime')return 'citrine';
+            return variants[(index+Math.abs(Math.floor(temp/20)))%variants.length];
+        }
 
         function gatherPrimitiveMineral() {
             const found=state.founding;
@@ -4792,13 +4828,19 @@ function drawColony(time){
         function startFirstGemCreation() {
             if (structureIsOperational('injector')) { setStatusTicker('O Injetor está operacional. A Diamante não participa mais da criação; consulte o relatório de produção.'); return; }
             if (state.founding.creationActive || state.founding.bathActive) { setStatusTicker('A Diamante está ocupada. Aguarde a conclusão da atividade atual.'); return; }
-            const type = state.founding.selectedGem;
+            let type = state.founding.selectedGem;
+            const planet=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld;
+            if(type==='jade'&&Number(state.refinedResources.pyroxene||0)<1)type='nephrite';
             const gem = FOUNDING_GEM_DATA[type];
             if (!gem) { setStatusTicker('Tipo de Gem ainda não catalogado.', true); return; }
-            if ((state.founding.gatheredMinerals[gem.mineral] || 0) < 1) { setStatusTicker('É preciso recolher uma amostra de ' + gem.mineralName + ' primeiro.'); return; }
+            if(gem.stored&&structureCount('reef')<1){setStatusTicker('A criação em massa de Pérolas exige um Recife construído.',true);return;}
+            if(gem.climate&&!foundingGemClimateAllowed(gem,planet)){setStatusTicker('As condições de temperatura e órbita deste planeta não permitem formar '+gem.label+'.',true);return;}
+            if(gem.refinedMaterial){if(Number(state.refinedResources&&state.refinedResources[gem.refinedMaterial]||0)<1){setStatusTicker('É necessário refinar '+gem.refinedMaterial+' antes de formar '+gem.label+'.',true);return;}}
+            else if ((state.founding.gatheredMinerals[gem.mineral] || 0) < 1) { setStatusTicker('É preciso recolher uma amostra de ' + gem.mineralName + ' primeiro.'); return; }
             const essenceKey = ['white','yellow','blue','pink'].includes(state.firstDiamond.colorKey) ? state.firstDiamond.colorKey : 'white';
             if ((state.essence[essenceKey] || 0) < 12) { setStatusTicker('A Diamante precisa produzir mais essência antes de criar a Gem.'); return; }
-            state.founding.gatheredMinerals[gem.mineral]--;
+            if(gem.refinedMaterial)state.refinedResources[gem.refinedMaterial]=Math.max(0,(Number(state.refinedResources[gem.refinedMaterial])||0)-1);
+            else state.founding.gatheredMinerals[gem.mineral]--;
             state.essence[essenceKey] -= 12;
             state.founding.creationTarget = type;
             state.founding.creationSource = 'manual';
@@ -4831,8 +4873,14 @@ function drawColony(time){
             if (!Object.prototype.hasOwnProperty.call(state.census, type)) state.census[type] = 0;
             state.census[type]+=batchCount;
             for(let i=0;i<batchCount;i++){
-                const quartzVariant=type==='quartz'?['jasper','amethyst','rose'][(Number(state.founding.gemsCreatedCount)+i-1)%3]:null;
-                PLANETS.homeworld.walkingGems.push({caste:type,variant:quartzVariant,color:data.color,grade:'A',isOrbiting:false,bubbleText:'✨ Recém-emergida',angle:Math.random()*Math.PI*2,dir:1,speed:0.0005,bobPhase:0});
+                if(type==='pearl'){
+                    if(!Array.isArray(state.founding.reefPearlInventory))state.founding.reefPearlInventory=[];
+                    state.founding.reefPearlInventory.push({planetId:state.activeColonyPlanetId||'homeworld',originOcean:!!PLANETS[state.activeColonyPlanetId||'homeworld'].hasOcean,quality:'A'});
+                }else{
+                    const quartzVariant=type==='quartz'?getQuartzVariantForPlanet(PLANETS.homeworld,i):null;
+                    if(quartzVariant&&state.founding.quartzVariantCounts)state.founding.quartzVariantCounts[quartzVariant]=(Number(state.founding.quartzVariantCounts[quartzVariant])||0)+1;
+                    PLANETS[state.activeColonyPlanetId||'homeworld'].walkingGems.push({caste:type,variant:quartzVariant,color:data.color,grade:'A',isOrbiting:type==='lapis',bubbleText:'✨ Recém-emergida',angle:Math.random()*Math.PI*2,dir:1,speed:0.0005,bobPhase:0});
+                }
             }
             const title = batchCount>1?'Lote de Gems produzido':(isFirst ? 'A primeira Gem nasceu' : 'Nova Gem nasceu');
             const description = state.firstDiamond.name + ' formou ' + batchCount + ' ' + data.label + '(s) através de ' + (source === 'injector' ? 'um ciclo automático de injeção no veio local' : 'essência e substrato mineral') + '. Função: ' + data.role + '.';
@@ -4849,7 +4897,7 @@ function drawColony(time){
 
         function renderFoundingContext(container) {
             const fd = state.firstDiamond, found = state.founding;
-            const mineralLabels = {quartz:'Quartzo',silicate:'Silicato',corundum:'Coríndon (Safiras/Rubis)',metallic:'Metal',nacre:'Nácar (Pérolas)',garnet:'Granada hessonítica',olivine:'Olivina (Peridotos)',lapisrock:'Lápis-lazúli (Lápis)'};
+            const mineralLabels = {quartz:'Quartzo',silicate:'Silicato',corundum:'Coríndon (Safiras/Rubis)',metallic:'Metal',nacre:'Nácar (Pérolas)',garnet:'Granada (Hessonita/Piropo)',olivine:'Olivina (Peridotos)',lapisrock:'Lápis-lazúli (Lápis)',pyroxene:'Piroxênio (Jade/Nefrita)',beryllium:'Berílio (Morganita/Água-marinha/Esmeralda)',topaz:'Topázio'};
             const mineralCards = Object.entries(mineralLabels).map(([key,label]) => {
                 const n = found.gatheredMinerals[key] || 0;
                 return '<div class="stat-box" style="display:flex;justify-content:space-between;gap:6px;align-items:center"><span>' + label + '</span><b>' + n + '</b></div>';
