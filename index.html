@@ -711,21 +711,7 @@
                 bubbleText: '🔧 Calibrando',
                 roleDesc: '+6 TEC/s e reduz o desgaste tectônico dos Injetores.'
             },
-            jasper: {
-                id: 'jasper',
-                shortName: 'Quartzo',
-                name: 'Quartzo Soldado (Jasper / Ametista)',
-                primeTitle: 'Jasper Corte Perfeita [Rank S]',
-                offcolorTitle: 'Quartzo Fora do Padrão [Off-Color]',
-                requiredVein: 'quartz',
-                veinLabel: 'Quartzo Denso Roxo',
-                optimalPlanets: ['terra_veritas', 'homeworld', 'caelum_gelidus'],
-                optimalLabel: 'Terra-Veritas, Homeworld, Caelum-Gelidus',
-                essence: { white: 10, yellow: 30, blue: 0, pink: 30 },
-                idealMaturation: 2,
-                color: '#f97316',
-                bubbleText: '⚔️ Patrulhando',
-                roleDesc: '+7 MAT/s e reduz Dissidência Rebelde na colônia.'
+            hessonite: { id:'hessonite', shortName:'Hessonita', name:'Hessonita (Mobilização e Comando)', primeTitle:'Hessonita Marechal [Rank S]', offcolorTitle:'Hessonita de Tom Turvo [Off-Color]', requiredVein:'garnet', veinLabel:'Granada Hessonítica', optimalPlanets:['ignis_prime','homeworld'], optimalLabel:'Ignis-Prime, Homeworld', essence:{white:15,yellow:25,blue:10,pink:20}, idealMaturation:2, color:'#d97745', bubbleText:'⚔️ Coordenando', roleDesc:'Mobiliza tropas, organiza formações e coordena ataques.'
             },
             bismuth: {
                 id: 'bismuth',
@@ -926,7 +912,7 @@
             {id:'orbital_station',name:'Estação Orbital',category:'Megastruturas',desc:'Plataforma fora da superfície para logística, observação e apoio às naves.',cost:{minerals:150,tech:80},buildTime:60,prerequisites:['shipyard','teleporter','reactor'],workers:{peridot:2,bismuth:1},interaction:'Desbloqueia operações em órbita.',maxCount:1},
             {id:'planetary_network',name:'Rede Planetária',category:'Megastruturas',desc:'Integra instalações de diferentes regiões em uma infraestrutura coordenada.',cost:{minerals:250,tech:150},buildTime:90,prerequisites:['orbital_station','terraformer','administration_center'],workers:{sapphire:1,pearl:1,peridot:1},interaction:'Coordena operações em escala planetária.',maxCount:1}
         ];
-        const GEM_ROLE_NAMES = {quartz:'Quartzo · extração mineral',peridot:'Peridoto · engenharia',bismuth:'Bismuto · construção',lapis:'Lápis-Lazúli · terraformação',sapphire:'Safira · análise',ruby:'Rubi · defesa',pearl:'Pérola · administração',jasper:'Jaspe · combate'};
+        const GEM_ROLE_NAMES = {quartz:'Quartzo · extração mineral',peridot:'Peridoto · engenharia',bismuth:'Bismuto · construção',lapis:'Lápis-Lazúli · terraformação',sapphire:'Safira · análise',ruby:'Rubi · defesa',pearl:'Pérola · administração',hessonite:'Hessonita · mobilização e comando'};
 
         const IMPERIAL_TECHS = [
             { id: 'diamond_drills', name: 'Brocas de Diamante Sintético', cost: 90, desc: '+35% velocidade de perfuração em todos os Injetores sem perder pureza.' },
@@ -1183,7 +1169,7 @@
                 caelum_gelidus:{size:'gigante rochoso',min:31000,max:50000,pressure:150,forgeSeconds:45,power:2.5},
                 terra_veritas:{size:'médio',min:10000,max:30000,pressure:85,forgeSeconds:95,power:1.8}
             };
-            const weights={quartz:24,silicate:22,corundum:16,metallic:18,nacre:12,jasperrock:3,olivine:3,lapisrock:2};
+            const weights={quartz:24,silicate:22,corundum:16,metallic:18,nacre:12,garnet:3,olivine:3,lapisrock:2};
             for(const planet of Object.values(PLANETS)){
                 if(Number.isFinite(planet.resourceTotal)&&Number.isFinite(planet.resourcesRemaining))continue;
                 const profile=profiles[planet.id]||{size:'pequeno',min:1000,max:10000,pressure:35,forgeSeconds:180,power:1};
@@ -1217,7 +1203,7 @@
             founding: {
                 stage: 'setup',
                 firstGemCreated: false,
-                mineralSamples: { quartz: 0, silicate: 0, corundum: 0, metallic: 0, nacre: 0, jasperrock: 0, olivine: 0, lapisrock: 0 },
+                mineralSamples: { quartz: 0, silicate: 0, corundum: 0, metallic: 0, nacre: 0, garnet: 0, olivine: 0, lapisrock: 0 },
                 gatheredMinerals: { quartz: 0, silicate: 0, corundum: 0, metallic: 0, nacre: 0, jasperrock: 0, olivine: 0, lapisrock: 0 },
                 essenceOutput: 0,
                 activityCount: 0,
@@ -2506,7 +2492,7 @@
             const canForge=remaining>=mineralCost&&!activeForge;
             const influence=Math.min(100,Math.round(25+state.matriarchs.length*8+admin.colonizedCount*7+state.era*5));
             const reputation=Math.max(0,Math.min(100,Math.round((Number(state.order)||0)*.65+(Number(state.ideologyAxis)||0)*.35+50)));
-            const mineralNames={quartz:'Quartzo',silicate:'Silicato',corundum:'Coríndon',metallic:'Metal',nacre:'Nácar',jasperrock:'Jaspe',olivine:'Olivina',lapisrock:'Lápis-lazúli'};
+            const mineralNames={quartz:'Quartzo',silicate:'Silicato',corundum:'Coríndon',metallic:'Metal',nacre:'Nácar',garnet:'Granada hessonítica',olivine:'Olivina',lapisrock:'Lápis-lazúli'};
             const matriarchCards=state.matriarchs.length?state.matriarchs.map(m=>
                 '<div class="stat-box"><div style="display:flex;align-items:center;gap:9px"><span style="display:inline-block;width:18px;height:18px;border-radius:50%;background:'+ (m.colorHex||'#cbd5e1') +';box-shadow:0 0 12px '+(m.glowHex||m.colorHex||'#cbd5e1')+'"></span><div><b>'+escapeHTML(m.name)+'</b><small style="display:block;color:var(--text-muted)">'+escapeHTML(m.personalityName||'Personalidade desconhecida')+' · '+escapeHTML(m.badge||'Diamante')+'</small></div></div><div style="font-size:11px;color:#cbd5e1;margin-top:7px">'+escapeHTML(m.personalityDesc||'')+'</div><div style="font-size:10px;color:#94a3b8;margin-top:5px">Lealdade: '+Math.round(m.loyalty||0)+'% · Autonomia: '+Math.round(m.autonomy||0)+'%</div><div style="font-size:10px;color:#94a3b8">Origem: '+escapeHTML(PLANETS[m.consumedPlanet]?.shortName||'Desconhecida')+' · Minerais: '+Object.entries(m.consumedMinerals||{}).map(([k,v])=>(mineralNames[k]||k)+' '+Number(v).toLocaleString('pt-BR')).join(', ')+'</div></div>'
             ).join(''):'<div class="stat-box" style="color:#94a3b8">Nenhuma Diamante subordinada foi criada ainda.</div>';
@@ -2562,7 +2548,7 @@
             const actualCost=forge.mineralCost-remainingCost;
             planet.resourcesRemaining=Math.max(0,remaining-actualCost);
             const dominant=Object.entries(consumed).sort((a,b)=>b[1]-a[1])[0]?.[0]||'quartz';
-            const mineralColors={quartz:'violet',silicate:'emerald',corundum:'blue',metallic:'yellow',nacre:'white',jasperrock:'pink',olivine:'emerald',lapisrock:'blue'};
+            const mineralColors={quartz:'violet',silicate:'emerald',corundum:'blue',metallic:'yellow',nacre:'white',garnet:'pink',olivine:'emerald',lapisrock:'blue'};
             const colorKey=mineralColors[dominant]||'white';
             const palette=COLOR_PALETTES[colorKey]||COLOR_PALETTES.white;
             const pers=DIAMOND_PERSONALITY_POOL[Math.floor(Math.random()*DIAMOND_PERSONALITY_POOL.length)];
@@ -2732,7 +2718,7 @@
             for (const gem of planet.walkingGems) {
                 switch (gem.caste) {
                     case 'peridot': result.tech += 6; break;
-                    case 'jasper': result.min += 7; break;
+                    case 'hessonite': result.min += 7; break;
                     case 'bismuth': result.min += 10; break;
                     case 'sapphire': result.tech += 8; result.white += 4; break;
                     case 'lapis': result.blue += 5; break;
@@ -3441,10 +3427,11 @@
             sapphire:{shape:'petite',hair:'cloud',outfit:'gown',gemPos:'chest',eyeCount:1,width:.94,height:.96,shoulder:27,limb:6,torso:17,waist:15,hips:17,legLength:52,summary:'Pequena e delicada, com ombros estreitos e membros finos.'},
             ruby:{shape:'compact',hair:'square',outfit:'fighter',gemPos:'chest',eyeCount:1,width:.96,height:.93,shoulder:35,limb:10,torso:22,waist:20,hips:22,legLength:49,summary:'Baixa e atarracada, com tronco firme, braços fortes e pernas curtas.'},
             pearl:{shape:'tall-slim',hair:'swept',outfit:'gown',gemPos:'chest',eyeCount:2,width:.91,height:1.12,shoulder:25,limb:5,torso:16,waist:13,hips:15,legLength:70,summary:'Muito alta e esguia, ombros estreitos, cintura fina e membros compridos.'},
-            jasper:{shape:'tall-muscular',hair:'mane',outfit:'armor',gemPos:'chest',eyeCount:2,width:1.08,height:1.12,shoulder:57,limb:16,torso:30,waist:25,hips:28,legLength:68,summary:'Alta e musculosa, com ombros enormes, braços grossos e pernas fortes.'}
+            hessonite:{shape:'commanding',hair:'mane',outfit:'armor',gemPos:'chest',eyeCount:2,width:1.05,height:1.1,shoulder:53,limb:13,torso:28,waist:23,hips:26,legLength:66,summary:'Postura militar, ombros firmes e silhueta preparada para comandar tropas.'}
         };
         let silhouettePreviewSelection='quartz';
         function gemSilhouetteProfile(type){return GEM_SILHOUETTE_PROFILES[type]||GEM_SILHOUETTE_PROFILES.quartz;}
+        function lightenGemColor(hex){const raw=String(hex||'#f8fafc').replace('#','');if(!/^[0-9a-f]{6}$/i.test(raw))return '#ffffff';const n=[0,2,4].map(i=>parseInt(raw.slice(i,i+2),16));return '#'+n.map(v=>Math.round(v+(255-v)*.28).toString(16).padStart(2,'0')).join('');}
         function drawGemSilhouette(targetCtx,x,y,scale,options={}){
             if(!targetCtx)return;
             const c=targetCtx,color=options.color||'#b98acb',face=options.faceColor||'#fff5ed',p=options.profile||GEM_SILHOUETTE_PROFILES.quartz;
@@ -3550,9 +3537,9 @@
             c.stroke();
 
             const gs=Number(options.gemSize)||7;
-            const gx=0,gy=-20; // Todas as Gems usam a gema no peito neste modelo visual.
+            const gx=0,gy=gemPos==='head'?-126:gemPos==='belly'?22:-20;
             c.save();c.shadowColor='#fff4d8';c.shadowBlur=glow?8:0;
-            c.fillStyle=options.gemColor||'#fff1cf';c.beginPath();
+            c.fillStyle=options.gemColor||lightenGemColor(color);c.beginPath();
             c.moveTo(gx,gy-gs);c.lineTo(gx+gs*.68,gy);
             c.lineTo(gx,gy+gs);c.lineTo(gx-gs*.68,gy);c.closePath();c.fill();
             c.fillStyle='rgba(255,255,255,.65)';c.beginPath();
@@ -3592,7 +3579,7 @@
             for(let i=0;i<9;i++){const x=-210+i*51;const y=130+Math.sin(i*2.1)*24;drawCrystal(x,y,8+(i%3)*2,['#b6a18a','#a78bfa','#9ca3af','#d6b88b'][i%4], '#8b7355',i*.2);}
             // Fundadora representada pelo sistema de silhuetas.
             const palette=COLOR_PALETTES[state.firstDiamond.colorKey]||COLOR_PALETTES.white,customColor=state.firstDiamond.colorHex||palette.hex;
-            const founderProfile=state.firstDiamond.bodySilhouette==='broad'?{shape:'heavy',hair:'crown',outfit:'armor',gemPos:state.firstDiamond.gemPos,expression:'calm'}:state.firstDiamond.bodySilhouette==='slender'?{shape:'slender',hair:'flowing',outfit:'gown',gemPos:state.firstDiamond.gemPos,expression:'calm'}:{shape:'broad',hair:'angular',outfit:'gown',gemPos:state.firstDiamond.gemPos,expression:'calm'};
+            const founderStyle=state.firstDiamond.bodySilhouette;const founderProfile={shape:founderStyle,hair:founderStyle==='slender'?'flowing':founderStyle==='radiant'?'cloud':founderStyle==='regal-angular'?'crest':founderStyle==='broad'?'crown':'angular',outfit:founderStyle==='broad'?'armor':'gown',gemPos:state.firstDiamond.gemPos,expression:'calm',width:founderStyle==='broad'?1.08:founderStyle==='slender'?.92:1,height:founderStyle==='radiant'?1.1:1};
             drawGemSilhouette(ctx,0,31,.53,{color:customColor,profile:founderProfile,glow:true,gemColor:'#fff4d8'});
             // Camada frontal com estratos rochosos aparentes.
             const foreground=ctx.createLinearGradient(0,178,0,235);foreground.addColorStop(0,'#594637');foreground.addColorStop(1,'#211b18');
@@ -3638,7 +3625,7 @@
 
             // A Primeira Diamante usa a mesma linguagem de silhueta da população.
             const palette=COLOR_PALETTES[state.firstDiamond.colorKey]||COLOR_PALETTES.white,customColor=state.firstDiamond.colorHex||palette.hex;
-            const throneProfile=state.firstDiamond.bodySilhouette==='slender'?{shape:'slender',hair:'flowing',outfit:'gown',gemPos:state.firstDiamond.gemPos,expression:'calm'}:state.firstDiamond.bodySilhouette==='broad'?{shape:'heavy',hair:'crown',outfit:'armor',gemPos:state.firstDiamond.gemPos,expression:'calm'}:{shape:'tall',hair:'angular',outfit:'gown',gemPos:state.firstDiamond.gemPos,expression:'calm'};
+            const throneStyle=state.firstDiamond.bodySilhouette;const throneProfile={shape:throneStyle,hair:throneStyle==='slender'?'flowing':throneStyle==='radiant'?'cloud':throneStyle==='regal-angular'?'crest':throneStyle==='broad'?'crown':'angular',outfit:throneStyle==='broad'?'armor':'gown',gemPos:state.firstDiamond.gemPos,expression:'calm',width:throneStyle==='broad'?1.08:throneStyle==='slender'?.92:1,height:throneStyle==='radiant'?1.1:1};
             drawGemSilhouette(ctx,0,-35,.78,{color:customColor,profile:throneProfile,glow:true,gemSize:11,gemColor:'#fff4d8'});
 
             // Diamantes da corte orbitando o trono
@@ -4231,9 +4218,12 @@
                 '<option value="teardrop" ' + (fd.gemCut==='teardrop'?'selected':'') + '>◆ Gota</option>' +
                 '<option value="star" ' + (fd.gemCut==='star'?'selected':'') + '>✦ Estrela</option></select></div>' +
                 '<div><label for="founder-silhouette">Silhueta corporal</label><select id="founder-silhouette">' +
-                '<option value="regal" ' + (fd.bodySilhouette==='regal'?'selected':'') + '>Regal</option>' +
-                '<option value="slender" ' + (fd.bodySilhouette==='slender'?'selected':'') + '>Esbelta</option>' +
-                '<option value="broad" ' + (fd.bodySilhouette==='broad'?'selected':'') + '>Imponente</option></select></div></div>' +
+                '<option value="regal" ' + (fd.bodySilhouette==='regal'?'selected':'') + '>Vitral Real</option>' +
+                '<option value="slender" ' + (fd.bodySilhouette==='slender'?'selected':'') + '>Vitral Esbelto</option>' +
+                '<option value="broad" ' + (fd.bodySilhouette==='broad'?'selected':'') + '>Vitral Imponente</option>' +
+                '<option value="radiant" ' + (fd.bodySilhouette==='radiant'?'selected':'') + '>Vitral Radiante</option>' +
+                '<option value="regal-angular" ' + (fd.bodySilhouette==='regal-angular'?'selected':'') + '>Vitral Angular</option></select></div>' +
+                '<div><label for="founder-gem-position">Posição da Gem</label><select id="founder-gem-position"><option value="belly" ' + (fd.gemPos==='belly'?'selected':'') + '>Barriga</option><option value="head" ' + (fd.gemPos==='head'?'selected':'') + '>Cabeça</option><option value="chest" ' + (fd.gemPos==='chest'?'selected':'') + '>Peito</option></select></div></div>' +
                 '<button class="btn btn-emerald" onclick="confirmFoundingSetup()">Despertar em Homeworld</button></div>';
             setGameMenuStatus('A fundadora começa sem personalidade predeterminada e sem infraestrutura.');
         }
@@ -4244,7 +4234,7 @@
 
         function setFounderAppearance(key, value) {
             if (key === 'gemCut' && ['lozenge','octagon','teardrop','star'].includes(value)) state.firstDiamond.gemCut = value;
-            else if (key === 'bodySilhouette' && ['regal','slender','broad'].includes(value)) state.firstDiamond.bodySilhouette = value;
+            else if (key === 'bodySilhouette' && ['regal','slender','broad','radiant','regal-angular'].includes(value)) state.firstDiamond.bodySilhouette = value;
             else return;
             showFoundingSetup();
         }
@@ -4254,9 +4244,10 @@
             const colorHex = document.getElementById('founder-color')?.value;
             const gemCut = document.getElementById('founder-cut')?.value;
             const bodySilhouette = document.getElementById('founder-silhouette')?.value;
+            const gemPos = document.getElementById('founder-gem-position')?.value;
             if (!name) { setGameMenuStatus('Dê um nome à Primeira Diamante.', true); return; }
-            if (!/^#[0-9a-fA-F]{6}$/.test(colorHex || '') || !['lozenge','octagon','teardrop','star'].includes(gemCut) || !['regal','slender','broad'].includes(bodySilhouette)) return;
-            Object.assign(state.firstDiamond,{name,colorHex:colorHex.toLowerCase(),gemCut,bodySilhouette,gemPos:'chest',title:'A Fundadora'});
+            if (!/^#[0-9a-fA-F]{6}$/.test(colorHex || '') || !['lozenge','octagon','teardrop','star'].includes(gemCut) || !['regal','slender','broad','radiant','regal-angular'].includes(bodySilhouette) || !['belly','head','chest'].includes(gemPos)) return;
+            Object.assign(state.firstDiamond,{name,colorHex:colorHex.toLowerCase(),gemCut,bodySilhouette,gemPos,title:'A Fundadora'});
             beginPrimitiveEra();
             startGame();
         }
@@ -4332,7 +4323,7 @@
             sapphire:{label:'Safira',mineral:'corundum',color:'#818cf8',role:'Análise, previsão e planejamento',elements:'Al₂O₃ com elementos-traço',mineralName:'Coríndon'},
             ruby:{label:'Rubi',mineral:'corundum',color:'#f43f5e',role:'Defesa e segurança',elements:'Al₂O₃ com Cr³⁺ como cromóforo típico',mineralName:'Coríndon'},
             pearl:{label:'Pérola',mineral:'nacre',color:'#f5d0fe',role:'Administração, organização e assistência',elements:'Material carbonático de origem biogênica',mineralName:'Sedimento carbonático'},
-            jasper:{label:'Jaspe',mineral:'jasperrock',color:'#f97316',role:'Combate e proteção de linha de frente',elements:'Sílica microcristalina (SiO₂) com impurezas e óxidos',mineralName:'Jaspe bruto'}
+            hessonite:{label:'Hessonita',mineral:'garnet',color:'#d97745',role:'Mobilização de tropas e coordenação de ataques',elements:'Granada grossulária com tonalidade hessonítica',mineralName:'Granada hessonítica'}
         };
 
         const PRIMITIVE_MINERAL_FINDS = [
@@ -4343,7 +4334,7 @@
             {type:'nacre',weight:10,label:'Sedimento carbonático'},
             {type:'corundum',weight:7,label:'Coríndon'},
             {type:'lapisrock',weight:5,label:'Lápis-lazúli bruto'},
-            {type:'jasperrock',weight:4,label:'Jaspe bruto'}
+            {type:'garnet',weight:4,label:'Granada hessonítica'}
         ];
 
         function gatherPrimitiveMineral() {
