@@ -841,6 +841,15 @@
         ];
         const GEM_ROLE_NAMES = {quartz:'Quartzo · extração e infantaria',peridot:'Peridoto · engenharia e jardins',bismuth:'Bismuto · construção',lapis:'Lápis-Lazúli · terraformação',sapphire:'Safira · previsão',ruby:'Rubi · guarda pessoal',pearl:'Pérola · assistência',hessonite:'Hessonita · general',pyrope:'Piropo · general',agate:'Ágata · comando de esquadrões',nephrite:'Nefrita · pilotagem de guerra',jade:'Jade · corte e eventos sociais',morganite:'Morganita · comando de obras',aquamarine:'Água-marinha · logística Lápis',emerald:'Esmeralda · comando militar',topaz:'Topázio · guarda palaciana'};
 
+        const GEM_HIERARCHY = [
+            {tier:'S',name:'Autoridade Diamante',entries:[['firstDiamond','Diamante Matriarca','Jogadora e autoridade máxima do Império.'],['matriarchs','Diamantes subordinadas','Possuem consciência própria e autonomia para governar suas Gems e colônias; decisões imperiais de grande escala são encaminhadas à Matriarca.']]},
+            {tier:'A',name:'Aristocratas',entries:[['sapphire','Safiras','5% de chance de previsão por Safira a cada cinco minutos; as chances aumentam com a quantidade.'],['jade','Jades','Feitas de piroxênio refinado; dedicadas a bailes e eventos sociais futuros.'],['morganite','Morganitas','Berílio refinado em mundos acima de 100 °C; supervisionam automaticamente obras e Bismutos.'],['aquamarine','Águas-marinhas','Berílio refinado em mundos oceânicos ou abaixo de 0 °C; comandam a logística das Lápis.'],['emerald','Esmeraldas','Berílio refinado entre 1 °C e 99 °C; ampliam o comando das Hessonitas.'],['lapis','Lápis-Lazúlis','Duas Lápis em um planeta com grande reserva de água podem criar terra firme e aplainar terrenos montanhosos.']]},
+            {tier:'B',name:'Generais',entries:[['pyrope','Piropo','General de exércitos e operações em larga escala.'],['hessonite','Hessonita','Mobilização de tropas, coordenação de ataques e formação de exércitos.']]},
+            {tier:'C',name:'Operárias',entries:[['agate','Ágata','Quartzo refinado; comanda até 20 soldados Quartzo.'],['nephrite','Nefrita','Piroxênio comum; piloto de naves com velocidade dobrada e única piloto de naves de guerra.'],['peridot','Peridoto','Equipe técnica dos jardins de infância, análise de terreno e operação de estruturas tecnológicas.']]},
+            {tier:'D',name:'Soldados',entries:[['quartz','Família Quartzo','Cornalinas, Ametistas, Jaspers, Roses, Citrinos, Rubis, Onyx, Olho de Tigre, Calcedônias e Rutilos. A variante depende das condições geológicas.'],['ruby','Rubis','Variante Quartzo abundante; guardas pessoais em grupos de três ou mais e única fusão permitida entre Rubis.'],['topaz','Topázios','Soldados raros, guardas exclusivos de palácios e comitivas de Gems importantes.']]},
+            {tier:'E',name:'Serventes',entries:[['pearl','Pérolas','Pérola mineral ×1,5; Pérola legítima de Recife ×2. Uma por dona.'],['bismuth','Bismutos','Construção de estruturas e fabricação de componentes, sob comando de Morganitas.']]}
+        ];
+
         const IMPERIAL_TECHS = [
             { id: 'diamond_drills', name: 'Brocas de Diamante Sintético', cost: 90, desc: '+35% velocidade de perfuração em todos os Injetores sem perder pureza.' },
             { id: 'automated_reefs', name: 'Recifes de Pérolas Automatizados', cost: 110, desc: 'Reduz o consumo de Essência Branca em todas as injeções em 25%.' },
@@ -1166,6 +1175,7 @@
                 injectorEssence: 0,
                 reefPearlInventory: [],
                 assignedPearls: [],
+                pearlAssignmentSystem: true,
                 sapphireForecasts: [],
                 sapphirePredictionTimer: 0,
                 aquamarineDispatchTimer: 0,
@@ -1892,7 +1902,7 @@
             if (missing.length) return 'Requer: ' + missing.map(id => structureDefinition(id).name).join(', ');
             if (state.minerals < (def.cost.minerals || 0)) return 'Minerais insuficientes.';
             if (state.tech < (def.cost.tech || 0)) return 'Tecnologia insuficiente.';
-            if (freeGemWorkers('bismuth') < 1) return 'Requer uma Bismuto livre para executar a construção.';
+            if (Number(state.census.morganite||0)>0 ? Number(state.census.bismuth||0)<1 : freeGemWorkers('bismuth')<1) return 'Requer uma Bismuto livre ou uma Morganita supervisora para comandar a construção.';
             return '';
         }
         function buildStructure(id) {
@@ -1906,7 +1916,7 @@
                 state.founding.injectorGemType=state.founding.selectedGem||'quartz';
                 state.founding.injectorSpecializationLocked=true;
             }
-            state.construction = {id:id,progress:0,active:true,builder:'bismuth'};
+            state.construction = {id:id,progress:0,active:true,builder:Number(state.census.morganite||0)>0?'morganite':'bismuth'};
             setStatusTicker('Construção iniciada: ' + def.name + '.');
             addChronicle('Construção iniciada', def.name + ' está sendo construída em Homeworld.', 'Infraestrutura em desenvolvimento');
             updateStructureUI();
@@ -1959,7 +1969,7 @@
             if(type==='jade'&&Number(state.refinedResources.pyroxene||0)<batchCount)type='nephrite';
             const gem = FOUNDING_GEM_DATA[type];
             if (!gem) return;
-            if(gem.stored&&structureCount('reef')<1){if(!automatic)setStatusTicker('Produção de Pérolas pausada: construa um Recife para armazenar as Pérolas sem dona.');return;}
+            if(gem.stored&&!structureIsOperational('reef')){if(!automatic)setStatusTicker('Produção de Pérolas pausada: construa e opere um Recife para armazenar as Pérolas sem dona.');return;}
             if(gem.climate&&!foundingGemClimateAllowed(gem,planet)){if(!automatic)setStatusTicker('Este planeta não possui as condições climáticas necessárias para produzir '+gem.label+'.');return;}
             const refinedMaterial=gem.refinedMaterial||null;
             const mineralCost=refinedMaterial?0:batchCount;
@@ -2059,8 +2069,9 @@
                 const def = structureDefinition(state.construction.id);
                 const bismuthCount=Math.max(0,Number(state.census.bismuth)||0);
                 const bismuthBuildFactor=Math.max(0.85,1-Math.min(5,bismuthCount)*0.03);
+                const morganiteFactor=Number(state.census.morganite||0)>0?0.8:1;
                 const constructionTime=Math.max(1,def?def.buildTime:20)*2.5;
-                state.construction.progress = Math.min(100, state.construction.progress + dt * 100 / (constructionTime*bismuthBuildFactor));
+                state.construction.progress = Math.min(100, state.construction.progress + dt * 100 / (constructionTime*bismuthBuildFactor*morganiteFactor));
                 if (state.construction.progress >= 100) finishStructureConstruction();
             }
             if (structureIsOperational('essence_chamber') && Number(state.founding.diamondEssence) > 0) {
@@ -2165,6 +2176,8 @@
                             html += '<button class="btn btn-block" onclick="executeStructureInteraction(\'' + def.id + '\')" ' + (!structureIsOperational(def.id) ? 'disabled' : '') + '>' + labels[def.id] + '</button>';
                         } else if (def.id === 'mineral_extractor') html += '<div class="founding-note">Produz minerais continuamente enquanto houver um Quartzo designado.</div>';
                         else if (def.id === 'essence_chamber') html += '<div class="founding-note">Transfere essência da reserva interna da Diamante para o estoque.</div>';
+                        if(def.id==='refinery') html += '<div class="founding-note"><b>Refino específico · planeta ativo</b><br>Quartzo: '+Number(state.refinedResources.quartz||0)+' · Piroxênio: '+Number(state.refinedResources.pyroxene||0)+' · Berílio: '+Number(state.refinedResources.beryllium||0)+'</div><div class="grid-2"><button class="btn" onclick="refineSpecialMaterial(\'quartz\')" '+(Number(PLANETS[state.activeColonyPlanetId]?.resourcesByType?.quartz||0)<30?'disabled':'')+'>Refinar Quartzo · 30</button><button class="btn" onclick="refineSpecialMaterial(\'pyroxene\')" '+(Number(PLANETS[state.activeColonyPlanetId]?.resourcesByType?.pyroxene||0)<30?'disabled':'')+'>Refinar Piroxênio · 30</button><button class="btn" onclick="refineSpecialMaterial(\'beryllium\')" '+(Number(PLANETS[state.activeColonyPlanetId]?.resourcesByType?.beryllium||0)<5?'disabled':'')+'>Refinar Berílio · 5</button></div>';
+                        if(def.id==='reef') html += '<div class="founding-note">Pérolas sem dona armazenadas: <b>'+(state.founding.reefPearlInventory||[]).length+'</b>. Use o Relatório populacional para atribuí-las.</div>';
                         if (def.id === 'injector' && count < (def.maxCount || 1)) {
                             const nextReason = canBuildStructure(def);
                             html += '<div class="founding-note">Frota instalada: ' + count + ' / ' + def.maxCount + ' Injetores.</div><button class="btn btn-block" onclick="buildStructure(\'injector\')" ' + (nextReason ? 'disabled' : '') + '>🏗️ Construir outro Injetor · ' + costText + ' · ' + def.buildTime + 's</button>';
@@ -2882,7 +2895,7 @@ ${hasAristocrats ? `
             if (freeGemWorkers('peridot') < 1) { setStatusTicker('É necessário ter uma Peridot livre para operar e implantar o injetor.', true); return; }
             const evaluation = evaluateAlchemicalFormula();
             const costs = { ...evaluation.costs };
-            if(evaluation.recipe.id==='pearl'&&structureCount('reef')<1){setStatusTicker('A produção de Pérolas em massa exige um Recife construído para armazenar as Pérolas sem dona.',true);return;}
+            if(evaluation.recipe.id==='pearl'&&!structureIsOperational('reef')){setStatusTicker('A produção de Pérolas exige um Recife operacional para armazenar as Pérolas sem dona.',true);return;}
             const refinedMaterial=evaluation.recipe.refinedMaterial||null;
             const refinedCost=refinedMaterial?1:0;
             if(refinedMaterial&&Number(state.refinedResources&&state.refinedResources[refinedMaterial]||0)<refinedCost){setStatusTicker('A receita exige '+refinedMaterial+' refinado na Refinaria.',true);return;}
@@ -4698,9 +4711,10 @@ function drawColony(time){
         }
 
         function getPearlMultiplierFor(targetId) {
-            const pearlCount=Math.max(0,Number(state.census&&state.census.pearl)||0);
-            if(!pearlCount || state.pearlTarget!==targetId) return 1;
-            const origin=PLANETS[state.pearlOriginPlanetId||'homeworld'];
+            const assigned=(state.founding&&state.founding.assignedPearls)||[];
+            const pearl=assigned.find(item=>item.targetId===targetId);
+            if(!pearl)return 1;
+            const origin=PLANETS[pearl.planetId||'homeworld'];
             return origin&&origin.hasOcean===true?2:1.5;
         }
 
@@ -4708,9 +4722,38 @@ function drawColony(time){
             const allowed=new Set(['firstDiamond','aristocrats',...state.matriarchs.map(m=>'matriarch_'+m.id)]);
             if(!allowed.has(targetId)) return;
             state.pearlTarget=targetId;
-            const targetLabel=targetId==='firstDiamond'?state.firstDiamond.name:targetId==='aristocrats'?'Gems Aristocratas (Rank S)':(state.matriarchs.find(m=>'matriarch_'+m.id===targetId)?.name||'uma Diamante');
-            setStatusTicker('A Pérola foi direcionada para '+targetLabel+'.');
-            renderGemGuide(document.getElementById('drawer-body'));
+            const targetLabel=targetId==='firstDiamond'?state.firstDiamond.name:targetId==='aristocrats'?'Gems Aristocratas':(state.matriarchs.find(m=>'matriarch_'+m.id===targetId)?.name||'uma Diamante');
+            setStatusTicker('Alvo selecionado: '+targetLabel+'. Para vincular uma Pérola, use o botão de distribuição do Recife.');
+            const body=document.getElementById('drawer-body');if(body&&state.drawerTab==='guide')renderGemGuide(body);
+        }
+
+        function assignStoredPearl(targetId){
+            const allowed=new Set(['firstDiamond','aristocrats',...state.matriarchs.map(m=>'matriarch_'+m.id)]);
+            const inventory=state.founding.reefPearlInventory||[];
+            if(!allowed.has(targetId))return;
+            if((state.founding.assignedPearls||[]).some(item=>item.targetId===targetId)){setStatusTicker('Este alvo já possui uma Pérola vinculada.');return;}
+            if(!inventory.length){setStatusTicker('O Recife não possui Pérolas sem dona disponíveis.',true);return;}
+            const pearl=inventory.shift();
+            state.founding.assignedPearls.push({targetId,planetId:pearl.planetId||'homeworld'});
+            state.pearlTarget=targetId;
+            const label=targetId==='firstDiamond'?state.firstDiamond.name:targetId==='aristocrats'?'Gems Aristocratas':(state.matriarchs.find(m=>'matriarch_'+m.id===targetId)?.name||'Diamante');
+            setStatusTicker('Uma Pérola foi retirada do Recife e vinculada a '+label+'.');
+            addChronicle('Pérola atribuída', 'Uma Pérola armazenada no Recife passou a acompanhar '+label+'.', 'Vínculo de assistência ativo');
+            updateHUD();renderDrawerContent();renderBottomBar();
+        }
+
+        function refineSpecialMaterial(type){
+            if(!structureIsOperational('refinery')){setStatusTicker('A Refinaria precisa estar operacional com Peridoto e Quartzo.',true);return;}
+            const costs={quartz:30,pyroxene:30,beryllium:5},labels={quartz:'Quartzo',pyroxene:'Piroxênio',beryllium:'Berílio'};
+            if(!Object.prototype.hasOwnProperty.call(costs,type))return;
+            const planet=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld,amount=costs[type];
+            const available=Math.max(0,Number(planet.resourcesByType&&planet.resourcesByType[type])||0);
+            if(available<amount){setStatusTicker('O depósito de '+labels[type]+' não possui '+amount+' unidades para refino.',true);return;}
+            planet.resourcesByType[type]-=amount;
+            planet.resourcesRemaining=Math.max(0,Object.values(planet.resourcesByType||{}).reduce((sum,value)=>sum+Math.max(0,Number(value)||0),0));
+            state.refinedResources[type]=(Number(state.refinedResources[type])||0)+1;
+            setStatusTicker('A Refinaria produziu 1 unidade de '+labels[type]+' refinado.');
+            updateHUD();renderDrawerContent();
         }
 
         function formatDuration(seconds){const value=Math.max(0,Math.ceil(Number(seconds)||0)),h=Math.floor(value/3600),m=Math.floor((value%3600)/60),sec=value%60;return h+'h '+String(m).padStart(2,'0')+'m '+String(sec).padStart(2,'0')+'s';}
@@ -4833,7 +4876,7 @@ function drawColony(time){
             if(type==='jade'&&Number(state.refinedResources.pyroxene||0)<1)type='nephrite';
             const gem = FOUNDING_GEM_DATA[type];
             if (!gem) { setStatusTicker('Tipo de Gem ainda não catalogado.', true); return; }
-            if(gem.stored&&structureCount('reef')<1){setStatusTicker('A criação em massa de Pérolas exige um Recife construído.',true);return;}
+            if(gem.stored&&!structureIsOperational('reef')){setStatusTicker('A criação em massa de Pérolas exige um Recife operacional, com Lápis e Peridot.',true);return;}
             if(gem.climate&&!foundingGemClimateAllowed(gem,planet)){setStatusTicker('As condições de temperatura e órbita deste planeta não permitem formar '+gem.label+'.',true);return;}
             if(gem.refinedMaterial){if(Number(state.refinedResources&&state.refinedResources[gem.refinedMaterial]||0)<1){setStatusTicker('É necessário refinar '+gem.refinedMaterial+' antes de formar '+gem.label+'.',true);return;}}
             else if ((state.founding.gatheredMinerals[gem.mineral] || 0) < 1) { setStatusTicker('É preciso recolher uma amostra de ' + gem.mineralName + ' primeiro.'); return; }
@@ -5105,6 +5148,10 @@ function drawColony(time){
                 ['quartz','peridot','lapis','sapphire','hessonite','bismuth','ruby','pearl','prime','offcolor','pyrope','agate','nephrite','jade','morganite','aquamarine','emerald','topaz'].forEach(k=>state.census[k]=Math.max(0,Number(state.census[k])||0));
                 state.founding.reefPearlInventory = Array.isArray(state.founding.reefPearlInventory)?state.founding.reefPearlInventory:[];
                 state.founding.assignedPearls = Array.isArray(state.founding.assignedPearls)?state.founding.assignedPearls:[];
+                if(!state.founding.pearlAssignmentSystem){
+                    if(!state.founding.assignedPearls.length&&Number(state.census.pearl||0)>state.founding.reefPearlInventory.length)state.founding.assignedPearls.push({targetId:state.pearlTarget||'firstDiamond',planetId:state.pearlOriginPlanetId||'homeworld'});
+                    state.founding.pearlAssignmentSystem=true;
+                }
                 state.founding.sapphireForecasts = Array.isArray(state.founding.sapphireForecasts)?state.founding.sapphireForecasts:[];
                 state.founding.sapphirePredictionTimer = Number(state.founding.sapphirePredictionTimer)||0;
                 state.founding.aquamarineDispatchTimer = Number(state.founding.aquamarineDispatchTimer)||0;
