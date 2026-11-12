@@ -3887,15 +3887,16 @@ ${hasAristocrats ? `
                     // Uma unidade pausada não pode segurar as demais: ao terminar os lotes ativos,
                     // devolvemos os insumos das unidades pausadas e deixamos essas unidades para o próximo ciclo.
                     if(runnable.length===0){
-                        pending.forEach(refundInjectorBatchResources);
-                        f.creationBatches=f.creationBatches.filter(batch=>batch.completed);
-                        const completed=f.creationBatches.reduce((sum,batch)=>sum+Math.max(0,Number(batch.quantity)||0),0);
-                        if(completed>0)finishFirstGemCreation();
-                        else{
-                            f.creationActive=false;f.creationProgress=0;f.creationBatchCount=0;
-                            f.creationTarget=null;f.creationSource='manual';f.creationMode=null;f.creationBatches=[];
-                            setStatusTicker('Produção suspensa. Os lotes dos Injetores pausados tiveram seus insumos devolvidos.');
+                        const completed=f.creationBatches.filter(batch=>batch.completed).reduce((sum,batch)=>sum+Math.max(0,Number(batch.quantity)||0),0);
+                        if(completed>0){
+                            // O lote de uma unidade pausada não segura as demais. Seus insumos
+                            // retornam ao estoque para que ela possa retomar em um próximo ciclo.
+                            pending.forEach(refundInjectorBatchResources);
+                            f.creationBatches=f.creationBatches.filter(batch=>batch.completed);
+                            finishFirstGemCreation();
                         }
+                        // Se todas as unidades ainda pendentes estiverem pausadas, mantemos
+                        // o lote e o progresso congelados até o jogador retomar a frota.
                     }
                 }else{
                     const duration=Math.max(1,Number(f.creationDuration)||42);
@@ -5820,7 +5821,7 @@ function drawColony(time){
                 }
             }
             if(!Array.isArray(state.founding.productionReports))state.founding.productionReports=[];
-            state.founding.productionReports.push({type:batch.type,injectorIndex:Number(batch.injectorIndex)||0,gemLabel:data.label,quantity:quantity,grade:'A',mineralName:data.mineralName,cycle:Number(state.cycleCount)||1,description:'Lote do Injetor #'+(Number(batch.injectorIndex)+1)+', operado automaticamente pela frota.'});
+            state.founding.productionReports.push({type:batch.type,injectorIndex:Number(batch.injectorIndex)||0,gemLabel:data.label,quantity:quantity,grade:'A',mineralName:data.mineralName,cycle:Number(state.cycleCount)||1,description:'Lote do Injetor #'+(Number(batch.injectorIndex)+1)+(state.founding.creationMode==='manual'?' programado manualmente.':' administrado automaticamente pela Demantoide.')});
             if(state.founding.productionReports.length>20)state.founding.productionReports.splice(0,state.founding.productionReports.length-20);
             batch.completed=true;
             batch.progress=100;
