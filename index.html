@@ -1850,7 +1850,7 @@
             return Math.max(0,Math.floor(Number(planet.redEyesBuilt)||0));
         }
         function structureDefinition(id) { return STRUCTURE_CATALOG.find(item => item.id === id); }
-        function hasStructurePrerequisites(def) { return (def.prerequisites || []).every(id => structureCount(id) > 0); }
+        function hasStructurePrerequisites(def) { return (def.prerequisites || []).every(id => id==='red_eye'&&def.id==='royal_palace' ? redEyeCountForPlanet('homeworld')>0 : structureCount(id) > 0); }
         function totalAssignedWorkers(gemType) {
             const assignedToStructures = Object.values(state.structureAssignments || {}).reduce((sum, jobs) => sum + (Number(jobs && jobs[gemType]) || 0), 0);
             const queue=Array.isArray(state.constructionQueue)?state.constructionQueue:(state.construction&&state.construction.active?[state.construction]:[]);
@@ -1865,7 +1865,7 @@
         }
         function structureIsOperational(id) {
             const def = structureDefinition(id);
-            if (!def || (id==='galaxy_warp' ? !PLANETS[state.activeColonyPlanetId]?.galaxyWarpBuilt : structureCount(id)<1) || !hasStructurePrerequisites(def)) return false;
+            if (!def || (id==='galaxy_warp' ? !PLANETS[state.activeColonyPlanetId]?.galaxyWarpBuilt : id==='red_eye' ? redEyeCountForPlanet(state.activeColonyPlanetId||'homeworld')<1 : structureCount(id)<1) || !hasStructurePrerequisites(def)) return false;
             if (id === 'injector' && !structureIsOperational('essence_chamber')) return false;
             if(id==='essence_chamber')return (Number(state.structureAssignments?.essence_chamber?.peridot)||0)>=structureCount('essence_chamber');
             if(['workshop','defense_tower','shield_generator'].includes(id)&&!structureIsOperational('reactor'))return false;
@@ -1911,7 +1911,7 @@
             if(def.id==='royal_palace'&&state.activeColonyPlanetId!=='homeworld')return 'O Palácio Real só pode ser construído em Homeworld.';
             if(def.id==='diamond_quarters'&&state.activeColonyPlanetId!=='homeworld')return 'Os Quartos de Diamante só podem ser construídos em Homeworld.';
             if(def.id==='diamond_quarters'&&structureCount('diamond_quarters')+(state.constructionQueue||[]).filter(job=>job&&job.active&&job.id==='diamond_quarters').length>=getDiamondOwners().length)return 'Cada Diamante já possui um Quarto construído ou em construção.';
-            const missing = (def.prerequisites || []).filter(id => structureCount(id) < 1);
+            const missing = (def.prerequisites || []).filter(id => id==='red_eye'&&def.id==='royal_palace' ? redEyeCountForPlanet('homeworld')<1 : structureCount(id) < 1);
             if (missing.length) return 'Requer: ' + missing.map(id => structureDefinition(id).name).join(', ');
             if (state.minerals < (def.cost.minerals || 0)) return 'Minerais insuficientes.';
             if (state.tech < (def.cost.tech || 0)) return 'Tecnologia insuficiente.';
