@@ -40,10 +40,8 @@ create policy "Players can read their own Diamond messages"
   on public.diamond_chat_messages for select
   using (auth.uid() = user_id);
 
-drop policy if exists "Players can insert their own Diamond messages" on public.diamond_chat_messages;
-create policy "Players can insert their own Diamond messages"
-  on public.diamond_chat_messages for insert
-  with check (auth.uid() = user_id);
+-- A escrita de mensagens é feita pela Edge Function após validar o JWT.
+-- O cliente do navegador não recebe permissão para forjar mensagens de assistente.
 
 drop policy if exists "Players can delete their own Diamond messages" on public.diamond_chat_messages;
 create policy "Players can delete their own Diamond messages"
