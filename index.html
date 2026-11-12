@@ -1157,6 +1157,8 @@
             structures: {},
             structureAssignments: {},
             construction: null,
+            morganiteAutoBuild: true,
+            gemTransfers: [],
             order: 100,
             founding: {
                 stage: 'setup',
@@ -1918,7 +1920,7 @@
                 state.founding.injectorGemType=state.founding.selectedGem||'quartz';
                 state.founding.injectorSpecializationLocked=true;
             }
-            state.construction = {id:id,progress:0,active:true,builder:Number(state.census.morganite||0)>0?'morganite':'bismuth'};
+            state.construction = {id:id,progress:0,active:true,builder:'bismuth',supervisor:Number(state.census.morganite||0)>0?'morganite':null};
             setStatusTicker('Construção iniciada: ' + def.name + '.');
             addChronicle('Construção iniciada', def.name + ' está sendo construída em Homeworld.', 'Infraestrutura em desenvolvimento');
             updateStructureUI();
@@ -2066,7 +2068,12 @@
             }
             updateHUD(); renderDrawerContent(); renderBottomBar();
         }
+        function toggleMorganiteAutoBuild(){if(Number(state.census.morganite||0)<1)return;state.morganiteAutoBuild=!state.morganiteAutoBuild;setStatusTicker('Construção automática Morganita '+(state.morganiteAutoBuild?'ativada.':'desativada.'));renderDrawerContent();}
         function updateStructureSimulation(dt) {
+            if(Number(state.census.morganite||0)>0&&state.morganiteAutoBuild&&!state.construction?.active){
+                const next=STRUCTURE_CATALOG.find(def=>structureCount(def.id)<(def.maxCount||1)&&canBuildStructure(def)==='');
+                if(next)buildStructure(next.id);
+            }
             if (state.construction && state.construction.active) {
                 const def = structureDefinition(state.construction.id);
                 const bismuthCount=Math.max(0,Number(state.census.bismuth)||0);
@@ -2793,7 +2800,7 @@ ${hasAristocrats ? `
             const coldFar=temperature<0&&Number(planet.orbitRadius||0)>=180;
             const refined=state.refinedResources||{};
             if(candidate.id==='sapphire')return coldFar;
-            if(candidate.id==='ruby')return !coldFar;
+            if(candidate.id==='ruby')return temperature>=0;
             if(candidate.id==='jade')return Number(refined.pyroxene||0)>0;
             if(candidate.id==='nephrite')return Number(refined.pyroxene||0)<=0;
             if(['morganite','aquamarine','emerald'].includes(candidate.id)&&Number(refined.beryllium||0)<1)return false;
@@ -3861,9 +3868,10 @@ ${hasAristocrats ? `
             const forecastHtml=forecast.length?forecast.map(item=>'<div class="stat-box"><b>'+escapeHTML(item.title)+'</b><p style="font-size:10px;color:#94a3b8;margin-top:4px">'+escapeHTML(item.description)+'</p><small style="color:#7dd3fc">'+escapeHTML(item.planet||'Império')+' · chance agregada '+Number(item.chance||0).toFixed(1)+'%</small></div>').join(''):'<div class="stat-box">Nenhuma previsão registrada. A cada cinco minutos, cada Safira oferece 5% de chance independente de antecipar um evento possível.</div>';
             const objects=state.gemObjects||{total:0,byOwner:{},influenceByOwner:{},history:[]};
             const ownerRows=targets.map(([id,label])=>'<div class="stat-box" style="display:flex;justify-content:space-between"><span>'+escapeHTML(label)+'</span><b>'+Number(objects.byOwner&&objects.byOwner[id]||0)+' objetos · '+Number(objects.influenceByOwner&&objects.influenceByOwner[id]||0)+' influência</b></div>').join('');
+            const morganiteHtml='<div class="card"><div class="card-header"><span class="card-title">Supervisão Morganita</span><span class="badge">'+(Number(state.census.morganite||0)>0?'Ativa':'Sem Morganita')+'</span></div><p style="font-size:10px;color:#94a3b8">Quando ativada, uma Morganita seleciona automaticamente a próxima estrutura possível e comanda uma Bismuto para construí-la.</p><button class="btn btn-block" onclick="toggleMorganiteAutoBuild()" '+(Number(state.census.morganite||0)<1?'disabled':'')+'>'+(state.morganiteAutoBuild?'Desativar construção automática':'Ativar construção automática')+'</button></div>';
             const commandHtml='<div class="grid-2"><div class="stat-box">Capacidade de comando das Ágatas: <b>'+getAgateCommandCapacity()+' Quartzos</b></div><div class="stat-box">Capacidade de mobilização dos Generais: <b>'+getTroopCommandCapacity().toLocaleString('pt-BR')+' soldados</b></div><div class="stat-box">Velocidade de viagem com Nefritas: <b>×'+getFleetTravelSpeedMultiplier()+'</b></div><div class="stat-box">Topázios de guarda palaciana: <b>'+counts.topaz+'</b></div></div>';
             const totalRows=keys.map(k=>'<div class="stat-box" style="display:flex;justify-content:space-between"><span>'+(FOUNDING_GEM_DATA[k]?.label||k)+'</span><b>'+counts[k].toLocaleString('pt-BR')+'</b></div>').join('');
-            container.innerHTML='<div class="card card-cyan"><div class="card-header"><span class="card-title title-font">👥 Relatório populacional</span><span class="badge">Império inteiro</span></div><div class="stat-box">População total: <b>'+totalPopulation.toLocaleString('pt-BR')+' Gems</b><small style="display:block;color:#94a3b8">Inclui '+diamondCount+' Diamante(s), '+gemPopulation+' Gems das demais castas e Pérolas armazenadas.</small></div><div class="grid-2"><div class="stat-box">Cortes Rank S: <b>'+rankS+'</b></div><div class="stat-box">Off-Colors: <b>'+offcolors+'</b></div></div><p style="font-size:10px;color:#94a3b8">A contagem por casta é separada da classificação do corte.</p></div>'+tiersHtml+'<div class="card"><div class="card-header"><span class="card-title">População por tipo · contagem detalhada</span></div>'+totalRows+'</div><div class="card card-cyan"><div class="card-header"><span class="card-title">Recife de Pérolas</span><span class="badge">'+inventory.length+' sem dona</span></div><div class="stat-box">Pérolas armazenadas: <b>'+inventory.length+'</b> · Pérolas atribuídas: <b>'+assigned.length+'</b></div><label class="stat-label" for="reef-pearl-target">Escolher dona</label><select id="reef-pearl-target">'+targets.map(([id,label])=>'<option value="'+id+'">'+escapeHTML(label)+'</option>').join('')+'</select><button class="btn btn-block" onclick="assignStoredPearl(document.getElementById(\'reef-pearl-target\').value)" '+(!inventory.length?'disabled':'')+'>Retirar do Recife e vincular uma Pérola</button><small style="color:#94a3b8">Pérolas minerais ×1,5; Pérolas legítimas de Recife ×2.</small></div><div class="card"><div class="card-header"><span class="card-title">Previsões das Safiras</span><span class="badge">'+counts.sapphire+' ativas</span></div>'+forecastHtml+'</div><div class="card"><div class="card-header"><span class="card-title">Comando e especializações</span></div>'+commandHtml+'</div><div class="card card-amber"><div class="card-header"><span class="card-title">Objetos Gem de Berílio</span><span class="badge">'+Number(objects.total||0)+' objetos</span></div><div class="stat-box">Cada objeto criado acrescenta 5 pontos de influência e reputação ao seu proprietário.</div>'+ownerRows+'<label class="stat-label" for="gem-object-owner">Proprietária da próxima obra</label><select id="gem-object-owner">'+targets.map(([id,label])=>'<option value="'+id+'">'+escapeHTML(label)+'</option>').join('')+'</select><button class="btn btn-block" onclick="createGemObject(document.getElementById(\'gem-object-owner\').value)" '+(Number(state.refinedResources&&state.refinedResources.beryllium||0)<1?'disabled':'')+'>Criar objeto · 1 Berílio refinado</button></div>';
+            container.innerHTML='<div class="card card-cyan"><div class="card-header"><span class="card-title title-font">👥 Relatório populacional</span><span class="badge">Império inteiro</span></div><div class="stat-box">População total: <b>'+totalPopulation.toLocaleString('pt-BR')+' Gems</b><small style="display:block;color:#94a3b8">Inclui '+diamondCount+' Diamante(s), '+gemPopulation+' Gems das demais castas e Pérolas armazenadas.</small></div><div class="grid-2"><div class="stat-box">Cortes Rank S: <b>'+rankS+'</b></div><div class="stat-box">Off-Colors: <b>'+offcolors+'</b></div></div><p style="font-size:10px;color:#94a3b8">A contagem por casta é separada da classificação do corte.</p></div>'+tiersHtml+'<div class="card"><div class="card-header"><span class="card-title">População por tipo · contagem detalhada</span></div>'+totalRows+'</div><div class="card card-cyan"><div class="card-header"><span class="card-title">Recife de Pérolas</span><span class="badge">'+inventory.length+' sem dona</span></div><div class="stat-box">Pérolas armazenadas: <b>'+inventory.length+'</b> · Pérolas atribuídas: <b>'+assigned.length+'</b></div><label class="stat-label" for="reef-pearl-target">Escolher dona</label><select id="reef-pearl-target">'+targets.map(([id,label])=>'<option value="'+id+'">'+escapeHTML(label)+'</option>').join('')+'</select><button class="btn btn-block" onclick="assignStoredPearl(document.getElementById(\'reef-pearl-target\').value)" '+(!inventory.length?'disabled':'')+'>Retirar do Recife e vincular uma Pérola</button><small style="color:#94a3b8">Pérolas minerais ×1,5; Pérolas legítimas de Recife ×2.</small></div><div class="card"><div class="card-header"><span class="card-title">Previsões das Safiras</span><span class="badge">'+counts.sapphire+' ativas</span></div>'+forecastHtml+'</div><div class="card"><div class="card-header"><span class="card-title">Comando e especializações</span></div>'+commandHtml+'</div>'+morganiteHtml+'<div class="card card-amber"><div class="card-header"><span class="card-title">Objetos Gem de Berílio</span><span class="badge">'+Number(objects.total||0)+' objetos</span></div><div class="stat-box">Cada objeto criado acrescenta 5 pontos de influência e reputação ao seu proprietário.</div>'+ownerRows+'<label class="stat-label" for="gem-object-owner">Proprietária da próxima obra</label><select id="gem-object-owner">'+targets.map(([id,label])=>'<option value="'+id+'">'+escapeHTML(label)+'</option>').join('')+'</select><button class="btn btn-block" onclick="createGemObject(document.getElementById(\'gem-object-owner\').value)" '+(Number(state.refinedResources&&state.refinedResources.beryllium||0)<1?'disabled':'')+'>Criar objeto · 1 Berílio refinado</button></div>';
         }
 
         function renderGemGuide(container){
@@ -4804,6 +4812,8 @@ function drawColony(time){
             state.structures = {};
             state.structureAssignments = {};
             state.construction = null;
+            state.morganiteAutoBuild = true;
+            state.gemTransfers = [];
             state.order = 100;
             state.matriarchs = [];
             state.census = {quartz:0,peridot:0,lapis:0,sapphire:0,hessonite:0,bismuth:0,ruby:0,pearl:0,prime:0,offcolor:0,pyrope:0,agate:0,nephrite:0,jade:0,morganite:0,aquamarine:0,emerald:0,topaz:0};
@@ -4835,7 +4845,7 @@ function drawColony(time){
             const pearl=assigned.find(item=>item.targetId===targetId);
             if(!pearl)return 1;
             const origin=PLANETS[pearl.planetId||'homeworld'];
-            return origin&&origin.hasOcean===true?2:1.5;
+            return pearl.source==='reef'?2:(origin&&origin.hasOcean===true?2:1.5);
         }
 
         function setPearlTarget(targetId) {
@@ -4854,7 +4864,7 @@ function drawColony(time){
             if((state.founding.assignedPearls||[]).some(item=>item.targetId===targetId)){setStatusTicker('Este alvo já possui uma Pérola vinculada.');return;}
             if(!inventory.length){setStatusTicker('O Recife não possui Pérolas sem dona disponíveis.',true);return;}
             const pearl=inventory.shift();
-            state.founding.assignedPearls.push({targetId,planetId:pearl.planetId||'homeworld'});
+            state.founding.assignedPearls.push({targetId,planetId:pearl.planetId||'homeworld',source:pearl.source||'reef'});
             state.pearlTarget=targetId;
             const label=targetId==='firstDiamond'?state.firstDiamond.name:targetId==='aristocrats'?'Gems Aristocratas':(state.matriarchs.find(m=>'matriarch_'+m.id===targetId)?.name||'Diamante');
             setStatusTicker('Uma Pérola foi retirada do Recife e vinculada a '+label+'.');
@@ -4915,7 +4925,7 @@ function drawColony(time){
             bismuth:{label:'Bismuto',mineral:'metallic',color:'#facc15',role:'Construção de estruturas e fabricação',elements:'Bi e minerais de bismuto',mineralName:'Minério metálico'},
             lapis:{label:'Lápis-Lazúli',mineral:'lapisrock',color:'#38bdf8',role:'Terraformação, controle hídrico e logística planetária',elements:'Lazurita, calcita e pirita',mineralName:'Lápis-lazúli'},
             sapphire:{label:'Safira',mineral:'corundum',color:'#818cf8',role:'Aristocrata vidente; previsões de eventos possíveis',elements:'Al₂O₃',mineralName:'Coríndon',climate:'coldFar'},
-            ruby:{label:'Rubi',mineral:'corundum',color:'#f43f5e',role:'Soldado Quartzo de guarda pessoal; fusão apenas entre Rubis',elements:'Al₂O₃ com Cr³⁺',mineralName:'Coríndon',family:'quartz',climate:'notColdFar'},
+            ruby:{label:'Rubi',mineral:'corundum',color:'#f43f5e',role:'Soldado Quartzo de guarda pessoal; fusão apenas entre Rubis',elements:'Al₂O₃ com Cr³⁺',mineralName:'Coríndon',family:'quartz',climate:'notBelowZero'},
             pearl:{label:'Pérola',mineral:'nacre',color:'#f5d0fe',role:'Servente vinculada a uma única dona; Pérolas de Recife concedem ×2',elements:'Material carbonático biogênico',mineralName:'Nácar',stored:true},
             hessonite:{label:'Hessonita',mineral:'garnet',color:'#d97745',role:'General; mobilização e coordenação de tropas',elements:'Granada grossulária',mineralName:'Granada hessonítica'},
             pyrope:{label:'Piropo',mineral:'garnet',color:'#b91c1c',role:'General de exércitos e operações em larga escala',elements:'Granada piropo',mineralName:'Granada piropo'},
@@ -4945,7 +4955,7 @@ function drawColony(time){
         function foundingGemClimateAllowed(gem,planet){
             const temperature=Number(planet.temperatureC??8),coldFar=temperature<0&&Number(planet.orbitRadius||0)>=180;
             if(gem.climate==='coldFar')return coldFar;
-            if(gem.climate==='notColdFar')return !coldFar;
+            if(gem.climate==='notBelowZero')return temperature>=0;
             if(gem.climate==='hot')return temperature>100;
             if(gem.climate==='coldOrOcean')return temperature<0||planet.hasOcean===true;
             if(gem.climate==='temperate')return temperature>0&&temperature<100;
@@ -5038,7 +5048,7 @@ function drawColony(time){
             for(let i=0;i<batchCount;i++){
                 if(type==='pearl'){
                     if(!Array.isArray(state.founding.reefPearlInventory))state.founding.reefPearlInventory=[];
-                    state.founding.reefPearlInventory.push({planetId:state.activeColonyPlanetId||'homeworld',originOcean:!!PLANETS[state.activeColonyPlanetId||'homeworld'].hasOcean,quality:'A'});
+                    state.founding.reefPearlInventory.push({planetId:state.activeColonyPlanetId||'homeworld',originOcean:!!PLANETS[state.activeColonyPlanetId||'homeworld'].hasOcean,source:'reef',quality:'A'});
                 }else{
                     const quartzVariant=type==='quartz'?getQuartzVariantForPlanet(PLANETS[state.activeColonyPlanetId||'homeworld'],i):type==='ruby'?'ruby':null;
                     if(quartzVariant&&state.founding.quartzVariantCounts)state.founding.quartzVariantCounts[quartzVariant]=(Number(state.founding.quartzVariantCounts[quartzVariant])||0)+1;
@@ -5257,6 +5267,8 @@ function drawColony(time){
                 state.structures = state.structures || {};
                 state.structureAssignments = state.structureAssignments || {};
                 state.construction = state.construction || null;
+                state.morganiteAutoBuild = state.morganiteAutoBuild !== false;
+                state.gemTransfers = Array.isArray(state.gemTransfers)?state.gemTransfers:[];
                 state.energy = Number(state.energy) || 0;
                 state.refinedMaterials = Number(state.refinedMaterials) || 0;
                 state.ships = Number(state.ships) || 0;
