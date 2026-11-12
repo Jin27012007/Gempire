@@ -2655,6 +2655,42 @@ ${hasAristocrats ? `
             if(body&&state.drawerTab==='dynasty')renderDynastyTab(body);
         }
 
+        const DIAMOND_KINESIS=[
+            {name:'Pirocinese',kind:'física',weapon:'Canhão Ígneo',effect:'Dispara bolas de fogo concentradas.'},
+            {name:'Eletrocinese',kind:'física',weapon:'Lança de Tempestade',effect:'Dispara descargas elétricas.'},
+            {name:'Manipulação de Energia',kind:'física',weapon:'Canhão Prismático',effect:'Projétil de energia pura.'},
+            {name:'Criocinese',kind:'física',weapon:'Emissor Glacial',effect:'Dispara rajadas congelantes.'},
+            {name:'Cinese Gravitacional',kind:'física',weapon:'Distorcedor Gravitacional',effect:'Projétil de compressão gravitacional.'},
+            {name:'Possessão',kind:'mental',weapon:'Condutor Psíquico',effect:'Pulso mental que interfere em alvos.'},
+            {name:'Apatia',kind:'mental',weapon:'Emissor de Entropia',effect:'Onda mental que reduz a agressividade.'},
+            {name:'Telecinese',kind:'mental',weapon:'Canhão Cinético',effect:'Dispara projéteis acelerados mentalmente.'},
+            {name:'Ilusão',kind:'mental',weapon:'Projetor Espectral',effect:'Pulso que desorienta alvos.'},
+            {name:'Ressonância',kind:'mental',weapon:'Canhão Harmônico',effect:'Onda de vibração concentrada.'}
+        ];
+        function ensureDiamondKinesis(diamond){
+            if(!diamond)return null;
+            const hex=String(diamond.colorHex||COLOR_PALETTES[diamond.colorKey]?.hex||'#f8fafc').replace('#','').toLowerCase().padStart(6,'0').slice(-6);
+            const signature=parseInt(hex,16)||0;
+            if(!diamond.kinesis||diamond.kinesis.colorSignature!==hex){
+                const index=(signature^(signature>>>7)^(signature>>>13))%DIAMOND_KINESIS.length;
+                const base=DIAMOND_KINESIS[index];
+                diamond.kinesis={name:base.name,kind:base.kind,weapon:base.weapon,effect:base.effect,colorSignature:hex,variant:signature};
+            }
+            return diamond.kinesis;
+        }
+        function developDiamondWeapon(){
+            if(!structureIsOperational('research_center')){setStatusTicker('O Centro de Pesquisa exige Demantoide ou Piropos e seus operadores.',true);return;}
+            const cost=50,available=Math.max(0,Number(state.founding?.diamondEssence)||0);
+            if(available<cost){setStatusTicker('A criação de uma arma exige 50 Essências Diamante.',true);return;}
+            const planet=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld;
+            const ruler=(planet.governor||'none').startsWith('matriarch_')?state.matriarchs.find(m=>'matriarch_'+m.id===planet.governor):state.firstDiamond;
+            const power=ensureDiamondKinesis(ruler),weapons=state.diamondWeapons||(state.diamondWeapons=[]);
+            state.founding.diamondEssence=available-cost;
+            weapons.push({id:'weapon_'+Date.now(),owner:ruler.name,kinesis:power.name,name:power.weapon,effect:power.effect,color:ruler.colorHex||'#f8fafc',createdAt:state.cycleCount||1});
+            setStatusTicker(power.weapon+' desenvolvida com 50 Essências Diamante. Cinese: '+power.name+'.');
+            addChronicle('Nova arma: '+power.weapon,ruler.name+' desenvolveu um armamento exclusivo baseado em '+power.name+'.','Arsenal da Diamante');
+            updateHUD();renderDrawerContent();
+        }
         function renderDynastyTab(container) {
             const fd=state.firstDiamond,admin=getAdminStats();
             const planet=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld;
