@@ -2732,7 +2732,11 @@
                 </div>
 
 ${hasAristocrats ? `
-                '+(structureCount('royal_palace')>0?'<div class="card card-cyan"><div class="card-header"><span class="card-title title-font">👑 Palácio Real</span><span class="badge">Janela desbloqueada</span></div><p class="structure-desc">A Corte Real está disponível. O Palácio funciona como acesso à janela da Corte e não exige operadores nem administra outras estruturas.</p></div>':'')+'
+                ${structureCount('royal_palace')>0 ? `
+                <div class="card card-cyan">
+                    <div class="card-header"><span class="card-title title-font">👑 Palácio Real</span><span class="badge">Janela desbloqueada</span></div>
+                    <p class="structure-desc">A Corte Real está disponível. O Palácio funciona como acesso à janela da Corte e não exige operadores nem administra outras estruturas.</p>
+                </div>` : ''}
                 <!-- Conferência exclusiva das Gems Aristocratas -->
                 <div class="card card-cyan">
                     <div class="card-header">
