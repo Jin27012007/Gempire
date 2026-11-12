@@ -825,7 +825,7 @@
             {id:'essence_chamber',name:'Câmara de Extração de Essência',category:'Extração',desc:'Uma sauna ou piscina de essência onde a Primeira Diamante toma um banho de 30 segundos. Ao terminar, produz 50 vezes a essência de uma atividade física comum.',cost:{minerals:20,tech:0},buildTime:18,prerequisites:[],workers:{peridot:1},interaction:'Desbloqueia o banho de essência de 30 segundos.',maxCount:1},
             {id:'injector',name:'Injetor',category:'Criação',desc:'Cada unidade opera em paralelo em um setor do planeta, formando lotes simultâneos de Gems do material presente.',cost:{minerals:35,tech:0},buildTime:28,prerequisites:['essence_chamber'],workers:{peridot:1},interaction:'Produção paralela: cada Injetor acrescenta cinco Gems por ciclo.',maxCount:12},
             {id:'reef',name:'Recife de Pérolas',category:'Criação',desc:'Berçário nacarado que acolhe Pérolas recém-formadas sem dona. Elas permanecem armazenadas até serem vinculadas a uma Diamante ou aristocrata.',cost:{minerals:65,tech:12},buildTime:36,prerequisites:[],workers:{lapis:1,peridot:1},interaction:'Armazena Pérolas sem vínculo e permite distribuí-las posteriormente.',maxCount:5},
-            {id:'mineral_extractor',name:'Extrator Mineral',category:'Extração',desc:'Exige um Peridoto operador e ao menos um Quartzo. Cada Quartzo extrai 1 mineral a cada 10 segundos; equipes adicionais aumentam a produção. Ágatas coordenam o setor e reduzem o intervalo em até 2×, mas cada intervalo gera 0,1% de dissidência por Quartzo em operação.',cost:{minerals:25,tech:0},buildTime:20,prerequisites:[],workers:{quartz:1,peridot:1},interaction:'Cada Quartzo extrai 1 mineral/10s; Ágatas aceleram até 2× com aumento de dissidência.',maxCount:3},
+            {id:'mineral_extractor',name:'Extrator Mineral',category:'Extração',desc:'Exige um Peridoto operador. Cada Quartzo designado extrai 1 mineral a cada 10 segundos, em paralelo. Cada Ágata coordena até 20 Quartzos e reduz o intervalo desse grupo para 5 segundos (2×); são necessárias 2 Ágatas para acelerar até 40 Quartzos. Cada intervalo gera 0,1% de dissidência por Quartzo em operação.',cost:{minerals:25,tech:0},buildTime:20,prerequisites:[],workers:{quartz:1,peridot:1},interaction:'Cada Quartzo extrai 1 mineral/10s; Ágatas aceleram até 2× com aumento de dissidência.',maxCount:3},
             {id:'workshop',name:'Oficina de Engenharia',category:'Indústria',desc:'Bismutos constroem ferramentas, peças e componentes; um Peridoto mantém as máquinas operacionais.',cost:{minerals:40,tech:0},buildTime:24,prerequisites:['mineral_extractor'],workers:{bismuth:1,peridot:1},interaction:'Fabrica ferramentas e componentes.',maxCount:2},
             {id:'refinery',name:'Refinaria',category:'Indústria',desc:'Peridotos e Quartzos processam matérias-primas em materiais refinados.',cost:{minerals:45,tech:0},buildTime:26,prerequisites:['mineral_extractor','workshop'],workers:{peridot:1,quartz:1},interaction:'Converte minerais brutos em materiais refinados.',maxCount:2},
             {id:'research_center',name:'Centro de Pesquisa',category:'Ciência',desc:'Safiras analisam os processos da colônia e transformam materiais refinados em tecnologia.',cost:{minerals:55,tech:8},buildTime:30,prerequisites:['workshop','refinery'],workers:{sapphire:1,peridot:1},interaction:'Permite desenvolver tecnologias.',maxCount:2},
@@ -2101,38 +2101,50 @@
                 state.resourceChartAccumulator=(Number(state.resourceChartAccumulator)||0)+dt;
                 if(state.resourceChartAccumulator>=1){state.resourceChartAccumulator=0;renderColonyContext(document.getElementById('drawer-body'));}
             }
-            // Extração por equipe: cada Quartzo entrega 1 mineral por intervalo de 10s.
-            // Uma ou mais Ágatas aceleram o intervalo, limitado a 2×, e geram dissidência.
+            // Cada Quartzo designado extrai 1 mineral por intervalo.
+            // Cada Ágata coordena até 20 Quartzos, reduzindo apenas o intervalo
+            // desse grupo de 10s para 5s (máximo de 2×, sem empilhar velocidade).
             if(structureCount('mineral_extractor')>0){
                 const jobs=state.structureAssignments&&state.structureAssignments.mineral_extractor||{};
                 const quartz=Math.max(0,Math.floor(Number(jobs.quartz)||0));
                 const peridot=Math.max(0,Number(jobs.peridot)||0);
                 if(peridot>=1&&quartz>0){
                     const planet=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld;
-                    const agates=Math.max(0,Number(state.census.agate)||0);
-                    const speed=agates>0?2:1;
-                    const interval=10/speed;
-                    state.mineralExtractorAccumulator=(Number(state.mineralExtractorAccumulator)||0)+dt;
-                    while(state.mineralExtractorAccumulator>=interval){
-                        state.mineralExtractorAccumulator-=interval;
+                    const agates=Math.max(0,Math.floor(Number(state.census.agate)||0));
+                    const accelerated=Math.min(quartz,agates*20);
+                    const regular=quartz-accelerated;
+                    const extractMinerals=(workers)=>{
+                        if(workers<=0)return;
                         const available=Math.max(0,Number(planet.resourcesRemaining)||0);
-                        const requested=quartz;
-                        const actual=Math.min(available,requested);
-                        if(actual>0){
-                            let left=actual;
-                            const pools=planet.resourcesByType||{};
-                            for(const [key,value] of Object.entries(pools)){
-                                if(left<=0)break;
-                                const take=Math.min(Math.max(0,Number(value)||0),left);
-                                pools[key]=Math.max(0,(Number(pools[key])||0)-take);left-=take;
-                            }
-                            const extracted=actual-left;
-                            planet.resourcesRemaining=Math.max(0,available-extracted);
-                            state.minerals+=extracted;
-                            if(planet.resourcesRemaining<=0)planet.resourceDepleted=true;
+                        const actual=Math.min(available,workers);
+                        if(actual<=0)return;
+                        let left=actual;
+                        const pools=planet.resourcesByType||{};
+                        for(const [key,value] of Object.entries(pools)){
+                            if(left<=0)break;
+                            const take=Math.min(Math.max(0,Number(value)||0),left);
+                            pools[key]=Math.max(0,(Number(pools[key])||0)-take);
+                            left-=take;
                         }
-                        if(agates>0)planet.dissent=Math.min(100,(Number(planet.dissent)||0)+0.1*quartz);
+                        const extracted=actual-left;
+                        planet.resourcesRemaining=Math.max(0,available-extracted);
+                        state.minerals+=extracted;
+                        if(planet.resourcesRemaining<=0)planet.resourceDepleted=true;
+                    };
+                    state.mineralExtractorFastAccumulator=(Number(state.mineralExtractorFastAccumulator)||0)+dt;
+                    state.mineralExtractorRegularAccumulator=(Number(state.mineralExtractorRegularAccumulator)||0)+dt;
+                    while(state.mineralExtractorFastAccumulator>=5&&accelerated>0){
+                        state.mineralExtractorFastAccumulator-=5;
+                        extractMinerals(accelerated);
+                        planet.dissent=Math.min(100,(Number(planet.dissent)||0)+0.1*accelerated);
                     }
+                    while(state.mineralExtractorRegularAccumulator>=10&&regular>0){
+                        state.mineralExtractorRegularAccumulator-=10;
+                        extractMinerals(regular);
+                        planet.dissent=Math.min(100,(Number(planet.dissent)||0)+0.1*regular);
+                    }
+                    if(accelerated===0)state.mineralExtractorFastAccumulator=0;
+                    if(regular===0)state.mineralExtractorRegularAccumulator=0;
                 }
             }
             if (structureIsOperational('reactor')) state.energy += dt * 0.35;
@@ -2207,7 +2219,7 @@
                         } else if (['workshop','refinery','research_center','shipyard','terraformer','defense_tower','shield_generator','teleporter','administration_center','reactor','orbital_station','planetary_network'].includes(def.id)) {
                             const labels = {workshop:'🔧 Fabricar componentes',refinery:'⚗️ Refinar materiais',research_center:'🔬 Pesquisar',shipyard:'🚀 Construir nave',terraformer:'🌊 Terraformar',defense_tower:'🛡️ Calibrar defesa',shield_generator:'🔰 Ativar escudo',teleporter:'🌀 Sincronizar teletransporte',administration_center:'📋 Organizar equipes',reactor:'⚡ Verificar reator',orbital_station:'🛰️ Iniciar operação orbital',planetary_network:'🌐 Expandir rede planetária'};
                             html += '<button class="btn btn-block" onclick="executeStructureInteraction(\'' + def.id + '\')" ' + (!structureIsOperational(def.id) ? 'disabled' : '') + '>' + labels[def.id] + '</button>';
-                        } else if (def.id === 'mineral_extractor') html += '<div class="founding-note">Produz minerais continuamente enquanto houver um Quartzo designado.</div>';
+                        } else if (def.id === 'mineral_extractor') html += '<div class="founding-note">Cada Quartzo designado extrai 1 mineral a cada 10s. Cada Ágata coordena até 20 Quartzos, reduzindo o intervalo desse grupo para 5s (2×). Cada intervalo gera 0,1% de dissidência por Quartzo em operação.</div>';
                         else if (def.id === 'essence_chamber') html += '<div class="founding-note">Transfere essência da reserva interna da Diamante para o estoque.</div>';
                         if(def.id==='refinery') html += '<div class="founding-note"><b>Refino específico · planeta ativo</b><br>Quartzo: '+Number(state.refinedResources.quartz||0)+' · Piroxênio: '+Number(state.refinedResources.pyroxene||0)+' · Berílio: '+Number(state.refinedResources.beryllium||0)+'</div><div class="grid-2"><button class="btn" onclick="refineSpecialMaterial(\'quartz\')" '+(Number(PLANETS[state.activeColonyPlanetId]?.resourcesByType?.quartz||0)<30?'disabled':'')+'>Refinar Quartzo · 30</button><button class="btn" onclick="refineSpecialMaterial(\'pyroxene\')" '+(Number(PLANETS[state.activeColonyPlanetId]?.resourcesByType?.pyroxene||0)<30?'disabled':'')+'>Refinar Piroxênio · 30</button><button class="btn" onclick="refineSpecialMaterial(\'beryllium\')" '+(Number(PLANETS[state.activeColonyPlanetId]?.resourcesByType?.beryllium||0)<5?'disabled':'')+'>Refinar Berílio · 5</button></div>';
                         if(def.id==='reef') html += '<div class="founding-note">Pérolas sem dona armazenadas: <b>'+(state.founding.reefPearlInventory||[]).length+'</b>. Use o Relatório populacional para atribuí-las.</div>';
