@@ -795,7 +795,7 @@
             {id:'mineral_extractor',name:'Extrator Mineral',category:'Extração',desc:'Exige um Peridoto operador. Todos os Quartzos da população extraem 1 mineral a cada 10 segundos, em paralelo. Cada Ágata coordena até 20 Quartzos e reduz o intervalo desse grupo para 5 segundos (2×).',cost:{minerals:25,tech:0},buildTime:20,prerequisites:[],workers:{peridot:1},interaction:'Todos os Quartzos mineram automaticamente; Ágatas aceleram até 2×.',maxCount:3},
             {id:'workshop',name:'Centro de Logística',category:'Transporte',desc:'Centro autônomo que transporta minerais em alta velocidade por todo o planeta. Seu anel logístico cresce conforme o estoque mineral aumenta e diminui conforme os recursos são consumidos. Exige manutenção de 1.000 unidades de metal a cada 10 minutos de operação.',cost:{minerals:40,tech:0},buildTime:24,prerequisites:['mineral_extractor'],workers:{},interaction:'Distribui recursos rapidamente pelo planeta; futuramente permitirá transporte interplanetário.',maxCount:1},
             {id:'refinery',name:'Refinaria',category:'Indústria',desc:'Exige 1 Peridoto e 5 Bismutos operadores. Refina até 5% de cada matéria-prima coletada em seu tipo refinado.',cost:{minerals:45,tech:0},buildTime:26,prerequisites:['mineral_extractor','workshop'],workers:{peridot:1,bismuth:5},interaction:'Converte até 5% dos minerais coletados em materiais refinados.',maxCount:2},
-            {id:'research_center',name:'Centro de Pesquisa',category:'Ciência',desc:'Requer uma Demantoide ou um Piropo para supervisionar a pesquisa. Usa 50 unidades de Essência Diamante para desenvolver armamentos exclusivos, determinados pela cinese da Diamante governante. É requisito para Torres de Defesa.',cost:{minerals:55,tech:8},buildTime:30,prerequisites:['workshop','refinery'],workers:{peridot:1},interaction:'Demantoides ou Piropos supervisionam a pesquisa e comandam automaticamente os Injetores.',maxCount:2},
+            {id:'research_center',name:'Centro de Pesquisa',category:'Ciência',desc:'Requer a presença de uma Demantoide ou de um Piropo. Não exige Safira nem Peridoto como operador. Usa 50 unidades de Essência Diamante para desenvolver armamentos exclusivos, determinados pela cinese da Diamante governante. É requisito para Torres de Defesa.',cost:{minerals:55,tech:8},buildTime:30,prerequisites:['workshop','refinery'],workers:{},interaction:'Demantoides ou Piropos supervisionam a pesquisa e as Demantoides administram automaticamente os Injetores.',maxCount:2},
             {id:'reactor',name:'Reator de Energia',category:'Energia',desc:'Peridotos operam o reator e mantêm uma reserva energética.',cost:{minerals:65,tech:15},buildTime:32,prerequisites:['refinery'],workers:{peridot:1},interaction:'Gera energia para estruturas dependentes.',maxCount:2},
             
             {id:'defense_tower',name:'Torre de Defesa',category:'Defesa',desc:'Arma planetária baseada no poder da Diamante governante. Exige Centro de Pesquisa, Reator de Energia e operadores Rubis.',cost:{minerals:40,tech:5},buildTime:22,prerequisites:['workshop','research_center','reactor'],workers:{ruby:1,peridot:1},interaction:'Amplia a defesa local com armamento derivado da cinese da Diamante.',maxCount:4},
@@ -1860,7 +1860,7 @@
             if (id === 'injector' && !structureIsOperational('essence_chamber')) return false;
             if(id==='essence_chamber')return (Number(state.structureAssignments?.essence_chamber?.peridot)||0)>=structureCount('essence_chamber');
             if(['workshop','defense_tower','shield_generator'].includes(id)&&!structureIsOperational('reactor'))return false;
-            if(id==='research_center'&&!(Number(state.census.demantoid||0)>0||Number(state.census.pyrope||0)>0))return false;
+            if(id==='research_center')return (Number(state.census.demantoid)||0)>0||(Number(state.census.pyrope)||0)>0;
             if(id==='defense_tower'&&!structureIsOperational('research_center'))return false;
             if(id==='workshop')return state.logisticsActive!==false;
             if(id==='galaxy_warp')return !!PLANETS[state.activeColonyPlanetId]?.galaxyWarpBuilt&&Object.entries(def.workers||{}).every(([type,required])=>(Number(state.structureAssignments?.[id]?.[type])||0)>=required);
@@ -4876,7 +4876,7 @@ ${hasAristocrats ? `
             const count=[4,4,9,15,23][stage]||4;if(!planet||planet.id!=='homeworld'||structureCount('workshop')<1||!structureIsOperational('workshop'))return;
             ctx.save();ctx.translate(cx,cy);ctx.rotate(-.19+camera.rotation*.08);
             ctx.strokeStyle=stage>=2?'rgba(148,163,184,.22)':'rgba(148,163,184,.12)';ctx.lineWidth=1;ctx.setLineDash([5,9]);
-            if(!front){ctx.beginPath();ctx.ellipse(0,0,radius*(1.38+stage*.035),radius*(.47+stage*.018),0,0,Math.PI*2);ctx.stroke();}ctx.setLineDash([]);
+            ctx.setLineDash([]);
             for(let i=0;i<count;i++){
                 const a=time*(.000035+i%3*.000008)+i*2.399963229728653+camera.rotation*.12,isFront=Math.sin(a)>0;
                 if(isFront!==front)continue;
@@ -5026,7 +5026,7 @@ ${hasAristocrats ? `
 function drawColony(time){
             const planet=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld,{cx,cy}=getVisibleCenter(canvasWidth,canvasHeight);
             const isMobile=window.matchMedia('(max-width: 600px)').matches;
-            const radius=Math.max(76,Math.min(canvasWidth*(isMobile?0.29:0.27),canvasHeight*(isMobile?0.30:0.32),245)*state.planetCamera.zoom);
+            const radius=Math.max(70,Math.min(canvasWidth*(isMobile?0.255:0.245),canvasHeight*(isMobile?0.265:0.29),225)*state.planetCamera.zoom);
             const cam=state.planetCamera,stats=getPlanetVisualStats(planet),stage=stats.stage,palette=planet.colors;
             const lightX=cx-radius*.36,lightY=cy-radius*.42;
 
@@ -5039,7 +5039,7 @@ function drawColony(time){
             const surface=ctx.createRadialGradient(lightX,lightY,radius*.04,cx+radius*.12,cy+radius*.12,radius*1.12);
             surface.addColorStop(0,palette.secondary);surface.addColorStop(.42,palette.primary);surface.addColorStop(.78,palette.continent);surface.addColorStop(1,palette.mantle);
             ctx.save();ctx.shadowColor=palette.atmosphere||'rgba(125,211,252,.25)';ctx.shadowBlur=stage>=2?34:24;ctx.fillStyle=surface;ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
-            ctx.save();ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.clip();ctx.translate(cx,cy);ctx.transform(Math.cos(cam.rotation),0,Math.sin(cam.rotation)*.22,1,0,0);ctx.scale(radius,radius);
+            ctx.save();ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.clip();ctx.translate(cx,cy);ctx.transform(Math.cos(cam.rotation),Math.sin(cam.rotation)*.10,-Math.sin(cam.rotation)*.18,1,0,0);ctx.scale(radius,radius);
 
             // Continentes e placas rochosas curvas.
             const landmasses=[
@@ -5082,7 +5082,7 @@ function drawColony(time){
             // Sombreamento esférico aplicado por cima da textura.
             const terminator=ctx.createRadialGradient(lightX,lightY,radius*.08,cx,cy,radius*1.12);terminator.addColorStop(0,'rgba(255,255,255,0)');terminator.addColorStop(.62,'rgba(2,6,23,.02)');terminator.addColorStop(1,'rgba(1,4,14,.72)');
             ctx.fillStyle=terminator;ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.fill();
-            if(cam.xrayMode){ctx.save();ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.clip();ctx.translate(cx,cy);ctx.transform(Math.cos(cam.rotation),0,Math.sin(cam.rotation)*.22,1,0,0);ctx.scale(radius,radius);drawXRayMineralSeams(planet);ctx.restore();}
+            if(cam.xrayMode){ctx.save();ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.clip();ctx.translate(cx,cy);ctx.transform(Math.cos(cam.rotation),Math.sin(cam.rotation)*.10,-Math.sin(cam.rotation)*.18,1,0,0);ctx.scale(radius,radius);drawXRayMineralSeams(planet);ctx.restore();}
             ctx.strokeStyle='rgba(219,234,254,.58)';ctx.lineWidth=1.2;ctx.beginPath();ctx.arc(cx,cy,radius-1,Math.PI*1.05,Math.PI*1.9);ctx.stroke();
 
             drawHomeworldStructures(planet,cx,cy,radius,cam,time);
@@ -5097,7 +5097,7 @@ function drawColony(time){
             drawColonyInjectors(planet,cx,cy,radius,cam);
             // Fragmentos que passam pela frente fecham o efeito de órbita 360°.
             drawPlanetDebris(planet,cx,cy,radius,time,cam,stage,true);
-            drawPlanetCombinedInfoPanel(planet,stats,12,62);
+            drawPlanetCombinedInfoPanel(planet,stats,12,12);
             ctx.textAlign='center';ctx.fillStyle='#f8fafc';ctx.font='bold 16px Georgia';ctx.fillText(planet.shortName,cx,Math.max(24,cy-radius-24));
         }
 
