@@ -846,7 +846,7 @@
             {tier:'A',name:'Aristocratas',entries:[['sapphire','Safiras','5% de chance de previsão por Safira a cada cinco minutos; as chances aumentam com a quantidade.'],['jade','Jades','Feitas de piroxênio refinado; dedicadas a bailes e eventos sociais futuros.'],['morganite','Morganitas','Berílio refinado em mundos acima de 100 °C; supervisionam automaticamente obras e Bismutos.'],['aquamarine','Águas-marinhas','Berílio refinado em mundos oceânicos ou abaixo de 0 °C; comandam a logística das Lápis.'],['emerald','Esmeraldas','Berílio refinado entre 1 °C e 99 °C; ampliam o comando das Hessonitas.'],['lapis','Lápis-Lazúlis','Duas Lápis em um planeta com grande reserva de água podem criar terra firme e aplainar terrenos montanhosos.']]},
             {tier:'B',name:'Generais',entries:[['pyrope','Piropo','General de exércitos e operações em larga escala.'],['hessonite','Hessonita','Mobilização de tropas, coordenação de ataques e formação de exércitos.']]},
             {tier:'C',name:'Operárias',entries:[['agate','Ágata','Quartzo refinado; comanda até 20 soldados Quartzo.'],['nephrite','Nefrita','Piroxênio comum; piloto de naves com velocidade dobrada e única piloto de naves de guerra.'],['peridot','Peridoto','Equipe técnica dos jardins de infância, análise de terreno e operação de estruturas tecnológicas.']]},
-            {tier:'D',name:'Soldados',entries:[['quartz','Família Quartzo','Cornalinas, Ametistas, Jaspers, Roses, Citrinos, Rubis, Onyx, Olho de Tigre, Calcedônias e Rutilos. A variante depende das condições geológicas.'],['ruby','Rubis','Variante Quartzo abundante; guardas pessoais em grupos de três ou mais e única fusão permitida entre Rubis.'],['topaz','Topázios','Soldados raros, guardas exclusivos de palácios e comitivas de Gems importantes.']]},
+            {tier:'D',name:'Soldados',entries:[['quartz','Família Quartzo','Cornalinas, Ametistas, Jaspers, Roses, Citrinos, Rubis, Onyx, Olho de Tigre, Calcedônias e Rutilos. A variante depende das condições geológicas.'],['topaz','Topázios','Soldados raros, guardas exclusivos de palácios e comitivas de Gems importantes.']]},
             {tier:'E',name:'Serventes',entries:[['pearl','Pérolas','Pérola mineral ×1,5; Pérola legítima de Recife ×2. Uma por dona.'],['bismuth','Bismutos','Construção de estruturas e fabricação de componentes, sob comando de Morganitas.']]}
         ];
 
@@ -1130,6 +1130,7 @@
                 }
             });
             if(typeof planet.waterReserve!=='number')planet.waterReserve=planet.hasOcean?5000:(planet.id==='homeworld'?0:800);
+            if(planet.id==='caelum_gelidus'){planet.mountainous=true;planet.waterReserve=Math.max(3500,Number(planet.waterReserve)||0);}
             if(typeof planet.landmassCreated!=='boolean')planet.landmassCreated=false;
         });
         initializePlanetaryReserves();
@@ -3002,7 +3003,7 @@ ${hasAristocrats ? `
                 speed: recipe.id === 'lapis' ? 0.0036 : 0.0017,
                 bobPhase: Math.random() * Math.PI * 2
             };
-            if(recipe.id==='quartz'&&gem.variant){
+            if((recipe.id==='quartz'||recipe.id==='ruby')&&gem.variant){
                 const variants=state.founding.quartzVariantCounts||(state.founding.quartzVariantCounts={});
                 variants[gem.variant]=(Number(variants[gem.variant])||0)+1;
             }
@@ -3327,20 +3328,19 @@ ${hasAristocrats ? `
             const interval=Math.max(20,300/count);
             if(state.founding.aquamarineDispatchTimer<interval)return;
             state.founding.aquamarineDispatchTimer%=interval;
-            const candidates=Object.values(PLANETS).filter(p=>p.hasOcean===true||Number(p.waterReserve||0)>=2500);
+            const candidates=Object.values(PLANETS).filter(p=>p.colonized&&(p.hasOcean===true||Number(p.waterReserve||0)>=2500));
             for(const target of candidates){
-                if(target.walkingGems.some(g=>g.caste==='lapis'))continue;
-                let source=null,index=-1;
+                if(target.walkingGems.filter(g=>g.caste==='lapis').length>=2)continue;
+                let source=null,indices=[];
                 for(const planet of Object.values(PLANETS)){
-                    const found=(planet.walkingGems||[]).findIndex(g=>g.caste==='lapis');
-                    if(found>=0){source=planet;index=found;break;}
+                    const found=[];
+                    (planet.walkingGems||[]).forEach((g,index)=>{if(g.caste==='lapis')found.push(index);});
+                    if(found.length>=2){source=planet;indices=found.slice(0,2);break;}
                 }
                 if(!source)break;
-                const lapis=source.walkingGems.splice(index,1)[0];
-                lapis.bubbleText='🧭 Enviada por Água-marinha';
-                lapis.isOrbiting=true;
-                target.walkingGems.push(lapis);
-                addChronicle('Ordem de Água-marinha','Uma Lápis-Lazúli foi enviada para '+target.shortName+' para apoiar operações hídricas e terraformação.','Logística aristocrática automática');
+                const dispatched=indices.reverse().map(index=>source.walkingGems.splice(index,1)[0]);
+                dispatched.forEach(lapis=>{lapis.bubbleText='🧭 Enviada por Água-marinha';lapis.isOrbiting=true;target.walkingGems.push(lapis);});
+                addChronicle('Ordem de Água-marinha','Duas Lápis-Lazúlis foram enviadas para '+target.shortName+' para formar uma equipe de terraformação e logística hídrica.','Equipe aristocrática automática');
                 if(state.drawerOpen&&state.drawerTab==='population')renderPopulationReport(document.getElementById('drawer-body'));
                 break;
             }
@@ -3414,7 +3414,7 @@ ${hasAristocrats ? `
                         let calming = 0.025;
                         if (planet.governor === 'agate') calming += 0.20;
                         if (planet.governor === 'pearl') calming += 0.25;
-                        if (planet.walkingGems.some(g => g.caste === 'ruby')) calming += 0.07;
+                        if (planet.walkingGems.filter(g => g.caste === 'ruby').length >= 3) calming += 0.07;
                         if (state.researchedTechs.orbital_pacification) calming += 0.12;
                         if (state.firstDiamond.doctrine === 'lifeseeder' && planet.id === 'terra_veritas') calming += 0.15;
                         planet.dissent = Math.max(0, planet.dissent - calming * dt);
@@ -3834,15 +3834,15 @@ ${hasAristocrats ? `
             const diamondCount=1+(state.matriarchs||[]).length;
             const totalPopulation=gemPopulation+diamondCount;
             const rankS=Math.max(0,Number(state.census.prime)||0),offcolors=Math.max(0,Number(state.census.offcolor)||0);
-            const variants=Object.assign({carnelian:0,amethyst:0,jasper:0,rose:0,citrine:0,ruby:0,onyx:0,tigerEye:0,chalcedony:0,rutile:0},state.founding.quartzVariantCounts||{});
+            const variants=Object.assign({carnelian:0,amethyst:0,jasper:0,rose:0,citrine:0,ruby:0,onyx:0,tigerEye:0,chalcedony:0,rutile:0},state.founding.quartzVariantCounts||{});variants.ruby=counts.ruby;
             const knownVariantTotal=Object.values(variants).reduce((sum,value)=>sum+Math.max(0,Number(value)||0),0);
             if(!knownVariantTotal)Object.values(PLANETS).forEach(p=>(p.walkingGems||[]).forEach(g=>{if((g.caste||g.type)==='quartz'&&g.variant&&Object.prototype.hasOwnProperty.call(variants,g.variant))variants[g.variant]++;}));
             const variantLabels={carnelian:'Cornalinas',amethyst:'Ametistas',jasper:'Jaspers',rose:'Roses',citrine:'Citrinos',ruby:'Rubis',onyx:'Onyx',tigerEye:'Olhos-de-Tigre',chalcedony:'Calcedônias',rutile:'Rutilos'};
             const variantRows=Object.entries(variantLabels).map(([k,label])=>'<div class="stat-box" style="display:flex;justify-content:space-between"><span>'+label+'</span><b>'+Math.max(0,Number(variants[k])||0)+'</b></div>').join('')+
-                '<div class="stat-box" style="display:flex;justify-content:space-between"><span>Sem variante geológica registrada</span><b>'+Math.max(0,counts.quartz-knownVariantTotal)+'</b></div>';
+                '<div class="stat-box" style="display:flex;justify-content:space-between"><span>Sem variante geológica registrada</span><b>'+Math.max(0,counts.quartz+counts.ruby-knownVariantTotal)+'</b></div>';
             const tiersHtml=GEM_HIERARCHY.map(tier=>{
                 const rows=tier.entries.map(([key,label,description])=>{
-                    const value=key==='firstDiamond'?1:key==='matriarchs'?(state.matriarchs||[]).length:counts[key]||0;
+                    const value=key==='firstDiamond'?1:key==='matriarchs'?(state.matriarchs||[]).length:key==='quartz'?counts.quartz+counts.ruby:counts[key]||0;
                     const extra=key==='quartz'?'<div style="margin:5px 0 0 10px;padding-left:8px;border-left:2px solid #64748b">'+variantRows+'</div>':'';
                     return '<div class="stat-box"><div style="display:flex;justify-content:space-between;gap:8px"><b>'+label+'</b><b>'+value.toLocaleString('pt-BR')+'</b></div><p style="font-size:10px;color:#94a3b8;line-height:1.45;margin-top:4px">'+description+'</p>'+extra+'</div>';
                 }).join('');
@@ -5033,7 +5033,7 @@ function drawColony(time){
                     if(!Array.isArray(state.founding.reefPearlInventory))state.founding.reefPearlInventory=[];
                     state.founding.reefPearlInventory.push({planetId:state.activeColonyPlanetId||'homeworld',originOcean:!!PLANETS[state.activeColonyPlanetId||'homeworld'].hasOcean,quality:'A'});
                 }else{
-                    const quartzVariant=type==='quartz'?getQuartzVariantForPlanet(PLANETS.homeworld,i):null;
+                    const quartzVariant=type==='quartz'?getQuartzVariantForPlanet(PLANETS[state.activeColonyPlanetId||'homeworld'],i):type==='ruby'?'ruby':null;
                     if(quartzVariant&&state.founding.quartzVariantCounts)state.founding.quartzVariantCounts[quartzVariant]=(Number(state.founding.quartzVariantCounts[quartzVariant])||0)+1;
                     PLANETS[state.activeColonyPlanetId||'homeworld'].walkingGems.push({caste:type,variant:quartzVariant,color:data.color,grade:'A',isOrbiting:type==='lapis',bubbleText:'✨ Recém-emergida',angle:Math.random()*Math.PI*2,dir:1,speed:0.0005,bobPhase:0});
                 }
