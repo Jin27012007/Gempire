@@ -1924,6 +1924,16 @@
             if (def) {
                 state.structures[def.id] = structureCount(def.id) + 1;
                 if(def.id==='injector') ensureInjectorOrders();
+                if(def.id==='essence_chamber'){
+                    state.diamondChambers=state.diamondChambers||[];
+                    const owner=getDiamondOwners().find(o=>!state.diamondChambers.some(c=>c.ownerId===o.id));
+                    if(owner)state.diamondChambers.push({ownerId:owner.id,ownerName:owner.name,active:false,progress:0,cooldown:0});
+                }
+                if(def.id==='diamond_quarters'){
+                    state.diamondQuartersOwners=state.diamondQuartersOwners||[];
+                    const owner=getDiamondOwners().find(o=>!state.diamondQuartersOwners.includes(o.id));
+                    if(owner)state.diamondQuartersOwners.push(owner.id);
+                }
                 if(def.id==='galaxy_warp'){const p=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld;p.galaxyWarpBuilt=true;}
                 if(def.id==='workshop'){state.logisticsMaintenanceTimer=0;state.logisticsActive=true;}
             if(def.id==='mineral_extractor'){
@@ -2286,6 +2296,7 @@
             updateLogisticsCenter(dt);
             updateRedEyeMission(dt);
             updateGalaxyWarpExpeditions(dt);
+            updateMatriarchChambers(dt);
             if(Number(state.census.morganite||0)>0&&state.morganiteAutoBuild&&freeGemWorkers('bismuth')>0){
                 const next=STRUCTURE_CATALOG.find(def=>structureCount(def.id)<(def.maxCount||1)&&canBuildStructure(def)==='');
                 if(next)buildStructure(next.id);
@@ -2884,6 +2895,7 @@ ${hasAristocrats ? `
                 loyalty:84,autonomy:35,currentSpeech:pers.quotes[0],consumedPlanet:planet.id,consumedMinerals:consumed,
                 corePressure:forge.pressure,diamondPower:forge.power
             };
+            matriarch.essence=0;
             ensureDiamondKinesis(matriarch);
             state.matriarchs.push(matriarch);state.diamondForge=null;state.era=1;
             const eraEl=document.getElementById('era-badge');
@@ -5391,6 +5403,34 @@ function drawColony(time){
         }
 
         function formatDuration(seconds){const value=Math.max(0,Math.ceil(Number(seconds)||0)),h=Math.floor(value/3600),m=Math.floor((value%3600)/60),sec=value%60;return h+'h '+String(m).padStart(2,'0')+'m '+String(sec).padStart(2,'0')+'s';}
+        function getDiamondOwners(){
+            return [{id:'first',name:state.firstDiamond.name,diamond:state.firstDiamond},...(state.matriarchs||[]).map(m=>({id:m.id,name:m.name,diamond:m}))];
+        }
+        function startMatriarchEssenceBath(ownerId){
+            const chamber=(state.diamondChambers||[]).find(c=>c.ownerId===ownerId);
+            if(!chamber||ownerId==='first')return;
+            if(!structureIsOperational('essence_chamber')){setStatusTicker('A Câmara exige uma Peridot para cada Diamante atendida.',true);return;}
+            if(chamber.active){setStatusTicker('Esta Diamante já está em banho.',true);return;}
+            if(chamber.cooldown>0){setStatusTicker('A Câmara desta Diamante ainda está em recuperação: '+formatDuration(chamber.cooldown)+'.',true);return;}
+            chamber.active=true;chamber.progress=0;
+            setStatusTicker(chamber.ownerName+' iniciou um banho de essência de 30 segundos.');
+            updateHUD();renderDrawerContent();
+        }
+        function updateMatriarchChambers(dt){
+            (state.diamondChambers||[]).forEach(chamber=>{
+                if(chamber.ownerId==='first')return;
+                chamber.cooldown=Math.max(0,(Number(chamber.cooldown)||0)-dt);
+                if(!chamber.active)return;
+                chamber.progress=Math.min(100,(Number(chamber.progress)||0)+dt*100/30);
+                if(chamber.progress<100)return;
+                const owner=state.matriarchs.find(m=>m.id===chamber.ownerId);
+                if(owner)owner.essence=(Number(owner.essence)||0)+10000*getPearlMultiplierFor('matriarch_'+owner.id);
+                chamber.active=false;chamber.cooldown=10800;
+                setStatusTicker('Banho concluído: '+chamber.ownerName+' produziu 10.000 unidades de essência.');
+                addChronicle('Banho de essência concluído',chamber.ownerName+' produziu essência em sua Câmara particular.','Câmara de Diamante');
+                updateHUD();renderDrawerContent();
+            });
+        }
         function startEssenceBath() {
             const f=state.founding;
             if(!structureIsOperational('essence_chamber')){setStatusTicker('A Câmara precisa de uma Peridot operadora para iniciar o banho.',true);return;}
