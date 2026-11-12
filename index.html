@@ -2434,7 +2434,7 @@
                         '<div class="structure-interaction">Desbloqueia: ' + def.interaction + '</div>';
                     if (count > 0) {
                         html += '<div class="structure-status ' + (structureIsOperational(def.id) ? 'is-operational' : 'is-idle') + '">' +
-                            (structureIsOperational(def.id) ? '● Operacional' : '● Construída · aguardando operadores') + '</div><div class="structure-jobs">';
+                            (structureIsOperational(def.id) ? '● Operacional' : def.id==='research_center'&&!(Number(state.census.demantoid||0)>0||Number(state.census.pyrope||0)>0) ? '● Requer Demantoide ou Piropo' : ['workshop','defense_tower','shield_generator'].includes(def.id)&&!structureIsOperational('reactor') ? '● Aguardando Reator de Energia' : '● Construída · aguardando operadores') + '</div><div class="structure-jobs">';
                         const workerTypes = Object.entries(def.workers || {});
                         if (!workerTypes.length) html += '<small>Não exige operadores.</small>';
                         workerTypes.forEach(([type,need]) => {
