@@ -13,14 +13,22 @@ function escapeDiamondChatHtml(value) {
 }
 
 function getDiamondChatSaveId() {
-  if (!state.diamondChatSaveId) {
+  const slotId = window.GEMPIRE_ACTIVE_SAVE_SLOT || "autosave";
+  const storageKey = "gempire_diamond_chat_profile_" + slotId;
+  let profileId = "";
+  try {
+    profileId = localStorage.getItem(storageKey) || state.diamondChatSaveId || "";
+  } catch (_) {}
+  if (!profileId) {
     const id = window.crypto && typeof window.crypto.randomUUID === "function"
       ? window.crypto.randomUUID()
       : String(Date.now()) + "-" + Math.random().toString(36).slice(2);
-    state.diamondChatSaveId = "profile-" + id.replace(/[^a-zA-Z0-9-]/g, "");
-    saveGame("autosave", true);
+    profileId = "profile-" + id.replace(/[^a-zA-Z0-9-]/g, "");
   }
-  return state.diamondChatSaveId;
+  state.diamondChatSaveId = profileId;
+  try { localStorage.setItem(storageKey, profileId); } catch (_) {}
+  saveGame(slotId, true);
+  return profileId;
 }
 
 function getDiamondChatRooms() {
