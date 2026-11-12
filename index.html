@@ -1906,7 +1906,7 @@
             if (missing.length) return 'Requer: ' + missing.map(id => structureDefinition(id).name).join(', ');
             if (state.minerals < (def.cost.minerals || 0)) return 'Minerais insuficientes.';
             if (state.tech < (def.cost.tech || 0)) return 'Tecnologia insuficiente.';
-            if (Number(state.census.morganite||0)>0 ? Number(state.census.bismuth||0)<1 : freeGemWorkers('bismuth')<1) return 'Requer uma Bismuto livre ou uma Morganita supervisora para comandar a construção.';
+            if (freeGemWorkers('bismuth') < 1) return Number(state.census.morganite||0)>0 ? 'A Morganita aguarda uma Bismuto livre para comandar a próxima obra.' : 'Requer uma Bismuto livre para executar a construção.';
             return '';
         }
         function buildStructure(id) {
@@ -3392,6 +3392,11 @@ ${hasAristocrats ? `
                     setStatusTicker('🛸 '+target.shortName+' recebeu uma Gem transportada.');
                 }
                 state.gemTransfers.splice(i,1);
+            }
+            const modal=document.getElementById('tech-modal');
+            if(modal&&!modal.classList.contains('hidden')&&state.gemTransfers.length){
+                state.transferUiAccumulator=(Number(state.transferUiAccumulator)||0)+dt;
+                if(state.transferUiAccumulator>=1){state.transferUiAccumulator=0;renderTechModal();}
             }
         }
 
