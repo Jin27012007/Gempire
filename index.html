@@ -2154,7 +2154,7 @@
         function toggleMorganiteAutoBuild(){if(Number(state.census.morganite||0)<1)return;state.morganiteAutoBuild=!state.morganiteAutoBuild;setStatusTicker('Construção automática Morganita '+(state.morganiteAutoBuild?'ativada.':'desativada.'));renderDrawerContent();}
         function updateStructureSimulation(dt) {
             processAutomaticRefinery();
-            if(Number(state.census.morganite||0)>0&&state.morganiteAutoBuild&&!state.construction?.active){
+            if(Number(state.census.morganite||0)>0&&state.morganiteAutoBuild&&freeGemWorkers('bismuth')>0){
                 const next=STRUCTURE_CATALOG.find(def=>structureCount(def.id)<(def.maxCount||1)&&canBuildStructure(def)==='');
                 if(next)buildStructure(next.id);
             }
@@ -2234,21 +2234,16 @@
         function updateStructureUI() {
             updateHUD(); renderDrawerContent(); renderBottomBar();
         }
-        function updateConstructionProgressUI() {
-            if(!state.drawerOpen||state.drawerTab!=='structures'||!state.construction||!state.construction.active)return;
-            const bar=document.getElementById('structure-build-progress');
-            const label=document.getElementById('structure-build-label');
-            if(!bar&&!label)return;
-            const def=structureDefinition(state.construction.id);
-            const bismuthCount=Math.max(0,Number(state.census.bismuth)||0);
-            const factor=Math.max(0.85,1-Math.min(5,bismuthCount)*0.03);
-            const duration=Math.max(1,def?def.buildTime:20)*2.5*factor;
-            const progress=Math.min(100,Math.max(0,Number(state.construction.progress)||0));
-            const remaining=Math.max(0,Math.ceil(duration*(1-progress/100)));
-            if(bar)bar.style.width=progress+'%';
-            if(label)label.textContent=Math.floor(progress)+'% · '+remaining+'s restantes';
+        function updateConstructionProgressUI(){
+            if(!state.drawerOpen||state.drawerTab!=='structures')return;
+            const jobs=Array.isArray(state.constructionQueue)?state.constructionQueue:(state.construction?[state.construction]:[]);
+            const bismuthCount=Math.max(1,Number(state.census.bismuth)||1),factor=Math.max(.85,1-Math.min(5,bismuthCount)*.03),morganiteFactor=Number(state.census.morganite||0)>0?.8:1;
+            jobs.forEach((job,index)=>{
+                const def=structureDefinition(job.id),duration=Math.max(1,def?def.buildTime:20)*2.5*factor*morganiteFactor,progress=Math.min(100,Math.max(0,Number(job.progress)||0)),remaining=Math.max(0,Math.ceil(duration*(1-progress/100)));
+                const bar=document.getElementById('structure-build-progress-'+index),label=document.getElementById('structure-build-label-'+index);
+                if(bar)bar.style.width=progress+'%';if(label)label.textContent=Math.floor(progress)+'% · '+remaining+'s restantes';
+            });
         }
-
 
         function renderStructuresTab(container) {
             if (!state.firstGameStarted) {
@@ -2261,14 +2256,15 @@
             let html = '<div class="card card-cyan"><div class="card-header"><span class="card-title title-font">🏗️ Catálogo de Estruturas</span><span class="badge">' + totalBuilt + ' construídas</span></div>' +
                 '<p class="structure-desc">As instalações formam cadeias de dependência. Construir não significa operar: cada estrutura exige seus operadores naturais, recursos e pré-requisitos.</p>' +
                 '<div class="grid-2"><div class="stat-box">Minerais: <b>' + Math.floor(state.minerals) + '</b></div><div class="stat-box">Tecnologia: <b>' + Math.floor(state.tech) + '</b></div><div class="stat-box">Refinados: <b>' + Math.floor(state.refinedMaterials || 0) + '</b></div><div class="stat-box">Energia: <b>' + (state.energy || 0).toFixed(1) + '</b></div></div>';
-            if (construction) {
-                const bismuthCount=Math.max(0,Number(state.census.bismuth)||0);
-                const buildFactor=Math.max(0.85,1-Math.min(5,bismuthCount)*0.03);
-                const duration=Math.max(1,construction.buildTime)*2.5*buildFactor;
-                const remainingSeconds=Math.max(0,Math.ceil(duration*(1-(Number(state.construction.progress)||0)/100)));
-                html += '<div class="stat-box"><b>Construindo: ' + construction.name + '</b><div class="founding-progress"><div id="structure-build-progress" style="width:' + state.construction.progress + '%"></div></div><small id="structure-build-label">' + Math.floor(state.construction.progress) + '% · '+remainingSeconds+'s restantes</small></div>';
-            }
-            else html += '<div class="founding-note">Nenhuma construção em andamento. As primeiras instalações podem ser erguidas manualmente.</div>';
+            const jobs=Array.isArray(state.constructionQueue)?state.constructionQueue:(construction?[state.construction]:[]);
+            if(jobs.length){
+                html+='<div class="stat-box"><b>Obras em andamento: '+jobs.length+'</b><small style="display:block;color:var(--text-muted)">Cada Bismuto livre pode conduzir uma construção simultaneamente.</small>';
+                jobs.forEach((job,index)=>{
+                    const def=structureDefinition(job.id),bismuthCount=Math.max(1,Number(state.census.bismuth)||1),factor=Math.max(.85,1-Math.min(5,bismuthCount)*.03),duration=Math.max(1,def?def.buildTime:20)*2.5*factor*(Number(state.census.morganite||0)>0?.8:1),progress=Math.max(0,Number(job.progress)||0),remaining=Math.max(0,Math.ceil(duration*(1-progress/100)));
+                    html+='<div style="margin-top:9px"><b>'+(index+1)+'. '+(def?def.name:job.id)+'</b><div class="founding-progress"><div id="structure-build-progress-'+index+'" style="width:'+progress+'%"></div></div><small id="structure-build-label-'+index+'">'+Math.floor(progress)+'% · '+remaining+'s restantes</small></div>';
+                });
+                html+='</div>';
+            }else html+='<div class="founding-note">Nenhuma construção em andamento. Inicie uma obra; cada Bismuto disponível permite outra construção simultânea.</div>';
             html += '</div>';
             categories.forEach(category => {
                 html += '<div class="structure-category"><div class="card-header"><b>' + category + '</b></div>';
