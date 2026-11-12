@@ -2011,6 +2011,7 @@
             return Math.floor(structureCount('injector')/5);
         }
         function setInjectorOrderType(index,type){
+            if(Number(state.census?.demantoid||0)>0){setStatusTicker('A Demantoide administra as ordens automaticamente.',true);return;}
             const orders=ensureInjectorOrders();
             if(!orders[index]||!FOUNDING_GEM_DATA[type]||type==='peridot')return;
             if(FOUNDING_GEM_DATA[type].refinedMaterial){
@@ -3857,7 +3858,21 @@ ${hasAristocrats ? `
                         weighted+=quantity*Math.min(100,Number(batch.progress)||0);
                     });
                     f.creationProgress=total?weighted/total:100;
-                    if(f.creationBatches.every(batch=>batch.completed))finishFirstGemCreation();
+                    const pending=f.creationBatches.filter(batch=>!batch.completed);
+                    const runnable=pending.filter(batch=>!isInjectorPaused(Number(batch.injectorIndex)||0));
+                    // Uma unidade pausada não pode segurar as demais: ao terminar os lotes ativos,
+                    // devolvemos os insumos das unidades pausadas e deixamos essas unidades para o próximo ciclo.
+                    if(runnable.length===0){
+                        pending.forEach(refundInjectorBatchResources);
+                        f.creationBatches=f.creationBatches.filter(batch=>batch.completed);
+                        const completed=f.creationBatches.reduce((sum,batch)=>sum+Math.max(0,Number(batch.quantity)||0),0);
+                        if(completed>0)finishFirstGemCreation();
+                        else{
+                            f.creationActive=false;f.creationProgress=0;f.creationBatchCount=0;
+                            f.creationTarget=null;f.creationSource='manual';f.creationMode=null;f.creationBatches=[];
+                            setStatusTicker('Produção suspensa. Os lotes dos Injetores pausados tiveram seus insumos devolvidos.');
+                        }
+                    }
                 }else{
                     const duration=Math.max(1,Number(f.creationDuration)||42);
                     f.creationProgress=Math.min(100,Number(f.creationProgress||0)+dt*100*multiplier/duration);
@@ -5750,6 +5765,17 @@ function drawColony(time){
             renderDrawerContent(); renderBottomBar();
         }
 
+        function refundInjectorBatchResources(batch){
+            if(!batch||batch.completed||batch.refunded)return;
+            const gem=FOUNDING_GEM_DATA[batch.type];if(!gem)return;
+            const quantity=Math.max(0,Math.floor(Number(batch.quantity)||0));if(!quantity)return;
+            const inventory=gem.refinedMaterial?(state.refinedResources||(state.refinedResources={})):
+                (state.founding.gatheredMinerals||(state.founding.gatheredMinerals={}));
+            const material=gem.refinedMaterial||gem.mineral;
+            inventory[material]=(Number(inventory[material])||0)+quantity;
+            state.founding.injectorEssence=(Number(state.founding.injectorEssence)||0)+quantity*12;
+            batch.refunded=true;
+        }
         function completeInjectorProductionBatch(batch){
             const data=FOUNDING_GEM_DATA[batch.type];
             if(!data||batch.completed)return;
