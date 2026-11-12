@@ -2727,6 +2727,7 @@ ${hasAristocrats ? `
 
         // 10C. Contexto do Globo da Colônia 360°
         function buildGemProductionReportCard() {
+            cancelUnauthorizedInjectorProduction();
             const managed=Number(state.census?.demantoid||0)>0;
             const injectorCount=structureCount('injector');
             const active=!!(state.founding?.creationActive&&state.founding?.creationSource==='injector');
