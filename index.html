@@ -2128,7 +2128,7 @@
             if(!structureIsOperational('galaxy_warp')||!source?.galaxyWarpBuilt){setStatusTicker('É necessário um Galaxy Warp operacional no planeta de origem.',true);return;}
             if(!target||!target.colonized||target.id===source.id){setStatusTicker('A expedição exige outro planeta já colonizado.',true);return;}
             if(target.galaxyWarpBuilt){setStatusTicker('Este planeta já possui um Galaxy Warp.');return;}
-            if(!(state.shipFleet||[]).length){setStatusTicker('É necessária ao menos uma nave para transportar a equipe de construção.',true);return;}
+            if(!(state.shipFleet||[]).some(ship=>ship.planetId===source.id)){setStatusTicker('É necessária uma nave posicionada no planeta de origem para transportar a equipe de construção.',true);return;}
             if(state.minerals<100||state.tech<40){setStatusTicker('A expedição exige 100 minerais e 40 de tecnologia.',true);return;}
             state.minerals-=100;state.tech-=40;
             state.galaxyWarpExpeditions=state.galaxyWarpExpeditions||[];
@@ -2820,7 +2820,7 @@ ${hasAristocrats ? `
             return diamond.kinesis;
         }
         function developDiamondWeapon(){
-            if(!structureIsOperational('research_center')){setStatusTicker('O Centro de Pesquisa exige Demantoide ou Piropos e seus operadores.',true);return;}
+            if(!structureIsOperational('research_center')){setStatusTicker('O Centro de Pesquisa exige Demantoide ou Piropo e seus operadores.',true);return;}
             const cost=50,planet=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld;
             const ruler=(planet.governor||'none').startsWith('matriarch_')?state.matriarchs.find(m=>'matriarch_'+m.id===planet.governor):state.firstDiamond;
             const ownerId=ruler===state.firstDiamond?'first':ruler.id;
