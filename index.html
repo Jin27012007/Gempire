@@ -1861,6 +1861,7 @@
             if(['workshop','defense_tower','shield_generator'].includes(id)&&!structureIsOperational('reactor'))return false;
             if(id==='research_center'&&!(Number(state.census.demantoid||0)>0||Number(state.census.pyrope||0)>0))return false;
             if(id==='workshop')return state.logisticsActive!==false;
+            if(id==='galaxy_warp')return !!PLANETS[state.activeColonyPlanetId]?.galaxyWarpBuilt&&Object.entries(def.workers||{}).every(([type,required])=>(Number(state.structureAssignments?.[id]?.[type])||0)>=required);
             if(id==='mineral_extractor'){
                 const jobs=state.structureAssignments&&state.structureAssignments[id]||{};
                 return (Number(jobs.peridot)||0)>=1&&(Number(state.census&&state.census.quartz)||0)>0;
@@ -2122,7 +2123,7 @@
         }
         function dispatchGalaxyWarpExpedition(targetId){
             const target=PLANETS[targetId],source=PLANETS[state.activeColonyPlanetId];
-            if(!structureIsOperational('galaxy_warp')){setStatusTicker('É necessário um Galaxy Warp operacional no planeta de origem.',true);return;}
+            if(!structureIsOperational('galaxy_warp')||!source?.galaxyWarpBuilt){setStatusTicker('É necessário um Galaxy Warp operacional no planeta de origem.',true);return;}
             if(!target||!target.colonized||target.id===source.id){setStatusTicker('A expedição exige outro planeta já colonizado.',true);return;}
             if(target.galaxyWarpBuilt){setStatusTicker('Este planeta já possui um Galaxy Warp.');return;}
             if(!(state.shipFleet||[]).length){setStatusTicker('É necessária ao menos uma nave para transportar a equipe de construção.',true);return;}
@@ -2483,7 +2484,7 @@
                             });
                         } else if(def.id==='workshop'){
                             const metallic=Math.max(0,Number(state.founding.gatheredMinerals?.metallic)||0),timer=Math.max(0,Number(state.logisticsMaintenanceTimer)||0);
-                            html+='<div class="founding-note">🚚 Transporte planetário autônomo · '+(state.logisticsActive===false?'Aguardando metal para reativar':'Operacional')+'<br>Metal disponível: <b>'+Math.floor(metallic).toLocaleString('pt-BR')+'</b> / 1.000 para manutenção<br>Próxima manutenção: <b>'+formatDuration(Math.max(0,600-timer))+'</b>. Consumo: 1.000 metais a cada 10 minutos.</div>';
+                            html+='<div class="founding-note">🚚 Transporte planetário autônomo · '+(!structureIsOperational('reactor')?'Aguardando Reator operacional':state.logisticsActive===false?'Aguardando metal para reativar':'Operacional')+'<br>Metal disponível: <b>'+Math.floor(metallic).toLocaleString('pt-BR')+'</b> / 1.000 para manutenção<br>Próxima manutenção: <b>'+formatDuration(Math.max(0,600-timer))+'</b>. Consumo: 1.000 metais a cada 10 minutos.</div>';
                         } else if (['research_center','shipyard','defense_tower','shield_generator','galaxy_warp','reactor','red_eye','royal_palace'].includes(def.id)) {
                             const labels = {refinery:'⚗️ Refinar materiais',research_center:'🔬 Desenvolver armamento',shipyard:'🚀 Construir nave',defense_tower:'🛡️ Calibrar defesa',shield_generator:'🔰 Ativar escudo',galaxy_warp:'🌀 Sincronizar Galaxy Warp',reactor:'⚡ Verificar reator',red_eye:'🔴 Enviar Olho Vermelho',royal_palace:'👑 Abrir Palácio Real'};
                             html += '<button class="btn btn-block" onclick="executeStructureInteraction(\'' + def.id + '\')" ' + (!structureIsOperational(def.id) ? 'disabled' : '') + '>' + labels[def.id] + '</button>';
