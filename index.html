@@ -2348,6 +2348,7 @@
                 state.founding.diamondEssence -= moved;
                 state.founding.injectorEssence = (Number(state.founding.injectorEssence) || 0) + moved;
             }
+            if(Number(state.census?.demantoid||0)>0)ensureInjectorOrders();
             if (structureIsOperational('injector') && !state.founding.creationActive) startInjectorProduction(true);
             if(state.currentScreen==='colony'&&state.drawerOpen&&state.drawerTab==='context'){
                 state.resourceChartAccumulator=(Number(state.resourceChartAccumulator)||0)+dt;
