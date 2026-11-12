@@ -4873,7 +4873,7 @@ ${hasAristocrats ? `
             const count=[4,4,9,15,23][stage]||4;if(!planet||planet.id!=='homeworld'||structureCount('workshop')<1||!structureIsOperational('workshop'))return;
             ctx.save();ctx.translate(cx,cy);ctx.rotate(-.19+camera.rotation*.08);
             ctx.strokeStyle=stage>=2?'rgba(148,163,184,.22)':'rgba(148,163,184,.12)';ctx.lineWidth=1;ctx.setLineDash([5,9]);
-            ctx.setLineDash([]);
+            if(!front){ctx.beginPath();ctx.ellipse(0,0,radius*(1.38+stage*.035),radius*(.47+stage*.018),0,0,Math.PI*2);ctx.stroke();}ctx.setLineDash([]);
             for(let i=0;i<count;i++){
                 const a=time*(.000035+i%3*.000008)+i*2.399963229728653+camera.rotation*.12,isFront=Math.sin(a)>0;
                 if(isFront!==front)continue;
@@ -5080,7 +5080,7 @@ function drawColony(time){
             const terminator=ctx.createRadialGradient(lightX,lightY,radius*.08,cx,cy,radius*1.12);terminator.addColorStop(0,'rgba(255,255,255,0)');terminator.addColorStop(.62,'rgba(2,6,23,.02)');terminator.addColorStop(1,'rgba(1,4,14,.72)');
             ctx.fillStyle=terminator;ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.fill();
             if(cam.xrayMode){ctx.save();ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.clip();ctx.translate(cx,cy);ctx.transform(Math.cos(cam.rotation),Math.sin(cam.rotation)*.10,-Math.sin(cam.rotation)*.18,1,0,0);ctx.scale(radius,radius);drawXRayMineralSeams(planet);ctx.restore();}
-            ctx.strokeStyle='rgba(219,234,254,.58)';ctx.lineWidth=1.2;ctx.beginPath();ctx.arc(cx,cy,radius-1,Math.PI*1.05,Math.PI*1.9);ctx.stroke();
+            // Removido o arco de recorte da crosta; a órbita de detritos identifica o Centro de Logística.
 
             drawHomeworldStructures(planet,cx,cy,radius,cam,time);
             drawRedEyeOrbital(planet,cx,cy,radius,time);
