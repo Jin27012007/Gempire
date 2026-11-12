@@ -1857,6 +1857,8 @@
             const def = structureDefinition(id);
             if (!def || structureCount(id) < 1 || !hasStructurePrerequisites(def)) return false;
             if (id === 'injector' && !structureIsOperational('essence_chamber')) return false;
+            if(['workshop','defense_tower','shield_generator'].includes(id)&&!structureIsOperational('reactor'))return false;
+            if(id==='research_center'&&!(Number(state.census.demantoid||0)>0||Number(state.census.pyrope||0)>0))return false;
             if(id==='workshop')return state.logisticsActive!==false;
             if(id==='mineral_extractor'){
                 const jobs=state.structureAssignments&&state.structureAssignments[id]||{};
@@ -1893,6 +1895,11 @@
             if (missing.length) return 'Requer: ' + missing.map(id => structureDefinition(id).name).join(', ');
             if (state.minerals < (def.cost.minerals || 0)) return 'Minerais insuficientes.';
             if (state.tech < (def.cost.tech || 0)) return 'Tecnologia insuficiente.';
+            if(['defense_tower','shipyard'].includes(def.id)&&structureCount('research_center')<1)return 'Requer um Centro de Pesquisa para desenvolver armamentos e projetos de nave.';
+            if(def.id==='diamond_quarters'&&structureCount('diamond_quarters')>=state.matriarchs.length+1)return 'Cada Diamante pode possuir apenas um Quarto próprio.';
+            if(def.id==='essence_chamber'&&structureCount('essence_chamber')>=state.matriarchs.length+1)return 'Cada Diamante pode possuir apenas uma Câmara de Extração de Essência.';
+            if(def.id==='lunar_base'&&!(PLANETS[state.activeColonyPlanetId]?.moons||[]).length)return 'Esta construção exige uma lua natural.';
+            if(def.id==='research_center'&&!(Number(state.census.demantoid||0)>0||Number(state.census.pyrope||0)>0))return 'Requer ao menos um Demantoide ou Piropos para operar.';
             if (freeGemWorkers('bismuth') < 1) return Number(state.census.morganite||0)>0 ? 'A Morganita aguarda uma Bismuto livre para comandar a próxima obra.' : 'Requer uma Bismuto livre para executar a construção.';
             return '';
         }
@@ -2339,8 +2346,8 @@
                         } else if(def.id==='workshop'){
                             const metallic=Math.max(0,Number(state.founding.gatheredMinerals?.metallic)||0),timer=Math.max(0,Number(state.logisticsMaintenanceTimer)||0);
                             html+='<div class="founding-note">🚚 Transporte planetário autônomo · '+(state.logisticsActive===false?'Aguardando metal para reativar':'Operacional')+'<br>Metal disponível: <b>'+Math.floor(metallic).toLocaleString('pt-BR')+'</b> / 1.000 para manutenção<br>Próxima manutenção: <b>'+formatDuration(Math.max(0,600-timer))+'</b>. Consumo: 1.000 metais a cada 10 minutos.</div>';
-                        } else if (['research_center','shipyard','terraformer','defense_tower','shield_generator','teleporter','administration_center','reactor','orbital_station','planetary_network'].includes(def.id)) {
-                            const labels = {refinery:'⚗️ Refinar materiais',research_center:'🔬 Pesquisar',shipyard:'🚀 Construir nave',terraformer:'🌊 Terraformar',defense_tower:'🛡️ Calibrar defesa',shield_generator:'🔰 Ativar escudo',teleporter:'🌀 Sincronizar teletransporte',administration_center:'📋 Organizar equipes',reactor:'⚡ Verificar reator',orbital_station:'🛰️ Iniciar operação orbital',planetary_network:'🌐 Expandir rede planetária'};
+                        } else if (['research_center','shipyard','defense_tower','shield_generator','galaxy_warp','reactor','red_eye','royal_palace'].includes(def.id)) {
+                            const labels = {refinery:'⚗️ Refinar materiais',research_center:'🔬 Desenvolver armamento',shipyard:'🚀 Construir nave',defense_tower:'🛡️ Calibrar defesa',shield_generator:'🔰 Ativar escudo',galaxy_warp:'🌀 Sincronizar Galaxy Warp',reactor:'⚡ Verificar reator',red_eye:'🔴 Enviar Olho Vermelho',royal_palace:'👑 Abrir Palácio Real'};
                             html += '<button class="btn btn-block" onclick="executeStructureInteraction(\'' + def.id + '\')" ' + (!structureIsOperational(def.id) ? 'disabled' : '') + '>' + labels[def.id] + '</button>';
                          } else if (def.id === 'mineral_extractor') html += '<div class="founding-note">Todos os ' + Math.max(0,Number(state.census.quartz)||0) + ' Quartzos da população mineram automaticamente, sem designação manual. Cada Quartzo extrai 1 mineral a cada 10s; cada Ágata acelera até 20 deles para 5s (2×).</div>';
                         else if (def.id === 'essence_chamber') html += '<div class="founding-note">Transfere essência da reserva interna da Diamante para o estoque.</div>';
@@ -4571,7 +4578,7 @@ ${hasAristocrats ? `
         function drawHomeworldStructures(planet,cx,cy,radius,camera,time){
             if(!planet||planet.id!=='homeworld')return;
             const size=Math.max(.30,Math.min(.56,radius/390)),rulerColors=getPlanetRulerColors(planet);
-            if(structureCount('workshop')>0&&state.logisticsActive!==false){
+            if(structureCount('workshop')>0&&state.logisticsActive!==false&&structureIsOperational('reactor')){
                 const stock=Math.max(0,Number(state.minerals)||0),growth=Math.max(0,Math.min(1,Math.log1p(stock)/Math.log1p(50000)));
                 const orbitRadius=radius*(1.075+growth*.48),rotation=camera.rotation*.16;
                 ctx.save();ctx.translate(cx,cy);ctx.rotate(rotation);
@@ -4583,8 +4590,8 @@ ${hasAristocrats ? `
                 for(let n=0;n<3;n++){const a=time*.00018+n*Math.PI*2/3;ctx.beginPath();ctx.arc(Math.cos(a)*orbitRadius,Math.sin(a)*orbitRadius*.91,Math.max(2,radius*.012),0,Math.PI*2);ctx.fill();}
                 ctx.restore();
             }
-            if(structureCount('planetary_network')>0){
-                ctx.save();ctx.strokeStyle=structureIsOperational('planetary_network')?(rulerColors?.glow||'rgba(196,181,253,.58)'):(rulerColors?.accent||'rgba(100,116,139,.28)');ctx.lineWidth=Math.max(1,radius*.006);ctx.setLineDash([5,5]);
+            if(structureCount('royal_palace')>0){
+                ctx.save();ctx.strokeStyle=structureIsOperational('royal_palace')?(rulerColors?.glow||'rgba(196,181,253,.58)'):(rulerColors?.accent||'rgba(100,116,139,.28)');ctx.lineWidth=Math.max(1,radius*.006);ctx.setLineDash([5,5]);
                 for(let k=0;k<8;k++){const a=camera.rotation+k*Math.PI/4,b=camera.rotation+(k+1)*Math.PI/4;ctx.beginPath();ctx.moveTo(cx+Math.cos(a)*radius*.22,cy+Math.sin(a)*radius*.18);ctx.quadraticCurveTo(cx,cy,cx+Math.cos(b)*radius*.22,cy+Math.sin(b)*radius*.18);ctx.stroke();}
                 ctx.setLineDash([]);ctx.restore();
             }
@@ -5650,6 +5657,10 @@ function drawColony(time){
                 state.founding.gemsCreatedCount = Number(state.founding.gemsCreatedCount) || 0;
                 state.founding.selectedGem = state.founding.selectedGem || 'quartz';
                 state.structures = state.structures || {};
+                state.structures.galaxy_warp=(Number(state.structures.galaxy_warp)||0)+(Number(state.structures.teleporter)||0);delete state.structures.teleporter;
+                state.structures.red_eye=(Number(state.structures.red_eye)||0)+(Number(state.structures.orbital_station)||0);delete state.structures.orbital_station;
+                state.structures.royal_palace=(Number(state.structures.royal_palace)||0)+(Number(state.structures.planetary_network)||0);delete state.structures.planetary_network;
+                delete state.structures.administration_center;delete state.structures.terraformer;
                 state.structureAssignments = state.structureAssignments || {};
                 if(state.structureAssignments.mineral_extractor)delete state.structureAssignments.mineral_extractor.quartz;
                 if(state.structureAssignments.refinery)delete state.structureAssignments.refinery.quartz;
@@ -5658,7 +5669,11 @@ function drawColony(time){
                 state.construction=state.constructionQueue[0]||null;
                 state.currentScreen='throne';
                 state.morganiteAutoBuild = state.morganiteAutoBuild !== false;
+                state.structures.diamond_quarters=Number(state.structures.diamond_quarters)||0;
+                state.structures.lunar_base=Number(state.structures.lunar_base)||0;
                 state.logisticsMaintenanceTimer=Math.max(0,Number(state.logisticsMaintenanceTimer)||0);
+                state.diamondWeapons=Array.isArray(state.diamondWeapons)?state.diamondWeapons:[];
+                state.ships=Array.isArray(state.ships)?state.ships:[];
                 state.logisticsActive=state.logisticsActive!==false;
                 state.gemTransfers = Array.isArray(state.gemTransfers)?state.gemTransfers:[];
                 state.energy = Number(state.energy) || 0;
@@ -5671,6 +5686,7 @@ function drawColony(time){
                 state.gemObjects.history = state.gemObjects.history || [];
                 PLANETS.homeworld.gemObjects = Array.isArray(PLANETS.homeworld.gemObjects)?PLANETS.homeworld.gemObjects:[];
                 state.census = state.census || {};
+                state.census.demantoid=Math.max(0,Number(state.census.demantoid)||0);
                 ['quartz','peridot','lapis','sapphire','hessonite','bismuth','ruby','pearl','prime','offcolor','pyrope','agate','nephrite','jade','morganite','aquamarine','emerald','topaz'].forEach(k=>state.census[k]=Math.max(0,Number(state.census[k])||0));
                 state.founding.gatheredMinerals=Object.assign({quartz:0,silicate:0,corundum:0,metallic:0,nacre:0,garnet:0,olivine:0,lapisrock:0,pyroxene:0,beryllium:0,topaz:0},state.founding.gatheredMinerals||{});
                 state.founding.collectedMinerals=Object.assign({},state.founding.gatheredMinerals,state.founding.collectedMinerals||{});
