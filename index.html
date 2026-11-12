@@ -5350,7 +5350,7 @@ function drawColony(time){
             }
             if(!Array.isArray(state.founding.productionReports))state.founding.productionReports=[];
             state.founding.productionReports.push({type:batch.type,injectorIndex:Number(batch.injectorIndex)||0,gemLabel:data.label,quantity:quantity,grade:'A',mineralName:data.mineralName,cycle:Number(state.cycleCount)||1,description:'Lote do Injetor #'+(Number(batch.injectorIndex)+1)+', operado automaticamente pela frota.'});
-            if(state.founding.productionReports.length>50)state.founding.productionReports.shift();
+            if(state.founding.productionReports.length>20)state.founding.productionReports.splice(0,state.founding.productionReports.length-20);
             batch.completed=true;
             batch.progress=100;
             updateHUD();renderDrawerContent();renderBottomBar();
