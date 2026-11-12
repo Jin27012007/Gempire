@@ -1825,7 +1825,7 @@
             // O painel de fundação pertence exclusivamente à Era Primitiva.
             // Depois da primeira Gem, o Contexto volta a refletir a tela ativa
             // (Trono, Mapa Estelar ou Globo 360°), sem recriar a coleta manual.
-            if (state.firstGameStarted && state.founding && !state.founding.firstGemCreated) {
+            if (state.firstGameStarted && state.founding && !manualMineralGatheringCanEnd()) {
                 renderFoundingContext(body);
                 return;
             }
@@ -1846,6 +1846,11 @@
             return assignedToStructures + assignedToConstruction;
         }
         function freeGemWorkers(gemType) { return Math.max(0, (Number(state.census && state.census[gemType]) || 0) - totalAssignedWorkers(gemType)); }
+        function manualMineralGatheringCanEnd() {
+            const census=state.census||{};
+            const hasStarterGems=['quartz','peridot','bismuth'].every(type=>(Number(census[type])||0)>=1);
+            return hasStarterGems&&structureCount('mineral_extractor')>0&&structureIsOperational('mineral_extractor');
+        }
         function structureIsOperational(id) {
             const def = structureDefinition(id);
             if (!def || structureCount(id) < 1 || !hasStructurePrerequisites(def)) return false;
@@ -5255,7 +5260,7 @@ function drawColony(time){
 
         function gatherPrimitiveMineral() {
             const found=state.founding;
-            if(structureCount('mineral_extractor')>0){setStatusTicker('A coleta manual foi desativada: o Extrator Mineral assumiu o abastecimento do Império.');return;}
+            if(manualMineralGatheringCanEnd()){setStatusTicker('A coleta manual foi substituída: Quartzo, Peridot, Bismuto e Extrator Mineral já estão disponíveis.');return;}
             if((Number(found.gatherCooldown)||0)>0){
                 setStatusTicker('Aguarde '+found.gatherCooldown.toFixed(1)+'s antes de procurar outra rocha.',true);
                 return;
@@ -5410,7 +5415,7 @@ function drawColony(time){
                 '<div style="font-size:12px;line-height:1.55;color:#cbd5e1">' + escapeHTML(fd.name) + ' iniciou a civilização sem infraestrutura. Gems já nascem conhecendo sua função e podem ser integradas à população imperial.</div>' +
                 '<div class="stat-box">Gems criadas: <b>' + (found.gemsCreatedCount || 0) + '</b> · Minerais brutos: <b>' + Math.floor(state.minerals) + '</b> · Materiais refinados: <b>' + Math.floor(state.refinedMaterials || 0) + '</b></div>' +
                 '</div>' +
-                '<div class="card"><div class="card-header"><span class="card-title title-font">⛏️ Exploração manual</span></div><div class="founding-note">Cada busca encontra uma rocha aleatória. Coríndon, matéria-prima de Safiras e Rubis, é abundante; a temperatura do planeta determina qual das duas variedades pode se formar. Lápis-lazúli e granada hessonítica continuam menos comuns.</div><div class="stat-box"><span class="stat-label">Próximo encontro</span><b>' + ((found.gatherCooldown||0)>0?'⏳ Disponível em '+found.gatherCooldown.toFixed(1)+'s':'Pronto para explorar') + '</b></div><button id="gather-mineral-button" class="btn btn-amber btn-block" onclick="gatherPrimitiveMineral()" ' + ((found.gatherCooldown||0)>0||structureCount('mineral_extractor')>0?'disabled':'') + '>'+(structureCount('mineral_extractor')>0?'⛏️ Coleta manual encerrada pelo Extrator':'⛏️ Procurar rochas · 5s entre encontros')+'</button><div class="grid-2">' + mineralCards + '</div></div>' +
+                '<div class="card"><div class="card-header"><span class="card-title title-font">⛏️ Exploração manual</span></div><div class="founding-note">Cada busca encontra uma rocha aleatória. Coríndon, matéria-prima de Safiras e Rubis, é abundante; a temperatura do planeta determina qual das duas variedades pode se formar. Lápis-lazúli e granada hessonítica continuam menos comuns.</div><div class="stat-box"><span class="stat-label">Próximo encontro</span><b>' + ((found.gatherCooldown||0)>0?'⏳ Disponível em '+found.gatherCooldown.toFixed(1)+'s':'Pronto para explorar') + '</b></div><button id="gather-mineral-button" class="btn btn-amber btn-block" onclick="gatherPrimitiveMineral()" ' + ((found.gatherCooldown||0)>0||manualMineralGatheringCanEnd()?'disabled':'') + '>'+(manualMineralGatheringCanEnd()?'⛏️ Extração automatizada':'⛏️ Procurar rochas · 5s entre encontros')+'</button><div class="grid-2">' + mineralCards + '</div></div>' +
                 '<div class="card"><div class="card-header"><span class="card-title title-font">✨ Essência da Diamante</span></div>' +
                 '<div class="founding-note">'+(structureCount('essence_chamber')>0?'A Câmara funciona como uma sauna de essência. O banho dura 30 segundos, produz 10.000 unidades (100× o rendimento anterior) e exige até 3 horas de recuperação.':'Sem uma Câmara construída, a Diamante produz essência por meio de exercícios físicos.')+'</div>' +
                 '<div class="stat-box">Essência armazenada: <b>' + Object.values(state.essence).reduce((a,b)=>a+b,0).toFixed(1) + '</b> · Reserva interna da Diamante: <b>' + (found.diamondEssence || 0).toFixed(1) + '</b> · Recebida pelo Injetor: <b>' + (found.injectorEssence || 0).toFixed(1) + '</b></div>' +
@@ -5439,9 +5444,9 @@ function drawColony(time){
             const cooldownLabel=document.getElementById('founder-bath-cooldown');if(cooldownLabel)cooldownLabel.textContent=formatDuration(found.bathCooldown);
             const gatherButton=document.getElementById('gather-mineral-button');
             if(gatherButton){
-                const extractorBuilt=structureCount('mineral_extractor')>0,gathering=(Number(found.gatherCooldown)||0)>0;
-                gatherButton.disabled=extractorBuilt||gathering;
-                gatherButton.textContent=extractorBuilt?'⛏️ Coleta manual encerrada pelo Extrator':gathering?'⏳ Próximo encontro em '+found.gatherCooldown.toFixed(1)+'s':'⛏️ Procurar rochas · 5s entre encontros';
+                const extractorReady=manualMineralGatheringCanEnd(),gathering=(Number(found.gatherCooldown)||0)>0;
+                gatherButton.disabled=extractorReady||gathering;
+                gatherButton.textContent=extractorReady?'⛏️ Extração automatizada':gathering?'⏳ Próximo encontro em '+found.gatherCooldown.toFixed(1)+'s':'⛏️ Procurar rochas · 5s entre encontros';
             }
             const progress = document.getElementById('founder-creation-progress');
             const label = document.getElementById('founder-creation-progress-label');
