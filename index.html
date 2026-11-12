@@ -681,6 +681,7 @@
             morganite:{id:'morganite',shortName:'Morganita',name:'Morganita (Matriarca das Obras)',primeTitle:'Morganita Regente [Rank S]',offcolorTitle:'Morganita Irregular',requiredVein:'beryllium',refinedMaterial:'beryllium',veinLabel:'Berílio Refinado',optimalPlanets:['ignis_prime'],optimalLabel:'Ignis-Prime',essence:{white:25,yellow:15,blue:10,pink:35},idealMaturation:3,color:'#f0a6c2',bubbleText:'🏗️ Coordenando obras',roleDesc:'Aristocrata que comanda automaticamente as Bismutos e supervisiona a construção de estruturas.'},
             aquamarine:{id:'aquamarine',shortName:'Água-marinha',name:'Água-marinha (Comando Logístico)',primeTitle:'Água-marinha Almirante [Rank S]',offcolorTitle:'Água-marinha Turva',requiredVein:'beryllium',refinedMaterial:'beryllium',veinLabel:'Berílio Refinado',optimalPlanets:['thalassa_9','caelum_gelidus'],optimalLabel:'Thalassa-9, Caelum-Gelidus',essence:{white:15,yellow:5,blue:40,pink:25},idealMaturation:3,color:'#67e8f9',bubbleText:'🧭 Ordenando rotas',roleDesc:'Aristocrata que coordena e envia Lápis-Lazúlis automaticamente para mundos elegíveis.'},
             emerald:{id:'emerald',shortName:'Esmeralda',name:'Esmeralda (Comando de Exércitos)',primeTitle:'Esmeralda Estrategista [Rank S]',offcolorTitle:'Esmeralda Fraturada',requiredVein:'beryllium',refinedMaterial:'beryllium',veinLabel:'Berílio Refinado',optimalPlanets:['terra_veritas','homeworld'],optimalLabel:'Terra-Veritas, Homeworld',essence:{white:20,yellow:25,blue:15,pink:20},idealMaturation:3,color:'#34d399',bubbleText:'⚔️ Mobilizando',roleDesc:'Aristocrata que coordena Hessonitas e amplia a capacidade de mobilização em larga escala.'},
+            demantoid:{id:'demantoid',shortName:'Demantoide',name:'Demantoide (Supervisora Científica)',primeTitle:'Demantoide de Pesquisa [Rank S]',offcolorTitle:'Demantoide Irregular',requiredVein:'garnet',veinLabel:'Granada',optimalPlanets:['homeworld','ignis_prime'],optimalLabel:'Homeworld, Ignis-Prime',essence:{white:25,yellow:10,blue:35,pink:10},idealMaturation:3,color:'#4ade80',bubbleText:'🔬 Coordenando os Injetores',roleDesc:'Supervisiona a pesquisa e define automaticamente a produção dos Injetores.'},
             pyrope:{id:'pyrope',shortName:'Piropo',name:'Piropo (General de Exércitos)',primeTitle:'Piropo Marechal [Rank S]',offcolorTitle:'Piropo de Corte Irregular',requiredVein:'garnet',veinLabel:'Granada Piropo',optimalPlanets:['ignis_prime','homeworld'],optimalLabel:'Ignis-Prime, Homeworld',essence:{white:10,yellow:35,blue:10,pink:15},idealMaturation:2,color:'#b91c1c',bubbleText:'⚔️ Formando legiões',roleDesc:'General de alto escalão, especializado em organizar grandes exércitos.'},
             hessonite:{id:'hessonite',shortName:'Hessonita',name:'Hessonita (General e Mobilização)',primeTitle:'Hessonita Marechal [Rank S]',offcolorTitle:'Hessonita de Tom Turvo',requiredVein:'garnet',veinLabel:'Granada Hessonítica',optimalPlanets:['ignis_prime','homeworld'],optimalLabel:'Ignis-Prime, Homeworld',essence:{white:15,yellow:25,blue:10,pink:20},idealMaturation:2,color:'#d97745',bubbleText:'⚔️ Coordenando',roleDesc:'General responsável por organizar tropas e coordenar ataques.'},
             topaz:{id:'topaz',shortName:'Topázio',name:'Topázio (Guarda Palaciana)',primeTitle:'Topázio Sentinela [Rank S]',offcolorTitle:'Topázio Irregular',requiredVein:'topaz',veinLabel:'Bolsa de Topázio',optimalPlanets:['caelum_gelidus','ignis_prime'],optimalLabel:'Caelum-Gelidus, Ignis-Prime',essence:{white:30,yellow:15,blue:15,pink:5},idealMaturation:3,color:'#f59e0b',bubbleText:'🏛️ Em guarda',roleDesc:'Soldado raro, reservado à proteção de palácios e comitivas de Gems importantes.'},
@@ -807,7 +808,7 @@
             {id:'diamond_quarters',name:'Quarto de Diamante',category:'Residências',desc:'Residência individual de uma Diamante. Desbloqueia a futura comunicação privada entre Diamantes por uma rede de mensagens.',cost:{minerals:120,tech:70},buildTime:55,prerequisites:['royal_palace'],workers:{peridot:1},interaction:'Um quarto exclusivo para cada Diamante da dinastia.',maxCount:99},
             {id:'lunar_base',name:'Base Lunar',category:'Residências',desc:'Habitat de uma Diamante ou elite em uma lua natural. Consolida relatórios resumidos, alertas e informações da colônia. Só pode ser construída em planetas com ao menos uma lua.',cost:{minerals:180,tech:90},buildTime:65,prerequisites:['royal_palace','reactor'],workers:{peridot:1},interaction:'Fornece residência avançada e relatórios resumidos da colônia.',maxCount:3}
         ];
-        const GEM_ROLE_NAMES = {quartz:'Quartzo · extração e infantaria',peridot:'Peridoto · engenharia e jardins',bismuth:'Bismuto · construção',lapis:'Lápis-Lazúli · terraformação',sapphire:'Safira · previsão',ruby:'Rubi · guarda pessoal',pearl:'Pérola · assistência',hessonite:'Hessonita · general',pyrope:'Piropo · general',agate:'Ágata · comando de esquadrões',nephrite:'Nefrita · pilotagem de guerra',jade:'Jade · corte e eventos sociais',morganite:'Morganita · comando de obras',aquamarine:'Água-marinha · logística Lápis',emerald:'Esmeralda · comando militar',topaz:'Topázio · guarda palaciana'};
+        const GEM_ROLE_NAMES = {quartz:'Quartzo · extração e infantaria',peridot:'Peridoto · engenharia e jardins',bismuth:'Bismuto · construção',lapis:'Lápis-Lazúli · terraformação',sapphire:'Safira · previsão',ruby:'Rubi · guarda pessoal',pearl:'Pérola · assistência',hessonite:'Hessonita · general',demantoid:'Demantoide · supervisão científica',pyrope:'Piropo · general',agate:'Ágata · comando de esquadrões',nephrite:'Nefrita · pilotagem de guerra',jade:'Jade · corte e eventos sociais',morganite:'Morganita · comando de obras',aquamarine:'Água-marinha · logística Lápis',emerald:'Esmeralda · comando militar',topaz:'Topázio · guarda palaciana'};
 
         const GEM_HIERARCHY = [
             {tier:'S',name:'Autoridade Diamante',entries:[['firstDiamond','Diamante Matriarca','Jogadora e autoridade máxima do Império.'],['matriarchs','Diamantes subordinadas','Possuem consciência própria e autonomia para governar suas Gems e colônias; decisões imperiais de grande escala são encaminhadas à Matriarca.']]},
@@ -1896,7 +1897,7 @@
             if(def.id==='galaxy_warp'){if(PLANETS[state.activeColonyPlanetId]?.galaxyWarpBuilt)return 'Este planeta já possui um Galaxy Warp.';}else if (def.id!=='diamond_quarters' && structureCount(def.id) >= (def.maxCount || 1)) return 'Limite desta estrutura atingido.';
             if(def.id==='royal_palace'&&state.activeColonyPlanetId!=='homeworld')return 'O Palácio Real só pode ser construído em Homeworld.';
             if(def.id==='diamond_quarters'&&state.activeColonyPlanetId!=='homeworld')return 'Os Quartos de Diamante só podem ser construídos em Homeworld.';
-            if(def.id==='diamond_quarters'&&structureCount('diamond_quarters')>=getDiamondOwners().length)return 'Cada Diamante já possui seu Quarto ou não há outra Diamante na dinastia.';
+            if(def.id==='diamond_quarters'&&structureCount('diamond_quarters')+(state.constructionQueue||[]).filter(job=>job&&job.active&&job.id==='diamond_quarters').length>=getDiamondOwners().length)return 'Cada Diamante já possui um Quarto construído ou em construção.';
             const missing = (def.prerequisites || []).filter(id => structureCount(id) < 1);
             if (missing.length) return 'Requer: ' + missing.map(id => structureDefinition(id).name).join(', ');
             if (state.minerals < (def.cost.minerals || 0)) return 'Minerais insuficientes.';
@@ -1988,8 +1989,8 @@
                 const candidates=Object.entries(FOUNDING_GEM_DATA).filter(([key,g])=>key!=='peridot'&&(!g.stored||structureIsOperational('reef'))&&(!g.climate||foundingGemClimateAllowed(g,planet))).map(([key,g])=>({key,g,available:Math.max(0,Number((g.refinedMaterial?refined:raw)[g.refinedMaterial||g.mineral])||0),population:Number(census[key]||0)})).filter(x=>x.available>=1).sort((a,b)=>a.population-b.population||b.available-a.available);
                 for(let i=0;i<count;i++){const pick=candidates[i%candidates.length];if(pick)f.injectorOrders[i]={type:pick.key,quantity:Math.min(5,Math.floor(pick.available))};}
                 state.structureAssignments=state.structureAssignments||{};state.structureAssignments.injector=state.structureAssignments.injector||{};
-                const assigned=Number(state.structureAssignments.injector.peridot)||0,needed=count,available=assigned+freeGemWorkers('peridot');
-                if(available>=needed)state.structureAssignments.injector.peridot=needed;
+                const assigned=Number(state.structureAssignments.injector.peridot)||0,available=assigned+freeGemWorkers('peridot');
+                if(available>0)state.structureAssignments.injector.peridot=Math.min(count,available);
             }
             while(f.injectorOrders.length<count){
                 const previous=f.injectorOrders.length?f.injectorOrders[f.injectorOrders.length-1].type:defaultType;
@@ -3217,6 +3218,10 @@ ${hasAristocrats ? `
                 }
             }
 
+            if(recipe.requiredVein==='garnet'){
+                const roll=Math.random();
+                recipe=roll<0.10?GEM_RECIPES.demantoid:roll<0.38?GEM_RECIPES.pyrope:GEM_RECIPES.hessonite;
+            }
             const climateMatches=gemRecipeAllowedOnPlanet(recipe,planet);
             const veinMatches = recipe.requiredVein === vein.type && climateMatches;
             const isOptimalPlanet = recipe.optimalPlanets.includes(planet.id) && climateMatches;
@@ -5534,7 +5539,8 @@ function drawColony(time){
             sapphire:{label:'Safira',mineral:'corundum',color:'#818cf8',role:'Aristocrata vidente; previsões de eventos possíveis',elements:'Al₂O₃',mineralName:'Coríndon',climate:'coldFar'},
             ruby:{label:'Rubi',mineral:'corundum',color:'#f43f5e',role:'Soldado Quartzo de guarda pessoal; fusão apenas entre Rubis',elements:'Al₂O₃ com Cr³⁺',mineralName:'Coríndon',family:'quartz',climate:'notBelowZero'},
             pearl:{label:'Pérola',mineral:'nacre',color:'#f5d0fe',role:'Servente vinculada a uma única dona; Pérolas de Recife concedem ×2',elements:'Material carbonático biogênico',mineralName:'Nácar',stored:true},
-            hessonite:{label:'Hessonita',mineral:'garnet',color:'#d97745',role:'General; mobilização e coordenação de tropas',elements:'Granada grossulária',mineralName:'Granada hessonítica'},
+            demantoid:{label:'Demantoide',mineral:'garnet',color:'#4ade80',role:'Supervisora científica; define a produção dos Injetores',elements:'Granada demantoide',mineralName:'Granada'},
+            hessonite:{label:'Hessonita',mineral:'garnet',color:'#d97745',role:'General; mobilização e coordenação de tropas',elements:'Granada grossulária',mineralName:'Granada'},
             pyrope:{label:'Piropo',mineral:'garnet',color:'#b91c1c',role:'General de exércitos e operações em larga escala',elements:'Granada piropo',mineralName:'Granada piropo'},
             agate:{label:'Ágata',mineral:'quartz',refinedMaterial:'quartz',color:'#d6a77a',role:'Comanda grupos de até 20 soldados Quartzo por Ágata',elements:'Quartzo microcristalino refinado',mineralName:'Quartzo refinado'},
             nephrite:{label:'Nefrita',mineral:'pyroxene',color:'#65a30d',role:'Pilota naves com velocidade dobrada; única casta apta a pilotar naves de guerra',elements:'Piroxênio',mineralName:'Piroxênio comum'},
