@@ -1974,12 +1974,17 @@
         function closeInjectorProductionWindow(){const modal=document.getElementById('injector-production-window');if(modal)modal.classList.add('hidden');}
         function getDefaultInjectorGemType(){
             const f=state.founding||{};
+            // A programação já existente é a fonte de verdade. Construir outro
+            // Injetor nunca deve inferir uma nova ordem a partir do último lote.
+            const orders=Array.isArray(f.injectorOrders)?f.injectorOrders:[];
+            const configured=orders.find(order=>order&&FOUNDING_GEM_DATA[order.type]&&order.type!=='peridot');
+            if(configured)return configured.type;
+            const preferred=f.injectorGemType;
+            if(preferred&&preferred!=='peridot'&&FOUNDING_GEM_DATA[preferred])return preferred;
             if(f.creationActive&&f.creationSource==='injector'&&FOUNDING_GEM_DATA[f.creationTarget]&&f.creationTarget!=='peridot')return f.creationTarget;
             const reports=Array.isArray(f.productionReports)?f.productionReports:[];
             const latest=reports.slice().reverse().find(report=>report&&FOUNDING_GEM_DATA[report.type]&&report.type!=='peridot');
-            if(latest)return latest.type;
-            const legacy=f.injectorGemType;
-            return legacy&&legacy!=='peridot'&&FOUNDING_GEM_DATA[legacy]?legacy:'quartz';
+            return latest?latest.type:'quartz';
         }
         function ensureInjectorOrders(){
             const f=state.founding||(state.founding={});
@@ -2014,7 +2019,8 @@
                 }
             }
             orders[index].type=type;
-            if(index===0)state.founding.injectorGemType=type;
+            // Mantém a exigência escolhida como padrão persistente para novos Injetores.
+            state.founding.injectorGemType=type;
             setStatusTicker('Injetor #'+(index+1)+' programado para produzir '+FOUNDING_GEM_DATA[type].label+'.');
         }
         function setInjectorOrderQuantity(index,value){
