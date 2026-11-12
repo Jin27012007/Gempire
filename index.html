@@ -2003,11 +2003,35 @@
             const count=structureCount('injector'),defaultType=getDefaultInjectorGemType(),managed=Number(state.census?.demantoid||0)>0;
             if(managed&&count>0){
                 const raw=f.gatheredMinerals||{},refined=state.refinedResources||{},census=state.census||{},planet=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld;
-                const candidates=Object.entries(FOUNDING_GEM_DATA).filter(([key,g])=>key!=='peridot'&&(!g.stored||structureIsOperational('reef'))&&(!g.climate||foundingGemClimateAllowed(g,planet))).map(([key,g])=>({key,g,available:Math.max(0,Number((g.refinedMaterial?refined:raw)[g.refinedMaterial||g.mineral])||0),population:Number(census[key]||0)})).filter(x=>x.available>=1).sort((a,b)=>a.population-b.population||b.available-a.available);
-                for(let i=0;i<count;i++){const pick=candidates[i%candidates.length];if(pick)f.injectorOrders[i]={...(f.injectorOrders[i]||{}),type:pick.key,quantity:Math.min(5,Math.floor(pick.available))};}
-                state.structureAssignments=state.structureAssignments||{};state.structureAssignments.injector=state.structureAssignments.injector||{};
-                const assigned=Number(state.structureAssignments.injector.peridot)||0,available=assigned+freeGemWorkers('peridot');
-                if(available>0)state.structureAssignments.injector.peridot=Math.min(count,available);
+                const candidates=Object.entries(FOUNDING_GEM_DATA)
+                    .filter(([key,g])=>key!=='peridot'&&(!g.stored||structureIsOperational('reef'))&&(!g.climate||foundingGemClimateAllowed(g,planet)))
+                    .map(([key,g])=>({key,g,available:Math.max(0,Number((g.refinedMaterial?refined:raw)[g.refinedMaterial||g.mineral])||0),population:Number(census[key]||0)}))
+                    .filter(x=>x.available>=1).sort((a,b)=>a.population-b.population||b.available-a.available);
+                // Reserva o estoque entre as unidades para não programar nove vezes o mesmo mineral.
+                for(let i=0;i<count;i++){
+                    const pick=candidates.find(candidate=>candidate.available>=1);
+                    if(pick){
+                        const quantity=Math.min(5,Math.floor(pick.available));
+                        f.injectorOrders[i]={...(f.injectorOrders[i]||{}),type:pick.key,quantity};
+                        pick.available-=quantity;
+                    }else{
+                        f.injectorOrders[i]={...(f.injectorOrders[i]||{}),quantity:0};
+                    }
+                }
+                // A Demantoide distribui Peridotos primeiro nas Câmaras (pré-requisito
+                // da frota) e depois nos Injetores. Antes, ela só tentava operar os Injetores,
+                // deixando a Câmara sem operador e bloqueando toda a produção.
+                state.structureAssignments=state.structureAssignments||{};
+                state.structureAssignments.essence_chamber=state.structureAssignments.essence_chamber||{};
+                state.structureAssignments.injector=state.structureAssignments.injector||{};
+                const chamberJobs=state.structureAssignments.essence_chamber,injectorJobs=state.structureAssignments.injector;
+                const chamberAssigned=Math.max(0,Number(chamberJobs.peridot)||0);
+                const injectorAssigned=Math.max(0,Number(injectorJobs.peridot)||0);
+                const availablePeridots=chamberAssigned+injectorAssigned+freeGemWorkers('peridot');
+                const chamberTarget=Math.min(structureCount('essence_chamber'),availablePeridots);
+                chamberJobs.peridot=chamberTarget;
+                const remainingPeridots=Math.max(0,availablePeridots-chamberTarget);
+                injectorJobs.peridot=Math.min(count,remainingPeridots);
             }
             while(f.injectorOrders.length<count){
                 const previous=f.injectorOrders.length?f.injectorOrders[f.injectorOrders.length-1].type:defaultType;
@@ -2086,11 +2110,14 @@
             return '<div class="founding-note">'+(managed?'A Demantoide administra as ordens. Você ainda pode pausar qualquer unidade.':'Modo manual: escolha a Gem e a quantidade de cada Injetor. A produção só começa ao pressionar Iniciar.')+' Cada Injetor produz até 5 Gems. Matéria refinada: máximo de 1 Injetor a cada 5 unidades; ciclo de 84s em vez de 42s.</div><div class="stat-box">Programado: <b>'+scheduled+'/'+totalCapacity+'</b> Gems · Injetores refinados: <b>'+refinedReserved+'/'+getRefinedInjectorLimit()+'</b></div><button class="btn btn-block" style="margin-bottom:8px" onclick="toggleAllInjectorsPause()">'+((state.founding||{}).injectorPauseAll?'▶ Retomar todos':'Ⅱ Pausar todos')+'</button>'+rows;
         }
         function getInjectorProductionPlan(){
-            const orders=ensureInjectorOrders(),batches=orders.map((order,index)=>({injectorIndex:index,type:order.type,quantity:order.quantity})).filter(batch=>batch.quantity>0&&!isInjectorPaused(batch.injectorIndex));
-            const activeOrders=orders.filter((order,index)=>order.quantity>0&&!isInjectorPaused(index));
+            const orders=ensureInjectorOrders();
+            const staffed=Math.max(0,Math.floor(Number(state.structureAssignments?.injector?.peridot)||0));
+            const batches=orders.map((order,index)=>({injectorIndex:index,type:order.type,quantity:order.quantity}))
+                .filter(batch=>batch.injectorIndex<staffed&&batch.quantity>0&&!isInjectorPaused(batch.injectorIndex));
+            const activeOrders=orders.filter((order,index)=>index<staffed&&order.quantity>0&&!isInjectorPaused(index));
             const refinedReserved=activeOrders.filter(order=>FOUNDING_GEM_DATA[order.type]&&FOUNDING_GEM_DATA[order.type].refinedMaterial).length;
-            if(refinedReserved>getRefinedInjectorLimit())return {valid:false,reason:'Somente 1 Injetor a cada 5 pode usar matéria-prima refinada.',batches:[]};
-            return {valid:true,batches};
+            if(refinedReserved>getRefinedInjectorLimit())return {valid:false,reason:'Somente 1 Injetor a cada 5 pode usar matéria-prima refinada.',batches:[],staffed};
+            return {valid:true,batches,staffed};
         }
         function setInjectorGemType(type){
             if(!FOUNDING_GEM_DATA[type])return;
@@ -2112,10 +2139,13 @@
             const unfinished=batches.filter(batch=>!batch.completed);
             const remaining=active&&unfinished.length?Math.max(...unfinished.filter(batch=>!isInjectorPaused(Number(batch.injectorIndex)||0)).map(batch=>Math.ceil(Math.max(1,Number(batch.duration)||42)*(1-(Number(batch.progress)||0)/100))),0):0;
             const schedule=active?batches.map(batch=>'#'+(Number(batch.injectorIndex)+1)+' '+Number(batch.quantity)+'× '+(FOUNDING_GEM_DATA[batch.type]?.label||batch.type)+(batch.completed?' · concluído':isInjectorPaused(Number(batch.injectorIndex)||0)?' · pausado':'')).join(' · '):'Nenhum lote em andamento.';
-            const modeText=managed?'A Demantoide está no comando e escolhe automaticamente as Gems e os substratos. As pausas individuais e geral continuam disponíveis.':'Modo manual ativo: configure cada Injetor e inicie a produção por este relatório. A criação automática só será liberada quando a primeira Demantoide surgir.';
+            const staffed=Math.max(0,Math.floor(Number(state.structureAssignments?.injector?.peridot)||0));
+            const chamberReady=structureIsOperational('essence_chamber');
+            const automationStatus=String(f.injectorAutomationStatus||'Aguardando avaliação dos operadores e estoques.');
+            const modeText=managed?'A Demantoide está no comando e escolhe automaticamente as Gems e os substratos. Operadores: '+staffed+'/'+count+' Injetores · Câmara de essência '+(chamberReady?'operacional':'sem operador')+'. As pausas individuais e geral continuam disponíveis.':'Modo manual ativo: configure cada Injetor e inicie a produção por este relatório. A criação automática só será liberada quando a primeira Demantoide surgir.';
             const history=reports.length?reports.map(report=>'<div class="stat-box"><b>'+escapeHTML(report.gemLabel||report.type||'Gem')+' × '+Number(report.quantity||0)+'</b><small style="display:block;color:var(--text-muted)">Injetor #'+(Number(report.injectorIndex)+1)+' · '+escapeHTML(report.mineralName||'Substrato')+' · Ciclo '+Number(report.cycle||0)+'</small><small>'+escapeHTML(report.description||'Lote concluído.')+'</small></div>').join(''):'<div class="stat-box" style="color:#94a3b8">Nenhum lote concluído ainda. Os resultados aparecerão aqui depois da primeira produção.</div>';
             body.innerHTML='<div class="stat-box"><b>Injetores instalados: '+count+'</b><br>'+modeText+'</div>'+buildInjectorProductionControlsHTML('modal')+
-                '<div class="stat-box"><span class="stat-label">Estado da produção</span><b>'+(active?'Em andamento':f.injectorPauseAll?'Frota pausada':'Aguardando comando ou materiais')+'</b>'+(active?'<div class="founding-progress"><div style="width:'+progress+'%"></div></div><small>'+Math.floor(progress)+'% do progresso · '+(remaining?remaining+'s restantes nas unidades ativas':'aguardando retomada ou conclusão')+'</small><small style="display:block;color:#94a3b8;margin-top:5px">'+escapeHTML(schedule)+'</small>':'')+'</div>'+
+                '<div class="stat-box"><span class="stat-label">Estado da produção</span><b>'+(active?'Em andamento':f.injectorPauseAll?'Frota pausada':'Aguardando comando ou materiais')+'</b>'+(active?'<div class="founding-progress"><div style="width:'+progress+'%"></div></div><small>'+Math.floor(progress)+'% do progresso · '+(remaining?remaining+'s restantes nas unidades ativas':'aguardando retomada ou conclusão')+'</small><small style="display:block;color:#94a3b8;margin-top:5px">'+escapeHTML(schedule)+'</small>':managed?'<small style="display:block;color:#fbbf24;margin-top:6px">'+escapeHTML(automationStatus)+'</small>':'')+'</div>'+
                 (!managed&&count>0?'<button class="btn btn-emerald btn-block" onclick="startInjectorProduction(false)" '+(active||f.injectorPauseAll?'disabled':'')+'>▶ Iniciar produção manual</button>':'')+
                 '<div class="card"><div class="card-header"><b>Histórico de criação de Gems</b><span class="badge">'+(f.productionReports||[]).length+' lotes</span></div>'+history+'</div><button class="btn btn-block" onclick="closeInjectorProductionWindow()">Fechar relatório</button>';
         }
@@ -2123,12 +2153,22 @@
             const managed=Number(state.census?.demantoid||0)>0;
             if(automatic&&!managed)return;
             if(!automatic&&managed){setStatusTicker('A Demantoide já assumiu a administração automática dos Injetores.',true);return;}
-            if (!structureIsOperational('injector')) { if(!automatic) setStatusTicker('A frota de Injetores precisa de um Peridoto operador e de uma Câmara operacional.', true); return; }
-            if (state.founding.creationActive || state.founding.bathActive) { if(!automatic) setStatusTicker('A Diamante está ocupada. Aguarde a conclusão da atividade atual.'); return; }
-            if(state.founding.injectorPauseAll){if(!automatic)setStatusTicker('Todos os Injetores estão pausados. Retome a frota para iniciar a produção.',true);return;}
+            const automationWait=reason=>{if(automatic)state.founding.injectorAutomationStatus=reason;else setStatusTicker(reason,true);};
+            if (!structureIsOperational('injector')) {
+                const chamberCount=structureCount('essence_chamber'),chamberPeridots=Number(state.structureAssignments?.essence_chamber?.peridot)||0;
+                const injectorPeridots=Number(state.structureAssignments?.injector?.peridot)||0;
+                automationWait(!chamberCount?'Construa uma Câmara de Extração de Essência para liberar os Injetores.':chamberPeridots<chamberCount?'Aguardando Peridotos na Câmara de Extração de Essência ('+chamberPeridots+'/'+chamberCount+').':'Aguardando ao menos um Peridoto operador nos Injetores ('+injectorPeridots+'/'+structureCount('injector')+').');
+                return;
+            }
+            if (state.founding.creationActive || state.founding.bathActive) { if(!automatic)setStatusTicker('A Diamante está ocupada. Aguarde a conclusão da atividade atual.');return; }
+            if(state.founding.injectorPauseAll){automationWait('Todos os Injetores estão pausados. Retome a frota para continuar.');return;}
             const plan=getInjectorProductionPlan();
-            if(!plan.valid){if(!automatic)setStatusTicker(plan.reason,true);return;}
-            if(!plan.batches.length){if(!automatic)setStatusTicker('Defina ao menos uma Gem em um Injetor, com quantidade entre 1 e 5.');return;}
+            if(!plan.valid){automationWait(plan.reason);return;}
+            if(!plan.batches.length){
+                const assigned=Number(state.structureAssignments?.injector?.peridot)||0;
+                automationWait(assigned<1?'Aguardando Peridoto operador nos Injetores.':'Aguardando minerais coletados para programar novos lotes.');
+                return;
+            }
             const planet=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld;
             const rawInventory=state.founding.gatheredMinerals||(state.founding.gatheredMinerals={});
             const refinedInventory=state.refinedResources||(state.refinedResources={});
@@ -2157,7 +2197,7 @@
                 readyBatches.push(batch);
             }
             if(!readyBatches.length){
-                if(!automatic)setStatusTicker(plan.batches.length===0?'Todos os Injetores estão pausados ou sem quantidade programada.':'Nenhum Injetor possui todos os recursos da sua programação. '+(waitingReasons[0]||'Verifique os estoques.'),true);
+                automationWait('Produção aguardando: '+(waitingReasons[0]||'estoque de minerais ou essência insuficiente')+'. Essência disponível: '+Math.floor(remainingEssence)+'; cada Gem exige 12.');
                 return;
             }
             for(const [material,needed] of Object.entries(rawCosts))rawInventory[material]=Math.max(0,(Number(rawInventory[material])||0)-needed);
@@ -2172,6 +2212,7 @@
             state.founding.creationMode=automatic?'automatic':'manual';
             state.founding.creationProgress=0;
             state.founding.creationActive=true;
+            state.founding.injectorAutomationStatus='Produção automática iniciada: '+totalGems+' Gems em '+readyBatches.length+' Injetor(es).';
             state.founding.stage='injecting';
             const waiting=plan.batches.length-readyBatches.length;
             setStatusTicker('Injeção simultânea iniciada: '+totalGems+' Gems em '+readyBatches.length+' Injetor(es).'+(waiting?' '+waiting+' Injetor(es) aguardam recursos ou condições.':''));
@@ -5859,6 +5900,7 @@ function drawColony(time){
             }
             if(!Array.isArray(state.founding.productionReports))state.founding.productionReports=[];
             state.founding.productionReports.push({type:batch.type,injectorIndex:Number(batch.injectorIndex)||0,gemLabel:data.label,quantity:quantity,grade:'A',mineralName:data.mineralName,cycle:Number(state.cycleCount)||1,description:'Lote do Injetor #'+(Number(batch.injectorIndex)+1)+(state.founding.creationMode==='manual'?' programado manualmente.':' administrado automaticamente pela Demantoide.')});
+            if(state.founding.creationMode==='automatic')state.founding.injectorAutomationStatus='Último lote concluído: '+quantity+' '+data.label+'. A Demantoide avaliará o próximo ciclo.';
             if(state.founding.productionReports.length>20)state.founding.productionReports.splice(0,state.founding.productionReports.length-20);
             batch.completed=true;
             batch.progress=100;
