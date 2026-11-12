@@ -1875,7 +1875,7 @@
             if (!state.structureAssignments[id]) state.structureAssignments[id] = {};
             const jobs = state.structureAssignments[id];
             const current = Number(jobs[gemType]) || 0;
-            const workerLimit=id==='mineral_extractor'&&gemType==='quartz'?Math.max(1,Number(state.census.quartz)||0):def.workers[gemType];
+            const workerLimit=id==='mineral_extractor'&&gemType==='quartz'?Math.max(1,Number(state.census.quartz)||0):id==='essence_chamber'&&gemType==='peridot'?structureCount('essence_chamber'):def.workers[gemType];
             if (current >= workerLimit) { setStatusTicker('Não há mais vagas ou Quartzos livres para esta função.'); return; }
             if (freeGemWorkers(gemType) < 1) { setStatusTicker('Não há Gems livres dessa função. Crie outra Gem ou libere uma equipe.'); return; }
             jobs[gemType] = current + 1;
@@ -1930,8 +1930,8 @@
                     state.founding.collectedMinerals=Object.assign({},state.founding.gatheredMinerals,state.founding.collectedMinerals||{});
                     setStatusTicker('Extrator construído: todos os Quartzos da população passam a minerar automaticamente.');
                 }
-                addChronicle('Estrutura concluída', def.name + ' foi concluída. ' + def.interaction, 'Aguardando operadores');
-                setStatusTicker(def.id==='workshop'?'Centro de Logística concluído e ativo. O transporte planetário está disponível.':def.name + ' concluída. Designe Gems com a função adequada para operá-la.');
+                addChronicle('Estrutura concluída', def.name + ' foi concluída. ' + def.interaction, Object.keys(def.workers||{}).length?'Aguardando operadores':'Instalação autônoma');
+                setStatusTicker(def.id==='workshop'?'Centro de Logística concluído. Requer apenas um Reator operacional para funcionar.':def.name + ' concluída.'+(Object.keys(def.workers||{}).length?' Designe Gems com a função adequada para operá-la.':''));
             }
             state.constructionQueue=(Array.isArray(state.constructionQueue)?state.constructionQueue:[]).filter(item=>item!==job);
             state.construction=state.constructionQueue[0]||null;
@@ -2214,7 +2214,7 @@
         }
         function toggleMorganiteAutoBuild(){if(Number(state.census.morganite||0)<1)return;state.morganiteAutoBuild=!state.morganiteAutoBuild;setStatusTicker('Construção automática Morganita '+(state.morganiteAutoBuild?'ativada.':'desativada.'));renderDrawerContent();}
         function updateLogisticsCenter(dt){
-            if(structureCount('workshop')<1)return;
+            if(structureCount('workshop')<1||!structureIsOperational('reactor'))return;
             const f=state.founding||(state.founding={});
             f.gatheredMinerals=f.gatheredMinerals||{};
             let metal=Math.max(0,Number(f.gatheredMinerals.metallic)||0);
@@ -2377,7 +2377,7 @@
                         workerTypes.forEach(([type,need]) => {
                             const assigned = Number(state.structureAssignments[def.id] && state.structureAssignments[def.id][type]) || 0;
                             const free = freeGemWorkers(type);
-                            const displayNeed=def.id==='mineral_extractor'&&type==='quartz'?Math.max(1,Number(state.census.quartz)||0):need;
+                            const displayNeed=def.id==='mineral_extractor'&&type==='quartz'?Math.max(1,Number(state.census.quartz)||0):def.id==='essence_chamber'&&type==='peridot'?structureCount('essence_chamber'):need;
                             html += '<div class="job-row"><span>' + (GEM_ROLE_NAMES[type] || type) + ': <b>' + assigned + '/' + displayNeed + '</b> · livres: ' + free + '</span><span>' +
                                 '<button class="btn" style="padding:2px 6px" onclick="unassignGemFromStructure(\'' + def.id + '\',\'' + type + '\')" ' + (assigned < 1 ? 'disabled' : '') + '>−</button>' +
                                 '<button class="btn" style="padding:2px 6px" onclick="assignGemToStructure(\'' + def.id + '\',\'' + type + '\')" ' + (assigned >= displayNeed || free < 1 ? 'disabled' : '') + '>+</button></span></div>';
