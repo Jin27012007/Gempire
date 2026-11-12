@@ -2437,7 +2437,8 @@
                             const orders=ensureInjectorOrders();
                             html += '<div class="founding-note">Programação independente: '+orders.length+' Injetor(es), até 5 Gems por unidade. Essência disponível: '+(state.founding.injectorEssence||0).toFixed(1)+' unidades.</div>';
                         } else if(def.id==='essence_chamber'){
-                            html+='<div class="founding-note">Câmaras construídas: '+count+' / '+(state.matriarchs.length+1)+' Diamantes. Cada Diamante poderá ter uma instalação própria.</div>';
+                            html+='<div class="founding-note">Câmaras construídas: '+count+' / '+(state.matriarchs.length+1)+' Diamantes. Cada Câmara produz essência para sua própria Diamante.</div>';
+                            (state.diamondChambers||[]).forEach(ch=>{if(ch.ownerId==='first')return;const owner=state.matriarchs.find(m=>m.id===ch.ownerId);html+='<div class="stat-box"><b>'+escapeHTML(ch.ownerName)+'</b><small style="display:block;color:var(--text-muted)">Essência: '+Number(owner?.essence||0).toFixed(1)+' · '+(ch.active?'Banho '+Math.floor(ch.progress)+'%':ch.cooldown>0?'Recuperação: '+formatDuration(ch.cooldown):'Disponível')+'</small><button class="btn btn-block" onclick="startMatriarchEssenceBath(\''+ch.ownerId+'\')" '+(!structureIsOperational('essence_chamber')||ch.active||ch.cooldown>0?'disabled':'')+'>🛁 Iniciar banho · 30s</button></div>';});
                         } else if(def.id==='diamond_quarters'){
                             html+='<div class="founding-note">Quartos construídos: '+count+' / '+(state.matriarchs.length+1)+' Diamantes. O canal privado de mensagens está planejado, mas ainda não ativo.</div>';
                         } else if(def.id==='research_center'){
@@ -2801,12 +2802,13 @@ ${hasAristocrats ? `
         }
         function developDiamondWeapon(){
             if(!structureIsOperational('research_center')){setStatusTicker('O Centro de Pesquisa exige Demantoide ou Piropos e seus operadores.',true);return;}
-            const cost=50,available=Math.max(0,Number(state.founding?.diamondEssence)||0);
-            if(available<cost){setStatusTicker('A criação de uma arma exige 50 Essências Diamante.',true);return;}
-            const planet=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld;
+            const cost=50,planet=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld;
             const ruler=(planet.governor||'none').startsWith('matriarch_')?state.matriarchs.find(m=>'matriarch_'+m.id===planet.governor):state.firstDiamond;
+            const ownerId=ruler===state.firstDiamond?'first':ruler.id;
+            const available=Math.max(0,Number(ownerId==='first'?state.founding?.diamondEssence:ruler?.essence)||0);
+            if(available<cost){setStatusTicker('A criação de uma arma exige 50 Essências da Diamante governante.',true);return;}
             const power=ensureDiamondKinesis(ruler),weapons=state.diamondWeapons||(state.diamondWeapons=[]);
-            state.founding.diamondEssence=available-cost;
+            if(ownerId==='first')state.founding.diamondEssence=available-cost;else ruler.essence=available-cost;
             weapons.push({id:'weapon_'+Date.now(),owner:ruler.name,kinesis:power.name,name:power.weapon,effect:power.effect,potency:power.potency,color:ruler.colorHex||'#f8fafc',createdAt:state.cycleCount||1});
             setStatusTicker(power.weapon+' desenvolvida com 50 Essências Diamante. Cinese: '+power.name+'.');
             addChronicle('Nova arma: '+power.weapon,ruler.name+' desenvolveu um armamento exclusivo baseado em '+power.name+'.','Arsenal da Diamante');
@@ -5879,6 +5881,11 @@ function drawColony(time){
                 state.structures.lunar_base=Number(state.structures.lunar_base)||0;
                 state.logisticsMaintenanceTimer=Math.max(0,Number(state.logisticsMaintenanceTimer)||0);
                 state.diamondWeapons=Array.isArray(state.diamondWeapons)?state.diamondWeapons:[];
+                state.diamondChambers=Array.isArray(state.diamondChambers)?state.diamondChambers:[];
+                state.diamondQuartersOwners=Array.isArray(state.diamondQuartersOwners)?state.diamondQuartersOwners:[];
+                const owners=getDiamondOwners();
+                while(state.diamondChambers.length<Math.min(structureCount('essence_chamber'),owners.length)){const o=owners.find(x=>!state.diamondChambers.some(c=>c.ownerId===x.id));if(!o)break;state.diamondChambers.push({ownerId:o.id,ownerName:o.name,active:false,progress:0,cooldown:0});}
+                while(state.diamondQuartersOwners.length<Math.min(structureCount('diamond_quarters'),owners.length)){const o=owners.find(x=>!state.diamondQuartersOwners.includes(x.id));if(!o)break;state.diamondQuartersOwners.push(o.id);}
                 state.shipFleet=Array.isArray(state.shipFleet)?state.shipFleet:[];
                 state.redEyeReports=Array.isArray(state.redEyeReports)?state.redEyeReports:[];
                 state.galaxyWarpExpeditions=Array.isArray(state.galaxyWarpExpeditions)?state.galaxyWarpExpeditions:[];
