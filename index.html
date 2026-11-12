@@ -616,7 +616,6 @@
         <div id="bottom-bar"></div>
 
         <!-- Botão de restaurar interface quando oculta -->
-        <button id="btn-restore-ui" class="btn active hidden" onclick="toggleHideUI()">👁️ Mostrar Interface</button>
 
         <!-- 3. PAINEL LATERAL DIREITO ÚNICO (360px) COM 3 SUB-ABAS -->
         <aside id="right-drawer">
@@ -1807,7 +1806,7 @@
                     <button class="btn ${state.planetCamera.xrayMode ? 'active' : ''}" onclick="togglePlanetXRay()">🔍 Raio-X</button>
                     <button class="btn" onclick="adjustPlanetZoom(0.14)">➕</button>
                     <button class="btn" onclick="adjustPlanetZoom(-0.14)">➖</button>
-                    <button class="btn" onclick="toggleHideUI()">👁️ Ocultar UI</button>
+
                 `;
             } else if (state.currentScreen === 'throne') {
                 bar.innerHTML = `
@@ -4561,7 +4560,7 @@ ${hasAristocrats ? `
 
         function drawHomeworldStructures(planet,cx,cy,radius,camera,time){
             if(!planet||planet.id!=='homeworld')return;
-            const size=Math.max(.5,Math.min(1.05,radius/225));
+            const size=Math.max(.38,Math.min(.78,radius/285)),rulerColors=getPlanetRulerColors(planet);
             if(structureCount('planetary_network')>0){
                 ctx.save();ctx.strokeStyle=structureIsOperational('planetary_network')?'rgba(196,181,253,.58)':'rgba(100,116,139,.28)';ctx.lineWidth=Math.max(1,radius*.006);ctx.setLineDash([5,5]);
                 for(let k=0;k<8;k++){const a=camera.rotation+k*Math.PI/4,b=camera.rotation+(k+1)*Math.PI/4;ctx.beginPath();ctx.moveTo(cx+Math.cos(a)*radius*.22,cy+Math.sin(a)*radius*.18);ctx.quadraticCurveTo(cx,cy,cx+Math.cos(b)*radius*.22,cy+Math.sin(b)*radius*.18);ctx.stroke();}
@@ -4573,7 +4572,7 @@ ${hasAristocrats ? `
                 for(let instance=0;instance<Math.min(count,def.maxCount||1);instance++){
                     const spread=(instance-(Math.min(count,def.maxCount||1)-1)/2)*.095,angle=baseAngle+spread,ratio=baseRatio+Math.abs(spread)*.18;
                     const x=cx+Math.cos(angle)*radius*ratio,y=cy+Math.sin(angle)*radius*ratio*.78;
-                    drawGemStructureModel(def.id,x,y,size*(instance?.9:1),structureIsOperational(def.id),time);
+                    drawGemStructureModel(def.id,x,y,size*(instance?.9:1),structureIsOperational(def.id),time,100,rulerColors);
                     if(count>1){ctx.fillStyle='#e2e8f0';ctx.font='bold '+Math.max(8,9*size)+'px Segoe UI';ctx.textAlign='center';ctx.fillText(String(count),x+22*size,y-18*size);}
                 }
             });
@@ -4785,8 +4784,7 @@ function drawColony(time){
             drawColonyInjectors(planet,cx,cy,radius,cam);
             // Fragmentos que passam pela frente fecham o efeito de órbita 360°.
             drawPlanetDebris(planet,cx,cy,radius,time,cam,stage,true);
-            drawPlanetStatusPanel(planet,stats,Math.max(10,canvasWidth-Math.min(190,canvasWidth*.48)-12),12);
-            drawMineralBarChart(planet,12,Math.max(150,canvasHeight-174));
+            drawPlanetCombinedInfoPanel(planet,stats,12,Math.max(12,canvasHeight-(state.planetInfoExpanded===false?42:360)-12));
             ctx.textAlign='center';ctx.fillStyle='#f8fafc';ctx.font='bold 16px Georgia';ctx.fillText(planet.shortName,cx,Math.max(24,cy-radius-24));
             ctx.fillStyle='#cbd5e1';ctx.font='10px Segoe UI';ctx.fillText('ARRASTE PARA GIRAR • TOQUE EM UM DEPÓSITO MINERAL',cx,Math.min(canvasHeight-12,cy+radius+30));
         }
@@ -5398,8 +5396,6 @@ function drawColony(time){
             ).join('');
             const hasInjector = structureCount('injector')>0;
             const hasChamber = structureIsOperational('essence_chamber');
-            const reports=(found.productionReports||[]).slice().reverse();
-            const reportHtml=reports.length?reports.map(r=>'<div class="stat-box"><b>'+escapeHTML(r.gemLabel||r.type||'Gem')+' × '+Number(r.quantity||0)+'</b><small style="display:block;color:var(--text-muted)">Qualidade: '+escapeHTML(r.grade||'A')+' · Substrato: '+escapeHTML(r.mineralName||'Não informado')+' · Ciclo '+Number(r.cycle||0)+'</small><small>'+escapeHTML(r.description||'Produção automática concluída.')+'</small></div>').join(''):'<div class="stat-box" style="color:#94a3b8">Nenhum lote produzido ainda. Os resultados aparecerão aqui após o primeiro ciclo do Injetor.</div>';
             container.innerHTML =
                 '<div class="card card-cyan"><div class="card-header"><span class="card-title title-font">🌑 Fundação de Homeworld</span><span class="badge">Era Primitiva</span></div>' +
                 '<div style="font-size:12px;line-height:1.55;color:#cbd5e1">' + escapeHTML(fd.name) + ' iniciou a civilização sem infraestrutura. Gems já nascem conhecendo sua função e podem ser integradas à população imperial.</div>' +
