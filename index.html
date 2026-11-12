@@ -2110,6 +2110,16 @@
             setStatusTicker('Injeção simultânea iniciada: '+totalGems+' Gems em '+readyBatches.length+' Injetor(es).'+(waiting?' '+waiting+' Injetor(es) aguardam recursos ou condições.':''));
             updateStructureUI();
         }
+        function useLocalGalaxyWarp(){
+            if(!structureIsOperational('galaxy_warp')){setStatusTicker('O Galaxy Warp precisa estar operacional para teletransporte local.',true);return;}
+            const planet=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld,vein=planet.veins[state.selectedVeinIndex];
+            const gems=planet.walkingGems||[];
+            if(!gems.length){setStatusTicker('Não há Gems em deslocamento neste planeta para teletransportar.',true);return;}
+            const targetAngle=Number(vein?.angle)||0;
+            gems.forEach((gem,index)=>{gem.angle=targetAngle+(index-(gems.length-1)/2)*.035;gem.isOrbiting=false;});
+            setStatusTicker('Galaxy Warp transportou '+gems.length+' Gems instantaneamente para o setor '+(state.selectedVeinIndex+1)+'.');
+            updateHUD();renderDrawerContent();
+        }
         function dispatchGalaxyWarpExpedition(targetId){
             const target=PLANETS[targetId],source=PLANETS[state.activeColonyPlanetId];
             if(!structureIsOperational('galaxy_warp')){setStatusTicker('É necessário um Galaxy Warp operacional no planeta de origem.',true);return;}
@@ -2454,6 +2464,7 @@
                         } else if(def.id==='galaxy_warp'){
                             const expeditions=state.galaxyWarpExpeditions||[];
                             html+='<div class="founding-note">Teletransporte local instantâneo. Para viajar entre planetas, ambos precisam possuir um Galaxy Warp. A construção no destino exige uma expedição e uma nave.</div>';
+                            html+='<button class="btn btn-block" onclick="useLocalGalaxyWarp()">⚡ Teletransportar Gems para o setor selecionado</button>';
                             Object.values(PLANETS).filter(p=>p.colonized&&p.id!==state.activeColonyPlanetId).forEach(p=>{
                                 if(p.galaxyWarpBuilt)html+='<button class="btn btn-block" onclick="travelThroughGalaxyWarp(\''+p.id+'\')">🌀 Viajar para '+escapeHTML(p.shortName)+'</button>';
                                 else {const active=expeditions.some(e=>e.active&&e.targetId===p.id);html+='<button class="btn btn-block" onclick="dispatchGalaxyWarpExpedition(\''+p.id+'\')" '+(active?'disabled':'')+'>🚀 '+(active?'Expedição em andamento':'Enviar expedição para '+escapeHTML(p.shortName))+'</button>';}
