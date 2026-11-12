@@ -1984,7 +1984,8 @@
             const f=state.founding||(state.founding={});
             if(!Array.isArray(f.injectorOrders))f.injectorOrders=[];
             const count=structureCount('injector'),defaultType=getDefaultInjectorGemType();
-            if(Number(state.census?.demantoid||0)>0&&count>0){
+            if(!(Number(state.census?.demantoid||0)>0)){f.injectorOrders=[];return f.injectorOrders;}
+            if(count>0){
                 const raw=f.gatheredMinerals||{},refined=state.refinedResources||{},census=state.census||{},planet=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld;
                 const candidates=Object.entries(FOUNDING_GEM_DATA).filter(([key,g])=>key!=='peridot'&&(!g.stored||structureIsOperational('reef'))&&(!g.climate||foundingGemClimateAllowed(g,planet))).map(([key,g])=>({key,g,available:Math.max(0,Number((g.refinedMaterial?refined:raw)[g.refinedMaterial||g.mineral])||0),population:Number(census[key]||0)})).filter(x=>x.available>=1).sort((a,b)=>a.population-b.population||b.available-a.available);
                 for(let i=0;i<count;i++){const pick=candidates[i%candidates.length];if(pick)f.injectorOrders[i]={type:pick.key,quantity:Math.min(5,Math.floor(pick.available))};}
@@ -2061,6 +2062,7 @@
         }
         function updateInjectorProductionWindow(){
             const body=document.getElementById('injector-production-window-body');if(!body)return;
+            cancelUnauthorizedInjectorProduction();
             const f=state.founding||{},count=structureCount('injector');
             const managed=Number(state.census?.demantoid||0)>0;
             const active=!!f.creationActive&&f.creationSource==='injector';
@@ -2070,6 +2072,7 @@
             body.innerHTML='<div class="stat-box"><b>Injetores instalados: '+count+'</b><br>'+(managed?'Demantoide no comando: programação automática por necessidade populacional e disponibilidade de substrato. Peridotos recebem as ordens sem intervenção do jogador.':'Sem Demantoide: os Injetores aguardam uma supervisora para administrar a produção.')+'</div><div class="stat-box"><span class="stat-label">Estado industrial</span><b>'+(active?'Produção em andamento':'Aguardando ordens ou materiais')+'</b>'+(active?'<div class="founding-progress"><div style="width:'+progress+'%"></div></div><small>'+Math.floor(progress)+'% · '+remaining+'s estimados</small>':'')+'</div><button class="btn btn-block" onclick="closeInjectorProductionWindow()">Fechar</button>';
         }
         function startInjectorProduction(automatic=false) {
+            if(!(Number(state.census?.demantoid||0)>0)){if(!automatic)setStatusTicker('A produção automática dos Injetores exige uma Demantoide supervisora.',true);return;}
             if (!structureIsOperational('injector')) { if(!automatic) setStatusTicker('A frota de Injetores precisa de um Peridoto operador e de uma Câmara operacional.', true); return; }
             if (state.founding.creationActive || state.founding.bathActive) { if(!automatic) setStatusTicker('A Diamante está ocupada. Aguarde a conclusão da atividade atual.'); return; }
             const plan=getInjectorProductionPlan();
@@ -2121,6 +2124,37 @@
             const waiting=plan.batches.length-readyBatches.length;
             setStatusTicker('Injeção simultânea iniciada: '+totalGems+' Gems em '+readyBatches.length+' Injetor(es).'+(waiting?' '+waiting+' Injetor(es) aguardam recursos ou condições.':''));
             updateStructureUI();
+        }
+        function cancelUnauthorizedInjectorProduction(){
+            const f=state.founding;
+            if(!f||Number(state.census?.demantoid||0)>0||!f.creationActive||f.creationSource!=='injector')return false;
+            const batches=Array.isArray(f.creationBatches)&&f.creationBatches.length?f.creationBatches:
+                (FOUNDING_GEM_DATA[f.creationTarget]?[{type:f.creationTarget,quantity:Math.max(1,Number(f.creationBatchCount)||5),completed:false}]:[]);
+            const raw=f.gatheredMinerals||(f.gatheredMinerals={});
+            const refined=state.refinedResources||(state.refinedResources={});
+            let refundedGems=0;
+            batches.forEach(batch=>{
+                if(!batch||batch.completed)return;
+                const gem=FOUNDING_GEM_DATA[batch.type];
+                if(!gem)return;
+                const quantity=Math.max(0,Math.floor(Number(batch.quantity)||0));
+                if(!quantity)return;
+                const inventory=gem.refinedMaterial?refined:raw;
+                const material=gem.refinedMaterial||gem.mineral;
+                inventory[material]=(Number(inventory[material])||0)+quantity;
+                refundedGems+=quantity;
+            });
+            f.injectorEssence=(Number(f.injectorEssence)||0)+refundedGems*12;
+            f.creationActive=false;
+            f.creationProgress=0;
+            f.creationDuration=42;
+            f.creationBatchCount=0;
+            f.creationTarget=null;
+            f.creationSource='manual';
+            f.creationBatches=[];
+            if(Array.isArray(f.injectorOrders))f.injectorOrders=[];
+            setStatusTicker('Produção automática suspensa: é necessária uma Demantoide. Materiais e essência dos lotes não concluídos foram devolvidos.',true);
+            return true;
         }
         function useLocalGalaxyWarp(){
             if(!structureIsOperational('galaxy_warp')){setStatusTicker('O Galaxy Warp precisa estar operacional para teletransporte local.',true);return;}
@@ -2345,8 +2379,10 @@
                 state.founding.diamondEssence -= moved;
                 state.founding.injectorEssence = (Number(state.founding.injectorEssence) || 0) + moved;
             }
-            if(Number(state.census?.demantoid||0)>0)ensureInjectorOrders();
-            if (structureIsOperational('injector') && !state.founding.creationActive) startInjectorProduction(true);
+            if(Number(state.census?.demantoid||0)>0){
+                ensureInjectorOrders();
+                if(structureIsOperational('injector')&&!state.founding.creationActive)startInjectorProduction(true);
+            }else if(Array.isArray(state.founding.injectorOrders))state.founding.injectorOrders=[];
             if(state.currentScreen==='colony'&&state.drawerOpen&&state.drawerTab==='context'){
                 state.resourceChartAccumulator=(Number(state.resourceChartAccumulator)||0)+dt;
                 if(state.resourceChartAccumulator>=1){state.resourceChartAccumulator=0;renderColonyContext(document.getElementById('drawer-body'));}
@@ -2691,6 +2727,7 @@ ${hasAristocrats ? `
 
         // 10C. Contexto do Globo da Colônia 360°
         function buildGemProductionReportCard() {
+            cancelUnauthorizedInjectorProduction();
             const managed=Number(state.census?.demantoid||0)>0;
             const injectorCount=structureCount('injector');
             const active=!!(state.founding?.creationActive&&state.founding?.creationSource==='injector');
@@ -3788,6 +3825,7 @@ ${hasAristocrats ? `
                 state.founding.gatherCooldown = Math.max(0, (Number(state.founding.gatherCooldown) || 0) - dt);
                 state.founding.bathCooldown = Math.max(0, (Number(state.founding.bathCooldown) || 0) - dt);
             }
+            cancelUnauthorizedInjectorProduction();
             if (state.founding && state.founding.bathActive) {
                 state.founding.bathProgress=Math.min(100,(Number(state.founding.bathProgress)||0)+dt*100/Math.max(1,Number(state.founding.bathDuration)||30));
                 if(state.founding.bathProgress>=100)completeEssenceBath();
@@ -4869,6 +4907,40 @@ ${hasAristocrats ? `
             return {gemCount,organicLife,organicLifeKnown,organicLifePresent,infrastructure,totalResources:total,remainingResources:remaining,progress:Math.max(0,Math.min(100,progress)),stage:Math.min(4,Math.floor(progress/25))};
         }
 
+        function drawCrustFragments(planet,cx,cy,radius,stage,time){
+            if(!planet||planet.id!=='homeworld'||stage<2)return;
+            const angles=[-2.48,-1.82,-1.12,-.42,.18,.78,1.42,2.08,2.72,3.12];
+            const count=stage===2?3:stage===3?7:10;
+            ctx.save();
+            for(let i=0;i<count;i++){
+                const a=angles[i],pulse=Math.sin(time*.0007+i*1.7)*.012;
+                const distance=radius*(1.025+(stage-2)*.035+(i%3)*.045+pulse);
+                const size=radius*(.018+(stage-2)*.006+(i%4)*.006);
+                const x=cx+Math.cos(a)*distance,y=cy+Math.sin(a)*distance;
+                ctx.save();ctx.translate(x,y);ctx.rotate(a+.7+(i%3)*.28);
+                ctx.shadowColor='rgba(2,6,23,.9)';ctx.shadowBlur=radius*.025;
+                const shade=[planet.colors.mantle,planet.colors.continent,planet.colors.primary,'#64748b'][i%4];
+                const shard=ctx.createLinearGradient(-size,-size,size,size);
+                shard.addColorStop(0,planet.colors.secondary||'#a1a1aa');shard.addColorStop(.42,shade);shard.addColorStop(1,planet.colors.mantle||'#292524');
+                ctx.beginPath();ctx.moveTo(-size*.72,-size*.12);ctx.lineTo(-size*.18,-size*.92);ctx.lineTo(size*.18,-size*.42);ctx.lineTo(size*.92,-size*.16);ctx.lineTo(size*.42,size*.7);ctx.lineTo(-size*.34,size*.92);ctx.closePath();
+                ctx.fillStyle=shard;ctx.fill();ctx.shadowBlur=0;ctx.strokeStyle='rgba(226,232,240,.62)';ctx.lineWidth=Math.max(.8,radius*.003);ctx.stroke();
+                ctx.beginPath();ctx.moveTo(-size*.18,-size*.92);ctx.lineTo(size*.18,-size*.42);ctx.lineTo(size*.42,size*.7);ctx.strokeStyle='rgba(255,255,255,.24)';ctx.lineWidth=Math.max(.6,radius*.002);ctx.stroke();
+                ctx.restore();
+            }
+            // Entalhes na borda indicam placas que já se desprenderam da crosta.
+            const chips=stage===2?2:stage===3?5:8;
+            for(let i=0;i<chips;i++){
+                const a=angles[(i*2+1)%angles.length],spread=stage===2?.025:stage===3?.04:.055;
+                const p1={x:cx+Math.cos(a-spread)*radius*.985,y:cy+Math.sin(a-spread)*radius*.985};
+                const p2={x:cx+Math.cos(a)*radius*(1.055+(stage-2)*.025),y:cy+Math.sin(a)*radius*(1.055+(stage-2)*.025)};
+                const p3={x:cx+Math.cos(a+spread)*radius*.985,y:cy+Math.sin(a+spread)*radius*.985};
+                ctx.beginPath();ctx.moveTo(p1.x,p1.y);ctx.lineTo(p2.x,p2.y);ctx.lineTo(p3.x,p3.y);ctx.closePath();
+                ctx.fillStyle='#050814';ctx.fill();ctx.strokeStyle='rgba(15,23,42,.88)';ctx.lineWidth=Math.max(1,radius*.006);ctx.stroke();
+                ctx.beginPath();ctx.moveTo(p1.x,p1.y);ctx.lineTo(p2.x,p2.y);ctx.strokeStyle='rgba(148,163,184,.58)';ctx.lineWidth=Math.max(.7,radius*.0025);ctx.stroke();
+            }
+            ctx.restore();
+        }
+
         function drawPlanetDebris(planet,cx,cy,radius,time,camera,stage,front){
             const count=[4,4,9,15,23][stage]||4;if(!planet||planet.id!=='homeworld'||structureCount('workshop')<1||!structureIsOperational('workshop'))return;
             ctx.save();ctx.translate(cx,cy);ctx.rotate(-.19+camera.rotation*.08);
@@ -5070,9 +5142,38 @@ function drawColony(time){
               [[.14,.22],[.3,.36],[.28,.54],[.45,.68],[.42,.87]]
             ];
             const crackCount=[0,4,8,11,12][stage]||0;
-            for(let i=0;i<crackCount;i++){const points=cracks[i];ctx.beginPath();ctx.moveTo(points[0][0],points[0][1]);for(let j=1;j<points.length;j++)ctx.lineTo(points[j][0],points[j][1]);ctx.strokeStyle=stage>=3?'rgba(3,7,18,.96)':'rgba(15,23,42,.82)';ctx.lineWidth=stage>=3?.034:stage>=2?.022:.014;ctx.lineJoin='round';ctx.lineCap='round';ctx.stroke();ctx.beginPath();ctx.moveTo(points[0][0],points[0][1]);for(let j=1;j<points.length;j++)ctx.lineTo(points[j][0],points[j][1]);ctx.strokeStyle=stage>=2?'rgba(125,211,252,.78)':'rgba(214,184,139,.62)';ctx.lineWidth=stage>=3?.008:.005;ctx.stroke();}
-            if(stage>=2){const branches=[[-.52,-.31,-.68,-.48],[-.34,-.17,-.22,-.02],[.27,-.56,.44,-.68],[.58,.1,.76,.22],[-.56,.42,-.72,.57],[.02,.57,.18,.72],[.39,.36,.58,.45],[.55,-.42,.72,-.55]];branches.slice(0,stage===2?3:stage===3?6:8).forEach(([x1,y1,x2,y2])=>{ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);ctx.strokeStyle='rgba(4,8,20,.9)';ctx.lineWidth=stage>=3?.018:.012;ctx.stroke();ctx.strokeStyle='rgba(125,211,252,.55)';ctx.lineWidth=.004;ctx.stroke();});}
-            if(stage>=2){const rifts=[[-.33,-.18,.13,.09],[.29,.12,.12,.07],[-.12,.49,.1,.06],[.58,-.35,.08,.05]];rifts.slice(0,stage-1).forEach(([x,y,rx,ry])=>{ctx.fillStyle='rgba(2,6,23,.58)';ctx.beginPath();ctx.ellipse(x,y,rx,ry,-.6,0,Math.PI*2);ctx.fill();ctx.strokeStyle='rgba(125,211,252,.52)';ctx.lineWidth=.006;ctx.stroke();});}
+            const traceCrack=points=>{ctx.beginPath();ctx.moveTo(points[0][0],points[0][1]);for(let j=1;j<points.length;j++)ctx.lineTo(points[j][0],points[j][1]);ctx.lineJoin='round';ctx.lineCap='round';};
+            for(let i=0;i<crackCount;i++){
+                const points=cracks[i],width=stage>=3?.024:stage>=2?.017:.012;
+                ctx.save();ctx.shadowColor=stage>=2?'rgba(125,211,252,.48)':'rgba(15,23,42,.35)';ctx.shadowBlur=stage>=3?radius*.025:stage>=2?radius*.014:0;
+                traceCrack(points);ctx.strokeStyle='rgba(1,4,14,.96)';ctx.lineWidth=width*1.85;ctx.stroke();
+                ctx.save();ctx.translate(-.004,-.004);traceCrack(points);ctx.strokeStyle=stage>=2?'rgba(186,230,253,.68)':'rgba(214,184,139,.62)';ctx.lineWidth=Math.max(.0025,width*.34);ctx.stroke();ctx.restore();
+                traceCrack(points);ctx.strokeStyle=stage>=3?'rgba(2,6,23,.98)':'rgba(15,23,42,.94)';ctx.lineWidth=width*.72;ctx.stroke();
+                if(stage>=2){traceCrack(points);ctx.strokeStyle='rgba(125,211,252,.46)';ctx.lineWidth=.0028;ctx.stroke();}
+                ctx.restore();
+            }
+            const branches=[
+                [-.52,-.31,-.68,-.48],[-.34,-.17,-.22,-.02],[.27,-.56,.44,-.68],[.58,.1,.76,.22],
+                [-.56,.42,-.72,.57],[.02,.57,.18,.72],[.39,.36,.58,.45],[.55,-.42,.72,-.55],
+                [-.68,-.24,-.79,-.12],[-.4,-.31,-.46,-.48],[.18,-.39,.06,-.5],[.38,.08,.52,.22]
+            ];
+            const branchCount=[0,2,5,8,12][stage]||0;
+            branches.slice(0,branchCount).forEach(([x1,y1,x2,y2],index)=>{
+                ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);
+                ctx.strokeStyle='rgba(1,4,14,.95)';ctx.lineWidth=stage>=3?.014:.009;ctx.lineCap='round';ctx.stroke();
+                ctx.beginPath();ctx.moveTo(x1-.003,y1-.003);ctx.lineTo(x2-.003,y2-.003);
+                ctx.strokeStyle=stage>=2?'rgba(125,211,252,.62)':'rgba(214,184,139,.55)';ctx.lineWidth=.003;ctx.stroke();
+            });
+            if(stage>=2){
+                const rifts=[[-.33,-.18,.13,.09],[.29,.12,.12,.07],[-.12,.49,.1,.06],[.58,-.35,.08,.05]];
+                rifts.slice(0,stage-1).forEach(([x,y,rx,ry],index)=>{
+                    ctx.save();ctx.translate(x,y);ctx.rotate(-.6+index*.18);
+                    ctx.beginPath();ctx.moveTo(-rx,-ry*.15);ctx.lineTo(-rx*.35,-ry);ctx.lineTo(rx*.45,-ry*.65);ctx.lineTo(rx,ry*.05);ctx.lineTo(rx*.3,ry);ctx.lineTo(-rx*.55,ry*.62);ctx.closePath();
+                    ctx.fillStyle='rgba(2,6,23,.78)';ctx.fill();ctx.strokeStyle='rgba(125,211,252,.62)';ctx.lineWidth=.006;ctx.stroke();
+                    ctx.beginPath();ctx.moveTo(-rx*.55,-ry*.1);ctx.lineTo(rx*.48,-ry*.58);ctx.strokeStyle='rgba(186,230,253,.34)';ctx.lineWidth=.0025;ctx.stroke();
+                    ctx.restore();
+                });
+            }
             if(cam.xrayMode){const core=ctx.createRadialGradient(0,0,.04,0,0,.8);core.addColorStop(0,'rgba(255,255,255,.12)');core.addColorStop(.3,'rgba(56,189,248,.04)');core.addColorStop(1,'rgba(56,189,248,0)');ctx.fillStyle=core;ctx.beginPath();ctx.arc(0,0,.82,0,Math.PI*2);ctx.fill();}
             ctx.restore();
 
@@ -5080,8 +5181,10 @@ function drawColony(time){
             const terminator=ctx.createRadialGradient(lightX,lightY,radius*.08,cx,cy,radius*1.12);terminator.addColorStop(0,'rgba(255,255,255,0)');terminator.addColorStop(.62,'rgba(2,6,23,.02)');terminator.addColorStop(1,'rgba(1,4,14,.72)');
             ctx.fillStyle=terminator;ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.fill();
             if(cam.xrayMode){ctx.save();ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.clip();ctx.translate(cx,cy);ctx.transform(Math.cos(cam.rotation),Math.sin(cam.rotation)*.10,-Math.sin(cam.rotation)*.18,1,0,0);ctx.scale(radius,radius);drawXRayMineralSeams(planet);ctx.restore();}
-            // Removido o arco de recorte da crosta; a órbita de detritos identifica o Centro de Logística.
-
+            // A crosta começa a se fragmentar nas etapas avançadas, independente do Centro de Logística.
+            ctx.restore();
+            drawCrustFragments(planet,cx,cy,radius,stage,time);
+            ctx.save();
             drawHomeworldStructures(planet,cx,cy,radius,cam,time);
             drawRedEyeOrbital(planet,cx,cy,radius,time);
             drawFleetShips(planet,cx,cy,radius,time);
