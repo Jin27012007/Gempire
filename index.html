@@ -1990,10 +1990,12 @@
                 f.injectorOrders.push({type:FOUNDING_GEM_DATA[previous]?previous:'quartz',quantity:5});
             }
             if(f.injectorOrders.length>count)f.injectorOrders.length=count;
-            f.injectorOrders.forEach(order=>{
-                if(!order||!FOUNDING_GEM_DATA[order.type]||order.type==='peridot')order.type='quartz';
+            f.injectorOrders=f.injectorOrders.map(order=>{
+                if(!order||typeof order!=='object')order={type:'quartz',quantity:5};
+                if(!FOUNDING_GEM_DATA[order.type]||order.type==='peridot')order.type='quartz';
                 const quantity=Number(order.quantity);
                 order.quantity=Number.isFinite(quantity)?Math.max(0,Math.min(5,Math.floor(quantity))):5;
+                return order;
             });
             return f.injectorOrders;
         }
@@ -2002,7 +2004,7 @@
         }
         function setInjectorOrderType(index,type){
             const orders=ensureInjectorOrders();
-            if(!orders[index]||!FOUNDING_GEM_DATA[type])return;
+            if(!orders[index]||!FOUNDING_GEM_DATA[type]||type==='peridot')return;
             if(FOUNDING_GEM_DATA[type].refinedMaterial){
                 const reserved=orders.filter((order,i)=>i!==index&&FOUNDING_GEM_DATA[order.type]&&FOUNDING_GEM_DATA[order.type].refinedMaterial).length;
                 if(reserved>=getRefinedInjectorLimit()){
@@ -2328,8 +2330,6 @@
                         });
                         html += '</div>';
                         if (def.id === 'injector') {
-                            const injectorType=state.founding.injectorGemType||'quartz';
-                            const injectorGem=FOUNDING_GEM_DATA[injectorType]||FOUNDING_GEM_DATA.quartz;
                             const orders=ensureInjectorOrders();
                             html += '<div class="founding-note">Programação independente: '+orders.length+' Injetor(es), até 5 Gems por unidade. Essência disponível: '+(state.founding.injectorEssence||0).toFixed(1)+' unidades.</div>';
                         } else if (['workshop','research_center','shipyard','terraformer','defense_tower','shield_generator','teleporter','administration_center','reactor','orbital_station','planetary_network'].includes(def.id)) {
@@ -5564,6 +5564,7 @@ function drawColony(time){
                 state.structures = state.structures || {};
                 state.structureAssignments = state.structureAssignments || {};
                 if(state.structureAssignments.mineral_extractor)delete state.structureAssignments.mineral_extractor.quartz;
+                if(state.structureAssignments.refinery)delete state.structureAssignments.refinery.quartz;
                 state.construction = state.construction || null;
                 state.morganiteAutoBuild = state.morganiteAutoBuild !== false;
                 state.gemTransfers = Array.isArray(state.gemTransfers)?state.gemTransfers:[];
