@@ -2232,10 +2232,16 @@
                 case 'shipyard':
                     setStatusTicker('Escolha uma classe de nave na seção do Estaleiro.');
                     break;
-                case 'defense_tower':
-                    state.founding.defenseLevel = (state.founding.defenseLevel || 0) + 1;
-                    setStatusTicker('A torre foi calibrada. Defesa local: nível ' + state.founding.defenseLevel + '.');
+                case 'defense_tower':{
+                    const planet=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld;
+                    const ruler=(planet.governor||'none').startsWith('matriarch_')?state.matriarchs.find(m=>'matriarch_'+m.id===planet.governor):state.firstDiamond;
+                    const weapon=(state.diamondWeapons||[]).slice().reverse().find(w=>w.owner===ruler.name);
+                    if(!weapon){setStatusTicker('Desenvolva primeiro uma arma da cinese de '+ruler.name+' no Centro de Pesquisa.',true);return;}
+                    state.founding.defenseLevel=(state.founding.defenseLevel||0)+1;
+                    state.founding.defenseWeapon={name:weapon.name,kinesis:weapon.kinesis,potency:weapon.potency,owner:ruler.name};
+                    setStatusTicker('Torre calibrada com '+weapon.name+' ('+weapon.kinesis+'). Defesa local: nível '+state.founding.defenseLevel+'.');
                     break;
+                }
                 case 'shield_generator':
                     if (state.energy < 5) { setStatusTicker('O escudo exige 5 unidades de energia armazenada.'); return; }
                     state.energy -= 5; state.founding.shieldActive = true;
