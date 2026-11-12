@@ -4956,42 +4956,8 @@ ${hasAristocrats ? `
             return {gemCount,organicLife,organicLifeKnown,organicLifePresent,infrastructure,totalResources:total,remainingResources:remaining,progress:Math.max(0,Math.min(100,progress)),stage:Math.min(4,Math.floor(progress/25))};
         }
 
-        function drawCrustFragments(planet,cx,cy,radius,stage,time){
-            if(!planet||planet.id!=='homeworld'||stage<2)return;
-            const angles=[-2.48,-1.82,-1.12,-.42,.18,.78,1.42,2.08,2.72,3.12];
-            const count=stage===2?3:stage===3?7:10;
-            ctx.save();
-            for(let i=0;i<count;i++){
-                const a=angles[i],pulse=Math.sin(time*.0007+i*1.7)*.012;
-                const distance=radius*(1.025+(stage-2)*.035+(i%3)*.045+pulse);
-                const size=radius*(.018+(stage-2)*.006+(i%4)*.006);
-                const x=cx+Math.cos(a)*distance,y=cy+Math.sin(a)*distance;
-                ctx.save();ctx.translate(x,y);ctx.rotate(a+.7+(i%3)*.28);
-                ctx.shadowColor='rgba(2,6,23,.9)';ctx.shadowBlur=radius*.025;
-                const shade=[planet.colors.mantle,planet.colors.continent,planet.colors.primary,'#64748b'][i%4];
-                const shard=ctx.createLinearGradient(-size,-size,size,size);
-                shard.addColorStop(0,planet.colors.secondary||'#a1a1aa');shard.addColorStop(.42,shade);shard.addColorStop(1,planet.colors.mantle||'#292524');
-                ctx.beginPath();ctx.moveTo(-size*.72,-size*.12);ctx.lineTo(-size*.18,-size*.92);ctx.lineTo(size*.18,-size*.42);ctx.lineTo(size*.92,-size*.16);ctx.lineTo(size*.42,size*.7);ctx.lineTo(-size*.34,size*.92);ctx.closePath();
-                ctx.fillStyle=shard;ctx.fill();ctx.shadowBlur=0;ctx.strokeStyle='rgba(226,232,240,.62)';ctx.lineWidth=Math.max(.8,radius*.003);ctx.stroke();
-                ctx.beginPath();ctx.moveTo(-size*.18,-size*.92);ctx.lineTo(size*.18,-size*.42);ctx.lineTo(size*.42,size*.7);ctx.strokeStyle='rgba(255,255,255,.24)';ctx.lineWidth=Math.max(.6,radius*.002);ctx.stroke();
-                ctx.restore();
-            }
-            // Entalhes na borda indicam placas que já se desprenderam da crosta.
-            const chips=stage===2?2:stage===3?5:8;
-            for(let i=0;i<chips;i++){
-                const a=angles[(i*2+1)%angles.length],spread=stage===2?.025:stage===3?.04:.055;
-                const p1={x:cx+Math.cos(a-spread)*radius*.985,y:cy+Math.sin(a-spread)*radius*.985};
-                const p2={x:cx+Math.cos(a)*radius*(1.055+(stage-2)*.025),y:cy+Math.sin(a)*radius*(1.055+(stage-2)*.025)};
-                const p3={x:cx+Math.cos(a+spread)*radius*.985,y:cy+Math.sin(a+spread)*radius*.985};
-                ctx.beginPath();ctx.moveTo(p1.x,p1.y);ctx.lineTo(p2.x,p2.y);ctx.lineTo(p3.x,p3.y);ctx.closePath();
-                ctx.fillStyle='#050814';ctx.fill();ctx.strokeStyle='rgba(15,23,42,.88)';ctx.lineWidth=Math.max(1,radius*.006);ctx.stroke();
-                ctx.beginPath();ctx.moveTo(p1.x,p1.y);ctx.lineTo(p2.x,p2.y);ctx.strokeStyle='rgba(148,163,184,.58)';ctx.lineWidth=Math.max(.7,radius*.0025);ctx.stroke();
-            }
-            ctx.restore();
-        }
-
-        function drawPlanetDebris(planet,cx,cy,radius,time,camera,stage,front){
-            const count=[4,4,9,15,23][stage]||4;if(!planet||planet.id!=='homeworld'||structureCount('workshop')<1||!structureIsOperational('workshop'))return;
+        function drawPlanetDebris(        function drawPlanetDebris(planet,cx,cy,radius,time,camera,stage,front){
+            const count=[2,2,3,5,7][stage]||2;if(!planet||planet.id!=='homeworld'||structureCount('workshop')<1||!structureIsOperational('workshop'))return;
             ctx.save();ctx.translate(cx,cy);ctx.rotate(-.19+camera.rotation*.08);
             ctx.strokeStyle=stage>=2?'rgba(148,163,184,.22)':'rgba(148,163,184,.12)';ctx.lineWidth=1;ctx.setLineDash([5,9]);
             if(!front){ctx.beginPath();ctx.ellipse(0,0,radius*(1.38+stage*.035),radius*(.47+stage*.018),0,0,Math.PI*2);ctx.stroke();}ctx.setLineDash([]);
@@ -4999,9 +4965,9 @@ ${hasAristocrats ? `
                 const a=time*(.000035+i%3*.000008)+i*2.399963229728653+camera.rotation*.12,isFront=Math.sin(a)>0;
                 if(isFront!==front)continue;
                 const orbit=radius*(1.18+(i%5)*.05),x=Math.cos(a)*orbit,y=Math.sin(a)*orbit*.36,sz=radius*(.018+(i%4)*.005)*(stage>=3?1.22:1);
-                ctx.save();ctx.translate(x,y);ctx.rotate(a*.7+i);ctx.shadowColor=stage>=2?'rgba(125,211,252,.28)':'transparent';ctx.shadowBlur=stage>=2?7:0;
+                ctx.save();ctx.translate(x,y);ctx.rotate(a*.7+i);
                 const c=[planet.colors.continent,planet.colors.mantle,planet.colors.primary,'#64748b'][i%4]||'#64748b';
-                drawPolygon([[-sz*.7,-sz*.2],[-sz*.25,-sz],[sz*.55,-sz*.58],[sz,.08*sz],[sz*.12,sz*.8],[-sz*.72,sz*.35]],c,'rgba(226,232,240,.5)',Math.max(.7,radius*.002));
+                drawPolygon([[-sz*.72,-sz*.18],[-sz*.18,-sz*.86],[sz*.72,-sz*.12],[sz*.22,sz*.82],[-sz*.62,sz*.42]],c,'rgba(226,232,240,.38)',Math.max(.6,radius*.0015));
                 ctx.restore();
             }
             ctx.restore();
@@ -5175,55 +5141,52 @@ function drawColony(time){
             // Relevo e crateras com bordas de luz.
             for(let i=0;i<7;i++){const a=i*2.17+cam.rotation*.14,px=Math.cos(a)*(.24+(i%3)*.14),py=Math.sin(a)*(.2+(i%2)*.22),cr=.035+(i%3)*.012;ctx.fillStyle='rgba(15,23,42,.24)';ctx.beginPath();ctx.ellipse(px,py,cr*1.45,cr,a*.4,0,Math.PI*2);ctx.fill();ctx.strokeStyle='rgba(255,255,255,.18)';ctx.lineWidth=.006;ctx.beginPath();ctx.ellipse(px-cr*.13,py-cr*.12,cr*1.25,cr*.75,a*.4,Math.PI*1.05,Math.PI*1.9);ctx.stroke();}
 
-            // Fissuras se acumulam nos quatro marcos de colonização.
-            const cracks=[
-              [[-.95,-.35],[-.68,-.24],[-.52,-.31],[-.34,-.17],[-.12,-.2],[.05,-.04]],
-              [[-.55,-.94],[-.49,-.69],[-.34,-.54],[-.4,-.31],[-.25,-.16]],
-              [[.2,-.96],[.13,-.73],[.27,-.56],[.18,-.39],[.34,-.22],[.27,.02]],
-              [[.96,-.15],[.72,-.08],[.58,.1],[.38,.08],[.22,.27],[.08,.31]],
-              [[-.96,.38],[-.72,.3],[-.56,.42],[-.39,.33],[-.22,.49],[-.12,.72]],
-              [[-.18,.96],[-.12,.72],[.02,.57],[-.08,.38],[.04,.2]],
-              [[.47,.96],[.36,.74],[.48,.55],[.39,.36],[.53,.17]],
-              [[-.75,-.65],[-.56,-.55],[-.48,-.39],[-.28,-.34]],
-              [[.7,-.76],[.55,-.61],[.57,-.42],[.42,-.29]],
-              [[-.02,-.18],[.15,-.28],[.3,-.22],[.42,-.34],[.58,-.29]],
-              [[-.7,.05],[-.48,-.02],[-.36,.1],[-.2,.04],[0,.15]],
-              [[.14,.22],[.3,.36],[.28,.54],[.45,.68],[.42,.87]]
+            // Fraturas tectônicas: poucos sulcos ramificados, todos contidos na crosta.
+            // A quantidade e a largura aumentam com a deterioração do planeta.
+            const fracturePaths=[
+                [[-.96,-.16],[-.78,-.23],[-.62,-.15],[-.48,-.20],[-.31,-.05],[-.16,-.09],[.02,.08],[.19,.12],[.34,.29],[.52,.26],[.69,.40]],
+                [[-.48,-.20],[-.43,-.38],[-.29,-.51],[-.31,-.68],[-.18,-.83]],
+                [[-.16,-.09],[-.05,-.28],[.10,-.37],[.19,-.55],[.16,-.77]],
+                [[.34,.29],[.28,.46],[.39,.60],[.35,.78]],
+                [[.19,.12],[.38,.02],[.53,-.09],[.70,-.06],[.88,-.20]],
+                [[-.31,-.05],[-.43,.13],[-.42,.34],[-.57,.48],[-.54,.68]],
+                [[-.42,.34],[-.22,.38],[-.06,.53],[.08,.72]]
             ];
-            const crackCount=[0,4,8,11,12][stage]||0;
-            const traceCrack=points=>{ctx.beginPath();ctx.moveTo(points[0][0],points[0][1]);for(let j=1;j<points.length;j++)ctx.lineTo(points[j][0],points[j][1]);ctx.lineJoin='round';ctx.lineCap='round';};
-            for(let i=0;i<crackCount;i++){
-                const points=cracks[i],width=stage>=3?.024:stage>=2?.017:.012;
-                ctx.save();ctx.shadowColor=stage>=2?'rgba(125,211,252,.48)':'rgba(15,23,42,.35)';ctx.shadowBlur=stage>=3?radius*.025:stage>=2?radius*.014:0;
-                traceCrack(points);ctx.strokeStyle='rgba(1,4,14,.96)';ctx.lineWidth=width*1.85;ctx.stroke();
-                ctx.save();ctx.translate(-.004,-.004);traceCrack(points);ctx.strokeStyle=stage>=2?'rgba(186,230,253,.68)':'rgba(214,184,139,.62)';ctx.lineWidth=Math.max(.0025,width*.34);ctx.stroke();ctx.restore();
-                traceCrack(points);ctx.strokeStyle=stage>=3?'rgba(2,6,23,.98)':'rgba(15,23,42,.94)';ctx.lineWidth=width*.72;ctx.stroke();
-                if(stage>=2){traceCrack(points);ctx.strokeStyle='rgba(125,211,252,.46)';ctx.lineWidth=.0028;ctx.stroke();}
-                ctx.restore();
+            const visibleFractures=[0,1,3,5,7][stage]||0;
+            const fractureWidth=stage===1?.010:stage===2?.014:stage===3?.019:.025;
+            for(let i=0;i<visibleFractures;i++){
+                const points=fracturePaths[i];
+                ctx.beginPath();ctx.moveTo(points[0][0],points[0][1]);
+                for(let j=1;j<points.length;j++)ctx.lineTo(points[j][0],points[j][1]);
+                ctx.lineCap='round';ctx.lineJoin='round';
+                ctx.strokeStyle='rgba(7,8,12,.86)';ctx.lineWidth=fractureWidth*1.45;ctx.stroke();
+                ctx.beginPath();ctx.moveTo(points[0][0]-.004,points[0][1]-.004);
+                for(let j=1;j<points.length;j++)ctx.lineTo(points[j][0]-.004,points[j][1]-.004);
+                ctx.strokeStyle=stage>=3?'rgba(199,164,119,.30)':'rgba(217,190,151,.42)';
+                ctx.lineWidth=stage>=3?.0035:.003;ctx.stroke();
+                ctx.beginPath();ctx.moveTo(points[0][0]+.003,points[0][1]+.003);
+                for(let j=1;j<points.length;j++)ctx.lineTo(points[j][0]+.003,points[j][1]+.003);
+                ctx.strokeStyle='rgba(1,3,8,.34)';ctx.lineWidth=fractureWidth*.42;ctx.stroke();
             }
-            const branches=[
-                [-.52,-.31,-.68,-.48],[-.34,-.17,-.22,-.02],[.27,-.56,.44,-.68],[.58,.1,.76,.22],
-                [-.56,.42,-.72,.57],[.02,.57,.18,.72],[.39,.36,.58,.45],[.55,-.42,.72,-.55],
-                [-.68,-.24,-.79,-.12],[-.4,-.31,-.46,-.48],[.18,-.39,.06,-.5],[.38,.08,.52,.22]
-            ];
-            const branchCount=[0,2,5,8,12][stage]||0;
-            branches.slice(0,branchCount).forEach(([x1,y1,x2,y2],index)=>{
-                ctx.beginPath();ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);
-                ctx.strokeStyle='rgba(1,4,14,.95)';ctx.lineWidth=stage>=3?.014:.009;ctx.lineCap='round';ctx.stroke();
-                ctx.beginPath();ctx.moveTo(x1-.003,y1-.003);ctx.lineTo(x2-.003,y2-.003);
-                ctx.strokeStyle=stage>=2?'rgba(125,211,252,.62)':'rgba(214,184,139,.55)';ctx.lineWidth=.003;ctx.stroke();
-            });
-            if(stage>=2){
-                const rifts=[[-.33,-.18,.13,.09],[.29,.12,.12,.07],[-.12,.49,.1,.06],[.58,-.35,.08,.05]];
-                rifts.slice(0,stage-1).forEach(([x,y,rx,ry],index)=>{
-                    ctx.save();ctx.translate(x,y);ctx.rotate(-.6+index*.18);
-                    ctx.beginPath();ctx.moveTo(-rx,-ry*.15);ctx.lineTo(-rx*.35,-ry);ctx.lineTo(rx*.45,-ry*.65);ctx.lineTo(rx,ry*.05);ctx.lineTo(rx*.3,ry);ctx.lineTo(-rx*.55,ry*.62);ctx.closePath();
-                    ctx.fillStyle='rgba(2,6,23,.78)';ctx.fill();ctx.strokeStyle='rgba(125,211,252,.62)';ctx.lineWidth=.006;ctx.stroke();
-                    ctx.beginPath();ctx.moveTo(-rx*.55,-ry*.1);ctx.lineTo(rx*.48,-ry*.58);ctx.strokeStyle='rgba(186,230,253,.34)';ctx.lineWidth=.0025;ctx.stroke();
-                    ctx.restore();
-                });
+            // Áreas colapsadas surgem junto aos encontros das fissuras, sem objetos espetados para fora.
+            if(stage>=3){
+                const collapseSpots=stage===3?[[-.16,-.09,.035,.022],[.34,.29,.045,.026]]:[[-.16,-.09,.052,.034],[.34,.29,.060,.038],[-.42,.34,.042,.028],[.19,.12,.035,.024]];
+                for(const [x,y,rx,ry] of collapseSpots){
+                    ctx.beginPath();ctx.ellipse(x,y,rx,ry,-.45,0,Math.PI*2);
+                    ctx.fillStyle='rgba(7,8,13,.52)';ctx.fill();
+                    ctx.beginPath();ctx.ellipse(x-rx*.2,y-ry*.25,rx*.72,ry*.58,-.45,Math.PI*1.05,Math.PI*1.9);
+                    ctx.strokeStyle='rgba(214,184,143,.24)';ctx.lineWidth=.004;ctx.stroke();
+                }
             }
-            if(cam.xrayMode){const core=ctx.createRadialGradient(0,0,.04,0,0,.8);core.addColorStop(0,'rgba(255,255,255,.12)');core.addColorStop(.3,'rgba(56,189,248,.04)');core.addColorStop(1,'rgba(56,189,248,0)');ctx.fillStyle=core;ctx.beginPath();ctx.arc(0,0,.82,0,Math.PI*2);ctx.fill();}
+            if(stage>=4){
+                // Pequenas áreas de erosão junto à borda dão a impressão de crosta cedendo.
+                const wornRim=[[-.82,-.28],[-.72,.59],[.46,-.78],[.80,.16]];
+                for(const [x,y] of wornRim){
+                    ctx.beginPath();ctx.ellipse(x,y,.060,.024,Math.atan2(y,x),0,Math.PI*2);
+                    ctx.fillStyle='rgba(7,8,13,.32)';ctx.fill();
+                }
+            }
+            if(cam.xrayMode){const core=            if(cam.xrayMode){const core=ctx.createRadialGradient(0,0,.04,0,0,.8);core.addColorStop(0,'rgba(255,255,255,.12)');core.addColorStop(.3,'rgba(56,189,248,.04)');core.addColorStop(1,'rgba(56,189,248,0)');ctx.fillStyle=core;ctx.beginPath();ctx.arc(0,0,.82,0,Math.PI*2);ctx.fill();}
             ctx.restore();
 
             // Sombreamento esférico aplicado por cima da textura.
@@ -5232,14 +5195,12 @@ function drawColony(time){
             if(cam.xrayMode){ctx.save();ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.clip();ctx.translate(cx,cy);ctx.transform(Math.cos(cam.rotation),Math.sin(cam.rotation)*.10,-Math.sin(cam.rotation)*.18,1,0,0);ctx.scale(radius,radius);drawXRayMineralSeams(planet);ctx.restore();}
             // A crosta começa a se fragmentar nas etapas avançadas, independente do Centro de Logística.
             ctx.restore();
-            drawCrustFragments(planet,cx,cy,radius,stage,time);
             ctx.save();
             drawHomeworldStructures(planet,cx,cy,radius,cam,time);
             drawRedEyeOrbital(planet,cx,cy,radius,time);
             drawFleetShips(planet,cx,cy,radius,time);
 
-            // O raio-X revela veios minerais como zonas coloridas sob a crosta.
-            if(cam.xrayMode)drawXRayMineralSeams(planet);
+            // O raio-X já foi desenhado uma vez, com recorte esférico, sobre a textura.
             ctx.restore();
 
             // Injetores bacteriófagos ancorados no perímetro da crosta.
@@ -5322,8 +5283,11 @@ function drawColony(time){
 
         function animationFrame(timestamp) {
             if (!lastFrameTime) lastFrameTime = timestamp;
-            const delta = timestamp - lastFrameTime;
-            lastFrameTime = timestamp;
+            const frameInterval=state.currentScreen==='colony'?1000/30:1000/60;
+            const elapsed=timestamp-lastFrameTime;
+            if(elapsed<frameInterval){requestAnimationFrame(animationFrame);return;}
+            const delta=elapsed;
+            lastFrameTime=timestamp;
             if (state.planetCamera.autoRotate && state.currentScreen === 'colony' && !state.planetCamera.isDragging) {
                 const currentPlanet=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld;
                 if(getPlanetVisualStats(currentPlanet).stage<2)state.planetCamera.rotation += delta * 0.00012;
