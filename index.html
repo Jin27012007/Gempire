@@ -2126,7 +2126,7 @@
         function dispatchGalaxyWarpExpedition(targetId){
             const target=PLANETS[targetId],source=PLANETS[state.activeColonyPlanetId];
             if(!structureIsOperational('galaxy_warp')||!source?.galaxyWarpBuilt){setStatusTicker('É necessário um Galaxy Warp operacional no planeta de origem.',true);return;}
-            if(!target||!target.colonized||target.id===source.id){setStatusTicker('A expedição exige outro planeta já colonizado.',true);return;}
+            if(!target||target.id===source.id){setStatusTicker('Selecione outro planeta como destino da expedição.',true);return;}
             if(target.galaxyWarpBuilt){setStatusTicker('Este planeta já possui um Galaxy Warp.');return;}
             if(!(state.shipFleet||[]).some(ship=>ship.planetId===source.id)){setStatusTicker('É necessária uma nave posicionada no planeta de origem para transportar a equipe de construção.',true);return;}
             if(state.minerals<100||state.tech<40){setStatusTicker('A expedição exige 100 minerais e 40 de tecnologia.',true);return;}
@@ -2474,7 +2474,7 @@
                             const expeditions=state.galaxyWarpExpeditions||[];
                             html+='<div class="founding-note">Teletransporte local instantâneo. Para viajar entre planetas, ambos precisam possuir um Galaxy Warp. A construção no destino exige uma expedição e uma nave.</div>';
                             html+='<button class="btn btn-block" onclick="useLocalGalaxyWarp()">⚡ Teletransportar Gems para o setor selecionado</button>';
-                            Object.values(PLANETS).filter(p=>p.colonized&&p.id!==state.activeColonyPlanetId).forEach(p=>{
+                            Object.values(PLANETS).filter(p=>p.id!==state.activeColonyPlanetId).forEach(p=>{
                                 if(p.galaxyWarpBuilt)html+='<button class="btn btn-block" onclick="travelThroughGalaxyWarp(\''+p.id+'\')">🌀 Viajar para '+escapeHTML(p.shortName)+'</button>';
                                 else {const active=expeditions.some(e=>e.active&&e.targetId===p.id);html+='<button class="btn btn-block" onclick="dispatchGalaxyWarpExpedition(\''+p.id+'\')" '+(active?'disabled':'')+'>🚀 '+(active?'Expedição em andamento':'Enviar expedição para '+escapeHTML(p.shortName))+'</button>';}
                             });
