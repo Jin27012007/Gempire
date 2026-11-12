@@ -438,7 +438,6 @@
             #viewport{flex:1 1 0;min-height:0;height:auto;width:100%}
             #right-drawer{width:min(360px,88vw);max-width:88vw}
             #drawer-toggle-tab{width:28px;left:-28px}
-            #bottom-bar{bottom:6px;max-width:96vw;padding:5px 7px;gap:4px}
             #hud-banners{top:6px;left:6px;right:6px;max-width:none}
             .banner-pill{font-size:10px;padding:5px 7px}
             .game-menu-overlay{padding:8px;align-items:center;justify-content:center;overflow-x:hidden}
@@ -4490,7 +4489,7 @@ ${hasAristocrats ? `
               ctx.strokeStyle=a;ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(-20,-10);ctx.lineTo(20,-10);ctx.stroke();
               break;
             case'terraformer':
-              drawPolygon([[-12,9],[-9,-21],[0,-33],[9,-21],[12,9]],'#134e4a',c,1.2);ctx.strokeStyle=a;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-20,-4);ctx.lineTo(-29,-15);ctx.moveTo(20,-4);ctx.lineTo(29,-15);ctx.moveTo(-29,-15);ctx.lineTo(-34,-20);ctx.moveTo(29,-15);ctx.lineTo(34,-20);ctx.stroke();
+              drawPolygon([[-12,9],[-9,-21],[0,-33],[9,-21],[12,9]],c,c,1.2);ctx.strokeStyle=a;ctx.lineWidth=2;ctx.beginPath();ctx.moveTo(-20,-4);ctx.lineTo(-29,-15);ctx.moveTo(20,-4);ctx.lineTo(29,-15);ctx.moveTo(-29,-15);ctx.lineTo(-34,-20);ctx.moveTo(29,-15);ctx.lineTo(34,-20);ctx.stroke();
               ctx.strokeStyle=active?g:g;ctx.lineWidth=1.5;ctx.beginPath();ctx.arc(0,-10,22,Math.PI*.12,Math.PI*.88);ctx.stroke();
               break;
             case'shield':
@@ -4527,7 +4526,7 @@ ${hasAristocrats ? `
             if(!planet||planet.id!=='homeworld')return;
             const size=Math.max(.30,Math.min(.56,radius/390)),rulerColors=getPlanetRulerColors(planet);
             if(structureCount('planetary_network')>0){
-                ctx.save();ctx.strokeStyle=structureIsOperational('planetary_network')?'rgba(196,181,253,.58)':'rgba(100,116,139,.28)';ctx.lineWidth=Math.max(1,radius*.006);ctx.setLineDash([5,5]);
+                ctx.save();ctx.strokeStyle=structureIsOperational('planetary_network')?(rulerColors?.glow||'rgba(196,181,253,.58)'):(rulerColors?.accent||'rgba(100,116,139,.28)');ctx.lineWidth=Math.max(1,radius*.006);ctx.setLineDash([5,5]);
                 for(let k=0;k<8;k++){const a=camera.rotation+k*Math.PI/4,b=camera.rotation+(k+1)*Math.PI/4;ctx.beginPath();ctx.moveTo(cx+Math.cos(a)*radius*.22,cy+Math.sin(a)*radius*.18);ctx.quadraticCurveTo(cx,cy,cx+Math.cos(b)*radius*.22,cy+Math.sin(b)*radius*.18);ctx.stroke();}
                 ctx.setLineDash([]);ctx.restore();
             }
