@@ -803,7 +803,7 @@
             {id:'shipyard',name:'Estaleiro',category:'Exploração espacial',desc:'Bismutos constroem naves e Peridotos integram seus sistemas. Com o Estaleiro operacional, as classes de nave ficam disponíveis sem exigir Centro de Pesquisa.',cost:{minerals:90,tech:40},buildTime:40,prerequisites:['workshop','refinery','reactor'],workers:{bismuth:1,peridot:1},interaction:'Permite construir naves das classes Diamante, Elite, Guerra, Excursão e Rubi.',maxCount:1},
             
             {id:'shield_generator',name:'Gerador de Escudo',category:'Defesa',desc:'Gera uma barreira planetária operada por Rubis e sustentada por energia.',cost:{minerals:70,tech:25},buildTime:34,prerequisites:['reactor','defense_tower'],workers:{ruby:1,peridot:1},interaction:'Ativa proteção energética.',maxCount:2},
-            {id:'red_eye',name:'Olho Vermelho',category:'Megastruturas',desc:'Sonda orbital autônoma, visível como um planeta anão. Pode ser enviada a mundos desconhecidos para retornar com dados de tamanho, distância, temperatura e composição; também rastreia Gems fugitivas e Off-Colors em colônias antigas.',cost:{minerals:150,tech:80},buildTime:60,prerequisites:['shipyard','galaxy_warp','reactor'],workers:{peridot:2,bismuth:1},interaction:'Envia sondas de reconhecimento e varreduras de rastreamento.',maxCount:1},
+            {id:'red_eye',name:'Olho Vermelho',category:'Megastruturas',desc:'Sonda orbital autônoma, visível como um planeta anão. Cada mundo pode abrigar até três Olhos Vermelhos em órbitas independentes. Pode ser enviada a mundos desconhecidos para retornar com dados de tamanho, distância, temperatura e composição; também rastreia Gems fugitivas e Off-Colors em colônias antigas.',cost:{minerals:150,tech:80},buildTime:60,prerequisites:['shipyard','galaxy_warp','reactor'],workers:{peridot:2,bismuth:1},interaction:'Envia sondas de reconhecimento e varreduras de rastreamento.',maxCount:3},
             {id:'royal_palace',name:'Palácio Real',category:'Megastruturas',desc:'Maior construção terrestre da colônia, erguida na região superior central do planeta. Abriga bailes, reuniões da Corte e residências das aristocratas.',cost:{minerals:250,tech:150},buildTime:90,prerequisites:['red_eye','research_center'],workers:{sapphire:1,pearl:1,peridot:1},interaction:'Sede da Corte, dos bailes e das reuniões imperiais.',maxCount:1},
             {id:'diamond_quarters',name:'Quarto de Diamante',category:'Residências',desc:'Residência individual e exclusiva de uma Diamante em Homeworld. O limite de quartos acompanha a quantidade de Diamantes e exige o Palácio Real.',cost:{minerals:120,tech:70},buildTime:55,prerequisites:['royal_palace'],workers:{peridot:1},interaction:'Um quarto exclusivo para cada Diamante da dinastia.',maxCount:99},
             {id:'lunar_base',name:'Base Lunar',category:'Residências',desc:'Habitat de uma Diamante ou elite em uma lua natural. Consolida relatórios resumidos, alertas e informações da colônia. Só pode ser construída em planetas com ao menos uma lua.',cost:{minerals:180,tech:90},buildTime:65,prerequisites:['royal_palace','reactor'],workers:{peridot:1},interaction:'Fornece residência avançada e relatórios resumidos da colônia.',maxCount:3}
@@ -1840,6 +1840,15 @@
         // 10A. Contexto da Câmara do Trono
 
         function structureCount(id) { return Math.max(0, Number(state.structures && state.structures[id]) || 0); }
+        function redEyeCountForPlanet(planetId){
+            const planet=PLANETS[planetId];
+            if(!planet)return 0;
+            if(!Number.isFinite(Number(planet.redEyesBuilt))){
+                // Compatibilidade: estruturas antigas sem registro por mundo são atribuídas a Homeworld.
+                planet.redEyesBuilt=planetId==='homeworld'?Math.max(0,Number(state.structures?.red_eye)||0):0;
+            }
+            return Math.max(0,Math.floor(Number(planet.redEyesBuilt)||0));
+        }
         function structureDefinition(id) { return STRUCTURE_CATALOG.find(item => item.id === id); }
         function hasStructurePrerequisites(def) { return (def.prerequisites || []).every(id => structureCount(id) > 0); }
         function totalAssignedWorkers(gemType) {
@@ -1894,7 +1903,11 @@
         }
         function canBuildStructure(def) {
             if (!state.firstGameStarted || !state.founding || !state.founding.firstGemCreated) return 'A primeira Gem precisa nascer antes da construção.';
-            if(def.id==='galaxy_warp'){if(PLANETS[state.activeColonyPlanetId]?.galaxyWarpBuilt)return 'Este planeta já possui um Galaxy Warp.';}else if (def.id!=='diamond_quarters' && structureCount(def.id) >= (def.maxCount || 1)) return 'Limite desta estrutura atingido.';
+            if(def.id==='galaxy_warp'){if(PLANETS[state.activeColonyPlanetId]?.galaxyWarpBuilt)return 'Este planeta já possui um Galaxy Warp.';}else if (!['diamond_quarters','red_eye'].includes(def.id) && structureCount(def.id) >= (def.maxCount || 1)) return 'Limite desta estrutura atingido.';
+            if(def.id==='red_eye'){
+                const planetId=state.activeColonyPlanetId||'homeworld',queued=(state.constructionQueue||[]).filter(job=>job&&job.active&&job.id==='red_eye'&&(job.planetId||'homeworld')===planetId).length;
+                if(redEyeCountForPlanet(planetId)+queued>=3)return 'Este mundo já possui três Olhos Vermelhos construídos ou em construção.';
+            }
             if(def.id==='royal_palace'&&state.activeColonyPlanetId!=='homeworld')return 'O Palácio Real só pode ser construído em Homeworld.';
             if(def.id==='diamond_quarters'&&state.activeColonyPlanetId!=='homeworld')return 'Os Quartos de Diamante só podem ser construídos em Homeworld.';
             if(def.id==='diamond_quarters'&&structureCount('diamond_quarters')+(state.constructionQueue||[]).filter(job=>job&&job.active&&job.id==='diamond_quarters').length>=getDiamondOwners().length)return 'Cada Diamante já possui um Quarto construído ou em construção.';
@@ -1919,7 +1932,7 @@
             state.minerals -= def.cost.minerals || 0;
             state.tech -= def.cost.tech || 0;
             if(!Array.isArray(state.constructionQueue))state.constructionQueue=state.construction&&state.construction.active?[state.construction]:[];
-            state.constructionQueue.push({id:id,progress:0,active:true,builder:'bismuth',supervisor:Number(state.census.morganite||0)>0?'morganite':null});
+            state.constructionQueue.push({id:id,...(id==='red_eye'?{planetId:state.activeColonyPlanetId||'homeworld'}:{}),progress:0,active:true,builder:'bismuth',supervisor:Number(state.census.morganite||0)>0?'morganite':null});
             state.construction=state.constructionQueue[0]||null;
             setStatusTicker('Construção iniciada: ' + def.name + '. '+state.constructionQueue.length+' obra(s) em andamento.');
             addChronicle('Construção iniciada', def.name + ' está sendo construída em Homeworld.', 'Infraestrutura em desenvolvimento');
@@ -1930,6 +1943,10 @@
             const def = structureDefinition(job.id);
             if (def) {
                 state.structures[def.id] = structureCount(def.id) + 1;
+                if(def.id==='red_eye'){
+                    const target=PLANETS[job.planetId||'homeworld'];
+                    if(target)target.redEyesBuilt=redEyeCountForPlanet(target.id)+1;
+                }
                 if(def.id==='injector') ensureInjectorOrders();
                 if(def.id==='essence_chamber'){
                     state.diamondChambers=state.diamondChambers||[];
@@ -2083,6 +2100,9 @@
         }
         function updateInjectorProductionWindow(){
             const body=document.getElementById('injector-production-window-body');if(!body)return;
+            // A atualização periódica não pode substituir o <select> que está aberto/focado no celular.
+            const focused=document.activeElement;
+            if(focused&&/^injector-order-modal-(?:type|qty)-/.test(focused.id||''))return;
             cancelUnauthorizedInjectorProduction();
             const f=state.founding||{},count=structureCount('injector'),managed=Number(state.census?.demantoid||0)>0;
             const active=!!f.creationActive&&f.creationSource==='injector';
@@ -4883,10 +4903,25 @@ ${hasAristocrats ? `
         }
 
         function drawRedEyeOrbital(planet,cx,cy,radius,time){
-            if(!planet||structureCount('red_eye')<1)return;
-            const a=time*.00012,rx=radius*1.19,ry=radius*.94,x=cx+Math.cos(a)*rx,y=cy+Math.sin(a)*ry;
-            ctx.save();ctx.strokeStyle='rgba(248,113,113,.24)';ctx.lineWidth=1;ctx.setLineDash([3,7]);ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
-            ctx.shadowColor='#ef4444';ctx.shadowBlur=13;ctx.fillStyle='#7f1d1d';ctx.beginPath();ctx.arc(x,y,Math.max(5,radius*.034),0,Math.PI*2);ctx.fill();ctx.shadowBlur=4;ctx.fillStyle='#fca5a5';ctx.beginPath();ctx.arc(x,y,Math.max(2,radius*.014),0,Math.PI*2);ctx.fill();ctx.restore();
+            if(!planet)return;
+            const count=Math.min(3,redEyeCountForPlanet(planet.id));
+            if(count<1)return;
+            ctx.save();
+            for(let i=0;i<count;i++){
+                // Cada sonda possui seu próprio plano orbital e uma fase inicial separada.
+                const rx=radius*(1.34+i*.17),ry=radius*(1.10+i*.14);
+                const speed=.00012*(1+i*.055),phase=i*Math.PI*2/count;
+                const a=time*speed+phase;
+                const x=cx+Math.cos(a)*rx,y=cy+Math.sin(a)*ry;
+                ctx.strokeStyle=i===0?'rgba(248,113,113,.25)':'rgba(248,113,113,.14)';
+                ctx.lineWidth=1;ctx.setLineDash([3,8]);ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
+                const eyeRadius=Math.max(7,radius*.052);
+                ctx.save();ctx.shadowColor='#ef4444';ctx.shadowBlur=8;
+                ctx.fillStyle='#7f1d1d';ctx.beginPath();ctx.arc(x,y,eyeRadius,0,Math.PI*2);ctx.fill();
+                ctx.shadowBlur=2;ctx.fillStyle='#fca5a5';ctx.beginPath();ctx.arc(x,y,Math.max(3,radius*.021),0,Math.PI*2);ctx.fill();
+                ctx.restore();
+            }
+            ctx.restore();
         }
 
         function drawHomeworldStructures(planet,cx,cy,radius,camera,time){
