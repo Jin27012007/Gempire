@@ -1967,7 +1967,7 @@
         function startInjectorProduction(automatic=false) {
             if (!structureIsOperational('injector')) { if(!automatic) setStatusTicker('O Injetor precisa estar construído e receber um Peridoto operador.', true); return; }
             if (state.founding.creationActive || state.founding.bathActive) { if(!automatic) setStatusTicker('A Diamante está ocupada. Aguarde a atividade atual.'); return; }
-            let type = state.founding.injectorGemType || state.founding.selectedGem || 'quartz';
+            let type = state.founding.injectorGemType || 'quartz';
             const injectorCount=Math.max(1,structureCount('injector'));
             const batchCount=5*injectorCount;
             const essenceCost=12*batchCount;
@@ -5130,14 +5130,14 @@ function drawColony(time){
             renderDrawerContent();
         }
         function setInjectorGemType(type) {
-            if (!FOUNDING_GEM_DATA[type] || state.founding.creationActive) return;
+            if (!FOUNDING_GEM_DATA[type]) return;
+            // A ordem pode mudar durante um lote: creationTarget continua reservado
+            // ao lote atual; injectorGemType define exclusivamente o próximo lote.
             state.founding.injectorGemType=type;
-            state.founding.selectedGem=type;
-            state.founding.injectorSpecializationLocked=false;
             const label=FOUNDING_GEM_DATA[type].label;
             const a=document.getElementById('injector-order-current');if(a)a.textContent=label;
             const b=document.getElementById('injector-order-current-modal');if(b)b.textContent=label;
-            setStatusTicker('Ordem de produção atualizada: os Injetores produzirão '+label+' quando os recursos e o clima permitirem.');
+            setStatusTicker('Próximo lote dos Injetores definido: '+label+'. O lote em andamento não será alterado.');
         }
 
         function renderFoundingContext(container) {
