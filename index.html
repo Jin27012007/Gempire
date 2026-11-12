@@ -1924,6 +1924,7 @@
             if (def) {
                 state.structures[def.id] = structureCount(def.id) + 1;
                 if(def.id==='injector') ensureInjectorOrders();
+                if(def.id==='galaxy_warp'){const p=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld;p.galaxyWarpBuilt=true;}
                 if(def.id==='workshop'){state.logisticsMaintenanceTimer=0;state.logisticsActive=true;}
             if(def.id==='mineral_extractor'){
                     state.founding.gatheredMinerals=Object.assign({quartz:0,silicate:0,corundum:0,metallic:0,nacre:0,garnet:0,olivine:0,lapisrock:0,pyroxene:0,beryllium:0,topaz:0},state.founding.gatheredMinerals||{});
@@ -2425,7 +2426,7 @@
                             const weapons=state.diamondWeapons||[];
                             const ruler=(PLANETS[state.activeColonyPlanetId]?.governor||'none').startsWith('matriarch_')?state.matriarchs.find(m=>'matriarch_'+m.id===PLANETS[state.activeColonyPlanetId].governor):state.firstDiamond;
                             html+='<div class="founding-note">Cinese da Diamante: <b>'+ensureDiamondKinesis(ruler).name+'</b><br>Essência Diamante disponível: <b>'+Number(state.founding.diamondEssence||0).toFixed(1)+'</b> · Custo por arma: 50<br>Armas desenvolvidas: '+weapons.length+'</div><button class="btn btn-block" onclick="developDiamondWeapon()" '+(!structureIsOperational('research_center')||Number(state.founding.diamondEssence||0)<50?'disabled':'')+'>⚔️ Desenvolver arma exclusiva · 50 Essências</button>';
-                            weapons.slice(-5).reverse().forEach(w=>{html+='<div class="stat-box"><b>'+escapeHTML(w.name)+'</b><small style="display:block;color:var(--text-muted)">'+escapeHTML(w.owner)+' · '+escapeHTML(w.kinesis)+'</small>'+escapeHTML(w.effect)+'</div>';});
+                            weapons.slice(-5).reverse().forEach(w=>{html+='<div class="stat-box"><b>'+escapeHTML(w.name)+'</b><small style="display:block;color:var(--text-muted)">'+escapeHTML(w.owner)+' · '+escapeHTML(w.kinesis)+' · Potência '+Number(w.potency||1).toFixed(3)+'×</small>'+escapeHTML(w.effect)+'</div>';});
                         } else if(def.id==='galaxy_warp'){
                             const expeditions=state.galaxyWarpExpeditions||[];
                             html+='<div class="founding-note">Teletransporte local instantâneo. Para viajar entre planetas, ambos precisam possuir um Galaxy Warp. A construção no destino exige uma expedição e uma nave.</div>';
@@ -2775,7 +2776,7 @@ ${hasAristocrats ? `
             if(!diamond.kinesis||diamond.kinesis.colorSignature!==hex){
                 const index=(signature^(signature>>>7)^(signature>>>13))%DIAMOND_KINESIS.length;
                 const base=DIAMOND_KINESIS[index];
-                diamond.kinesis={name:base.name,kind:base.kind,weapon:base.weapon,effect:base.effect,colorSignature:hex,variant:signature};
+                diamond.kinesis={name:base.name,kind:base.kind,weapon:base.weapon,effect:base.effect,colorSignature:hex,variant:signature,potency:0.75+(signature/16777215)*0.5};
             }
             return diamond.kinesis;
         }
@@ -2787,7 +2788,7 @@ ${hasAristocrats ? `
             const ruler=(planet.governor||'none').startsWith('matriarch_')?state.matriarchs.find(m=>'matriarch_'+m.id===planet.governor):state.firstDiamond;
             const power=ensureDiamondKinesis(ruler),weapons=state.diamondWeapons||(state.diamondWeapons=[]);
             state.founding.diamondEssence=available-cost;
-            weapons.push({id:'weapon_'+Date.now(),owner:ruler.name,kinesis:power.name,name:power.weapon,effect:power.effect,color:ruler.colorHex||'#f8fafc',createdAt:state.cycleCount||1});
+            weapons.push({id:'weapon_'+Date.now(),owner:ruler.name,kinesis:power.name,name:power.weapon,effect:power.effect,potency:power.potency,color:ruler.colorHex||'#f8fafc',createdAt:state.cycleCount||1});
             setStatusTicker(power.weapon+' desenvolvida com 50 Essências Diamante. Cinese: '+power.name+'.');
             addChronicle('Nova arma: '+power.weapon,ruler.name+' desenvolveu um armamento exclusivo baseado em '+power.name+'.','Arsenal da Diamante');
             updateHUD();renderDrawerContent();
@@ -4713,6 +4714,13 @@ ${hasAristocrats ? `
             const shade=v=>'#'+[r,g,b].map(c=>Math.max(0,Math.min(255,Math.round(c*v))).toString(16).padStart(2,'0')).join('');
             return {color:hex,accent:shade(.84),glow:shade(.68)};
         }
+        function drawRedEyeOrbital(planet,cx,cy,radius,time){
+            if(!planet||structureCount('red_eye')<1)return;
+            const a=time*.00012,rx=radius*1.19,ry=radius*.94,x=cx+Math.cos(a)*rx,y=cy+Math.sin(a)*ry;
+            ctx.save();ctx.strokeStyle='rgba(248,113,113,.24)';ctx.lineWidth=1;ctx.setLineDash([3,7]);ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
+            ctx.shadowColor='#ef4444';ctx.shadowBlur=13;ctx.fillStyle='#7f1d1d';ctx.beginPath();ctx.arc(x,y,Math.max(5,radius*.034),0,Math.PI*2);ctx.fill();ctx.shadowBlur=4;ctx.fillStyle='#fca5a5';ctx.beginPath();ctx.arc(x,y,Math.max(2,radius*.014),0,Math.PI*2);ctx.fill();ctx.restore();
+        }
+
         function drawHomeworldStructures(planet,cx,cy,radius,camera,time){
             if(!planet||planet.id!=='homeworld')return;
             const size=Math.max(.30,Math.min(.56,radius/390)),rulerColors=getPlanetRulerColors(planet);
@@ -4734,7 +4742,7 @@ ${hasAristocrats ? `
                 ctx.setLineDash([]);ctx.restore();
             }
             STRUCTURE_CATALOG.forEach((def,index)=>{
-                const count=structureCount(def.id);if(count<=0)return;
+                const count=structureCount(def.id);if(count<=0||def.id==='red_eye')return;
                 const total=Math.min(count,def.maxCount||1);
                 for(let instance=0;instance<total;instance++){
                     let angle,ratio,scale=size;
@@ -4989,6 +4997,7 @@ function drawColony(time){
             ctx.strokeStyle='rgba(219,234,254,.58)';ctx.lineWidth=1.2;ctx.beginPath();ctx.arc(cx,cy,radius-1,Math.PI*1.05,Math.PI*1.9);ctx.stroke();
 
             drawHomeworldStructures(planet,cx,cy,radius,cam,time);
+            drawRedEyeOrbital(planet,cx,cy,radius,time);
 
             // O raio-X revela veios minerais como zonas coloridas sob a crosta.
             if(cam.xrayMode)drawXRayMineralSeams(planet);
@@ -5802,10 +5811,15 @@ function drawColony(time){
                 state.founding.selectedGem = state.founding.selectedGem || 'quartz';
                 state.structures = state.structures || {};
                 state.structures.galaxy_warp=(Number(state.structures.galaxy_warp)||0)+(Number(state.structures.teleporter)||0);delete state.structures.teleporter;
+                if(state.structures.galaxy_warp>0)PLANETS.homeworld.galaxyWarpBuilt=true;
                 state.structures.red_eye=(Number(state.structures.red_eye)||0)+(Number(state.structures.orbital_station)||0);delete state.structures.orbital_station;
                 state.structures.royal_palace=(Number(state.structures.royal_palace)||0)+(Number(state.structures.planetary_network)||0);delete state.structures.planetary_network;
                 delete state.structures.administration_center;delete state.structures.terraformer;
                 state.structureAssignments = state.structureAssignments || {};
+                state.structureAssignments.galaxy_warp=state.structureAssignments.galaxy_warp||state.structureAssignments.teleporter||{};delete state.structureAssignments.teleporter;
+                state.structureAssignments.red_eye=state.structureAssignments.red_eye||state.structureAssignments.orbital_station||{};delete state.structureAssignments.orbital_station;
+                state.structureAssignments.royal_palace=state.structureAssignments.royal_palace||state.structureAssignments.planetary_network||{};delete state.structureAssignments.planetary_network;
+                delete state.structureAssignments.administration_center;delete state.structureAssignments.terraformer;
                 if(state.structureAssignments.mineral_extractor)delete state.structureAssignments.mineral_extractor.quartz;
                 if(state.structureAssignments.refinery)delete state.structureAssignments.refinery.quartz;
                 state.construction = state.construction || null;
@@ -5819,6 +5833,7 @@ function drawColony(time){
                 state.diamondWeapons=Array.isArray(state.diamondWeapons)?state.diamondWeapons:[];
                 state.shipFleet=Array.isArray(state.shipFleet)?state.shipFleet:[];
                 state.redEyeReports=Array.isArray(state.redEyeReports)?state.redEyeReports:[];
+                state.galaxyWarpExpeditions=Array.isArray(state.galaxyWarpExpeditions)?state.galaxyWarpExpeditions:[];
                 state.logisticsActive=state.logisticsActive!==false;
                 state.gemTransfers = Array.isArray(state.gemTransfers)?state.gemTransfers:[];
                 state.energy = Number(state.energy) || 0;
