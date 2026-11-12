@@ -813,7 +813,7 @@
         const GEM_HIERARCHY = [
             {tier:'S',name:'Autoridade Diamante',entries:[['firstDiamond','Diamante Matriarca','Jogadora e autoridade máxima do Império.'],['matriarchs','Diamantes subordinadas','Possuem consciência própria e autonomia para governar suas Gems e colônias; decisões imperiais de grande escala são encaminhadas à Matriarca.']]},
             {tier:'A',name:'Aristocratas',entries:[['sapphire','Safiras','5% de chance de previsão por Safira a cada cinco minutos; as chances aumentam com a quantidade.'],['jade','Jades','Feitas de piroxênio refinado; dedicadas a bailes e eventos sociais futuros.'],['morganite','Morganitas','Berílio refinado em mundos acima de 100 °C; supervisionam automaticamente obras e Bismutos.'],['aquamarine','Águas-marinhas','Berílio refinado em mundos oceânicos ou abaixo de 0 °C; comandam a logística das Lápis.'],['emerald','Esmeraldas','Berílio refinado entre 1 °C e 99 °C; ampliam o comando das Hessonitas.'],['lapis','Lápis-Lazúlis','Duas Lápis em um planeta com grande reserva de água podem criar terra firme e aplainar terrenos montanhosos.']]},
-            {tier:'B',name:'Generais',entries:[['pyrope','Piropo','General de exércitos e operações em larga escala.'],['hessonite','Hessonita','Mobilização de tropas, coordenação de ataques e formação de exércitos.']]},
+            {tier:'B',name:'Generais e especialistas',entries:[['pyrope','Piropo','General de exércitos e operações em larga escala.'],['hessonite','Hessonita','Mobilização de tropas, coordenação de ataques e formação de exércitos.'],['demantoid','Demantoide','Supervisão científica; define a produção dos Injetores e coordena Peridotos.']]},
             {tier:'C',name:'Operárias',entries:[['agate','Ágata','Quartzo refinado; comanda até 20 soldados Quartzo.'],['nephrite','Nefrita','Piroxênio comum; piloto de naves com velocidade dobrada e única piloto de naves de guerra.'],['peridot','Peridoto','Equipe técnica dos jardins de infância, análise de terreno e operação de estruturas tecnológicas.']]},
             {tier:'D',name:'Soldados',entries:[['quartz','Família Quartzo','Cornalinas, Ametistas, Jaspers, Roses, Citrinos, Rubis, Onyx, Olho de Tigre, Calcedônias e Rutilos. A variante depende das condições geológicas.'],['topaz','Topázios','Soldados raros, guardas exclusivos de palácios e comitivas de Gems importantes.']]},
             {tier:'E',name:'Serventes',entries:[['pearl','Pérolas','Pérola mineral ×1,5; Pérola legítima de Recife ×2. Uma por dona.'],['bismuth','Bismutos','Construção de estruturas e fabricação de componentes, sob comando de Morganitas.']]}
@@ -2495,7 +2495,7 @@
                             html+='<button class="btn btn-block" onclick="startRedEyeMission(\'survey\')" '+(mission&&mission.active?'disabled':'')+'>🔭 Reconhecer outro planeta</button><button class="btn btn-block" onclick="startRedEyeMission(\'tracking\')" '+(mission&&mission.active?'disabled':'')+'>🧭 Rastrear fugitivas e Off-Colors</button>';
                             reports.slice(0,5).forEach(r=>{html+='<div class="stat-box"><b>'+escapeHTML(r.planetName)+'</b><small style="display:block;color:var(--text-muted)">Porte: '+escapeHTML(r.size)+' · '+r.distanceAU+' UA · '+r.temperatureC+' °C · '+r.pressureAtm+' atm</small>'+(r.trackedGems===null?'':'Rastros detectados: '+r.trackedGems)+'</div>';});
                         } else if(def.id==='shipyard'){
-                            html+='<div class="founding-note">Frota construída: '+(state.shipFleet||[]).length+' nave(s). Projetos exigem Centro de Pesquisa operacional.</div>';
+                            html+='<div class="founding-note">Frota construída: '+(state.shipFleet||[]).length+' nave(s). O Estaleiro operacional já libera a fabricação das classes disponíveis; não exige pesquisa.</div>';
                             (state.shipFleet||[]).slice().reverse().forEach(ship=>{html+='<div class="stat-box"><b>'+escapeHTML(ship.name)+'</b><small style="display:block;color:var(--text-muted)">'+(ship.ownerName?escapeHTML(ship.ownerName)+' · ':'')+escapeHTML(ship.speed)+' · Capacidade '+ship.capacity+' Gems · '+escapeHTML(PLANETS[ship.planetId]?.shortName||'Órbita desconhecida')+'</small></div>';});
                             Object.entries(SHIP_BLUEPRINTS).forEach(([type,bp])=>{
                                 const reason=canBuildShip(type);
@@ -2919,7 +2919,8 @@ ${hasAristocrats ? `
             while(remainingCost>0){
                 const candidates=available.filter(([key])=>(pools[key]||0)>0);
                 if(!candidates.length)break;
-                const [key,amount]=candidates[Math.floor(Math.random()*candidates.length)];
+                const [key]=candidates[Math.floor(Math.random()*candidates.length)];
+                const amount=Math.max(0,Number(pools[key])||0);
                 const take=Math.min(amount,Math.max(1,Math.ceil(remainingCost/(candidates.length*.8))));
                 pools[key]-=take;consumed[key]=(consumed[key]||0)+take;remainingCost-=take;
             }
