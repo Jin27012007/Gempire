@@ -1838,7 +1838,8 @@
         function hasStructurePrerequisites(def) { return (def.prerequisites || []).every(id => structureCount(id) > 0); }
         function totalAssignedWorkers(gemType) {
             const assignedToStructures = Object.values(state.structureAssignments || {}).reduce((sum, jobs) => sum + (Number(jobs && jobs[gemType]) || 0), 0);
-            const assignedToConstruction = state.construction && state.construction.active && state.construction.builder === gemType ? 1 : 0;
+            const queue=Array.isArray(state.constructionQueue)?state.constructionQueue:(state.construction&&state.construction.active?[state.construction]:[]);
+            const assignedToConstruction=queue.filter(job=>job&&job.active&&job.builder===gemType).length;
             return assignedToStructures + assignedToConstruction;
         }
         function freeGemWorkers(gemType) { return Math.max(0, (Number(state.census && state.census[gemType]) || 0) - totalAssignedWorkers(gemType)); }
@@ -1876,7 +1877,6 @@
         }
         function canBuildStructure(def) {
             if (!state.firstGameStarted || !state.founding || !state.founding.firstGemCreated) return 'A primeira Gem precisa nascer antes da construção.';
-            if (state.construction && state.construction.active) return 'Conclua a construção atual primeiro.';
             if (structureCount(def.id) >= (def.maxCount || 1)) return 'Limite desta estrutura atingido.';
             const missing = (def.prerequisites || []).filter(id => structureCount(id) < 1);
             if (missing.length) return 'Requer: ' + missing.map(id => structureDefinition(id).name).join(', ');
@@ -1892,13 +1892,14 @@
             if (reason) { setStatusTicker(reason, true); return; }
             state.minerals -= def.cost.minerals || 0;
             state.tech -= def.cost.tech || 0;
-            state.construction = {id:id,progress:0,active:true,builder:'bismuth',supervisor:Number(state.census.morganite||0)>0?'morganite':null};
-            setStatusTicker('Construção iniciada: ' + def.name + '.');
+            if(!Array.isArray(state.constructionQueue))state.constructionQueue=state.construction&&state.construction.active?[state.construction]:[];
+            state.constructionQueue.push({id:id,progress:0,active:true,builder:'bismuth',supervisor:Number(state.census.morganite||0)>0?'morganite':null});
+            state.construction=state.constructionQueue[0]||null;
+            setStatusTicker('Construção iniciada: ' + def.name + '. '+state.constructionQueue.length+' obra(s) em andamento.');
             addChronicle('Construção iniciada', def.name + ' está sendo construída em Homeworld.', 'Infraestrutura em desenvolvimento');
             updateStructureUI();
         }
-        function finishStructureConstruction() {
-            const job = state.construction;
+        function finishStructureConstruction(job) {
             if (!job || !job.active) return;
             const def = structureDefinition(job.id);
             if (def) {
@@ -1912,7 +1913,8 @@
                 addChronicle('Estrutura concluída', def.name + ' foi concluída. ' + def.interaction, 'Aguardando operadores');
                 setStatusTicker(def.name + ' concluída. Designe Gems com a função adequada para operá-la.');
             }
-            state.construction = null;
+            state.constructionQueue=(Array.isArray(state.constructionQueue)?state.constructionQueue:[]).filter(item=>item!==job);
+            state.construction=state.constructionQueue[0]||null;
             updateStructureUI();
         }
         function requestGemProductionReport() {
@@ -2156,15 +2158,17 @@
                 const next=STRUCTURE_CATALOG.find(def=>structureCount(def.id)<(def.maxCount||1)&&canBuildStructure(def)==='');
                 if(next)buildStructure(next.id);
             }
-            if (state.construction && state.construction.active) {
-                const def = structureDefinition(state.construction.id);
-                const bismuthCount=Math.max(0,Number(state.census.bismuth)||0);
-                const bismuthBuildFactor=Math.max(0.85,1-Math.min(5,bismuthCount)*0.03);
-                const morganiteFactor=Number(state.census.morganite||0)>0?0.8:1;
+            if(!Array.isArray(state.constructionQueue))state.constructionQueue=state.construction&&state.construction.active?[state.construction]:[];
+            const activeJobs=state.constructionQueue.slice();
+            for(const job of activeJobs){
+                if(!job||!job.active)continue;
+                const def=structureDefinition(job.id),bismuthCount=Math.max(1,Number(state.census.bismuth)||1);
+                const bismuthBuildFactor=Math.max(0.85,1-Math.min(5,bismuthCount)*0.03),morganiteFactor=Number(state.census.morganite||0)>0?0.8:1;
                 const constructionTime=Math.max(1,def?def.buildTime:20)*2.5;
-                state.construction.progress = Math.min(100, state.construction.progress + dt * 100 / (constructionTime*bismuthBuildFactor*morganiteFactor));
-                if (state.construction.progress >= 100) finishStructureConstruction();
+                job.progress=Math.min(100,(Number(job.progress)||0)+dt*100/(constructionTime*bismuthBuildFactor*morganiteFactor));
+                if(job.progress>=100)finishStructureConstruction(job);
             }
+            state.construction=state.constructionQueue[0]||null;
             if (structureIsOperational('essence_chamber') && Number(state.founding.diamondEssence) > 0) {
                 const chamberCount=structureCount('essence_chamber');
                 const moved = Math.min(state.founding.diamondEssence, dt * 50 * chamberCount);
@@ -2485,7 +2489,7 @@ ${hasAristocrats ? `
             const found=state.founding||{},reports=(found.productionReports||[]).slice().reverse();
             const reportHtml=reports.length?reports.map(r=>'<div class="stat-box"><b>'+escapeHTML(r.gemLabel||r.type||'Gem')+' × '+Number(r.quantity||0)+'</b><small style="display:block;color:var(--text-muted)">Qualidade: '+escapeHTML(r.grade||'A')+' · Substrato: '+escapeHTML(r.mineralName||'Não informado')+' · Ciclo '+Number(r.cycle||0)+'</small><small>'+escapeHTML(r.description||'Produção automática concluída.')+'</small></div>').join(''):'<div class="stat-box" style="color:#94a3b8">Nenhum lote produzido ainda. Os resultados aparecerão aqui após o primeiro ciclo do Injetor.</div>';
             const operational=structureIsOperational('injector');
-            return '<div class="card card-cyan"><div class="card-header"><span class="card-title title-font">📊 Relatórios de formação de Gems</span><span class="badge">'+(operational?'Injetor operacional':'Aguardando Injetor')+'</span></div><div class="founding-note">Consulte os lotes produzidos automaticamente, incluindo tipo de Gem, quantidade, qualidade e substrato utilizado.</div><div class="stat-box">Lotes concluídos: <b>'+(found.productionReports||[]).length+'</b> · Gems produzidas: <b>'+(found.gemsCreatedCount||0)+'</b></div><button class="btn btn-emerald btn-block" onclick="requestGemProductionReport()" '+(operational?'':'disabled')+'>📄 Solicitar relatório de formação</button>'+(found.productionReportRequested?reportHtml:'<div class="founding-note">O relatório detalhado será exibido quando solicitado.</div>')+'</div>';
+            return '<div class="card card-cyan"><div class="card-header"><span class="card-title title-font">📊 Relatórios de formação de Gems</span><span class="badge">'+(operational?'Injetor operacional':'Aguardando Injetor')+'</span></div><div class="founding-note">O histórico detalhado fica disponível somente na janela de relatório, sem duplicar a listagem no Contexto.</div><div class="stat-box">Lotes concluídos: <b>'+(found.productionReports||[]).length+'</b> · Gems produzidas: <b>'+(found.gemsCreatedCount||0)+'</b></div><button class="btn btn-emerald btn-block" onclick="requestGemProductionReport()" '+(operational?'':'disabled')+'>📄 Abrir relatório de formação</button></div>';
         }
 
         function buildEssenceBathCard() {
@@ -5596,6 +5600,9 @@ function drawColony(time){
                 if(state.structureAssignments.mineral_extractor)delete state.structureAssignments.mineral_extractor.quartz;
                 if(state.structureAssignments.refinery)delete state.structureAssignments.refinery.quartz;
                 state.construction = state.construction || null;
+                state.constructionQueue=Array.isArray(state.constructionQueue)?state.constructionQueue:(state.construction&&state.construction.active?[state.construction]:[]);
+                state.construction=state.constructionQueue[0]||null;
+                state.currentScreen='throne';
                 state.morganiteAutoBuild = state.morganiteAutoBuild !== false;
                 state.gemTransfers = Array.isArray(state.gemTransfers)?state.gemTransfers:[];
                 state.energy = Number(state.energy) || 0;
