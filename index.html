@@ -210,26 +210,6 @@
             flex-shrink: 0;
         }
 
-        /* BARRA FLUTUANTE INFERIOR */
-        #bottom-bar {
-            position: absolute;
-            bottom: 12px;
-            left: 50%;
-            transform: translateX(-50%);
-            z-index: 20;
-            background: rgba(8, 12, 26, 0.92);
-            border: 1px solid var(--border-light);
-            border-radius: 14px;
-            padding: 6px 12px;
-            display: flex;
-            flex-wrap: wrap;
-            align-items: center;
-            justify-content: center;
-            gap: 6px;
-            max-width: 94vw;
-            box-shadow: 0 8px 28px rgba(0, 0, 0, 0.75);
-        }
-
         /* 3. PAINEL LATERAL DIREITO ÚNICO (360px) */
         #right-drawer {
             position: absolute;
@@ -604,11 +584,6 @@
                 <span id="autonomy-text">As Matriarcas aguardam ordens.</span>
             </div>
         </div>
-
-        <!-- Pílula Inferior Contextual -->
-        <div id="bottom-bar"></div>
-
-        <!-- Botão de restaurar interface quando oculta -->
 
         <!-- 3. PAINEL LATERAL DIREITO ÚNICO (360px) COM 3 SUB-ABAS -->
         <aside id="right-drawer">
@@ -4543,8 +4518,10 @@ ${hasAristocrats ? `
             const governor=planet&&planet.governor;
             const ruler=governor&&governor.startsWith('matriarch_')?(state.matriarchs||[]).find(m=>'matriarch_'+m.id===governor):state.firstDiamond;
             const hex=ruler&&(ruler.colorHex||COLOR_PALETTES[ruler.colorKey]?.hex);
-            const palette=COLOR_PALETTES[ruler.colorKey]||{};
-            return hex?{color:hex,accent:hex,glow:palette.glow||hex}:null;
+            if(!hex)return null;
+            const n=parseInt(hex.replace('#',''),16),r=(n>>16)&255,g=(n>>8)&255,b=n&255;
+            const shade=v=>'#'+[r,g,b].map(c=>Math.max(0,Math.min(255,Math.round(c*v))).toString(16).padStart(2,'0')).join('');
+            return {color:hex,accent:shade(.84),glow:shade(.68)};
         }
         function drawHomeworldStructures(planet,cx,cy,radius,camera,time){
             if(!planet||planet.id!=='homeworld')return;
@@ -4556,12 +4533,21 @@ ${hasAristocrats ? `
             }
             STRUCTURE_CATALOG.forEach((def,index)=>{
                 const count=structureCount(def.id);if(count<=0)return;
-                const baseAngle=index*2.399963229728653+.55+camera.rotation,baseRatio=.39+(index%3)*.13;
-                for(let instance=0;instance<Math.min(count,def.maxCount||1);instance++){
-                    const spread=(instance-(Math.min(count,def.maxCount||1)-1)/2)*.095,angle=baseAngle+spread,ratio=baseRatio+Math.abs(spread)*.18;
+                const total=Math.min(count,def.maxCount||1);
+                for(let instance=0;instance<total;instance++){
+                    let angle,ratio,scale=size;
+                    if(def.id==='injector'){
+                        // Injetores são módulos menores, distribuídos em órbita própria sem se empilhar.
+                        angle=camera.rotation+instance*2.399963229728653;
+                        ratio=.28+(instance%3)*.17;
+                        scale=size*.34;
+                    }else{
+                        angle=index*2.399963229728653+.55+camera.rotation+instance*.16;
+                        ratio=.39+(index%3)*.13+instance*.025;
+                    }
                     const x=cx+Math.cos(angle)*radius*ratio,y=cy+Math.sin(angle)*radius*ratio*.78;
-                    drawGemStructureModel(def.id,x,y,size*(instance?.9:1),structureIsOperational(def.id),time,100,rulerColors);
-                    if(count>1){ctx.fillStyle='#e2e8f0';ctx.font='bold '+Math.max(8,9*size)+'px Segoe UI';ctx.textAlign='center';ctx.fillText(String(count),x+22*size,y-18*size);}
+                    drawGemStructureModel(def.id,x,y,scale,structureIsOperational(def.id),time,100,rulerColors);
+                    if(count>1&&def.id!=='injector'){ctx.fillStyle=rulerColors?.accent||'#e2e8f0';ctx.font='bold '+Math.max(8,9*size)+'px Segoe UI';ctx.textAlign='center';ctx.fillText(String(count),x+22*size,y-18*size);}
                 }
             });
             if(state.construction&&state.construction.active){
