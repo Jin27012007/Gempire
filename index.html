@@ -2146,17 +2146,7 @@
                     addChronicle('Pesquisa concluída', 'Uma Safira analisou materiais refinados e ampliou o conhecimento tecnológico.', '+10 tecnologia');
                     break;
                 case 'shipyard':
-                    if (state.minerals < 60 || state.refinedMaterials < 10) { setStatusTicker('Construir uma nave exige 60 minerais e 10 materiais refinados.'); return; }
-                    state.minerals -= 60; state.refinedMaterials -= 10; state.ships = (state.ships || 0) + 1;
-                    setStatusTicker('Uma nave foi construída e adicionada à frota.');
-                    addChronicle('Nova nave', 'O estaleiro concluiu uma nave para exploração e transporte.', 'Frota ampliada');
-                    break;
-                case 'terraformer':
-                    state.founding.terraformLevel = (state.founding.terraformLevel || 0) + 1;
-                    PLANETS.homeworld.colors.atmosphere = 'rgba(56, 189, 248, ' + Math.min(0.5,0.12 + state.founding.terraformLevel * 0.04) + ')';
-                    PLANETS.homeworld.colors.ocean = state.founding.terraformLevel > 2 ? '#164e63' : '#172b3a';
-                    setStatusTicker('O Lápis-Lazúli iniciou uma etapa de terraformação em Homeworld.');
-                    addChronicle('Terraformação', 'A equipe de terraformação modificou gradualmente as condições ambientais de Homeworld.', 'Nível ' + state.founding.terraformLevel);
+                    setStatusTicker('Escolha uma classe de nave na seção do Estaleiro.');
                     break;
                 case 'defense_tower':
                     state.founding.defenseLevel = (state.founding.defenseLevel || 0) + 1;
@@ -2167,24 +2157,23 @@
                     state.energy -= 5; state.founding.shieldActive = true;
                     setStatusTicker('Escudo energético ativado em Homeworld.');
                     break;
-                case 'teleporter':
-                    state.founding.teleporterNetwork = true;
-                    setStatusTicker('O ponto foi sincronizado. Conexões entre colônias serão habilitadas quando houver outro mundo colonizado.');
+                case 'galaxy_warp':
+                    state.founding.teleporterNetwork=true;
+                    setStatusTicker('Galaxy Warp sincronizado. O teletransporte interplanetário exige outra instalação no planeta de destino.');
                     break;
-                case 'administration_center':
-                    state.founding.administrationLevel = (state.founding.administrationLevel || 0) + 1;
-                    setStatusTicker('A Pérola reorganizou as equipes e ampliou a capacidade administrativa.');
+                case 'red_eye':
+                    state.redEyeMission={planetId:state.activeColonyPlanetId,progress:0,active:true,returning:false,missionType:'survey'};
+                    setStatusTicker('Olho Vermelho enviado para reconhecimento orbital.');
                     break;
-                case 'reactor':
-                    setStatusTicker('O reator está fornecendo energia continuamente enquanto houver um Peridoto designado.');
+                case 'royal_palace':
+                    state.founding.royalPalaceLevel=(state.founding.royalPalaceLevel||0)+1;
+                    setStatusTicker('O Palácio Real está disponível para bailes e reuniões da Corte.');
                     break;
-                case 'orbital_station':
-                    state.founding.orbitalLevel = (state.founding.orbitalLevel || 0) + 1;
-                    setStatusTicker('A estação orbital iniciou sua primeira operação de observação.');
+                case 'diamond_quarters':
+                    setStatusTicker('Quarto de Diamante estabelecido. A comunicação privada entre Diamantes será adicionada futuramente.');
                     break;
-                case 'planetary_network':
-                    state.founding.planetaryNetworkLevel = (state.founding.planetaryNetworkLevel || 0) + 1;
-                    setStatusTicker('A rede planetária foi sincronizada. Instalações conectadas podem compartilhar operações.');
+                case 'lunar_base':
+                    setStatusTicker('Base Lunar estabelecida para centralizar relatórios da colônia.');
                     break;
                 case 'mineral_extractor':
                     setStatusTicker('O extrator está minerando automaticamente com todos os Quartzos da população.');
