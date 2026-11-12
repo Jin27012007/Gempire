@@ -2167,10 +2167,12 @@
             const bp=SHIP_BLUEPRINTS[type];if(!bp)return 'Projeto desconhecido.';
             if(!structureIsOperational('shipyard'))return 'O Estaleiro precisa estar operacional.';
             if(!structureIsOperational('research_center'))return 'O Centro de Pesquisa precisa desenvolver o projeto.';
-            const count=(state.shipFleet||[]).filter(x=>x.type===type).length;
-            if(type==='diamond'&&count>=state.matriarchs.length+1)return 'Cada Diamante já possui uma Nave Diamante.';
+            if(type==='diamond'){
+                const owners=[{id:'first',name:state.firstDiamond.name},...(state.matriarchs||[]).map(m=>({id:m.id,name:m.name}))];
+                if(!owners.some(owner=>!(state.shipFleet||[]).some(ship=>ship.type==='diamond'&&ship.ownerId===owner.id)))return 'Cada Diamante já possui uma Nave Diamante.';
+            }
             const c=state.census||{};
-            const eligible=type==='diamond'?true:type==='elite'?(c.hessonite+c.emerald+c.aquamarine+c.morganite)>0:type==='war'?c.nephrite>0:type==='ruby'?c.ruby>0:(c.peridot+c.quartz+c.ruby+c.pearl)>0;
+            const eligible=type==='diamond'?true:type==='elite'?(Number(c.hessonite||0)+Number(c.emerald||0)+Number(c.aquamarine||0)+Number(c.morganite||0))>0:type==='war'?c.nephrite>0:type==='ruby'?c.ruby>0:(Number(c.peridot||0)+Number(c.quartz||0)+Number(c.ruby||0)+Number(c.pearl||0))>0;
             if(!eligible)return 'Não há Gems elegíveis para operar esta classe de nave.';
             if(state.minerals<bp.cost.minerals||state.tech<bp.cost.tech)return 'Recursos insuficientes para este projeto.';
             return '';
@@ -2179,7 +2181,8 @@
             const bp=SHIP_BLUEPRINTS[type],reason=canBuildShip(type);
             if(!bp||reason){setStatusTicker(reason||'Projeto inválido.',true);return;}
             state.minerals-=bp.cost.minerals;state.tech-=bp.cost.tech;
-            const ship={id:'ship_'+Date.now(),type,name:bp.name,capacity:bp.capacity,speed:bp.speed,shape:bp.shape,description:bp.description,planetId:state.activeColonyPlanetId,crew:[],status:'orbital'};
+            const owner=type==='diamond'?[{id:'first',name:state.firstDiamond.name},...(state.matriarchs||[]).map(m=>({id:m.id,name:m.name}))].find(o=>!(state.shipFleet||[]).some(x=>x.type==='diamond'&&x.ownerId===o.id)):null;
+            const ship={id:'ship_'+Date.now(),type,name:bp.name,ownerId:owner?.id||null,ownerName:owner?.name||null,capacity:bp.capacity,speed:bp.speed,shape:bp.shape,color:type==='ruby'?'#ef4444':null,description:bp.description,planetId:state.activeColonyPlanetId,crew:[],status:'orbital'};
             state.shipFleet=state.shipFleet||[];state.shipFleet.push(ship);
             state.ships=(Number(state.ships)||0)+1;
             setStatusTicker(bp.name+' concluída e adicionada à frota.');
@@ -5816,7 +5819,7 @@ function drawColony(time){
                 state.founding.selectedGem = state.founding.selectedGem || 'quartz';
                 state.structures = state.structures || {};
                 state.structures.galaxy_warp=(Number(state.structures.galaxy_warp)||0)+(Number(state.structures.teleporter)||0);delete state.structures.teleporter;
-                if(state.structures.galaxy_warp>0)PLANETS.homeworld.galaxyWarpBuilt=true;
+
                 state.structures.red_eye=(Number(state.structures.red_eye)||0)+(Number(state.structures.orbital_station)||0);delete state.structures.orbital_station;
                 state.structures.royal_palace=(Number(state.structures.royal_palace)||0)+(Number(state.structures.planetary_network)||0);delete state.structures.planetary_network;
                 delete state.structures.administration_center;delete state.structures.terraformer;
@@ -5900,6 +5903,7 @@ function drawColony(time){
                     PLANETS[id].landmassCreated=!!PLANETS[id].landmassCreated;
                     for(const type of ['pyroxene','beryllium','topaz']) if(!PLANETS[id].veins.some(v=>v.type===type)) PLANETS[id].veins.push({id:PLANETS[id].veins.length,type,label:type==='pyroxene'?'Veio de Piroxênio':type==='beryllium'?'Nódulo de Berílio':'Bolsa de Topázio',purity:45,angle:Math.random()*Math.PI*2,depthRatio:.82,injector:null,rebelBlocked:false,_screenX:0,_screenY:0});
                 }
+                if(state.structures.galaxy_warp>0)PLANETS.homeworld.galaxyWarpBuilt=true;
                 if (!PLANETS[state.activeColonyPlanetId] || !PLANETS[state.activeColonyPlanetId].colonized) state.activeColonyPlanetId = 'homeworld';
                 if (!PLANETS[state.selectedStarMapPlanetId]) state.selectedStarMapPlanetId = 'homeworld';
                 state.selectedVeinIndex = Math.max(0, Math.min(PLANETS[state.activeColonyPlanetId].veins.length - 1, Number(state.selectedVeinIndex) || 0));
