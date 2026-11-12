@@ -1860,6 +1860,7 @@
             if(id==='essence_chamber')return (Number(state.structureAssignments?.essence_chamber?.peridot)||0)>=structureCount('essence_chamber');
             if(['workshop','defense_tower','shield_generator'].includes(id)&&!structureIsOperational('reactor'))return false;
             if(id==='research_center'&&!(Number(state.census.demantoid||0)>0||Number(state.census.pyrope||0)>0))return false;
+            if(id==='defense_tower'&&!structureIsOperational('research_center'))return false;
             if(id==='workshop')return state.logisticsActive!==false;
             if(id==='galaxy_warp')return !!PLANETS[state.activeColonyPlanetId]?.galaxyWarpBuilt&&Object.entries(def.workers||{}).every(([type,required])=>(Number(state.structureAssignments?.[id]?.[type])||0)>=required);
             if(id==='mineral_extractor'){
@@ -1897,7 +1898,8 @@
             if (missing.length) return 'Requer: ' + missing.map(id => structureDefinition(id).name).join(', ');
             if (state.minerals < (def.cost.minerals || 0)) return 'Minerais insuficientes.';
             if (state.tech < (def.cost.tech || 0)) return 'Tecnologia insuficiente.';
-            if(['defense_tower','shipyard'].includes(def.id)&&structureCount('research_center')<1)return 'Requer um Centro de Pesquisa para desenvolver armamentos e projetos de nave.';
+            if(def.id==='defense_tower'&&!structureIsOperational('research_center'))return 'Requer um Centro de Pesquisa operacional para desenvolver armamentos.';
+            if(def.id==='shipyard'&&structureCount('research_center')<1)return 'Requer um Centro de Pesquisa para desenvolver projetos de nave.';
             if(def.id==='diamond_quarters'&&structureCount('diamond_quarters')>=state.matriarchs.length+1)return 'Cada Diamante pode possuir apenas um Quarto próprio.';
             if(def.id==='essence_chamber'&&structureCount('essence_chamber')>=state.matriarchs.length+1)return 'Cada Diamante pode possuir apenas uma Câmara de Extração de Essência.';
             if(def.id==='lunar_base'&&!(PLANETS[state.activeColonyPlanetId]?.moons||[]).length)return 'Esta construção exige uma lua natural.';
@@ -2148,7 +2150,7 @@
         }
         function canGalaxyWarpToPlanet(targetId){
             const source=PLANETS[state.activeColonyPlanetId],target=PLANETS[targetId];
-            return !!(source&&source.galaxyWarpBuilt&&target&&target.galaxyWarpBuilt&&target.colonized);
+            return !!(source&&target&&structureIsOperational('galaxy_warp')&&source.galaxyWarpBuilt&&target.galaxyWarpBuilt&&target.colonized);
         }
         function travelThroughGalaxyWarp(targetId){
             if(!canGalaxyWarpToPlanet(targetId)){setStatusTicker('A viagem exige Galaxy Warp operacional tanto na origem quanto no destino.',true);return;}
@@ -2477,7 +2479,7 @@
                             reports.slice(0,5).forEach(r=>{html+='<div class="stat-box"><b>'+escapeHTML(r.planetName)+'</b><small style="display:block;color:var(--text-muted)">Porte: '+escapeHTML(r.size)+' · '+r.distanceAU+' UA · '+r.temperatureC+' °C · '+r.pressureAtm+' atm</small>'+(r.trackedGems===null?'':'Rastros detectados: '+r.trackedGems)+'</div>';});
                         } else if(def.id==='shipyard'){
                             html+='<div class="founding-note">Frota construída: '+(state.shipFleet||[]).length+' nave(s). Projetos exigem Centro de Pesquisa operacional.</div>';
-                            (state.shipFleet||[]).slice().reverse().forEach(ship=>{html+='<div class="stat-box"><b>'+escapeHTML(ship.name)+'</b><small style="display:block;color:var(--text-muted)">'+escapeHTML(ship.speed)+' · Capacidade '+ship.capacity+' Gems · '+escapeHTML(PLANETS[ship.planetId]?.shortName||'Órbita desconhecida')+'</small></div>';});
+                            (state.shipFleet||[]).slice().reverse().forEach(ship=>{html+='<div class="stat-box"><b>'+escapeHTML(ship.name)+'</b><small style="display:block;color:var(--text-muted)">'+(ship.ownerName?escapeHTML(ship.ownerName)+' · ':'')+escapeHTML(ship.speed)+' · Capacidade '+ship.capacity+' Gems · '+escapeHTML(PLANETS[ship.planetId]?.shortName||'Órbita desconhecida')+'</small></div>';});
                             Object.entries(SHIP_BLUEPRINTS).forEach(([type,bp])=>{
                                 const reason=canBuildShip(type);
                                 html+='<div class="stat-box"><b>'+bp.name+'</b><small style="display:block;color:var(--text-muted)">'+bp.description+'</small><small>Velocidade: '+bp.speed+' · Capacidade: '+bp.capacity+' · Custo: '+bp.cost.minerals+' minerais / '+bp.cost.tech+' tecnologia</small><button class="btn btn-block" onclick="buildShip(\''+type+'\')" '+(reason?'disabled':'')+'>Construir '+bp.name+'</button>'+(reason?'<small style="color:var(--text-muted)">'+reason+'</small>':'')+'</div>';
@@ -4758,7 +4760,7 @@ ${hasAristocrats ? `
             const fleet=(state.shipFleet||[]).filter(ship=>ship.planetId===planet.id);
             fleet.forEach((ship,index)=>{
                 const a=time*.00007+index*2.1,rx=radius*(1.34+index*.055),ry=radius*(1.04+index*.04),x=cx+Math.cos(a)*rx,y=cy+Math.sin(a)*ry;
-                ctx.save();ctx.translate(x,y);ctx.rotate(a+.6);ctx.fillStyle=ship.type==='ruby'?'#ef4444':ship.color||'#cbd5e1';ctx.strokeStyle=ship.type==='ruby'?'#fecaca':'#f8fafc';ctx.lineWidth=1.2;ctx.shadowColor=ctx.fillStyle;ctx.shadowBlur=5;
+                ctx.save();ctx.translate(x,y);ctx.rotate(a+.6);const shipScale=ship.type==='diamond'?1.8:ship.type==='war'?1.4:ship.type==='ruby'?.62:1;ctx.scale(shipScale,shipScale);ctx.fillStyle=ship.type==='ruby'?'#ef4444':ship.color||'#cbd5e1';ctx.strokeStyle=ship.type==='ruby'?'#fecaca':'#f8fafc';ctx.lineWidth=1.2;ctx.shadowColor=ctx.fillStyle;ctx.shadowBlur=5;
                 if(ship.type==='diamond'){ctx.beginPath();ctx.moveTo(0,-15);ctx.lineTo(13,-5);ctx.lineTo(11,10);ctx.lineTo(0,16);ctx.lineTo(-11,10);ctx.lineTo(-13,-5);ctx.closePath();ctx.fill();ctx.stroke();}
                 else if(ship.type==='elite'){ctx.beginPath();ctx.moveTo(0,-12);ctx.lineTo(10,0);ctx.lineTo(0,12);ctx.lineTo(-10,0);ctx.closePath();ctx.fill();ctx.stroke();}
                 else if(ship.type==='war'){ctx.beginPath();ctx.ellipse(0,0,15,7,0,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.fillRect(-3,-11,6,22);}
