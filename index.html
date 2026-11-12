@@ -230,13 +230,6 @@
             box-shadow: 0 8px 28px rgba(0, 0, 0, 0.75);
         }
 
-        #btn-restore-ui {
-            position: absolute;
-            bottom: 14px;
-            right: 16px;
-            z-index: 35;
-        }
-
         /* 3. PAINEL LATERAL DIREITO ÚNICO (360px) */
         #right-drawer {
             position: absolute;
@@ -1772,7 +1765,7 @@
             state.uiHidden = !state.uiHidden;
             document.getElementById('bottom-bar').classList.toggle('hidden', state.uiHidden);
             document.getElementById('hud-banners').classList.toggle('hidden', state.uiHidden);
-            document.getElementById('btn-restore-ui').classList.toggle('hidden', !state.uiHidden);
+            const restoreButton=document.getElementById('btn-restore-ui');if(restoreButton)restoreButton.classList.toggle('hidden', !state.uiHidden);
             toggleDrawer(!state.uiHidden);
         }
 
@@ -4822,7 +4815,7 @@ function drawColony(time){
             drawColonyInjectors(planet,cx,cy,radius,cam);
             // Fragmentos que passam pela frente fecham o efeito de órbita 360°.
             drawPlanetDebris(planet,cx,cy,radius,time,cam,stage,true);
-            drawPlanetCombinedInfoPanel(planet,stats,12,Math.max(12,canvasHeight-(state.planetInfoExpanded===false?42:360)-12));
+            drawPlanetCombinedInfoPanel(planet,stats,12,Math.max(12,canvasHeight-(state.planetInfoExpanded===false?42:255)-12));
             ctx.textAlign='center';ctx.fillStyle='#f8fafc';ctx.font='bold 16px Georgia';ctx.fillText(planet.shortName,cx,Math.max(24,cy-radius-24));
             ctx.fillStyle='#cbd5e1';ctx.font='10px Segoe UI';ctx.fillText('ARRASTE PARA GIRAR • TOQUE EM UM DEPÓSITO MINERAL',cx,Math.min(canvasHeight-12,cy+radius+30));
         }
