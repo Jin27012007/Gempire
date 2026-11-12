@@ -1983,12 +1983,11 @@
         function ensureInjectorOrders(){
             const f=state.founding||(state.founding={});
             if(!Array.isArray(f.injectorOrders))f.injectorOrders=[];
-            const count=structureCount('injector'),defaultType=getDefaultInjectorGemType();
-            if(!(Number(state.census?.demantoid||0)>0)){f.injectorOrders=[];return f.injectorOrders;}
-            if(count>0){
+            const count=structureCount('injector'),defaultType=getDefaultInjectorGemType(),managed=Number(state.census?.demantoid||0)>0;
+            if(managed&&count>0){
                 const raw=f.gatheredMinerals||{},refined=state.refinedResources||{},census=state.census||{},planet=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld;
                 const candidates=Object.entries(FOUNDING_GEM_DATA).filter(([key,g])=>key!=='peridot'&&(!g.stored||structureIsOperational('reef'))&&(!g.climate||foundingGemClimateAllowed(g,planet))).map(([key,g])=>({key,g,available:Math.max(0,Number((g.refinedMaterial?refined:raw)[g.refinedMaterial||g.mineral])||0),population:Number(census[key]||0)})).filter(x=>x.available>=1).sort((a,b)=>a.population-b.population||b.available-a.available);
-                for(let i=0;i<count;i++){const pick=candidates[i%candidates.length];if(pick)f.injectorOrders[i]={type:pick.key,quantity:Math.min(5,Math.floor(pick.available))};}
+                for(let i=0;i<count;i++){const pick=candidates[i%candidates.length];if(pick)f.injectorOrders[i]={...(f.injectorOrders[i]||{}),type:pick.key,quantity:Math.min(5,Math.floor(pick.available))};}
                 state.structureAssignments=state.structureAssignments||{};state.structureAssignments.injector=state.structureAssignments.injector||{};
                 const assigned=Number(state.structureAssignments.injector.peridot)||0,available=assigned+freeGemWorkers('peridot');
                 if(available>0)state.structureAssignments.injector.peridot=Math.min(count,available);
@@ -2005,6 +2004,7 @@
                 order.quantity=Number.isFinite(quantity)?Math.max(0,Math.min(5,Math.floor(quantity))):5;
                 return order;
             });
+            if(!f.injectorPausedByIndex||typeof f.injectorPausedByIndex!=='object')f.injectorPausedByIndex={};
             return f.injectorOrders;
         }
         function getRefinedInjectorLimit(){
@@ -2028,6 +2028,7 @@
             setStatusTicker('Injetor #'+(index+1)+' programado para produzir '+FOUNDING_GEM_DATA[type].label+'.');
         }
         function setInjectorOrderQuantity(index,value){
+            if(Number(state.census?.demantoid||0)>0){setStatusTicker('A Demantoide administra as quantidades automaticamente.',true);return;}
             const orders=ensureInjectorOrders();
             if(!orders[index])return;
             const quantity=Number(value);
@@ -2036,22 +2037,41 @@
             if(field)field.value=String(orders[index].quantity);
             setStatusTicker('Quantidade do Injetor #'+(index+1)+' definida: '+orders[index].quantity+'/5 Gems.');
         }
+        function isInjectorPaused(index){
+            const f=state.founding||{};
+            return !!f.injectorPauseAll||!!(f.injectorPausedByIndex&&f.injectorPausedByIndex[index]);
+        }
+        function toggleInjectorPause(index){
+            const f=state.founding||(state.founding={});
+            if(!f.injectorPausedByIndex||typeof f.injectorPausedByIndex!=='object')f.injectorPausedByIndex={};
+            f.injectorPausedByIndex[index]=!f.injectorPausedByIndex[index];
+            setStatusTicker('Injetor #'+(index+1)+(f.injectorPausedByIndex[index]?' pausado.':' retomado.'));
+            updateInjectorProductionWindow();renderDrawerContent();
+        }
+        function toggleAllInjectorsPause(){
+            const f=state.founding||(state.founding={});
+            f.injectorPauseAll=!f.injectorPauseAll;
+            setStatusTicker(f.injectorPauseAll?'Todos os Injetores foram pausados.':'Todos os Injetores foram retomados.');
+            updateInjectorProductionWindow();renderDrawerContent();
+        }
         function buildInjectorProductionControlsHTML(prefix){
-            const orders=ensureInjectorOrders();
+            const orders=ensureInjectorOrders(),managed=Number(state.census?.demantoid||0)>0;
             if(!orders.length)return '<div class="founding-note">Construa um Injetor para programar a produção.</div>';
             const totalCapacity=orders.length*5,scheduled=orders.reduce((sum,order)=>sum+order.quantity,0);
             const refinedReserved=orders.filter(order=>FOUNDING_GEM_DATA[order.type]&&FOUNDING_GEM_DATA[order.type].refinedMaterial).length;
             const rows=orders.map((order,index)=>{
-                const gem=FOUNDING_GEM_DATA[order.type]||FOUNDING_GEM_DATA.quartz;
+                const gem=FOUNDING_GEM_DATA[order.type]||FOUNDING_GEM_DATA.quartz,paused=isInjectorPaused(index);
                 const options=Object.entries(FOUNDING_GEM_DATA).filter(([key])=>key!=='peridot').map(([key,item])=>'<option value="'+key+'" '+(order.type===key?'selected':'')+'>'+escapeHTML(item.label)+'</option>').join('');
-                return '<div class="stat-box" style="display:grid;gap:6px"><div style="display:flex;justify-content:space-between;align-items:center"><b>Injetor #'+(index+1)+'</b><small style="color:'+(gem.refinedMaterial?'#c084fc':'#94a3b8')+'">'+(gem.refinedMaterial?'REFINADO':'BRUTO')+'</small></div><div class="grid-2"><label style="font-size:10px;color:#94a3b8">Gem<select id="injector-order-'+prefix+'-type-'+index+'" onchange="setInjectorOrderType('+index+',this.value)">'+options+'</select></label><label style="font-size:10px;color:#94a3b8">Quantidade (0–5)<input id="injector-order-'+prefix+'-qty-'+index+'" type="number" min="0" max="5" step="1" value="'+order.quantity+'" onchange="setInjectorOrderQuantity('+index+',this.value)" style="width:100%;background:#080e1c;color:#f8fafc;border:1px solid rgba(148,163,184,.35);border-radius:6px;padding:6px"></label></div></div>';
+                const configuration=managed?'<small style="color:#94a3b8">Ordem automática: <b>'+escapeHTML(gem.label)+'</b></small>':
+                    '<div class="grid-2"><label style="font-size:10px;color:#94a3b8">Gem<select id="injector-order-'+prefix+'-type-'+index+'" onchange="setInjectorOrderType('+index+',this.value)">'+options+'</select></label><label style="font-size:10px;color:#94a3b8">Quantidade (0–5)<input id="injector-order-'+prefix+'-qty-'+index+'" type="number" min="0" max="5" step="1" value="'+order.quantity+'" onchange="setInjectorOrderQuantity('+index+',this.value)" style="width:100%;background:#080e1c;color:#f8fafc;border:1px solid rgba(148,163,184,.35);border-radius:6px;padding:6px"></label></div>';
+                return '<div class="stat-box" style="display:grid;gap:7px"><div style="display:flex;justify-content:space-between;align-items:center"><b>Injetor #'+(index+1)+'</b><small style="color:'+(gem.refinedMaterial?'#c084fc':'#94a3b8')+'">'+(gem.refinedMaterial?'REFINADO':'BRUTO')+'</small></div>'+configuration+'<div style="display:flex;justify-content:space-between;align-items:center"><small style="color:'+(paused?'#fbbf24':'#86efac')+'">'+(paused?'PAUSADO':'ATIVO')+'</small><button class="btn btn-block" style="max-width:150px" onclick="toggleInjectorPause('+index+')">'+(paused?'▶ Retomar':'Ⅱ Pausar')+'</button></div></div>';
             }).join('');
-            return '<div class="founding-note">Cada Injetor produz até 5 Gems por ciclo. Apenas 1 unidade de cada grupo de 5 pode usar matéria-prima refinada; lotes refinados levam 84s, contra 42s para substrato bruto.</div><div class="stat-box">Programado: <b>'+scheduled+'/'+totalCapacity+'</b> Gems · Injetores reservados para refinados: <b>'+refinedReserved+'/'+getRefinedInjectorLimit()+'</b></div>'+rows;
+            return '<div class="founding-note">'+(managed?'A Demantoide administra as ordens. Você ainda pode pausar qualquer unidade.':'Modo manual: escolha a Gem e a quantidade de cada Injetor. A produção só começa ao pressionar Iniciar.')+' Cada Injetor produz até 5 Gems. Matéria refinada: máximo de 1 Injetor a cada 5 unidades; ciclo de 84s em vez de 42s.</div><div class="stat-box">Programado: <b>'+scheduled+'/'+totalCapacity+'</b> Gems · Injetores refinados: <b>'+refinedReserved+'/'+getRefinedInjectorLimit()+'</b></div><button class="btn btn-block" style="margin-bottom:8px" onclick="toggleAllInjectorsPause()">'+((state.founding||{}).injectorPauseAll?'▶ Retomar todos':'Ⅱ Pausar todos')+'</button>'+rows;
         }
         function getInjectorProductionPlan(){
-            const orders=ensureInjectorOrders();
-            const batches=orders.map((order,index)=>({injectorIndex:index,type:order.type,quantity:order.quantity})).filter(order=>order.quantity>0);
-            const refinedReserved=orders.filter(order=>FOUNDING_GEM_DATA[order.type]&&FOUNDING_GEM_DATA[order.type].refinedMaterial).length;
+            const orders=ensureInjectorOrders(),batches=orders.map((order,index)=>({injectorIndex:index,type:order.type,quantity:order.quantity})).filter(batch=>batch.quantity>0&&!isInjectorPaused(batch.injectorIndex));
+            const activeOrders=orders.filter((order,index)=>order.quantity>0&&!isInjectorPaused(index));
+            const refinedReserved=activeOrders.filter(order=>FOUNDING_GEM_DATA[order.type]&&FOUNDING_GEM_DATA[order.type].refinedMaterial).length;
             if(refinedReserved>getRefinedInjectorLimit())return {valid:false,reason:'Somente 1 Injetor a cada 5 pode usar matéria-prima refinada.',batches:[]};
             return {valid:true,batches};
         }
@@ -2080,7 +2100,9 @@
                 '<div class="card"><div class="card-header"><b>Histórico de criação de Gems</b><span class="badge">'+(f.productionReports||[]).length+' lotes</span></div>'+history+'</div><button class="btn btn-block" onclick="closeInjectorProductionWindow()">Fechar relatório</button>';
         }
         function startInjectorProduction(automatic=false) {
-            if(!(Number(state.census?.demantoid||0)>0)){if(!automatic)setStatusTicker('A produção automática dos Injetores exige uma Demantoide supervisora.',true);return;}
+            const managed=Number(state.census?.demantoid||0)>0;
+            if(automatic&&!managed)return;
+            if(!automatic&&managed){setStatusTicker('A Demantoide já assumiu a administração automática dos Injetores.',true);return;}
             if (!structureIsOperational('injector')) { if(!automatic) setStatusTicker('A frota de Injetores precisa de um Peridoto operador e de uma Câmara operacional.', true); return; }
             if (state.founding.creationActive || state.founding.bathActive) { if(!automatic) setStatusTicker('A Diamante está ocupada. Aguarde a conclusão da atividade atual.'); return; }
             if(state.founding.injectorPauseAll){if(!automatic)setStatusTicker('Todos os Injetores estão pausados. Retome a frota para iniciar a produção.',true);return;}
@@ -2127,6 +2149,7 @@
             state.founding.creationDuration=Math.max(...state.founding.creationBatches.map(batch=>batch.duration));
             state.founding.creationTarget=readyBatches[0].type;
             state.founding.creationSource='injector';
+            state.founding.creationMode=automatic?'automatic':'manual';
             state.founding.creationProgress=0;
             state.founding.creationActive=true;
             state.founding.stage='injecting';
@@ -2136,7 +2159,7 @@
         }
         function cancelUnauthorizedInjectorProduction(){
             const f=state.founding;
-            if(!f||Number(state.census?.demantoid||0)>0||!f.creationActive||f.creationSource!=='injector')return false;
+            if(!f||Number(state.census?.demantoid||0)>0||f.creationMode==='manual'||!f.creationActive||f.creationSource!=='injector')return false;
             const batches=Array.isArray(f.creationBatches)&&f.creationBatches.length?f.creationBatches:
                 (FOUNDING_GEM_DATA[f.creationTarget]?[{type:f.creationTarget,quantity:Math.max(1,Number(f.creationBatchCount)||5),completed:false}]:[]);
             const raw=f.gatheredMinerals||(f.gatheredMinerals={});
@@ -2160,6 +2183,7 @@
             f.creationBatchCount=0;
             f.creationTarget=null;
             f.creationSource='manual';
+            f.creationMode=null;
             f.creationBatches=[];
             if(Array.isArray(f.injectorOrders))f.injectorOrders=[];
             setStatusTicker('Produção automática suspensa: é necessária uma Demantoide. Materiais e essência dos lotes não concluídos foram devolvidos.',true);
@@ -2391,7 +2415,7 @@
             if(Number(state.census?.demantoid||0)>0){
                 ensureInjectorOrders();
                 if(structureIsOperational('injector')&&!state.founding.creationActive)startInjectorProduction(true);
-            }else if(Array.isArray(state.founding.injectorOrders))state.founding.injectorOrders=[];
+            }else if(!Array.isArray(state.founding.injectorOrders))state.founding.injectorOrders=[];
             if(state.currentScreen==='colony'&&state.drawerOpen&&state.drawerTab==='context'){
                 state.resourceChartAccumulator=(Number(state.resourceChartAccumulator)||0)+dt;
                 if(state.resourceChartAccumulator>=1){state.resourceChartAccumulator=0;renderColonyContext(document.getElementById('drawer-body'));}
@@ -3850,7 +3874,7 @@ ${hasAristocrats ? `
                     let weighted=0,total=0;
                     f.creationBatches.forEach(batch=>{
                         const quantity=Math.max(1,Number(batch.quantity)||1);total+=quantity;
-                        if(!batch.completed){
+                        if(!batch.completed&&!isInjectorPaused(Number(batch.injectorIndex)||0)){
                             const duration=Math.max(1,Number(batch.duration)||(FOUNDING_GEM_DATA[batch.type]&&FOUNDING_GEM_DATA[batch.type].refinedMaterial?84:42));
                             batch.progress=Math.min(100,(Number(batch.progress)||0)+dt*100*multiplier/duration);
                             if(batch.progress>=100)completeInjectorProductionBatch(batch);
