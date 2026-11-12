@@ -794,7 +794,7 @@
             {id:'mineral_extractor',name:'Extrator Mineral',category:'Extração',desc:'Exige um Peridoto operador. Todos os Quartzos da população extraem 1 mineral a cada 10 segundos, em paralelo. Cada Ágata coordena até 20 Quartzos e reduz o intervalo desse grupo para 5 segundos (2×).',cost:{minerals:25,tech:0},buildTime:20,prerequisites:[],workers:{peridot:1},interaction:'Todos os Quartzos mineram automaticamente; Ágatas aceleram até 2×.',maxCount:3},
             {id:'workshop',name:'Centro de Logística',category:'Transporte',desc:'Centro autônomo que transporta minerais em alta velocidade por todo o planeta. Seu anel logístico cresce conforme o estoque mineral aumenta e diminui conforme os recursos são consumidos. Exige manutenção de 1.000 unidades de metal a cada 10 minutos de operação.',cost:{minerals:40,tech:0},buildTime:24,prerequisites:['mineral_extractor'],workers:{},interaction:'Distribui recursos rapidamente pelo planeta; futuramente permitirá transporte interplanetário.',maxCount:1},
             {id:'refinery',name:'Refinaria',category:'Indústria',desc:'Exige 1 Peridoto e 5 Bismutos operadores. Refina até 5% de cada matéria-prima coletada em seu tipo refinado.',cost:{minerals:45,tech:0},buildTime:26,prerequisites:['mineral_extractor','workshop'],workers:{peridot:1,bismuth:5},interaction:'Converte até 5% dos minerais coletados em materiais refinados.',maxCount:2},
-            {id:'research_center',name:'Centro de Pesquisa',category:'Ciência',desc:'Requer Demantoide ou Piropos para operar. Usa 50 unidades de Essência Diamante para desenvolver armamentos exclusivos, determinados pela cinese da Diamante governante. Também é requisito para construir Torres de Defesa e naves.',cost:{minerals:55,tech:8},buildTime:30,prerequisites:['workshop','refinery'],workers:{sapphire:1,peridot:1},interaction:'Desenvolve armas exclusivas da cinese da Diamante; requisito para defesas e naves.',maxCount:2},
+            {id:'research_center',name:'Centro de Pesquisa',category:'Ciência',desc:'Requer Demantoide ou Piropo para operar. Usa 50 unidades de Essência Diamante para desenvolver armamentos exclusivos, determinados pela cinese da Diamante governante. Também é requisito para construir Torres de Defesa e naves.',cost:{minerals:55,tech:8},buildTime:30,prerequisites:['workshop','refinery'],workers:{sapphire:1,peridot:1},interaction:'Desenvolve armas exclusivas da cinese da Diamante; requisito para defesas e naves.',maxCount:2},
             {id:'reactor',name:'Reator de Energia',category:'Energia',desc:'Peridotos operam o reator e mantêm uma reserva energética.',cost:{minerals:65,tech:15},buildTime:32,prerequisites:['refinery'],workers:{peridot:1},interaction:'Gera energia para estruturas dependentes.',maxCount:2},
             
             {id:'defense_tower',name:'Torre de Defesa',category:'Defesa',desc:'Arma planetária baseada no poder da Diamante governante. Exige Centro de Pesquisa, Reator de Energia e operadores Rubis.',cost:{minerals:40,tech:5},buildTime:22,prerequisites:['workshop','research_center','reactor'],workers:{ruby:1,peridot:1},interaction:'Amplia a defesa local com armamento derivado da cinese da Diamante.',maxCount:4},
@@ -1900,7 +1900,7 @@
             if(def.id==='diamond_quarters'&&structureCount('diamond_quarters')>=state.matriarchs.length+1)return 'Cada Diamante pode possuir apenas um Quarto próprio.';
             if(def.id==='essence_chamber'&&structureCount('essence_chamber')>=state.matriarchs.length+1)return 'Cada Diamante pode possuir apenas uma Câmara de Extração de Essência.';
             if(def.id==='lunar_base'&&!(PLANETS[state.activeColonyPlanetId]?.moons||[]).length)return 'Esta construção exige uma lua natural.';
-            if(def.id==='research_center'&&!(Number(state.census.demantoid||0)>0||Number(state.census.pyrope||0)>0))return 'Requer ao menos um Demantoide ou Piropos para operar.';
+
             if (freeGemWorkers('bismuth') < 1) return Number(state.census.morganite||0)>0 ? 'A Morganita aguarda uma Bismuto livre para comandar a próxima obra.' : 'Requer uma Bismuto livre para executar a construção.';
             return '';
         }
@@ -2422,6 +2422,10 @@
                         if (def.id === 'injector') {
                             const orders=ensureInjectorOrders();
                             html += '<div class="founding-note">Programação independente: '+orders.length+' Injetor(es), até 5 Gems por unidade. Essência disponível: '+(state.founding.injectorEssence||0).toFixed(1)+' unidades.</div>';
+                        } else if(def.id==='essence_chamber'){
+                            html+='<div class="founding-note">Câmaras construídas: '+count+' / '+(state.matriarchs.length+1)+' Diamantes. Cada Diamante poderá ter uma instalação própria.</div>';
+                        } else if(def.id==='diamond_quarters'){
+                            html+='<div class="founding-note">Quartos construídos: '+count+' / '+(state.matriarchs.length+1)+' Diamantes. O canal privado de mensagens está planejado, mas ainda não ativo.</div>';
                         } else if(def.id==='research_center'){
                             const weapons=state.diamondWeapons||[];
                             const ruler=(PLANETS[state.activeColonyPlanetId]?.governor||'none').startsWith('matriarch_')?state.matriarchs.find(m=>'matriarch_'+m.id===PLANETS[state.activeColonyPlanetId].governor):state.firstDiamond;
@@ -2441,6 +2445,7 @@
                             reports.slice(0,5).forEach(r=>{html+='<div class="stat-box"><b>'+escapeHTML(r.planetName)+'</b><small style="display:block;color:var(--text-muted)">Porte: '+escapeHTML(r.size)+' · '+r.distanceAU+' UA · '+r.temperatureC+' °C · '+r.pressureAtm+' atm</small>'+(r.trackedGems===null?'':'Rastros detectados: '+r.trackedGems)+'</div>';});
                         } else if(def.id==='shipyard'){
                             html+='<div class="founding-note">Frota construída: '+(state.shipFleet||[]).length+' nave(s). Projetos exigem Centro de Pesquisa operacional.</div>';
+                            (state.shipFleet||[]).slice().reverse().forEach(ship=>{html+='<div class="stat-box"><b>'+escapeHTML(ship.name)+'</b><small style="display:block;color:var(--text-muted)">'+escapeHTML(ship.speed)+' · Capacidade '+ship.capacity+' Gems · '+escapeHTML(PLANETS[ship.planetId]?.shortName||'Órbita desconhecida')+'</small></div>';});
                             Object.entries(SHIP_BLUEPRINTS).forEach(([type,bp])=>{
                                 const reason=canBuildShip(type);
                                 html+='<div class="stat-box"><b>'+bp.name+'</b><small style="display:block;color:var(--text-muted)">'+bp.description+'</small><small>Velocidade: '+bp.speed+' · Capacidade: '+bp.capacity+' · Custo: '+bp.cost.minerals+' minerais / '+bp.cost.tech+' tecnologia</small><button class="btn btn-block" onclick="buildShip(\''+type+'\')" '+(reason?'disabled':'')+'>Construir '+bp.name+'</button>'+(reason?'<small style="color:var(--text-muted)">'+reason+'</small>':'')+'</div>';
