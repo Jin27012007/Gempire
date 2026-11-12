@@ -794,12 +794,12 @@
             {id:'mineral_extractor',name:'Extrator Mineral',category:'Extração',desc:'Exige um Peridoto operador. Todos os Quartzos da população extraem 1 mineral a cada 10 segundos, em paralelo. Cada Ágata coordena até 20 Quartzos e reduz o intervalo desse grupo para 5 segundos (2×).',cost:{minerals:25,tech:0},buildTime:20,prerequisites:[],workers:{peridot:1},interaction:'Todos os Quartzos mineram automaticamente; Ágatas aceleram até 2×.',maxCount:3},
             {id:'workshop',name:'Centro de Logística',category:'Transporte',desc:'Centro autônomo que transporta minerais em alta velocidade por todo o planeta. Seu anel logístico cresce conforme o estoque mineral aumenta e diminui conforme os recursos são consumidos. Exige manutenção de 1.000 unidades de metal a cada 10 minutos de operação.',cost:{minerals:40,tech:0},buildTime:24,prerequisites:['mineral_extractor'],workers:{},interaction:'Distribui recursos rapidamente pelo planeta; futuramente permitirá transporte interplanetário.',maxCount:1},
             {id:'refinery',name:'Refinaria',category:'Indústria',desc:'Exige 1 Peridoto e 5 Bismutos operadores. Refina até 5% de cada matéria-prima coletada em seu tipo refinado.',cost:{minerals:45,tech:0},buildTime:26,prerequisites:['mineral_extractor','workshop'],workers:{peridot:1,bismuth:5},interaction:'Converte até 5% dos minerais coletados em materiais refinados.',maxCount:2},
-            {id:'research_center',name:'Centro de Pesquisa',category:'Ciência',desc:'Requer Demantoide ou Piropo para operar. Usa 50 unidades de Essência Diamante para desenvolver armamentos exclusivos, determinados pela cinese da Diamante governante. Também é requisito para construir Torres de Defesa e naves.',cost:{minerals:55,tech:8},buildTime:30,prerequisites:['workshop','refinery'],workers:{sapphire:1,peridot:1},interaction:'Desenvolve armas exclusivas da cinese da Diamante; requisito para defesas e naves.',maxCount:2},
+            {id:'research_center',name:'Centro de Pesquisa',category:'Ciência',desc:'Requer Demantoide ou Piropo para operar. Usa 50 unidades de Essência Diamante para desenvolver armamentos exclusivos, determinados pela cinese da Diamante governante. Também é requisito para construir Torres de Defesa e naves.',cost:{minerals:55,tech:8},buildTime:30,prerequisites:['workshop','refinery'],workers:{peridot:1},interaction:'Demantoides ou Piropos supervisionam a pesquisa e comandam automaticamente os Injetores.',maxCount:2},
             {id:'reactor',name:'Reator de Energia',category:'Energia',desc:'Peridotos operam o reator e mantêm uma reserva energética.',cost:{minerals:65,tech:15},buildTime:32,prerequisites:['refinery'],workers:{peridot:1},interaction:'Gera energia para estruturas dependentes.',maxCount:2},
             
             {id:'defense_tower',name:'Torre de Defesa',category:'Defesa',desc:'Arma planetária baseada no poder da Diamante governante. Exige Centro de Pesquisa, Reator de Energia e operadores Rubis.',cost:{minerals:40,tech:5},buildTime:22,prerequisites:['workshop','research_center','reactor'],workers:{ruby:1,peridot:1},interaction:'Amplia a defesa local com armamento derivado da cinese da Diamante.',maxCount:4},
             {id:'galaxy_warp',name:'Galaxy Warp',category:'Transporte',desc:'Centro de múltiplos teletransportadores para deslocamento instantâneo dentro e fora do planeta. Viagens interplanetárias exigem um Galaxy Warp operacional no planeta de origem e outro no destino, construído por uma expedição.',cost:{minerals:100,tech:45},buildTime:42,prerequisites:['reactor','research_center'],workers:{peridot:1,pearl:1},interaction:'Permite teletransporte local e interplanetário entre planetas com Galaxy Warp.',maxCount:1},
-            {id:'shipyard',name:'Estaleiro',category:'Exploração espacial',desc:'Bismutos constroem naves e Peridotos integram seus sistemas. O Centro de Pesquisa é obrigatório para desenvolver os projetos de cada classe.',cost:{minerals:90,tech:40},buildTime:40,prerequisites:['workshop','refinery','reactor','research_center'],workers:{bismuth:1,peridot:1},interaction:'Permite construir naves das classes Diamante, Elite, Guerra, Excursão e Rubi.',maxCount:1},
+            {id:'shipyard',name:'Estaleiro',category:'Exploração espacial',desc:'Bismutos constroem naves e Peridotos integram seus sistemas. O Centro de Pesquisa é obrigatório para desenvolver os projetos de cada classe.',cost:{minerals:90,tech:40},buildTime:40,prerequisites:['workshop','refinery','reactor'],workers:{bismuth:1,peridot:1},interaction:'Permite construir naves das classes Diamante, Elite, Guerra, Excursão e Rubi.',maxCount:1},
             
             {id:'shield_generator',name:'Gerador de Escudo',category:'Defesa',desc:'Gera uma barreira planetária operada por Rubis e sustentada por energia.',cost:{minerals:70,tech:25},buildTime:34,prerequisites:['reactor','defense_tower'],workers:{ruby:1,peridot:1},interaction:'Ativa proteção energética.',maxCount:2},
             {id:'red_eye',name:'Olho Vermelho',category:'Megastruturas',desc:'Sonda orbital autônoma, visível como um planeta anão. Pode ser enviada a mundos desconhecidos para retornar com dados de tamanho, distância, temperatura e composição; também rastreia Gems fugitivas e Off-Colors em colônias antigas.',cost:{minerals:150,tech:80},buildTime:60,prerequisites:['shipyard','galaxy_warp','reactor'],workers:{peridot:2,bismuth:1},interaction:'Envia sondas de reconhecimento e varreduras de rastreamento.',maxCount:1},
@@ -1855,7 +1855,7 @@
         }
         function structureIsOperational(id) {
             const def = structureDefinition(id);
-            if (!def || structureCount(id) < 1 || !hasStructurePrerequisites(def)) return false;
+            if (!def || (id==='galaxy_warp' ? !PLANETS[state.activeColonyPlanetId]?.galaxyWarpBuilt : structureCount(id)<1) || !hasStructurePrerequisites(def)) return false;
             if (id === 'injector' && !structureIsOperational('essence_chamber')) return false;
             if(id==='essence_chamber')return (Number(state.structureAssignments?.essence_chamber?.peridot)||0)>=structureCount('essence_chamber');
             if(['workshop','defense_tower','shield_generator'].includes(id)&&!structureIsOperational('reactor'))return false;
@@ -1893,14 +1893,17 @@
         }
         function canBuildStructure(def) {
             if (!state.firstGameStarted || !state.founding || !state.founding.firstGemCreated) return 'A primeira Gem precisa nascer antes da construção.';
-            if (structureCount(def.id) >= (def.maxCount || 1)) return 'Limite desta estrutura atingido.';
+            if(def.id==='galaxy_warp'){if(PLANETS[state.activeColonyPlanetId]?.galaxyWarpBuilt)return 'Este planeta já possui um Galaxy Warp.';}else if (def.id!=='diamond_quarters' && structureCount(def.id) >= (def.maxCount || 1)) return 'Limite desta estrutura atingido.';
+            if(def.id==='royal_palace'&&state.activeColonyPlanetId!=='homeworld')return 'O Palácio Real só pode ser construído em Homeworld.';
+            if(def.id==='diamond_quarters'&&state.activeColonyPlanetId!=='homeworld')return 'Os Quartos de Diamante só podem ser construídos em Homeworld.';
+            if(def.id==='diamond_quarters'&&structureCount('diamond_quarters')>=getDiamondOwners().length)return 'Cada Diamante já possui seu Quarto ou não há outra Diamante na dinastia.';
             const missing = (def.prerequisites || []).filter(id => structureCount(id) < 1);
             if (missing.length) return 'Requer: ' + missing.map(id => structureDefinition(id).name).join(', ');
             if (state.minerals < (def.cost.minerals || 0)) return 'Minerais insuficientes.';
             if (state.tech < (def.cost.tech || 0)) return 'Tecnologia insuficiente.';
             if(def.id==='defense_tower'&&!structureIsOperational('research_center'))return 'Requer um Centro de Pesquisa operacional para desenvolver armamentos.';
-            if(def.id==='shipyard'&&structureCount('research_center')<1)return 'Requer um Centro de Pesquisa para desenvolver projetos de nave.';
-            if(def.id==='diamond_quarters'&&structureCount('diamond_quarters')>=state.matriarchs.length+1)return 'Cada Diamante pode possuir apenas um Quarto próprio.';
+            
+            if(def.id==='diamond_quarters'&&structureCount('diamond_quarters')>=getDiamondOwners().length)return 'Cada Diamante pode possuir apenas um Quarto próprio.';
             if(def.id==='essence_chamber'&&structureCount('essence_chamber')>=state.matriarchs.length+1)return 'Cada Diamante pode possuir apenas uma Câmara de Extração de Essência.';
             if(def.id==='lunar_base'&&!(PLANETS[state.activeColonyPlanetId]?.moons||[]).length)return 'Esta construção exige uma lua natural.';
 
@@ -1980,6 +1983,14 @@
             const f=state.founding||(state.founding={});
             if(!Array.isArray(f.injectorOrders))f.injectorOrders=[];
             const count=structureCount('injector'),defaultType=getDefaultInjectorGemType();
+            if(Number(state.census?.demantoid||0)>0&&count>0){
+                const raw=f.gatheredMinerals||{},refined=state.refinedResources||{},census=state.census||{},planet=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld;
+                const candidates=Object.entries(FOUNDING_GEM_DATA).filter(([key,g])=>key!=='peridot'&&(!g.stored||structureIsOperational('reef'))&&(!g.climate||foundingGemClimateAllowed(g,planet))).map(([key,g])=>({key,g,available:Math.max(0,Number((g.refinedMaterial?refined:raw)[g.refinedMaterial||g.mineral])||0),population:Number(census[key]||0)})).filter(x=>x.available>=1).sort((a,b)=>a.population-b.population||b.available-a.available);
+                for(let i=0;i<count;i++){const pick=candidates[i%candidates.length];if(pick)f.injectorOrders[i]={type:pick.key,quantity:Math.min(5,Math.floor(pick.available))};}
+                state.structureAssignments=state.structureAssignments||{};state.structureAssignments.injector=state.structureAssignments.injector||{};
+                const assigned=Number(state.structureAssignments.injector.peridot)||0,needed=count,available=assigned+freeGemWorkers('peridot');
+                if(available>=needed)state.structureAssignments.injector.peridot=needed;
+            }
             while(f.injectorOrders.length<count){
                 const previous=f.injectorOrders.length?f.injectorOrders[f.injectorOrders.length-1].type:defaultType;
                 f.injectorOrders.push({type:FOUNDING_GEM_DATA[previous]?previous:'quartz',quantity:5});
@@ -2189,7 +2200,6 @@
         function canBuildShip(type){
             const bp=SHIP_BLUEPRINTS[type];if(!bp)return 'Projeto desconhecido.';
             if(!structureIsOperational('shipyard'))return 'O Estaleiro precisa estar operacional.';
-            if(!structureIsOperational('research_center'))return 'O Centro de Pesquisa precisa desenvolver o projeto.';
             if(type==='diamond'){
                 const owners=[{id:'first',name:state.firstDiamond.name},...(state.matriarchs||[]).map(m=>({id:m.id,name:m.name}))];
                 if(!owners.some(owner=>!(state.shipFleet||[]).some(ship=>ship.type==='diamond'&&ship.ownerId===owner.id)))return 'Cada Diamante já possui uma Nave Diamante.';
@@ -2844,12 +2854,14 @@ ${hasAristocrats ? `
             const planet=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld;
             const total=Math.max(1,Number(planet.resourceTotal)||1);
             const remaining=Math.max(0,Number(planet.resourcesRemaining)||0);
-            const mineralCost=Math.ceil(total*.22);
+            const mineralCost=Math.ceil(total*.40);
             const pressure=Number(planet.corePressure)||35;
             const forgeSeconds=Number(planet.diamondForgeSeconds)||180;
             const forgePower=Number(planet.diamondPower)||1;
             const activeForge=state.diamondForge;
-            const canForge=remaining>=mineralCost&&!activeForge;
+            const gatheredTotal=Object.values(state.founding?.gatheredMinerals||{}).reduce((sum,value)=>sum+Math.max(0,Number(value)||0),0);
+            const externalNeed=Math.max(0,mineralCost-remaining),canUseLogistics=structureCount('workshop')>0&&structureIsOperational('workshop');
+            const canForge=(remaining>=mineralCost||(canUseLogistics&&gatheredTotal>=externalNeed))&&!activeForge;
             const influence=Math.min(100,Math.round(25+state.matriarchs.length*8+admin.colonizedCount*7+state.era*5));
             const reputation=Math.max(0,Math.min(100,Math.round((Number(state.order)||0)*.65+(Number(state.ideologyAxis)||0)*.35+50)));
             const mineralNames={quartz:'Quartzo',silicate:'Silicato',corundum:'Coríndon',metallic:'Metal',nacre:'Nácar',garnet:'Granada hessonítica',olivine:'Olivina',lapisrock:'Lápis-lazúli'};
@@ -2859,7 +2871,7 @@ ${hasAristocrats ? `
 
             container.innerHTML=
                 '<div class="card card-cyan"><div class="card-header"><span class="card-title title-font">👑 '+escapeHTML(fd.name)+'</span><span class="badge">Diamante Principal · Jogador</span></div><p style="font-size:11px;color:#cbd5e1">A Diamante fundadora. Sua identidade foi definida no início da partida e não pode ser alterada.</p><div class="stat-box"><b>Cinese: '+firstPower.name+'</b><small style="display:block;color:var(--text-muted)">Poder '+firstPower.kind+' · Assinatura cromática #'+firstPower.colorSignature+'</small></div><div class="grid-2"><div class="stat-box"><span class="stat-label">Influência imperial</span><b style="color:#7dd3fc">'+influence+'%</b></div><div class="stat-box"><span class="stat-label">Reputação</span><b style="color:#f9a8d4">'+reputation+'%</b></div></div><div class="stat-box"><small style="color:var(--text-muted)">Influência acompanha o crescimento da dinastia e das colônias. Reputação acompanha a estabilidade e as decisões ideológicas do império.</small></div></div>'+
-                '<div class="card card-amber"><div class="card-header"><span class="card-title title-font">💎 Forjar nova Diamante</span><span class="badge">Núcleo planetário</span></div><p style="font-size:11px;color:#cbd5e1">A Diamante é formada sob pressão extrema no centro do planeta. A Primeira Diamante é monocromática: a forja não exige essências coloridas. A composição mineral define a cor; a pressão determina o tempo e a potência.</p><div class="stat-box"><b>Planeta de origem: '+escapeHTML(planet.shortName)+'</b><small style="display:block;color:var(--text-muted)">Reserva disponível: '+Math.floor(remaining).toLocaleString('pt-BR')+' / '+Math.floor(total).toLocaleString('pt-BR')+'</small></div><div class="stat-box"><span class="stat-label">Custo mineral</span><b>'+mineralCost.toLocaleString('pt-BR')+' unidades (22% da reserva original)</b><small style="display:block;color:'+(remaining>=mineralCost?'#6ee7b7':'#fb7185')+'">'+(remaining>=mineralCost?'Disponível':'Recursos insuficientes neste planeta')+'</small></div><div class="grid-2"><div class="stat-box"><span class="stat-label">Pressão do núcleo</span><b>'+pressure+' GPa</b></div><div class="stat-box"><span class="stat-label">Potência estimada</span><b>'+forgePower.toFixed(1)+'x</b></div></div><div class="stat-box"><span class="stat-label">Tempo de formação</span><b>'+forgeSeconds+' segundos</b><small style="display:block;color:var(--text-muted)">Primeiro, um Injetor exclusivo precisa perfurar até o núcleo. Planetas maiores demoram mais; planetas menores são perfurados mais rápido. A qualidade e a potência da Diamante aumentam com o porte e a pressão do planeta.</small></div>'+(activeForge?'<div class="stat-box"><b>'+(activeForge.stage==='drilling'?'💉 Injetor perfurando · ':'💎 Cristalização no núcleo · ')+escapeHTML(PLANETS[activeForge.planetId]?.shortName||'Núcleo')+'</b><div class="founding-progress" style="margin-top:8px"><div style="width:'+Math.floor(activeForge.stage==='drilling'?activeForge.drillProgress:activeForge.progress)+'%"></div></div><small>'+(activeForge.stage==='drilling'?'Perfuração: ':'Formação: ')+Math.floor(activeForge.stage==='drilling'?activeForge.drillProgress:activeForge.progress)+'% · '+Math.max(0,Math.ceil((activeForge.stage==='drilling'?activeForge.drillDuration*(1-activeForge.drillProgress/100):activeForge.duration*(1-activeForge.progress/100))))+'s restantes</small></div>':'')+'<div class="stat-box"><span class="stat-label">Colônias ativas</span><b>'+admin.colonizedCount+' / '+admin.maxCap+'</b></div><button class="btn active" style="width:100%;padding:10px" onclick="synthesizeCustomDiamond()" '+(canForge?'':'disabled')+'>'+(activeForge?(activeForge.stage==='drilling'?'💉 Injetor perfurando':'💎 Cristalização em andamento'):'💉 Enviar Injetor exclusivo')+'</button>'+(canForge?'':'<small style="display:block;color:#fb7185;margin-top:6px">'+(activeForge?'Aguarde a conclusão da formação.':'Recursos minerais insuficientes para iniciar a forja.')+'</small>')+'</div>'+
+                '<div class="card card-amber"><div class="card-header"><span class="card-title title-font">💎 Forjar nova Diamante</span><span class="badge">Núcleo planetário</span></div><p style="font-size:11px;color:#cbd5e1">A Diamante é formada sob pressão extrema no centro do planeta. A Primeira Diamante é monocromática: a forja não exige essências coloridas. A composição mineral define a cor; a pressão determina o tempo e a potência.</p><div class="stat-box"><b>Planeta de origem: '+escapeHTML(planet.shortName)+'</b><small style="display:block;color:var(--text-muted)">Reserva disponível: '+Math.floor(remaining).toLocaleString('pt-BR')+' / '+Math.floor(total).toLocaleString('pt-BR')+'</small></div><div class="stat-box"><span class="stat-label">Custo mineral</span><b>'+mineralCost.toLocaleString('pt-BR')+' unidades (40% da reserva original)</b><small style="display:block;color:'+(remaining>=mineralCost?'#6ee7b7':canForge?'#facc15':'#fb7185')+'">'+(remaining>=mineralCost?'Disponível no planeta':canForge?'Déficit de '+externalNeed.toLocaleString('pt-BR')+' será coberto pelo Centro de Logística':'Déficit sem cobertura: exige Centro de Logística operacional e minerais coletados')+'</small></div><div class="grid-2"><div class="stat-box"><span class="stat-label">Pressão do núcleo</span><b>'+pressure+' GPa</b></div><div class="stat-box"><span class="stat-label">Potência estimada</span><b>'+forgePower.toFixed(1)+'x</b></div></div><div class="stat-box"><span class="stat-label">Tempo de formação</span><b>'+forgeSeconds+' segundos</b><small style="display:block;color:var(--text-muted)">Primeiro, um Injetor exclusivo precisa perfurar até o núcleo. Planetas maiores demoram mais; planetas menores são perfurados mais rápido. A qualidade e a potência da Diamante aumentam com o porte e a pressão do planeta.</small></div>'+(activeForge?'<div class="stat-box"><b>'+(activeForge.stage==='drilling'?'💉 Injetor perfurando · ':'💎 Cristalização no núcleo · ')+escapeHTML(PLANETS[activeForge.planetId]?.shortName||'Núcleo')+'</b><div class="founding-progress" style="margin-top:8px"><div style="width:'+Math.floor(activeForge.stage==='drilling'?activeForge.drillProgress:activeForge.progress)+'%"></div></div><small>'+(activeForge.stage==='drilling'?'Perfuração: ':'Formação: ')+Math.floor(activeForge.stage==='drilling'?activeForge.drillProgress:activeForge.progress)+'% · '+Math.max(0,Math.ceil((activeForge.stage==='drilling'?activeForge.drillDuration*(1-activeForge.drillProgress/100):activeForge.duration*(1-activeForge.progress/100))))+'s restantes</small></div>':'')+'<div class="stat-box"><span class="stat-label">Colônias ativas</span><b>'+admin.colonizedCount+' / '+admin.maxCap+'</b></div><button class="btn active" style="width:100%;padding:10px" onclick="synthesizeCustomDiamond()" '+(canForge?'':'disabled')+'>'+(activeForge?(activeForge.stage==='drilling'?'💉 Injetor perfurando':'💎 Cristalização em andamento'):'💉 Enviar Injetor exclusivo')+'</button>'+(canForge?'':'<small style="display:block;color:#fb7185;margin-top:6px">'+(activeForge?'Aguarde a conclusão da formação.':'Recursos minerais insuficientes para iniciar a forja.')+'</small>')+'</div>'+
                 '<div class="card"><div class="card-header"><span class="card-title title-font">Dinastia · '+state.matriarchs.length+' Diamante(s) subordinada(s)</span></div><p style="font-size:10px;color:#94a3b8">A ordem da lista define a posição no painel de Autoridade. Use as setas para elevar ou rebaixar cada Diamante.</p>'+matriarchCards+'</div>';
         }
 
@@ -2879,13 +2891,15 @@ ${hasAristocrats ? `
             if(state.diamondForge){setStatusTicker('Uma Diamante já está sendo formada no núcleo planetário.',true);return;}
             const total=Math.max(1,Number(planet.resourceTotal)||1);
             const remaining=Math.max(0,Number(planet.resourcesRemaining)||0);
-            const cost=Math.ceil(total*.22);
-            if(remaining<cost||cost<1){setStatusTicker('A forja exige '+cost.toLocaleString('pt-BR')+' unidades minerais ainda disponíveis em '+planet.shortName+'.',true);return;}
+            const cost=Math.ceil(total*.40),externalNeed=Math.max(0,cost-remaining),gathered=state.founding.gatheredMinerals||(state.founding.gatheredMinerals={});
+            const gatheredTotal=Object.values(gathered).reduce((sum,value)=>sum+Math.max(0,Number(value)||0),0);
+            if(externalNeed>0&&(!structureIsOperational('workshop')||gatheredTotal<externalNeed)){setStatusTicker('A forja exige 40% dos recursos do planeta. Para completar o déficit de '+externalNeed.toLocaleString('pt-BR')+' unidades, opere o Centro de Logística e reúna minerais coletados.',true);return;}
+            if(cost<1){setStatusTicker('Reserva mineral inválida para a forja.',true);return;}
             const pressure=Number(planet.corePressure)||35;
             const size=String(planet.resourceSize||'pequeno').toLowerCase();
             const drillBase=size.includes('gigante')?70:size.includes('grande')?48:size.includes('médio')?28:14;
             const drillDuration=drillBase/Math.max(0.75,getPearlMultiplierFor('firstDiamond'));
-            state.diamondForge={planetId:planet.id,stage:'drilling',drillProgress:0,drillDuration,progress:0,duration:(Number(planet.diamondForgeSeconds)||180)/getPearlMultiplierFor('firstDiamond'),pressure,mineralCost:cost,power:Number(planet.diamondPower)||1};
+            state.diamondForge={planetId:planet.id,stage:'drilling',drillProgress:0,drillDuration,progress:0,duration:(Number(planet.diamondForgeSeconds)||180)/getPearlMultiplierFor('firstDiamond'),pressure,mineralCost:cost,externalMineralCost:externalNeed,power:Number(planet.diamondPower)||1};
             setStatusTicker('Injetor exclusivo lançado em '+planet.shortName+'. A perfuração até o núcleo começou; a formação só iniciará quando ele chegar ao centro.');
             updateHUD();
         }
@@ -2895,8 +2909,8 @@ ${hasAristocrats ? `
             if(!forge)return;
             const planet=PLANETS[forge.planetId];
             if(!planet){state.diamondForge=null;return;}
-            const remaining=Math.max(0,Number(planet.resourcesRemaining)||0);
-            if(remaining<forge.mineralCost){state.diamondForge=null;setStatusTicker('A forja foi interrompida: recursos minerais insuficientes.',true);return;}
+            const remaining=Math.max(0,Number(planet.resourcesRemaining)||0),gathered=state.founding.gatheredMinerals||(state.founding.gatheredMinerals={}),gatheredTotal=Object.values(gathered).reduce((sum,value)=>sum+Math.max(0,Number(value)||0),0);
+            if(remaining+gatheredTotal<forge.mineralCost||Number(forge.externalMineralCost||0)>0&&!structureIsOperational('workshop')){state.diamondForge=null;setStatusTicker('A forja foi interrompida: minerais coletados ou Centro de Logística insuficientes.',true);return;}
             const pools=planet.resourcesByType||{};
             const available=Object.entries(pools).filter(([,amount])=>amount>0);
             if(!available.length){state.diamondForge=null;setStatusTicker('A forja foi interrompida: não há composição mineral disponível.',true);return;}
@@ -2908,8 +2922,9 @@ ${hasAristocrats ? `
                 const take=Math.min(amount,Math.max(1,Math.ceil(remainingCost/(candidates.length*.8))));
                 pools[key]-=take;consumed[key]=(consumed[key]||0)+take;remainingCost-=take;
             }
-            const actualCost=forge.mineralCost-remainingCost;
-            planet.resourcesRemaining=Math.max(0,remaining-actualCost);
+            const actualCost=forge.mineralCost-remainingCost,planetCost=Math.min(remaining,actualCost),collectedCost=Math.max(0,actualCost-planetCost);
+            planet.resourcesRemaining=Math.max(0,remaining-planetCost);
+            let toCollect=collectedCost;for(const key of Object.keys(gathered)){if(toCollect<=0)break;const take=Math.min(Math.max(0,Number(gathered[key])||0),toCollect);gathered[key]=Math.max(0,(Number(gathered[key])||0)-take);toCollect-=take;}
             const dominant=Object.entries(consumed).sort((a,b)=>b[1]-a[1])[0]?.[0]||'quartz';
             const mineralColors={quartz:'violet',silicate:'emerald',corundum:'blue',metallic:'yellow',nacre:'white',garnet:'pink',olivine:'emerald',lapisrock:'blue'};
             const colorKey=mineralColors[dominant]||'white';
@@ -4793,7 +4808,7 @@ ${hasAristocrats ? `
                 ctx.strokeStyle=rulerColors?.glow||'#d6d3d1';ctx.globalAlpha=.28+growth*.62;
                 ctx.lineWidth=Math.max(1.2,radius*(.004+growth*.004));ctx.setLineDash([Math.max(5,radius*.045),Math.max(3,radius*.025)]);
                 ctx.shadowColor=rulerColors?.glow||'#d6d3d1';ctx.shadowBlur=5+growth*10;
-                ctx.beginPath();ctx.ellipse(0,0,orbitRadius,orbitRadius*.91,0,0,Math.PI*2);ctx.stroke();
+                // O anel com detritos é desenhado em drawPlanetDebris; não duplicar o contorno aqui.
                 ctx.setLineDash([]);ctx.globalAlpha=.85;ctx.fillStyle=rulerColors?.accent||'#e7e5e4';
                 for(let n=0;n<3;n++){const a=time*.00018+n*Math.PI*2/3;ctx.beginPath();ctx.arc(Math.cos(a)*orbitRadius,Math.sin(a)*orbitRadius*.91,Math.max(2,radius*.012),0,Math.PI*2);ctx.fill();}
                 ctx.restore();
@@ -4851,7 +4866,7 @@ ${hasAristocrats ? `
         }
 
         function drawPlanetDebris(planet,cx,cy,radius,time,camera,stage,front){
-            const count=[4,4,9,15,23][stage]||4;if(!count)return;
+            const count=[4,4,9,15,23][stage]||4;if(!planet||planet.id!=='homeworld'||structureCount('workshop')<1||!structureIsOperational('workshop'))return;
             ctx.save();ctx.translate(cx,cy);ctx.rotate(-.19+camera.rotation*.08);
             ctx.strokeStyle=stage>=2?'rgba(148,163,184,.22)':'rgba(148,163,184,.12)';ctx.lineWidth=1;ctx.setLineDash([5,9]);
             ctx.beginPath();ctx.ellipse(0,0,radius*(1.38+stage*.035),radius*(.47+stage*.018),0,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
@@ -5004,7 +5019,7 @@ ${hasAristocrats ? `
 function drawColony(time){
             const planet=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld,{cx,cy}=getVisibleCenter(canvasWidth,canvasHeight);
             const isMobile=window.matchMedia('(max-width: 600px)').matches;
-            const radius=Math.max(82,Math.min(canvasWidth*(isMobile?0.35:0.32),canvasHeight*(isMobile?0.36:0.38),270)*state.planetCamera.zoom);
+            const radius=Math.max(76,Math.min(canvasWidth*(isMobile?0.29:0.27),canvasHeight*(isMobile?0.30:0.32),245)*state.planetCamera.zoom);
             const cam=state.planetCamera,stats=getPlanetVisualStats(planet),stage=stats.stage,palette=planet.colors;
             const lightX=cx-radius*.36,lightY=cy-radius*.42;
 
@@ -5017,7 +5032,7 @@ function drawColony(time){
             const surface=ctx.createRadialGradient(lightX,lightY,radius*.04,cx+radius*.12,cy+radius*.12,radius*1.12);
             surface.addColorStop(0,palette.secondary);surface.addColorStop(.42,palette.primary);surface.addColorStop(.78,palette.continent);surface.addColorStop(1,palette.mantle);
             ctx.save();ctx.shadowColor=palette.atmosphere||'rgba(125,211,252,.25)';ctx.shadowBlur=stage>=2?34:24;ctx.fillStyle=surface;ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
-            ctx.save();ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.clip();ctx.translate(cx,cy);ctx.rotate(cam.rotation*.22);ctx.scale(radius,radius);
+            ctx.save();ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.clip();ctx.translate(cx,cy);ctx.scale(radius*Math.cos(cam.rotation),radius);
 
             // Continentes e placas rochosas curvas.
             const landmasses=[
@@ -5059,7 +5074,7 @@ function drawColony(time){
             // Sombreamento esférico aplicado por cima da textura.
             const terminator=ctx.createRadialGradient(lightX,lightY,radius*.08,cx,cy,radius*1.12);terminator.addColorStop(0,'rgba(255,255,255,0)');terminator.addColorStop(.62,'rgba(2,6,23,.02)');terminator.addColorStop(1,'rgba(1,4,14,.72)');
             ctx.fillStyle=terminator;ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.fill();
-            if(cam.xrayMode){ctx.save();ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.clip();ctx.translate(cx,cy);ctx.rotate(cam.rotation*.22);ctx.scale(radius,radius);drawXRayMineralSeams(planet);ctx.restore();}
+            if(cam.xrayMode){ctx.save();ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.clip();ctx.translate(cx,cy);ctx.scale(radius*Math.cos(cam.rotation),radius);drawXRayMineralSeams(planet);ctx.restore();}
             ctx.strokeStyle='rgba(219,234,254,.58)';ctx.lineWidth=1.2;ctx.beginPath();ctx.arc(cx,cy,radius-1,Math.PI*1.05,Math.PI*1.9);ctx.stroke();
 
             drawHomeworldStructures(planet,cx,cy,radius,cam,time);
@@ -5074,9 +5089,8 @@ function drawColony(time){
             drawColonyInjectors(planet,cx,cy,radius,cam);
             // Fragmentos que passam pela frente fecham o efeito de órbita 360°.
             drawPlanetDebris(planet,cx,cy,radius,time,cam,stage,true);
-            drawPlanetCombinedInfoPanel(planet,stats,12,Math.max(12,canvasHeight-(state.planetInfoExpanded===false?42:255)-12));
+            drawPlanetCombinedInfoPanel(planet,stats,12,12);
             ctx.textAlign='center';ctx.fillStyle='#f8fafc';ctx.font='bold 16px Georgia';ctx.fillText(planet.shortName,cx,Math.max(24,cy-radius-24));
-            ctx.fillStyle='#cbd5e1';ctx.font='10px Segoe UI';ctx.fillText('ARRASTE PARA GIRAR • TOQUE EM UM DEPÓSITO MINERAL',cx,Math.min(canvasHeight-12,cy+radius+30));
         }
 
         function drawGame(time) {
@@ -5154,7 +5168,9 @@ function drawColony(time){
             const delta = timestamp - lastFrameTime;
             lastFrameTime = timestamp;
             if (state.planetCamera.autoRotate && state.currentScreen === 'colony' && !state.planetCamera.isDragging) {
-                state.planetCamera.rotation += delta * 0.00012;
+                const currentPlanet=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld;
+                if(getPlanetVisualStats(currentPlanet).stage<2)state.planetCamera.rotation += delta * 0.00012;
+                else state.planetCamera.autoRotate=false;
             }
             if (state.planetCamera.targetRotation !== null && !state.planetCamera.isDragging) {
                 const diff = state.planetCamera.targetRotation - state.planetCamera.rotation;
