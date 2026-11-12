@@ -1121,6 +1121,7 @@
         Object.values(PLANETS).forEach((planet,index)=>{
             const extras=[
                 {type:'pyroxene',label:'Veio de Piroxênio',purity:54},
+                {type:'lapisrock',label:'Veio de Lápis-lazúli',purity:58},
                 {type:'beryllium',label:'Nódulo de Berílio',purity:38},
                 {type:'topaz',label:'Bolsa de Topázio',purity:46}
             ];
@@ -1151,7 +1152,7 @@
             energy: 0,
             refinedMaterials: 0,
             refinedResources: {quartz:0,pyroxene:0,beryllium:0},
-            gemObjects: {total:0,byOwner:{},history:[]},
+            gemObjects: {total:0,byOwner:{},influenceByOwner:{},history:[]},
             ships: 0,
             structures: {},
             structureAssignments: {},
@@ -2717,7 +2718,7 @@ ${hasAristocrats ? `
                     case 'bismuth': result.min += 10; break;
                     case 'sapphire': result.tech += 8; result.white += 4; break;
                     case 'lapis': result.blue += 5; break;
-                    case 'ruby': result.min += 4; break;
+                    case 'ruby': break;
                     case 'pearl': result.white += 5; result.order += 2; break;
                 }
             }
@@ -3814,15 +3815,21 @@ ${hasAristocrats ? `
             if(!allowed.has(ownerId))return;
             if(Number(state.refinedResources&&state.refinedResources.beryllium||0)<1){setStatusTicker('É necessário 1 Berílio refinado para fabricar um objeto Gem.',true);return;}
             state.refinedResources.beryllium--;
-            if(!state.gemObjects)state.gemObjects={total:0,byOwner:{},history:[]};
+            if(!state.gemObjects)state.gemObjects={total:0,byOwner:{},influenceByOwner:{},history:[]};
+            state.gemObjects.byOwner=state.gemObjects.byOwner||{};
+            state.gemObjects.influenceByOwner=state.gemObjects.influenceByOwner||{};
             state.gemObjects.byOwner[ownerId]=(Number(state.gemObjects.byOwner[ownerId])||0)+1;
+            state.gemObjects.influenceByOwner[ownerId]=(Number(state.gemObjects.influenceByOwner[ownerId])||0)+5;
             state.gemObjects.total=(Number(state.gemObjects.total)||0)+1;
             state.gemObjects.history=state.gemObjects.history||[];
-            state.gemObjects.history.push({ownerId,cycle:Number(state.cycleCount)||1,material:'beryllium'});
+            const objectRecord={ownerId,cycle:Number(state.cycleCount)||1,material:'beryllium',form:'living-statue',influence:5};
+            state.gemObjects.history.push(objectRecord);
             if(state.gemObjects.history.length>100)state.gemObjects.history.shift();
+            PLANETS.homeworld.gemObjects=Array.isArray(PLANETS.homeworld.gemObjects)?PLANETS.homeworld.gemObjects:[];
+            PLANETS.homeworld.gemObjects.push({...objectRecord});
             const ownerName=ownerId==='firstDiamond'?state.firstDiamond.name:ownerId==='aristocrats'?'Aristocracia':(state.matriarchs.find(m=>'matriarch_'+m.id===ownerId)?.name||'Diamante');
             setStatusTicker('Objeto Gem de berílio criado para '+ownerName+'.');
-            addChronicle('Objeto Gem criado','Uma obra de berílio foi acrescentada ao patrimônio de '+ownerName+'.','+5 influência e reputação');
+            addChronicle('Objeto Gem criado','Uma estátua viva de berílio foi acrescentada ao patrimônio de '+ownerName+'.','+5 influência e reputação');
             updateHUD();renderDrawerContent();
         }
 
@@ -3852,8 +3859,8 @@ ${hasAristocrats ? `
             const targets=[['firstDiamond',state.firstDiamond.name],['aristocrats','Aristocratas'],...(state.matriarchs||[]).map(m=>['matriarch_'+m.id,m.name])];
             const forecast=(state.founding.sapphireForecasts||[]).slice(-5).reverse();
             const forecastHtml=forecast.length?forecast.map(item=>'<div class="stat-box"><b>'+escapeHTML(item.title)+'</b><p style="font-size:10px;color:#94a3b8;margin-top:4px">'+escapeHTML(item.description)+'</p><small style="color:#7dd3fc">'+escapeHTML(item.planet||'Império')+' · chance agregada '+Number(item.chance||0).toFixed(1)+'%</small></div>').join(''):'<div class="stat-box">Nenhuma previsão registrada. A cada cinco minutos, cada Safira oferece 5% de chance independente de antecipar um evento possível.</div>';
-            const objects=state.gemObjects||{total:0,byOwner:{},history:[]};
-            const ownerRows=targets.map(([id,label])=>'<div class="stat-box" style="display:flex;justify-content:space-between"><span>'+escapeHTML(label)+'</span><b>'+Number(objects.byOwner&&objects.byOwner[id]||0)+' objetos · '+(Number(objects.byOwner&&objects.byOwner[id]||0)*5)+' influência</b></div>').join('');
+            const objects=state.gemObjects||{total:0,byOwner:{},influenceByOwner:{},history:[]};
+            const ownerRows=targets.map(([id,label])=>'<div class="stat-box" style="display:flex;justify-content:space-between"><span>'+escapeHTML(label)+'</span><b>'+Number(objects.byOwner&&objects.byOwner[id]||0)+' objetos · '+Number(objects.influenceByOwner&&objects.influenceByOwner[id]||0)+' influência</b></div>').join('');
             const commandHtml='<div class="grid-2"><div class="stat-box">Capacidade de comando das Ágatas: <b>'+getAgateCommandCapacity()+' Quartzos</b></div><div class="stat-box">Capacidade de mobilização dos Generais: <b>'+getTroopCommandCapacity().toLocaleString('pt-BR')+' soldados</b></div><div class="stat-box">Velocidade de viagem com Nefritas: <b>×'+getFleetTravelSpeedMultiplier()+'</b></div><div class="stat-box">Topázios de guarda palaciana: <b>'+counts.topaz+'</b></div></div>';
             const totalRows=keys.map(k=>'<div class="stat-box" style="display:flex;justify-content:space-between"><span>'+(FOUNDING_GEM_DATA[k]?.label||k)+'</span><b>'+counts[k].toLocaleString('pt-BR')+'</b></div>').join('');
             container.innerHTML='<div class="card card-cyan"><div class="card-header"><span class="card-title title-font">👥 Relatório populacional</span><span class="badge">Império inteiro</span></div><div class="stat-box">População total: <b>'+totalPopulation.toLocaleString('pt-BR')+' Gems</b><small style="display:block;color:#94a3b8">Inclui '+diamondCount+' Diamante(s), '+gemPopulation+' Gems das demais castas e Pérolas armazenadas.</small></div><div class="grid-2"><div class="stat-box">Cortes Rank S: <b>'+rankS+'</b></div><div class="stat-box">Off-Colors: <b>'+offcolors+'</b></div></div><p style="font-size:10px;color:#94a3b8">A contagem por casta é separada da classificação do corte.</p></div>'+tiersHtml+'<div class="card"><div class="card-header"><span class="card-title">População por tipo · contagem detalhada</span></div>'+totalRows+'</div><div class="card card-cyan"><div class="card-header"><span class="card-title">Recife de Pérolas</span><span class="badge">'+inventory.length+' sem dona</span></div><div class="stat-box">Pérolas armazenadas: <b>'+inventory.length+'</b> · Pérolas atribuídas: <b>'+assigned.length+'</b></div><label class="stat-label" for="reef-pearl-target">Escolher dona</label><select id="reef-pearl-target">'+targets.map(([id,label])=>'<option value="'+id+'">'+escapeHTML(label)+'</option>').join('')+'</select><button class="btn btn-block" onclick="assignStoredPearl(document.getElementById(\'reef-pearl-target\').value)" '+(!inventory.length?'disabled':'')+'>Retirar do Recife e vincular uma Pérola</button><small style="color:#94a3b8">Pérolas minerais ×1,5; Pérolas legítimas de Recife ×2.</small></div><div class="card"><div class="card-header"><span class="card-title">Previsões das Safiras</span><span class="badge">'+counts.sapphire+' ativas</span></div>'+forecastHtml+'</div><div class="card"><div class="card-header"><span class="card-title">Comando e especializações</span></div>'+commandHtml+'</div><div class="card card-amber"><div class="card-header"><span class="card-title">Objetos Gem de Berílio</span><span class="badge">'+Number(objects.total||0)+' objetos</span></div><div class="stat-box">Cada objeto criado acrescenta 5 pontos de influência e reputação ao seu proprietário.</div>'+ownerRows+'<label class="stat-label" for="gem-object-owner">Proprietária da próxima obra</label><select id="gem-object-owner">'+targets.map(([id,label])=>'<option value="'+id+'">'+escapeHTML(label)+'</option>').join('')+'</select><button class="btn btn-block" onclick="createGemObject(document.getElementById(\'gem-object-owner\').value)" '+(Number(state.refinedResources&&state.refinedResources.beryllium||0)<1?'disabled':'')+'>Criar objeto · 1 Berílio refinado</button></div>';
@@ -4801,7 +4808,7 @@ function drawColony(time){
             state.matriarchs = [];
             state.census = {quartz:0,peridot:0,lapis:0,sapphire:0,hessonite:0,bismuth:0,ruby:0,pearl:0,prime:0,offcolor:0,pyrope:0,agate:0,nephrite:0,jade:0,morganite:0,aquamarine:0,emerald:0,topaz:0};
             state.refinedResources={quartz:0,pyroxene:0,beryllium:0};
-            state.gemObjects={total:0,byOwner:{},history:[]};
+            state.gemObjects={total:0,byOwner:{},influenceByOwner:{},history:[]};
             state.founding.reefPearlInventory=[];
             state.founding.assignedPearls=[];
             state.founding.sapphireForecasts=[];
@@ -5254,9 +5261,11 @@ function drawColony(time){
                 state.refinedMaterials = Number(state.refinedMaterials) || 0;
                 state.ships = Number(state.ships) || 0;
                 state.refinedResources = Object.assign({quartz:0,pyroxene:0,beryllium:0},state.refinedResources||{});
-                state.gemObjects = Object.assign({total:0,byOwner:{},history:[]},state.gemObjects||{});
+                state.gemObjects = Object.assign({total:0,byOwner:{},influenceByOwner:{},history:[]},state.gemObjects||{});
                 state.gemObjects.byOwner = state.gemObjects.byOwner || {};
+                state.gemObjects.influenceByOwner = state.gemObjects.influenceByOwner || {};
                 state.gemObjects.history = state.gemObjects.history || [];
+                PLANETS.homeworld.gemObjects = Array.isArray(PLANETS.homeworld.gemObjects)?PLANETS.homeworld.gemObjects:[];
                 state.census = state.census || {};
                 ['quartz','peridot','lapis','sapphire','hessonite','bismuth','ruby','pearl','prime','offcolor','pyrope','agate','nephrite','jade','morganite','aquamarine','emerald','topaz'].forEach(k=>state.census[k]=Math.max(0,Number(state.census[k])||0));
                 state.founding.reefPearlInventory = Array.isArray(state.founding.reefPearlInventory)?state.founding.reefPearlInventory:[];
