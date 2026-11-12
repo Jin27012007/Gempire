@@ -6188,6 +6188,7 @@ function drawColony(time){
         function saveGame(slotId = 'slot1', silent = false) {
             const key = getSaveKey(slotId);
             if (!key) return false;
+            window.GEMPIRE_ACTIVE_SAVE_SLOT = slotId;
             try {
                 localStorage.setItem(key, JSON.stringify(createSaveSnapshot()));
                 if (!silent) {
@@ -6216,6 +6217,7 @@ function drawColony(time){
         function loadGame(slotId) {
             const data = readSave(slotId);
             if (!isValidSaveData(data)) { setGameMenuStatus('Este slot está vazio, corrompido ou usa uma versão incompatível.', true); return false; }
+            window.GEMPIRE_ACTIVE_SAVE_SLOT = slotId;
             try {
                 for (const key of Object.keys(state)) delete state[key];
                 Object.assign(state, data.state);
