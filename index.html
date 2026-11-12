@@ -2064,48 +2064,57 @@
         }
         function startInjectorProduction(automatic=false) {
             if (!structureIsOperational('injector')) { if(!automatic) setStatusTicker('A frota de Injetores precisa de um Peridoto operador e de uma Câmara operacional.', true); return; }
-            if (state.founding.creationActive || state.founding.bathActive) { if(!automatic) setStatusTicker('A Diamante está ocupada. Aguarde a atividade atual.'); return; }
+            if (state.founding.creationActive || state.founding.bathActive) { if(!automatic) setStatusTicker('A Diamante está ocupada. Aguarde a conclusão da atividade atual.'); return; }
             const plan=getInjectorProductionPlan();
             if(!plan.valid){if(!automatic)setStatusTicker(plan.reason,true);return;}
             if(!plan.batches.length){if(!automatic)setStatusTicker('Defina ao menos uma Gem em um Injetor, com quantidade entre 1 e 5.');return;}
             const planet=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld;
-            const rawCosts={},refinedCosts={};
-            let totalGems=0;
+            const rawInventory=state.founding.gatheredMinerals||(state.founding.gatheredMinerals={});
+            const refinedInventory=state.refinedResources||(state.refinedResources={});
+            const remainingRaw=Object.assign({},rawInventory),remainingRefined=Object.assign({},refinedInventory);
+            const rawCosts={},refinedCosts={},readyBatches=[],waitingReasons=[];
+            let totalGems=0,remainingEssence=Math.max(0,Number(state.founding.injectorEssence)||0);
             for(const batch of plan.batches){
                 const gem=FOUNDING_GEM_DATA[batch.type];
                 if(!gem)continue;
+                if(gem.stored&&!structureIsOperational('reef')){waitingReasons.push(gem.label+': Recife não operacional');continue;}
+                if(gem.climate&&!foundingGemClimateAllowed(gem,planet)){waitingReasons.push(gem.label+': clima incompatível');continue;}
+                const refined=!!gem.refinedMaterial,material=gem.refinedMaterial||gem.mineral;
+                const available=Math.max(0,Number((refined?remainingRefined:remainingRaw)[material])||0);
+                if(available<batch.quantity){waitingReasons.push(gem.label+': substrato insuficiente');continue;}
+                const essenceCost=batch.quantity*12;
+                if(remainingEssence<essenceCost){waitingReasons.push(gem.label+': essência insuficiente');continue;}
+                if(refined){
+                    remainingRefined[material]=available-batch.quantity;
+                    refinedCosts[material]=(Number(refinedCosts[material])||0)+batch.quantity;
+                }else{
+                    remainingRaw[material]=available-batch.quantity;
+                    rawCosts[material]=(Number(rawCosts[material])||0)+batch.quantity;
+                }
+                remainingEssence-=essenceCost;
                 totalGems+=batch.quantity;
-                if(gem.stored&&!structureIsOperational('reef')){if(!automatic)setStatusTicker('Produção de Pérolas pausada: construa e opere um Recife para armazená-las.');return;}
-                if(gem.climate&&!foundingGemClimateAllowed(gem,planet)){if(!automatic)setStatusTicker('Este planeta não possui as condições climáticas necessárias para produzir '+gem.label+'.');return;}
-                if(gem.refinedMaterial)refinedCosts[gem.refinedMaterial]=(Number(refinedCosts[gem.refinedMaterial])||0)+batch.quantity;
-                else rawCosts[gem.mineral]=(Number(rawCosts[gem.mineral])||0)+batch.quantity;
+                readyBatches.push(batch);
             }
-            const rawInventory=state.founding.gatheredMinerals||(state.founding.gatheredMinerals={});
-            for(const [material,needed] of Object.entries(rawCosts)){
-                const available=Math.max(0,Number(rawInventory[material])||0);
-                if(available<needed){if(!automatic)setStatusTicker('Produção suspensa: estoque coletado de '+material+' insuficiente ('+available+'/'+needed+').');return;}
+            if(!readyBatches.length){
+                if(!automatic)setStatusTicker('Nenhum Injetor possui todos os recursos da sua programação. '+(waitingReasons[0]||'Verifique os estoques.'),true);
+                return;
             }
-            for(const [material,needed] of Object.entries(refinedCosts)){
-                const available=Math.max(0,Number(state.refinedResources&&state.refinedResources[material])||0);
-                if(available<needed){if(!automatic)setStatusTicker('Produção suspensa: faltam '+needed+' unidades de '+material+' refinado ('+available+'/'+needed+').');return;}
-            }
-            const essenceCost=12*totalGems;
-            if((Number(state.founding.injectorEssence)||0)<essenceCost){if(!automatic)setStatusTicker('A frota aguarda '+essenceCost+' unidades de essência (12 por Gem).');return;}
             for(const [material,needed] of Object.entries(rawCosts))rawInventory[material]=Math.max(0,(Number(rawInventory[material])||0)-needed);
-            for(const [material,needed] of Object.entries(refinedCosts))state.refinedResources[material]=Math.max(0,(Number(state.refinedResources[material])||0)-needed);
-            state.founding.injectorEssence-=essenceCost;
-            state.founding.creationBatches=plan.batches.map(batch=>({injectorIndex:batch.injectorIndex,type:batch.type,quantity:batch.quantity,progress:0,duration:FOUNDING_GEM_DATA[batch.type].refinedMaterial?84:42,completed:false}));
+            for(const [material,needed] of Object.entries(refinedCosts))refinedInventory[material]=Math.max(0,(Number(refinedInventory[material])||0)-needed);
+            const essenceCost=12*totalGems;
+            state.founding.injectorEssence=Math.max(0,(Number(state.founding.injectorEssence)||0)-essenceCost);
+            state.founding.creationBatches=readyBatches.map(batch=>({injectorIndex:batch.injectorIndex,type:batch.type,quantity:batch.quantity,progress:0,duration:FOUNDING_GEM_DATA[batch.type].refinedMaterial?84:42,completed:false}));
             state.founding.creationBatchCount=totalGems;
             state.founding.creationDuration=Math.max(...state.founding.creationBatches.map(batch=>batch.duration));
-            state.founding.creationTarget=plan.batches[0].type;
+            state.founding.creationTarget=readyBatches[0].type;
             state.founding.creationSource='injector';
             state.founding.creationProgress=0;
             state.founding.creationActive=true;
             state.founding.stage='injecting';
-            setStatusTicker('Injeção simultânea iniciada: '+totalGems+' Gems em '+plan.batches.length+' Injetor(es).');
+            const waiting=plan.batches.length-readyBatches.length;
+            setStatusTicker('Injeção simultânea iniciada: '+totalGems+' Gems em '+readyBatches.length+' Injetor(es).'+(waiting?' '+waiting+' Injetor(es) aguardam recursos ou condições.':''));
             updateStructureUI();
         }
-
         function executeStructureInteraction(id) {
             if (!structureIsOperational(id)) { setStatusTicker('A estrutura precisa de operadores disponíveis para executar essa interação.', true); return; }
             switch (id) {
