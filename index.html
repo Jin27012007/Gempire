@@ -789,24 +789,24 @@
         };
 
         const STRUCTURE_CATALOG = [
-            {id:'essence_chamber',name:'Câmara de Extração de Essência',category:'Extração',desc:'Uma sauna ou piscina de essência onde a Primeira Diamante toma um banho de 30 segundos. Ao terminar, produz 50 vezes a essência de uma atividade física comum.',cost:{minerals:20,tech:0},buildTime:18,prerequisites:[],workers:{peridot:1},interaction:'Desbloqueia o banho de essência de 30 segundos. Cada Diamante pode possuir sua própria Câmara.',maxCount:12},
-            {id:'injector',name:'Injetor',category:'Criação',desc:'Cada unidade opera em paralelo em um setor do planeta, formando lotes simultâneos de Gems do material presente.',cost:{minerals:35,tech:0},buildTime:28,prerequisites:['essence_chamber'],workers:{peridot:1},interaction:'Produção paralela: cada Injetor acrescenta cinco Gems por ciclo.',maxCount:12},
-            {id:'reef',name:'Recife de Pérolas',category:'Criação',desc:'Berçário nacarado que acolhe Pérolas recém-formadas sem dona. Elas permanecem armazenadas até serem vinculadas a uma Diamante ou aristocrata.',cost:{minerals:65,tech:12},buildTime:36,prerequisites:[],workers:{lapis:1,peridot:1},interaction:'Armazena Pérolas sem vínculo e permite distribuí-las posteriormente.',maxCount:5},
-            {id:'mineral_extractor',name:'Extrator Mineral',category:'Extração',desc:'Exige um Peridoto operador. Todos os Quartzos da população extraem 1 mineral a cada 10 segundos, em paralelo. Cada Ágata coordena até 20 Quartzos e reduz o intervalo desse grupo para 5 segundos (2×).',cost:{minerals:25,tech:0},buildTime:20,prerequisites:[],workers:{peridot:1},interaction:'Todos os Quartzos mineram automaticamente; Ágatas aceleram até 2×.',maxCount:3},
-            {id:'workshop',name:'Centro de Logística',category:'Transporte',desc:'Centro autônomo que transporta minerais em alta velocidade por todo o planeta. Seu anel logístico cresce conforme o estoque mineral aumenta e diminui conforme os recursos são consumidos. Exige manutenção de 1.000 unidades de metal a cada 10 minutos de operação.',cost:{minerals:40,tech:0},buildTime:24,prerequisites:['mineral_extractor'],workers:{},interaction:'Distribui recursos rapidamente pelo planeta; futuramente permitirá transporte interplanetário.',maxCount:1},
-            {id:'refinery',name:'Refinaria',category:'Indústria',desc:'Exige 1 Peridoto e 5 Bismutos operadores. Refina até 5% de cada matéria-prima coletada em seu tipo refinado.',cost:{minerals:45,tech:0},buildTime:26,prerequisites:['mineral_extractor','workshop'],workers:{peridot:1,bismuth:5},interaction:'Converte até 5% dos minerais coletados em materiais refinados.',maxCount:2},
-            {id:'research_center',name:'Centro de Pesquisa',category:'Ciência',desc:'Requer a presença de uma Demantoide ou de um Piropo. Não exige Safira nem Peridoto como operador. Usa 50 unidades de Essência Diamante para desenvolver armamentos exclusivos, determinados pela cinese da Diamante governante. É requisito para Torres de Defesa.',cost:{minerals:55,tech:8},buildTime:30,prerequisites:['workshop','refinery'],workers:{},interaction:'Demantoides ou Piropos supervisionam a pesquisa e as Demantoides administram automaticamente os Injetores.',maxCount:2},
-            {id:'reactor',name:'Reator de Energia',category:'Energia',desc:'Peridotos operam o reator e mantêm uma reserva energética.',cost:{minerals:65,tech:15},buildTime:32,prerequisites:['refinery'],workers:{peridot:1},interaction:'Gera energia para estruturas dependentes.',maxCount:2},
+            {id:'essence_chamber',name:'Câmara de Extração de Essência',category:'Essência e Criação',desc:'Uma sauna ou piscina de essência onde a Primeira Diamante toma um banho de 30 segundos. Ao terminar, produz 50 vezes a essência de uma atividade física comum.',cost:{minerals:20,tech:0},buildTime:18,prerequisites:[],workers:{peridot:1},interaction:'Desbloqueia o banho de essência de 30 segundos. Cada Diamante pode possuir sua própria Câmara.',maxCount:12},
+            {id:'injector',name:'Injetor',category:'Essência e Criação',desc:'Cada unidade opera em paralelo em um setor do planeta, formando lotes simultâneos de Gems do material presente.',cost:{minerals:35,tech:0},buildTime:28,prerequisites:['essence_chamber'],workers:{peridot:1},interaction:'Produção paralela: cada Injetor acrescenta cinco Gems por ciclo.',maxCount:12},
+            {id:'reef',name:'Recife de Pérolas',category:'Essência e Criação',desc:'Berçário nacarado que acolhe Pérolas recém-formadas sem dona. Elas permanecem armazenadas até serem vinculadas a uma Diamante ou aristocrata.',cost:{minerals:65,tech:12},buildTime:36,prerequisites:[],workers:{lapis:1,peridot:1},interaction:'Armazena Pérolas sem vínculo e permite distribuí-las posteriormente.',maxCount:5},
+            {id:'mineral_extractor',name:'Extrator Mineral',category:'Extração, Indústria e Energia',desc:'Exige um Peridoto operador. Todos os Quartzos da população extraem 1 mineral a cada 10 segundos, em paralelo. Cada Ágata coordena até 20 Quartzos e reduz o intervalo desse grupo para 5 segundos (2×).',cost:{minerals:25,tech:0},buildTime:20,prerequisites:[],workers:{peridot:1},interaction:'Todos os Quartzos mineram automaticamente; Ágatas aceleram até 2×.',maxCount:3},
+            {id:'workshop',name:'Centro de Logística',category:'Extração, Indústria e Energia',desc:'Centro autônomo que transporta minerais em alta velocidade por todo o planeta. Seu anel logístico cresce conforme o estoque mineral aumenta e diminui conforme os recursos são consumidos. Exige manutenção de 1.000 unidades de metal a cada 10 minutos de operação.',cost:{minerals:40,tech:0},buildTime:24,prerequisites:['mineral_extractor'],workers:{},interaction:'Distribui recursos rapidamente pelo planeta; futuramente permitirá transporte interplanetário.',maxCount:1},
+            {id:'refinery',name:'Refinaria',category:'Extração, Indústria e Energia',desc:'Exige 1 Peridoto e 5 Bismutos operadores. Refina até 5% de cada matéria-prima coletada em seu tipo refinado.',cost:{minerals:45,tech:0},buildTime:26,prerequisites:['mineral_extractor','workshop'],workers:{peridot:1,bismuth:5},interaction:'Converte até 5% dos minerais coletados em materiais refinados.',maxCount:2},
+            {id:'research_center',name:'Centro de Pesquisa',category:'Extração, Indústria e Energia',desc:'Requer a presença de uma Demantoide ou de um Piropo. Não exige Safira nem Peridoto como operador. Usa 50 unidades de Essência Diamante para desenvolver armamentos exclusivos, determinados pela cinese da Diamante governante. É requisito para Torres de Defesa.',cost:{minerals:55,tech:8},buildTime:30,prerequisites:['workshop','refinery'],workers:{},interaction:'Demantoides ou Piropos supervisionam a pesquisa e as Demantoides administram automaticamente os Injetores.',maxCount:2},
+            {id:'reactor',name:'Reator de Energia',category:'Extração, Indústria e Energia',desc:'Peridotos operam o reator e mantêm uma reserva energética.',cost:{minerals:65,tech:15},buildTime:32,prerequisites:['refinery'],workers:{peridot:1},interaction:'Gera energia para estruturas dependentes.',maxCount:2},
             
-            {id:'defense_tower',name:'Torre de Defesa',category:'Defesa',desc:'Arma planetária baseada no poder da Diamante governante. Exige Centro de Pesquisa, Reator de Energia e operadores Rubis.',cost:{minerals:40,tech:5},buildTime:22,prerequisites:['workshop','research_center','reactor'],workers:{ruby:1,peridot:1},interaction:'Amplia a defesa local com armamento derivado da cinese da Diamante.',maxCount:4},
-            {id:'galaxy_warp',name:'Galaxy Warp',category:'Transporte',desc:'Centro de múltiplos teletransportadores. Só pode existir um Galaxy Warp em cada planeta. Viagens interplanetárias exigem instalações operacionais na origem e no destino.',cost:{minerals:100,tech:45},buildTime:42,prerequisites:['reactor','research_center'],workers:{peridot:1,pearl:1},interaction:'Permite teletransporte local e interplanetário entre planetas com Galaxy Warp.',maxCount:1},
-            {id:'shipyard',name:'Estaleiro',category:'Exploração espacial',desc:'Bismutos constroem naves e Peridotos integram seus sistemas. Com o Estaleiro operacional, as classes de nave ficam disponíveis sem exigir Centro de Pesquisa.',cost:{minerals:90,tech:40},buildTime:40,prerequisites:['workshop','refinery','reactor'],workers:{bismuth:1,peridot:1},interaction:'Permite construir naves das classes Diamante, Elite, Guerra, Excursão e Rubi.',maxCount:1},
+            {id:'defense_tower',name:'Torre de Defesa',category:'Defesa Planetária',desc:'Sistema planetário de interceptação. As Torres de Defesa detectam e desviam asteroides e cometas antes que atinjam a superfície. Até cinco torres podem cobrir o planeta.',cost:{minerals:40,tech:5},buildTime:22,prerequisites:['workshop','research_center','reactor'],workers:{ruby:1,peridot:1},interaction:'Proteção automática contra colisões de asteroides e cometas.',maxCount:5},
+            {id:'galaxy_warp',name:'Galaxy Warp',category:'Transporte e Exploração',desc:'Um ponto de ancoragem de um buraco de minhoca. Só pode existir um Galaxy Warp por planeta. Dois mundos com instalações concluídas formam os pontos A e B; um terceiro ponto se conecta automaticamente aos dois, e assim sucessivamente.',cost:{minerals:100,tech:45},buildTime:42,prerequisites:['reactor','research_center'],workers:{},interaction:'Conecta automaticamente todos os planetas que possuem um Galaxy Warp.',maxCount:1},
+            {id:'shipyard',name:'Estaleiro',category:'Transporte e Exploração',desc:'Bismutos constroem naves e Peridotos integram seus sistemas. Com o Estaleiro operacional, as classes de nave ficam disponíveis sem exigir Centro de Pesquisa.',cost:{minerals:90,tech:40},buildTime:40,prerequisites:['workshop','refinery','reactor'],workers:{bismuth:1,peridot:1},interaction:'Permite construir naves das classes Diamante, Elite, Guerra, Excursão e Rubi.',maxCount:1},
             
-            {id:'shield_generator',name:'Gerador de Escudo',category:'Defesa',desc:'Gera uma barreira planetária operada por Rubis e sustentada por energia.',cost:{minerals:70,tech:25},buildTime:34,prerequisites:['reactor','defense_tower'],workers:{ruby:1,peridot:1},interaction:'Ativa proteção energética.',maxCount:2},
-            {id:'red_eye',name:'Olho Vermelho',category:'Megastruturas',desc:'Sonda orbital autônoma, visível como um planeta anão. Cada mundo pode abrigar até três Olhos Vermelhos em órbitas independentes. Pode ser enviada a mundos desconhecidos para retornar com dados de tamanho, distância, temperatura e composição; também rastreia Gems fugitivas e Off-Colors em colônias antigas.',cost:{minerals:150,tech:80},buildTime:60,prerequisites:['shipyard','galaxy_warp','reactor'],workers:{peridot:2,bismuth:1},interaction:'Envia sondas de reconhecimento e varreduras de rastreamento.',maxCount:3},
-            {id:'royal_palace',name:'Palácio Real',category:'Megastruturas',desc:'Maior construção terrestre da colônia, erguida na região superior central do planeta. Abriga bailes, reuniões da Corte e residências das aristocratas.',cost:{minerals:250,tech:150},buildTime:90,prerequisites:['red_eye','research_center'],workers:{sapphire:1,pearl:1,peridot:1},interaction:'Sede da Corte, dos bailes e das reuniões imperiais.',maxCount:1},
-            {id:'diamond_quarters',name:'Quarto de Diamante',category:'Residências',desc:'Residência individual e exclusiva de uma Diamante em Homeworld. O limite de quartos acompanha a quantidade de Diamantes e exige o Palácio Real.',cost:{minerals:120,tech:70},buildTime:55,prerequisites:['royal_palace'],workers:{peridot:1},interaction:'Um quarto exclusivo para cada Diamante da dinastia.',maxCount:99},
-            {id:'lunar_base',name:'Base Lunar',category:'Residências',desc:'Habitat de uma Diamante ou elite em uma lua natural. Consolida relatórios resumidos, alertas e informações da colônia. Só pode ser construída em planetas com ao menos uma lua.',cost:{minerals:180,tech:90},buildTime:65,prerequisites:['royal_palace','reactor'],workers:{peridot:1},interaction:'Fornece residência avançada e relatórios resumidos da colônia.',maxCount:3}
+            {id:'shield_generator',name:'Gerador de Escudo',category:'Defesa Planetária',desc:'Barreira automática contra tempestades solares. Quando operacional e abastecido pelo Reator, o escudo protege a rede elétrica planetária e evita apagões durante eventos solares.',cost:{minerals:70,tech:25},buildTime:34,prerequisites:['reactor','defense_tower'],workers:{ruby:1,peridot:1},interaction:'Proteção automática da rede elétrica contra tempestades solares.',maxCount:2},
+            {id:'red_eye',name:'Olho Vermelho',category:'Transporte e Exploração',desc:'Sonda orbital autônoma, visível como um planeta anão. Cada mundo pode abrigar até três Olhos Vermelhos em órbitas independentes. Pode ser enviada a mundos desconhecidos para retornar com dados de tamanho, distância, temperatura e composição; também rastreia Gems fugitivas e Off-Colors em colônias antigas.',cost:{minerals:150,tech:80},buildTime:60,prerequisites:['shipyard','galaxy_warp','reactor'],workers:{peridot:2,bismuth:1},interaction:'Envia sondas de reconhecimento e varreduras de rastreamento.',maxCount:3},
+            {id:'royal_palace',name:'Palácio Real',category:'Corte e Residências',desc:'Construção exclusiva de Homeworld. Sua conclusão desbloqueia a janela do Palácio Real na aba Trono Diamante. Não exige Gems designadas para funcionar.',cost:{minerals:250,tech:150},buildTime:90,prerequisites:['red_eye','research_center'],workers:{},interaction:'Desbloqueia a janela do Palácio Real na aba Trono Diamante.',maxCount:1},
+            {id:'diamond_quarters',name:'Quarto de Diamante',category:'Corte e Residências',desc:'Residência individual e exclusiva de uma Diamante em Homeworld. O limite de quartos acompanha a quantidade de Diamantes e exige o Palácio Real.',cost:{minerals:120,tech:70},buildTime:55,prerequisites:['royal_palace'],workers:{peridot:1},interaction:'Um quarto exclusivo para cada Diamante da dinastia.',maxCount:99},
+            {id:'lunar_base',name:'Base Lunar',category:'Corte e Residências',desc:'Habitat de uma Diamante ou elite em uma lua natural. Consolida relatórios resumidos, alertas e informações da colônia. Só pode ser construída em planetas com ao menos uma lua.',cost:{minerals:180,tech:90},buildTime:65,prerequisites:['royal_palace','reactor'],workers:{peridot:1},interaction:'Fornece residência avançada e relatórios resumidos da colônia.',maxCount:3}
         ];
         const GEM_ROLE_NAMES = {quartz:'Quartzo · extração e infantaria',peridot:'Peridoto · engenharia e jardins',bismuth:'Bismuto · construção',lapis:'Lápis-Lazúli · terraformação',sapphire:'Safira · previsão',ruby:'Rubi · guarda pessoal',pearl:'Pérola · assistência',hessonite:'Hessonita · general',demantoid:'Demantoide · supervisão científica',pyrope:'Piropo · general',agate:'Ágata · comando de esquadrões',nephrite:'Nefrita · pilotagem de guerra',jade:'Jade · corte e eventos sociais',morganite:'Morganita · comando de obras',aquamarine:'Água-marinha · logística Lápis',emerald:'Esmeralda · comando militar',topaz:'Topázio · guarda palaciana'};
 
@@ -1903,6 +1903,7 @@
         }
         function canBuildStructure(def) {
             if (!state.firstGameStarted || !state.founding || !state.founding.firstGemCreated) return 'A primeira Gem precisa nascer antes da construção.';
+            if(def.id==='lunar_base'&&!(PLANETS[state.activeColonyPlanetId]?.moons||[]).length)return 'Indisponível: este planeta não possui uma lua natural para receber uma Base Lunar.';
             if(def.id==='galaxy_warp'){if(PLANETS[state.activeColonyPlanetId]?.galaxyWarpBuilt)return 'Este planeta já possui um Galaxy Warp.';}else if (!['diamond_quarters','red_eye'].includes(def.id) && structureCount(def.id) >= (def.maxCount || 1)) return 'Limite desta estrutura atingido.';
             if(def.id==='red_eye'){
                 const planetId=state.activeColonyPlanetId||'homeworld',queued=(state.constructionQueue||[]).filter(job=>job&&job.active&&job.id==='red_eye'&&(job.planetId||'homeworld')===planetId).length;
@@ -1918,7 +1919,10 @@
             if(def.id==='defense_tower'&&!structureIsOperational('research_center'))return 'Requer um Centro de Pesquisa operacional para desenvolver armamentos.';
             
             if(def.id==='diamond_quarters'&&structureCount('diamond_quarters')>=getDiamondOwners().length)return 'Cada Diamante pode possuir apenas um Quarto próprio.';
-            if(def.id==='essence_chamber'&&structureCount('essence_chamber')>=state.matriarchs.length+1)return 'Cada Diamante pode possuir apenas uma Câmara de Extração de Essência.';
+            if(def.id==='essence_chamber'){
+                const queuedChambers=(state.constructionQueue||[]).filter(job=>job&&job.active&&job.id==='essence_chamber').length;
+                if(structureCount('essence_chamber')+queuedChambers>=getDiamondOwners().length)return 'Todas as Diamantes já possuem uma Câmara construída ou em construção.';
+            }
             if(def.id==='lunar_base'&&!(PLANETS[state.activeColonyPlanetId]?.moons||[]).length)return 'Esta construção exige uma lua natural.';
 
             if (freeGemWorkers('bismuth') < 1) return Number(state.census.morganite||0)>0 ? 'A Morganita aguarda uma Bismuto livre para comandar a próxima obra.' : 'Requer uma Bismuto livre para executar a construção.';
@@ -2556,6 +2560,11 @@
             });
         }
 
+        function toggleStructureCategory(key){
+            state.structureCategoryOpen=state.structureCategoryOpen||{};
+            state.structureCategoryOpen[key]=!state.structureCategoryOpen[key];
+            renderDrawerContent();
+        }
         function renderStructuresTab(container) {
             if (!state.firstGameStarted) {
                 container.innerHTML = '<div class="card"><b>Catálogo de Estruturas</b><p>Inicie uma civilização para revelar os requisitos de construção.</p></div>';
@@ -2563,7 +2572,15 @@
             }
             const totalBuilt = STRUCTURE_CATALOG.reduce((n,def) => n + structureCount(def.id),0);
             const construction = state.construction && state.construction.active ? structureDefinition(state.construction.id) : null;
-            const categories = Array.from(new Set(STRUCTURE_CATALOG.map(def => def.category)));
+            const categoryGroups=[
+                {key:'essence',name:'💎 Essência e Criação',categories:['Essência e Criação']},
+                {key:'industry',name:'⛏️ Extração, Indústria e Energia',categories:['Extração, Indústria e Energia']},
+                {key:'defense',name:'🛡️ Defesa Planetária',categories:['Defesa Planetária']},
+                {key:'space',name:'🌀 Transporte e Exploração',categories:['Transporte e Exploração']},
+                {key:'court',name:'👑 Corte e Residências',categories:['Corte e Residências']}
+            ];
+            state.structureCategoryOpen=state.structureCategoryOpen||{};
+            categoryGroups.forEach((group,index)=>{if(typeof state.structureCategoryOpen[group.key]!=='boolean')state.structureCategoryOpen[group.key]=index===0;});
             let html = '<div class="card card-cyan"><div class="card-header"><span class="card-title title-font">🏗️ Catálogo de Estruturas</span><span class="badge">' + totalBuilt + ' construídas</span></div>' +
                 '<p class="structure-desc">As instalações formam cadeias de dependência. Construir não significa operar: cada estrutura exige seus operadores naturais, recursos e pré-requisitos.</p>' +
                 '<div class="grid-2"><div class="stat-box">Minerais: <b>' + Math.floor(state.minerals) + '</b></div><div class="stat-box">Tecnologia: <b>' + Math.floor(state.tech) + '</b></div><div class="stat-box">Refinados: <b>' + Math.floor(state.refinedMaterials || 0) + '</b></div><div class="stat-box">Energia: <b>' + (state.energy || 0).toFixed(1) + '</b></div></div>';
@@ -2577,9 +2594,12 @@
                 html+='</div>';
             }else html+='<div class="founding-note">Nenhuma construção em andamento. Inicie uma obra; cada Bismuto disponível permite outra construção simultânea.</div>';
             html += '</div>';
-            categories.forEach(category => {
-                html += '<div class="structure-category"><div class="card-header"><b>' + category + '</b></div>';
-                STRUCTURE_CATALOG.filter(def => def.category === category).forEach(def => {
+            categoryGroups.forEach(group => {
+                const open=!!state.structureCategoryOpen[group.key];
+                const groupDefs=STRUCTURE_CATALOG.filter(def=>group.categories.includes(def.category));
+                const groupBuilt=groupDefs.reduce((sum,def)=>sum+(def.id==='galaxy_warp'?(PLANETS[state.activeColonyPlanetId]?.galaxyWarpBuilt?1:0):structureCount(def.id)),0);
+                html += '<div class="structure-category"><button class="btn btn-block" style="display:flex;justify-content:space-between;align-items:center;margin-bottom:8px" onclick="toggleStructureCategory(\''+group.key+'\')"><span>'+group.name+' · '+groupBuilt+' construídas</span><span>'+ (open?'▾ Recolher':'▸ Expandir')+'</span></button>';
+                if(open)groupDefs.forEach(def => {
                     const count = def.id==='galaxy_warp'?(PLANETS[state.activeColonyPlanetId]?.galaxyWarpBuilt?1:0):structureCount(def.id);
                     const reason = canBuildStructure(def);
                     const prereqs = def.prerequisites.length ? def.prerequisites.map(id => structureDefinition(id).name).join(' + ') : 'Nenhuma';
@@ -2620,13 +2640,10 @@
                             html+='<div class="founding-note">Cinese da Diamante: <b>'+ensureDiamondKinesis(ruler).name+'</b><br>Essência Diamante disponível: <b>'+availableEssence.toFixed(1)+'</b> · Custo por arma: 50<br>Armas desenvolvidas: '+weapons.length+'</div><button class="btn btn-block" onclick="developDiamondWeapon()" '+(!structureIsOperational('research_center')||availableEssence<50?'disabled':'')+'>⚔️ Desenvolver arma exclusiva · 50 Essências</button>';
                             weapons.slice(-5).reverse().forEach(w=>{html+='<div class="stat-box"><b>'+escapeHTML(w.name)+'</b><small style="display:block;color:var(--text-muted)">'+escapeHTML(w.owner)+' · '+escapeHTML(w.kinesis)+' · Potência '+Number(w.potency||1).toFixed(3)+'×</small>'+escapeHTML(w.effect)+'</div>';});
                         } else if(def.id==='galaxy_warp'){
-                            const expeditions=state.galaxyWarpExpeditions||[];
-                            html+='<div class="founding-note">Teletransporte local instantâneo. Para viajar entre planetas, ambos precisam possuir um Galaxy Warp. A construção no destino exige uma expedição e uma nave.</div>';
-                            html+='<button class="btn btn-block" onclick="useLocalGalaxyWarp()">⚡ Teletransportar Gems para o setor selecionado</button>';
-                            Object.values(PLANETS).filter(p=>p.id!==state.activeColonyPlanetId).forEach(p=>{
-                                if(p.galaxyWarpBuilt)html+='<button class="btn btn-block" onclick="travelThroughGalaxyWarp(\''+p.id+'\')">🌀 Viajar para '+escapeHTML(p.shortName)+'</button>';
-                                else {const active=expeditions.some(e=>e.active&&e.targetId===p.id);html+='<button class="btn btn-block" onclick="dispatchGalaxyWarpExpedition(\''+p.id+'\')" '+(active?'disabled':'')+'>🚀 '+(active?'Expedição em andamento':'Enviar expedição para '+escapeHTML(p.shortName))+'</button>';}
-                            });
+                            const nodes=Object.values(PLANETS).filter(p=>p.galaxyWarpBuilt);
+                            const names=nodes.map(p=>escapeHTML(p.shortName)).join(' ↔ ');
+                            html+='<div class="founding-note">Buraco de minhoca permanente. Cada Galaxy Warp é um ponto da rede: dois pontos estabelecem a conexão A–B; qualquer terceiro ponto é integrado automaticamente aos demais. Não há comandos locais de transporte ou sincronização.</div>';
+                            html+='<div class="stat-box"><b>Rede interplanetária · '+nodes.length+' ponto(s)</b><small style="display:block;color:var(--text-muted);margin-top:5px">'+(nodes.length>=2?names:'A rede aguarda a construção de um segundo Galaxy Warp em outro planeta.')+'</small></div>';
                         } else if(def.id==='red_eye'){
                             const mission=state.redEyeMission,reports=state.redEyeReports||[];
                             html+='<div class="founding-note">Sonda orbital com retorno automático. '+(mission&&mission.active?'Missão em andamento: '+escapeHTML(PLANETS[mission.planetId]?.shortName||'alvo')+' · '+Math.floor(mission.progress)+'%':'Aguardando missão')+'</div>';
@@ -2642,9 +2659,15 @@
                         } else if(def.id==='workshop'){
                             const metallic=Math.max(0,Number(state.founding.gatheredMinerals?.metallic)||0),timer=Math.max(0,Number(state.logisticsMaintenanceTimer)||0);
                             html+='<div class="founding-note">🚚 Transporte planetário autônomo · '+(!structureIsOperational('reactor')?'Aguardando Reator operacional':state.logisticsActive===false?'Aguardando metal para reativar':'Operacional')+'<br>Metal disponível: <b>'+Math.floor(metallic).toLocaleString('pt-BR')+'</b> / 1.000 para manutenção<br>Próxima manutenção: <b>'+formatDuration(Math.max(0,600-timer))+'</b>. Consumo: 1.000 metais a cada 10 minutos.</div>';
-                        } else if (['research_center','shipyard','defense_tower','shield_generator','galaxy_warp','reactor','red_eye','royal_palace'].includes(def.id)) {
-                            const labels = {refinery:'⚗️ Refinar materiais',research_center:'🔬 Desenvolver armamento',shipyard:'🚀 Construir nave',defense_tower:'🛡️ Calibrar defesa',shield_generator:'🔰 Ativar escudo',galaxy_warp:'🌀 Sincronizar Galaxy Warp',reactor:'⚡ Verificar reator',red_eye:'🔴 Enviar Olho Vermelho',royal_palace:'👑 Abrir Palácio Real'};
+                        } else if (['research_center','shipyard','reactor','red_eye'].includes(def.id)) {
+                            const labels = {research_center:'🔬 Desenvolver armamento',shipyard:'🚀 Construir nave',reactor:'⚡ Verificar reator',red_eye:'🔴 Enviar Olho Vermelho'};
                             html += '<button class="btn btn-block" onclick="executeStructureInteraction(\'' + def.id + '\')" ' + (!structureIsOperational(def.id) ? 'disabled' : '') + '>' + labels[def.id] + '</button>';
+                        } else if(def.id==='defense_tower'){
+                            html+='<div class="founding-note">Defesa planetária automática: '+count+'/5 torre(s) instalada(s). Quando operacionais, as torres formam uma rede de interceptação para desviar asteroides e cometas.</div>';
+                        } else if(def.id==='shield_generator'){
+                            html+='<div class="founding-note">Proteção solar automática. Com Reator operacional e operadores designados, a barreira permanece em prontidão para impedir apagões durante tempestades solares.</div>';
+                        } else if(def.id==='royal_palace'){
+                            html+='<div class="founding-note">O Palácio Real não administra recursos nem exige Gems operadoras. Sua única função sistêmica é liberar a janela do Palácio na aba Trono Diamante.</div>';
                          } else if (def.id === 'mineral_extractor') html += '<div class="founding-note">Todos os ' + Math.max(0,Number(state.census.quartz)||0) + ' Quartzos da população mineram automaticamente, sem designação manual. Cada Quartzo extrai 1 mineral a cada 10s; cada Ágata acelera até 20 deles para 5s (2×).</div>';
                         else if (def.id === 'essence_chamber') html += '<div class="founding-note">Transfere essência da reserva interna da Diamante para o estoque.</div>';
                           if(def.id==='refinery') html += '<div class="founding-note"><b>Refino automático · limite de 5% da coleta total</b><br>A Refinaria processa continuamente Quartzo, Piroxênio e Berílio assim que houver material bruto elegível e os operadores estiverem designados. Não é necessária intervenção manual.<br>Estoque bruto: Quartzo '+Number(state.founding.gatheredMinerals.quartz||0)+' · Piroxênio '+Number(state.founding.gatheredMinerals.pyroxene||0)+' · Berílio '+Number(state.founding.gatheredMinerals.beryllium||0)+'<br>Refinados: Quartzo '+Number(state.refinedResources.quartz||0)+' · Piroxênio '+Number(state.refinedResources.pyroxene||0)+' · Berílio '+Number(state.refinedResources.beryllium||0)+'</div>';
@@ -2709,6 +2732,7 @@
                 </div>
 
 ${hasAristocrats ? `
+                '+(structureCount('royal_palace')>0?'<div class="card card-cyan"><div class="card-header"><span class="card-title title-font">👑 Palácio Real</span><span class="badge">Janela desbloqueada</span></div><p class="structure-desc">A Corte Real está disponível. O Palácio funciona como acesso à janela da Corte e não exige operadores nem administra outras estruturas.</p></div>':'')+'
                 <!-- Conferência exclusiva das Gems Aristocratas -->
                 <div class="card card-cyan">
                     <div class="card-header">
@@ -3115,7 +3139,7 @@ ${hasAristocrats ? `
             if(eraEl)eraEl.textContent='Era 1 ('+(state.matriarchs.length+1)+' Diamantes)';
             addChronicle('Gênese de '+matriarch.name,'A Diamante foi formada no núcleo de '+planet.shortName+' sob '+forge.pressure+' GPa de pressão. A formação consumiu '+actualCost.toLocaleString('pt-BR')+' unidades minerais; poder relativo: '+forge.power.toFixed(1)+'x.','Nova Matriarca na Corte');
             state.thronePulseEffects.push({radius:12,alpha:1});
-            setStatusTicker('Uma nova Diamante emergiu do núcleo de '+planet.shortName+'. Potência relativa: '+forge.power.toFixed(1)+'x.');
+            setStatusTicker('Uma nova Diamante emergiu do núcleo de '+planet.shortName+'. Uma nova vaga de Câmara de Extração de Essência foi liberada. Potência relativa: '+forge.power.toFixed(1)+'x.');
             updateHUD();switchDrawerTab('context');
         }
 
