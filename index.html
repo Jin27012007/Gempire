@@ -1959,13 +1959,13 @@
             const expected=active?Math.max(1,Number(f.creationBatchCount)||5):0;
             const remaining=active?Math.ceil(42*(1-progress/100)/Math.max(.01,getPearlMultiplierFor('firstDiamond'))):0;
             const reports=(f.productionReports||[]).slice(-8).reverse();
-            body.innerHTML='<div class="stat-box"><span class="stat-label">Unidades instaladas</span><b>'+count+'</b> · setores de produção paralelos</div><div class="stat-box"><span class="stat-label">Ciclo atual</span><b>'+(active?'Em andamento':'Injetores livres para reutilização')+'</b><div class="founding-progress"><div style="width:'+progress+'%"></div></div><small>'+Math.floor(progress)+'% concluído · '+(active?remaining+'s restantes':'sem ciclo ativo')+'</small></div><div class="stat-box"><span class="stat-label">Previsão do lote</span><b>'+(active?expected+' '+gem.label+'(s)':'Aguardando essência e substrato')+'</b><small style="display:block;color:#94a3b8">'+(active?gem.mineralName+' · Qualidade prevista A':'Os Injetores iniciarão outro ciclo quando os recursos estiverem disponíveis.')+'</small></div><div class="card"><b>Últimos lotes concluídos</b>'+(reports.length?reports.map(r=>'<div class="stat-box">'+escapeHTML(r.gemLabel)+' × '+Number(r.quantity||0)+' · '+escapeHTML(r.grade||'A')+'</div>').join(''):'<small style="color:#94a3b8">Nenhum lote concluído ainda.</small>')+'</div><button class="btn btn-block" onclick="closeInjectorProductionWindow()">Fechar relatório</button>';
+            body.innerHTML='<div class="stat-box"><b>Injetores instalados: '+count+'</b> · Peridots executam os ciclos automaticamente</div><label for="injector-modal-gem-order">Tipo de Gem solicitado para os próximos ciclos</label><select id="injector-modal-gem-order" class="btn" style="width:100%;margin:6px 0 10px" onchange="setInjectorGemType(this.value)">'+Object.entries(FOUNDING_GEM_DATA).map(([key,g])=>'<option value="'+key+'" '+((f.injectorGemType||'quartz')===key?'selected':'')+'>'+escapeHTML(g.label)+'</option>').join('')+'</select><div class="stat-box"><span class="stat-label">Ciclo atual</span><b>'+(active?'Em andamento':'Aguardando recursos')+'</b><div class="founding-progress"><div style="width:'+progress+'%"></div></div><small>'+Math.floor(progress)+'% concluído · '+(active?remaining+'s restantes':'sem ciclo ativo')+'</small></div><div class="stat-box"><span class="stat-label">Previsão do lote</span><b>'+(active?expected+' '+gem.label+'(s)':'Próximo lote: '+(FOUNDING_GEM_DATA[f.injectorGemType||'quartz']?.label||'Quartzo'))+'</b><small style="display:block;color:#94a3b8">'+(active?gem.mineralName+' · Qualidade prevista A':'Produção automática após disponibilidade de essência, substrato e clima compatível.')+'</small></div><div class="card"><b>Últimos lotes concluídos</b>'+(reports.length?reports.map(r=>'<div class="stat-box">'+escapeHTML(r.gemLabel)+' × '+Number(r.quantity||0)+' · '+escapeHTML(r.grade||'A')+'</div>').join(''):'<small style="color:#94a3b8">Nenhum lote concluído ainda.</small>')+'</div><button class="btn btn-block" onclick="closeInjectorProductionWindow()">Fechar relatório</button>';
         }
 
         function startInjectorProduction(automatic=false) {
             if (!structureIsOperational('injector')) { if(!automatic) setStatusTicker('O Injetor precisa estar construído e receber um Peridoto operador.', true); return; }
             if (state.founding.creationActive || state.founding.bathActive) { if(!automatic) setStatusTicker('A Diamante está ocupada. Aguarde a atividade atual.'); return; }
-            let type = state.founding.injectorGemType || state.founding.selectedGem;
+            let type = state.founding.injectorGemType || state.founding.selectedGem || 'quartz';
             const injectorCount=Math.max(1,structureCount('injector'));
             const batchCount=5*injectorCount;
             const essenceCost=12*batchCount;
@@ -5112,9 +5112,18 @@ function drawColony(time){
         }
 
         function selectFoundingGem(type) {
-            if (!FOUNDING_GEM_DATA[type] || state.founding.creationActive || state.founding.injectorSpecializationLocked) return;
+            if (!FOUNDING_GEM_DATA[type] || state.founding.creationActive) return;
             state.founding.selectedGem = type;
             renderDrawerContent();
+        }
+        function setInjectorGemType(type) {
+            if (!FOUNDING_GEM_DATA[type] || state.founding.creationActive) return;
+            state.founding.injectorGemType=type;
+            state.founding.selectedGem=type;
+            state.founding.injectorSpecializationLocked=false;
+            setStatusTicker('Ordem de produção atualizada: os Injetores produzirão '+FOUNDING_GEM_DATA[type].label+' quando os recursos e o clima permitirem.');
+            renderDrawerContent();
+            if(document.getElementById('injector-production-window')&&!document.getElementById('injector-production-window').classList.contains('hidden'))updateInjectorProductionWindow();
         }
 
         function renderFoundingContext(container) {
@@ -5133,7 +5142,6 @@ function drawColony(time){
             const hasChamber = structureIsOperational('essence_chamber');
             const reports=(found.productionReports||[]).slice().reverse();
             const reportHtml=reports.length?reports.map(r=>'<div class="stat-box"><b>'+escapeHTML(r.gemLabel||r.type||'Gem')+' × '+Number(r.quantity||0)+'</b><small style="display:block;color:var(--text-muted)">Qualidade: '+escapeHTML(r.grade||'A')+' · Substrato: '+escapeHTML(r.mineralName||'Não informado')+' · Ciclo '+Number(r.cycle||0)+'</small><small>'+escapeHTML(r.description||'Produção automática concluída.')+'</small></div>').join(''):'<div class="stat-box" style="color:#94a3b8">Nenhum lote produzido ainda. Os resultados aparecerão aqui após o primeiro ciclo do Injetor.</div>';
-            if(hasInjector && found.injectorGemType && FOUNDING_GEM_DATA[found.injectorGemType]) found.selectedGem=found.injectorGemType;
             container.innerHTML =
                 '<div class="card card-cyan"><div class="card-header"><span class="card-title title-font">🌑 Fundação de Homeworld</span><span class="badge">Era Primitiva</span></div>' +
                 '<div style="font-size:12px;line-height:1.55;color:#cbd5e1">' + escapeHTML(fd.name) + ' iniciou a civilização sem infraestrutura. Gems já nascem conhecendo sua função e podem ser integradas à população imperial.</div>' +
@@ -5145,7 +5153,7 @@ function drawColony(time){
                 '<div class="stat-box">Essência armazenada: <b>' + Object.values(state.essence).reduce((a,b)=>a+b,0).toFixed(1) + '</b> · Reserva interna da Diamante: <b>' + (found.diamondEssence || 0).toFixed(1) + '</b> · Recebida pelo Injetor: <b>' + (found.injectorEssence || 0).toFixed(1) + '</b></div>' +
                 (found.bathActive?'<div class="founding-progress"><div id="founder-bath-progress" style="width:'+Math.floor(found.bathProgress||0)+'%"></div></div><div id="founder-bath-label" style="font-size:10px;color:#cbd5e1">Banho de essência: '+Math.floor(found.bathProgress||0)+'% · '+Math.max(0,Math.ceil(30*(1-(Number(found.bathProgress)||0)/100)))+'s restantes</div>':(found.bathCooldown>0?'<div class="stat-box" style="color:#fbbf24">Próximo banho em: <b id="founder-bath-cooldown">'+formatDuration(found.bathCooldown)+'</b></div>':''))+
                 '<button id="founder-activity-button" class="btn btn-pink btn-block" onclick="performFounderActivity()" '+(found.bathActive||found.creationActive||found.bathCooldown>0||(structureCount('essence_chamber')>0&&!hasChamber)||(!hasChamber&&structureCount('essence_chamber')===0&&(found.essenceCooldown||0)>0)?'disabled':'')+'>'+(structureCount('essence_chamber')>0?(found.bathActive?'🛁 Banho de essência em andamento':hasChamber?(found.bathCooldown>0?'⏳ Próximo banho em '+formatDuration(found.bathCooldown):'🛁 Iniciar banho · 30s'):'⏳ Aguardando Peridot na Câmara'):(found.essenceCooldown||0)>0?'⏳ Recuperando fôlego · '+found.essenceCooldown.toFixed(1)+'s':'💪 Exercício físico · produzir 2 essência')+'</button></div>' +
-                (hasInjector?'<div class="card"><div class="card-header"><span class="card-title title-font">📊 Relatório de produção de Gems</span><span class="badge">Injetor operacional</span></div><div class="founding-note">A Primeira Diamante não participa mais da criação. A Peridot opera o Injetor e os ciclos são executados automaticamente.</div><div class="stat-box">Lotes concluídos: <b>'+(found.productionReports||[]).length+'</b> · Gems produzidas: <b>'+(found.gemsCreatedCount||0)+'</b></div><button class="btn btn-emerald btn-block" onclick="requestGemProductionReport()">📄 Solicitar relatório de produção</button>'+(found.productionReportRequested?reportHtml:'<div class="founding-note">O relatório detalhado será apresentado quando solicitado. Ele reúne os lotes concluídos, tipos, quantidades, qualidade e substrato utilizado.</div>')+'</div>':
+                (hasInjector?'<div class="card"><div class="card-header"><span class="card-title title-font">📊 Relatórios e ordem de produção</span><span class="badge">Injetor automático</span></div><div class="founding-note">Peridots operam os Injetores automaticamente. Defina aqui qual Gem deverá ser produzida; a ordem será respeitada nos próximos ciclos, desde que existam substrato, essência e condições climáticas adequadas.</div><label for="injector-gem-order">Tipo de Gem solicitado</label><select id="injector-gem-order" class="btn" style="width:100%;margin:6px 0 10px" onchange="setInjectorGemType(this.value">'+Object.entries(FOUNDING_GEM_DATA).map(([key,g])=>'<option value="'+key+'" '+((found.injectorGemType||'quartz')===key?'selected':'')+'>'+escapeHTML(g.label)+'</option>').join('')+'</select><div class="stat-box">Ordem atual: <b>'+(FOUNDING_GEM_DATA[found.injectorGemType||'quartz']?.label||'Quartzo')+'</b> · Lotes concluídos: <b>'+(found.productionReports||[]).length+'</b> · Gems produzidas: <b>'+(found.gemsCreatedCount||0)+'</b></div><button class="btn btn-emerald btn-block" onclick="requestGemProductionReport()">📄 Abrir relatório de produção</button></div>':
                 '<div class="card"><div class="card-header"><span class="card-title title-font">💎 Formação manual de Gems</span></div>' +
                 '<div class="card-header"><span class="card-title title-font">📚 Catálogo de tipos de Gem</span><span class="badge">Sempre aberto</span></div><div class="founding-note">Todos os tipos ficam visíveis aqui. Toque em uma opção para selecioná-la; não há lista suspensa.</div><div class="founding-gem-catalog" role="group" aria-label="Catálogo de tipos de Gem">' + gemCatalog + '</div>' +
                 '<div class="founding-note" style="margin-top:8px"><b>' + selected.label + '</b><br>Substrato: ' + selected.mineralName + '<br>Composição: ' + selected.elements + '<br>Função natural: ' + selected.role + '<br>Requer 12 unidades de essência e uma amostra compatível.</div>' +
@@ -5308,6 +5316,13 @@ function drawColony(time){
                 state.founding.essenceCooldown = Number(state.founding.essenceCooldown) || 0;
                 state.founding.gatherCooldown = Number(state.founding.gatherCooldown) || 0;
                 state.founding.injectorGemType = state.founding.injectorGemType || state.founding.selectedGem || 'quartz';
+                state.founding.injectorSpecializationLocked = false;
+                state.founding.bathActive = !!state.founding.bathActive;
+                state.founding.bathProgress = Number(state.founding.bathProgress)||0;
+                state.founding.bathDuration = Number(state.founding.bathDuration)||30;
+                state.founding.bathCooldown = Number(state.founding.bathCooldown)||0;
+                state.founding.productionReports = Array.isArray(state.founding.productionReports)?state.founding.productionReports:[];
+                state.founding.injectorEssence = Number(state.founding.injectorEssence)||0;
                 state.pearlTarget = state.pearlTarget || 'firstDiamond';
                 state.pearlOriginPlanetId = state.pearlOriginPlanetId || 'homeworld';
                 state.founding.injectorEssence = Number(state.founding.injectorEssence) || 0;
