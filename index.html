@@ -3899,31 +3899,47 @@ ${hasAristocrats ? `
             if(!container)return;
             const entries=Object.entries(FOUNDING_GEM_DATA);
             const roles={
-                quartz:'Extração de minerais e trabalho pesado. Sustenta o fluxo de matéria-prima para a colônia.',
-                peridot:'Engenharia, operação e manutenção. Sem Peridot designada, máquinas e estruturas operacionais não funcionam.',
-                bismuth:'Construção de estruturas e fabricação de componentes. A velocidade de construção foi reduzida para evitar que uma única Bismuto erga tudo rapidamente.',
-                lapis:'Controle de água, transporte hídrico e terraformação. Atua em alterações ambientais e estabilidade planetária.',
-                sapphire:'Análise, previsão e planejamento. Converte observação e materiais em pesquisa e tecnologia.',
-                ruby:'Defesa e segurança. Opera torres, vigilância e proteção das instalações.',
-                pearl:'Administração e assistência direta. Uma Pérola acompanha uma única Gem elegível e multiplica todas as ações dessa dona.',
-                hessonite:'Mobilização de tropas, organização de formações e coordenação de ataques.'
+                quartz:'Soldado de infantaria; a variante depende do solo, temperatura, material e pressão.',
+                peridot:'Equipe técnica dos jardins de infância, análise de terreno e operação de estruturas tecnológicas.',
+                bismuth:'Construção de estruturas e fabricação de componentes, sob supervisão das Morganitas.',
+                lapis:'Terraformação, controle hídrico e logística planetária.',
+                sapphire:'Aristocrata vidente; cada Safira tem 5% de chance a cada cinco minutos de prever um evento possível.',
+                ruby:'Soldado abundante de guarda pessoal; atua em grupos de três ou mais e só se funde com outras Rubis.',
+                pearl:'Servente vinculada a uma dona; Pérola mineral ×1,5 e Pérola legítima de Recife ×2.',
+                hessonite:'General responsável por mobilização de tropas, formações e ataques.',
+                pyrope:'General de alto escalão, especializado em exércitos e operações militares de larga escala.',
+                agate:'Comanda grupos de até 20 soldados Quartzo.',
+                nephrite:'Pilota naves com velocidade dobrada e é a única casta apta a operar naves de guerra.',
+                jade:'Aristocrata social feita de piroxênio refinado; destinada a bailes e eventos futuros.',
+                morganite:'Supervisiona automaticamente as Bismutos e pode ativar a construção automática.',
+                aquamarine:'Comanda a logística das Lápis-Lazúlis e as envia automaticamente a planetas elegíveis.',
+                emerald:'Amplia em dez vezes a capacidade de mobilização dos Generais.',
+                topaz:'Soldado raro e mais forte, reservado à guarda de palácios e comitivas importantes.'
             };
             const buffs={
-                quartz:'Aumenta a capacidade de extração mineral quando designada a um Extrator.',
-                peridot:'Habilita a operação de máquinas; também contribui para engenharia, pesquisa, energia e manutenção.',
-                bismuth:'Permite construir estruturas e fabricar componentes. Mais Bismutos reduzem o tempo apenas modestamente.',
-                lapis:'Reduz calor sísmico e habilita terraformação e gestão hídrica.',
-                sapphire:'Gera tecnologia e melhora análise e planejamento.',
-                ruby:'Aumenta defesa e reduz dissidência em ações de segurança.',
-                pearl:'Multiplicador aplicado a todas as ações da Gem acompanhada: criação de Gems, extração de essência, busca de pedras e demais atividades executadas por ela.',
-                hessonite:'Coordena mobilização e ataques; sua especialidade é logística militar.'
+                quartz:'Infantaria. Cornalinas, Ametistas, Jaspers, Roses, Citrinos, Onyx, Olhos-de-Tigre, Calcedônias e Rutilos surgem conforme as condições geológicas.',
+                peridot:'Opera estruturas tecnológicas, jardins de infância e análise de terreno.',
+                bismuth:'Executa construções e fabricação; Morganitas podem comandar as obras automaticamente.',
+                lapis:'Duas Lápis com grande reserva hídrica podem criar terra firme e aplainar terrenos montanhosos.',
+                sapphire:'Chance agregada de previsão: 1 − 0,95 elevado ao número de Safiras, a cada cinco minutos.',
+                ruby:'Guarda pessoal em grupos de três ou mais; fusão restrita a Rubis.',
+                pearl:'Multiplicador sobre as ações da dona: Pérola mineral ×1,5; Pérola legítima produzida e armazenada em Recife ×2.',
+                hessonite:'Contribui para a capacidade de comando militar; Esmeraldas ampliam em dez vezes a mobilização.',
+                pyrope:'Cada Piropo acrescenta capacidade de comando para grandes operações militares.',
+                agate:'Cada Ágata lidera até 20 soldados Quartzo.',
+                nephrite:'Dobra a velocidade das viagens interplanetárias e habilita pilotagem de naves de guerra.',
+                jade:'Sem bônus operacional ativo; sua função social será usada em sistemas futuros.',
+                morganite:'Ativa a construção automática e reduz o tempo das obras.',
+                aquamarine:'Acelera o envio automático de Lápis a mundos com oceanos ou reservas de água suficientes.',
+                emerald:'Multiplica por dez a capacidade total de mobilização dos Generais.',
+                topaz:'Guarda de elite para palácios e comitivas, com força superior aos Quartzos comuns.'
             };
             const targetOptions=[['firstDiamond',state.firstDiamond.name],['aristocrats','Gems Aristocratas · Rank S'],...state.matriarchs.map(m=>['matriarch_'+m.id,m.name+' · Diamante'])];
             const selectedTarget=targetOptions.some(([id])=>id===state.pearlTarget)?state.pearlTarget:'firstDiamond';
             container.innerHTML=
                 '<div class="card card-cyan"><div class="card-header"><span class="card-title title-font">📖 Guia de Gems</span><span class="badge">Funções e efeitos</span></div><p style="font-size:11px;color:#cbd5e1;line-height:1.5">Consulte a especialidade de cada tipo e como ela altera as operações da civilização.</p></div>'+
                 entries.map(([key,gem])=>'<div class="card"><div class="card-header"><span class="card-title" style="color:'+gem.color+'">'+gem.label+'</span><span class="badge">'+(GEM_ROLE_NAMES[key]||'Especialista')+'</span></div><p style="font-size:11px;color:#cbd5e1;line-height:1.5">'+(roles[key]||gem.role||'Função em desenvolvimento.')+'</p><div class="stat-box"><b>Buffs e efeitos no jogo</b><p style="font-size:10px;color:#94a3b8;margin-top:4px;line-height:1.5">'+(buffs[key]||gem.role||'Função em desenvolvimento.')+'</p></div></div>').join('')+
-                '<div class="card card-amber"><div class="card-header"><span class="card-title title-font">Pérolas · vínculo e multiplicadores</span><span class="badge">1 dona por Pérola</span></div><p style="font-size:11px;color:#cbd5e1">A Pérola só pode ser direcionada à Diamante fundadora, às Diamantes subordinadas ou às Gems Aristocratas de Rank S. Quando vinculada, o multiplicador afeta todas as ações da dona, não apenas uma categoria.</p><label class="stat-label" for="pearl-target-select">Direcionar Pérola para</label><select id="pearl-target-select" onchange="setPearlTarget(this.value)">'+targetOptions.map(([id,label])=>'<option value="'+id+'" '+(selectedTarget===id?'selected':'')+'>'+escapeHTML(label)+'</option>').join('')+'</select><div class="grid-2"><div class="stat-box"><b>Pérola de Nácar</b><br><span style="color:#c4b5fd">×1,5</span><small style="display:block;color:#94a3b8">Variação comum.</small></div><div class="stat-box"><b>Pérola de Recife</b><br><span style="color:#7dd3fc">×2,0</span><small style="display:block;color:#94a3b8">Só surge em planetas aquáticos; Homeworld não possui oceano.</small></div></div><p style="font-size:10px;color:#94a3b8">A origem determina a variedade: Nácar concede ×1,5; Pérola de Recife concede ×2,0 e só pode nascer em um mundo com oceano. Homeworld não possui oceano. O alvo selecionado recebe o multiplicador em todas as ações que executar.</p></div>'+
+                '<div class="card card-amber"><div class="card-header"><span class="card-title title-font">Pérolas · vínculo e multiplicadores</span><span class="badge">1 dona por Pérola</span></div><p style="font-size:11px;color:#cbd5e1">A Pérola só pode ser direcionada à Diamante fundadora, às Diamantes subordinadas ou às Gems Aristocratas de Rank S. Quando vinculada, o multiplicador afeta todas as ações da dona, não apenas uma categoria.</p><label class="stat-label" for="pearl-target-select">Direcionar Pérola para</label><select id="pearl-target-select" onchange="setPearlTarget(this.value)">'+targetOptions.map(([id,label])=>'<option value="'+id+'" '+(selectedTarget===id?'selected':'')+'>'+escapeHTML(label)+'</option>').join('')+'</select><div class="grid-2"><div class="stat-box"><b>Pérola de Nácar</b><br><span style="color:#c4b5fd">×1,5</span><small style="display:block;color:#94a3b8">Variação comum.</small></div><div class="stat-box"><b>Pérola de Recife</b><br><span style="color:#7dd3fc">×2,0</span><small style="display:block;color:#94a3b8">Produzida em Recife e armazenada sem dona até ser atribuída.</small></div></div><p style="font-size:10px;color:#94a3b8">A origem determina a variedade: Nácar concede ×1,5; Pérola de Recife concede ×2,0 e só pode nascer em um mundo com oceano. Homeworld não possui oceano. O alvo selecionado recebe o multiplicador em todas as ações que executar.</p></div>'+
                 '<div class="card card-amber"><div class="card-header"><span class="card-title title-font">Injetores e Jardins de Infância</span></div><p style="font-size:11px;color:#cbd5e1;line-height:1.5">Cada Injetor deve ser especializado em uma única tipagem: um Injetor de Quartzo só consome substrato de Quartzo e cria Quartzos. Materiais incompatíveis não são consumidos por ele; devem ser recolhidos pelo Extrator Mineral e encaminhados para outro Jardim de Infância especializado. A operação automática exige um Peridoto designado.</p></div>'+
                 '<div class="card"><div class="card-header"><span class="card-title">Operação de máquinas</span></div><p style="font-size:11px;color:#cbd5e1">Toda máquina operacional exige pelo menos um Peridoto em serviço, além dos especialistas próprios de cada instalação.</p></div>';
         }
