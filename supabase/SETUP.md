@@ -30,15 +30,19 @@ A chave da IA fica somente no servidor Supabase. Não a coloque no GitHub, no HT
 
 ## 4. Publicar a função
 
-Com o Supabase CLI instalado e autenticado, a partir da raiz do repositório:
+Com o Supabase CLI instalado, a partir da raiz do repositório:
 
 ```bash
-supabase functions deploy diamond-chat
+supabase login
+supabase link --project-ref SEU_PROJECT_REF
 supabase secrets set OPENAI_API_KEY=sua-chave
 supabase secrets set OPENAI_MODEL=gpt-4.1-mini
+supabase functions deploy diamond-chat
 ```
 
-A função exige JWT e também valida a sessão recebida antes de acessar dados.
+O Project Ref aparece na URL do projeto e nas configurações do Supabase. A função exige JWT e também valida a sessão recebida antes de acessar dados.
+
+A API da OpenAI é cobrada separadamente da assinatura do ChatGPT. Configure a chave diretamente nos secrets do Supabase; não a envie pelo chat nem a coloque no GitHub. O modelo definido acima é configurável: use um identificador que esteja habilitado na sua conta de API.
 
 ## 5. Ativar autenticação
 
