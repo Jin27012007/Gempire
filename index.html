@@ -6217,7 +6217,7 @@ function drawColony(time){
                 // Palácio e Galaxy Warp não consomem Gems operadoras; libera designações antigas.
                 delete state.structureAssignments.royal_palace;
                 delete state.structureAssignments.galaxy_warp;
-                state.structureAssignments.galaxy_warp=state.structureAssignments.teleporter||{};delete state.structureAssignments.teleporter;
+                delete state.structureAssignments.teleporter;
                 state.structureAssignments.red_eye=state.structureAssignments.red_eye||state.structureAssignments.orbital_station||{};delete state.structureAssignments.orbital_station;
                 state.structureAssignments.royal_palace=state.structureAssignments.royal_palace||state.structureAssignments.planetary_network||{};delete state.structureAssignments.planetary_network;
                 delete state.structureAssignments.administration_center;delete state.structureAssignments.terraformer;
