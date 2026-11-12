@@ -1855,7 +1855,7 @@
             const def = structureDefinition(id);
             if (!def || structureCount(id) < 1 || !hasStructurePrerequisites(def)) return false;
             if (id === 'injector' && !structureIsOperational('essence_chamber')) return false;
-            if(id==='workshop')return true;
+            if(id==='workshop')return state.logisticsActive!==false;
             if(id==='mineral_extractor'){
                 const jobs=state.structureAssignments&&state.structureAssignments[id]||{};
                 return (Number(jobs.peridot)||0)>=1&&(Number(state.census&&state.census.quartz)||0)>0;
@@ -1921,7 +1921,7 @@
                     setStatusTicker('Extrator construído: todos os Quartzos da população passam a minerar automaticamente.');
                 }
                 addChronicle('Estrutura concluída', def.name + ' foi concluída. ' + def.interaction, 'Aguardando operadores');
-                setStatusTicker(def.name + ' concluída. Designe Gems com a função adequada para operá-la.');
+                setStatusTicker(def.id==='workshop'?'Centro de Logística concluído e ativo. O transporte planetário está disponível.':def.name + ' concluída. Designe Gems com a função adequada para operá-la.');
             }
             state.constructionQueue=(Array.isArray(state.constructionQueue)?state.constructionQueue:[]).filter(item=>item!==job);
             state.construction=state.constructionQueue[0]||null;
@@ -2172,6 +2172,7 @@
                 state.logisticsActive=true;
                 state.logisticsMaintenanceTimer=0;
                 setStatusTicker('Centro de Logística reativado: 1.000 unidades de metal disponíveis para manutenção.');
+                updateStructureUI();
             }
             state.logisticsMaintenanceTimer=(Number(state.logisticsMaintenanceTimer)||0)+Math.max(0,Number(dt)||0);
             while(state.logisticsMaintenanceTimer>=600){
@@ -2180,12 +2181,14 @@
                     state.logisticsActive=false;
                     state.logisticsMaintenanceTimer=0;
                     setStatusTicker('Centro de Logística suspenso: faltam 1.000 unidades de metal para a manutenção.',true);
+                    updateStructureUI();
                     break;
                 }
                 f.gatheredMinerals.metallic=metal-1000;
                 state.minerals=Math.max(0,(Number(state.minerals)||0)-1000);
                 state.logisticsMaintenanceTimer-=600;
                 setStatusTicker('Manutenção do Centro de Logística concluída: 1.000 unidades de metal consumidas.');
+                updateStructureUI();
             }
         }
 
