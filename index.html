@@ -4956,7 +4956,7 @@ ${hasAristocrats ? `
             return {gemCount,organicLife,organicLifeKnown,organicLifePresent,infrastructure,totalResources:total,remainingResources:remaining,progress:Math.max(0,Math.min(100,progress)),stage:Math.min(4,Math.floor(progress/25))};
         }
 
-        function drawPlanetDebris(        function drawPlanetDebris(planet,cx,cy,radius,time,camera,stage,front){
+        function drawPlanetDebris(planet,cx,cy,radius,time,camera,stage,front){
             const count=[2,2,3,5,7][stage]||2;if(!planet||planet.id!=='homeworld'||structureCount('workshop')<1||!structureIsOperational('workshop'))return;
             ctx.save();ctx.translate(cx,cy);ctx.rotate(-.19+camera.rotation*.08);
             ctx.strokeStyle=stage>=2?'rgba(148,163,184,.22)':'rgba(148,163,184,.12)';ctx.lineWidth=1;ctx.setLineDash([5,9]);
