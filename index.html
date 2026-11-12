@@ -1931,6 +1931,15 @@
         function buildStructure(id) {
             const def = structureDefinition(id);
             if (!def) return;
+            // Trava final: a Base Lunar só pode ser enfileirada se o mundo ativo tiver lua natural.
+            if (id === 'lunar_base') {
+                const targetPlanet = PLANETS[state.activeColonyPlanetId];
+                const naturalMoonCount = Array.isArray(targetPlanet?.moons) ? targetPlanet.moons.length : 0;
+                if (naturalMoonCount < 1) {
+                    setStatusTicker('Construção bloqueada: este planeta possui 0 luas naturais. A Base Lunar só pode ser instalada em uma lua.', true);
+                    return;
+                }
+            }
             const reason = canBuildStructure(def);
             if (reason) { setStatusTicker(reason, true); return; }
             state.minerals -= def.cost.minerals || 0;
