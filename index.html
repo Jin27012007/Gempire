@@ -2098,6 +2098,36 @@
             setStatusTicker('Injeção simultânea iniciada: '+totalGems+' Gems em '+readyBatches.length+' Injetor(es).'+(waiting?' '+waiting+' Injetor(es) aguardam recursos ou condições.':''));
             updateStructureUI();
         }
+        const SHIP_BLUEPRINTS={
+            diamond:{name:'Nave Diamante',cost: {minerals:500,tech:250},speed:'FTL extremo',capacity:1,description:'Nave colossal, uma por Diamante, capaz de orbitar planetas e cruzar sistemas em velocidade acima da luz.',operator:'diamond',shape:'colossal'},
+            elite:{name:'Nave da Elite',cost:{minerals:180,tech:90},speed:'FTL',capacity:6,description:'Casco losangular para a família Berílio: Hessonitas, Esmeraldas, Aquamarinas, Morganitas e outras Gems relacionadas. Canhões de energia leves.',operator:'beryl',shape:'losango'},
+            war:{name:'Nave de Guerra',cost:{minerals:260,tech:120},speed:'subluz',capacity:12,description:'Disco voador blindado, com canhões de energia pesados. Operação exclusiva de Nefritas.',operator:'nephrite',shape:'disco'},
+            excursion:{name:'Nave de Excursão',cost:{minerals:110,tech:50},speed:'FTL moderado',capacity:8,description:'Casco resistente em formato de mão pequena em repouso, com um canhão de baixa potência. Operada por Peridots, Quartzos, Rubis ou Pérolas.',operator:'common',shape:'hand'},
+            ruby:{name:'Nave Rubi',cost:{minerals:85,tech:35},speed:'FTL extremo',capacity:5,description:'Nave compacta permanentemente vermelha, sem armamento, feita para esquadrões de até cinco Rubis ou transporte urgente de Gems.',operator:'ruby',shape:'red'}
+        };
+        function canBuildShip(type){
+            const bp=SHIP_BLUEPRINTS[type];if(!bp)return 'Projeto desconhecido.';
+            if(!structureIsOperational('shipyard'))return 'O Estaleiro precisa estar operacional.';
+            if(!structureIsOperational('research_center'))return 'O Centro de Pesquisa precisa desenvolver o projeto.';
+            const count=(state.shipFleet||[]).filter(x=>x.type===type).length;
+            if(type==='diamond'&&count>=state.matriarchs.length+1)return 'Cada Diamante já possui uma Nave Diamante.';
+            const c=state.census||{};
+            const eligible=type==='diamond'?true:type==='elite'?(c.hessonite+c.emerald+c.aquamarine+c.morganite)>0:type==='war'?c.nephrite>0:type==='ruby'?c.ruby>0:(c.peridot+c.quartz+c.ruby+c.pearl)>0;
+            if(!eligible)return 'Não há Gems elegíveis para operar esta classe de nave.';
+            if(state.minerals<bp.cost.minerals||state.tech<bp.cost.tech)return 'Recursos insuficientes para este projeto.';
+            return '';
+        }
+        function buildShip(type){
+            const bp=SHIP_BLUEPRINTS[type],reason=canBuildShip(type);
+            if(!bp||reason){setStatusTicker(reason||'Projeto inválido.',true);return;}
+            state.minerals-=bp.cost.minerals;state.tech-=bp.cost.tech;
+            const ship={id:'ship_'+Date.now(),type,name:bp.name,capacity:bp.capacity,speed:bp.speed,shape:bp.shape,description:bp.description,planetId:state.activeColonyPlanetId,crew:[],status:'orbital'};
+            state.shipFleet=state.shipFleet||[];state.shipFleet.push(ship);
+            state.ships=(Number(state.ships)||0)+1;
+            setStatusTicker(bp.name+' concluída e adicionada à frota.');
+            addChronicle('Nova nave: '+bp.name,bp.description,'Frota ampliada');
+            updateHUD();renderDrawerContent();
+        }
         function executeStructureInteraction(id) {
             if (!structureIsOperational(id)) { setStatusTicker('A estrutura precisa de operadores disponíveis para executar essa interação.', true); return; }
             switch (id) {
