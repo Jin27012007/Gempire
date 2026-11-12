@@ -4634,6 +4634,37 @@ ${hasAristocrats ? `
         }
 
 
+
+        let planetInfoToggleTarget=null;
+        function drawPlanetCombinedInfoPanel(planet,stats,x,y){
+            const expanded=state.planetInfoExpanded!==false,w=Math.min(286,canvasWidth-24),header=30;
+            const resources=[['quartz','Quartzo','#c084fc'],['silicate','Silicatos','#34d399'],['corundum','Coríndon','#38bdf8'],['metallic','Metálicos','#facc15'],['nacre','Nácar','#f8fafc'],['garnet','Granada','#fb7185'],['olivine','Olivina','#86efac'],['lapisrock','Lápis-lazúli','#818cf8'],['pyroxene','Piroxênio','#f59e0b'],['beryllium','Berílio','#67e8f9'],['topaz','Topázio','#fbbf24']];
+            const h=expanded?header+58+resources.length*13:header;
+            planetInfoToggleTarget={x,y,w,h:header};
+            const total=resources.reduce((sum,[key])=>sum+Math.max(0,Number(planet.resourcesByType?.[key])||0),0);
+            const max=Math.max(1,...resources.map(([key])=>Math.max(0,Number(planet.resourcesByType?.[key])||0)));
+            ctx.save();ctx.fillStyle='rgba(5,10,25,.92)';ctx.strokeStyle='rgba(56,189,248,.58)';ctx.lineWidth=1;
+            ctx.beginPath();ctx.roundRect(x,y,w,h,10);ctx.fill();ctx.stroke();
+            ctx.font='bold 10px Segoe UI';ctx.fillStyle='#7dd3fc';ctx.textAlign='left';ctx.fillText('RELATÓRIO PLANETÁRIO',x+10,y+18);
+            ctx.textAlign='right';ctx.fillStyle='#f8fafc';ctx.fillText((expanded?'−':'＋')+' '+stats.progress+'%',x+w-10,y+18);
+            if(expanded){
+                ctx.font='9px Segoe UI';ctx.textAlign='left';ctx.fillStyle='#cbd5e1';
+                ctx.fillText('Gems: '+stats.gemCount+'  ·  Vida orgânica: '+(stats.organicLifeKnown?stats.organicLife:'—'),x+10,y+35);
+                ctx.fillText('Estágio '+stats.stage+'/4  ·  '+Math.floor(stats.remainingResources).toLocaleString('pt-BR')+' recursos restantes',x+10,y+48);
+                ctx.fillText('Temperatura: '+Number(planet.temperatureC??8).toLocaleString('pt-BR')+' °C  ·  Pressão: '+Number(planet.atmosphericPressureAtm??1).toLocaleString('pt-BR')+' atm',x+10,y+61);
+                ctx.font='bold 9px Segoe UI';ctx.fillStyle='#7dd3fc';ctx.fillText('RESERVAS MINERAIS',x+10,y+78);
+                ctx.textAlign='right';ctx.fillStyle='#f8fafc';ctx.fillText(Math.floor(total).toLocaleString('pt-BR'),x+w-10,y+78);
+                resources.forEach(([key,label,color],i)=>{
+                    const amount=Math.max(0,Number(planet.resourcesByType?.[key])||0),yy=y+84+i*13;
+                    ctx.textAlign='left';ctx.font='9px Segoe UI';ctx.fillStyle='#cbd5e1';ctx.fillText(label,x+10,yy+8);
+                    const bx=x+94,bw=w-145;ctx.fillStyle='rgba(15,23,42,.9)';ctx.fillRect(bx,yy+2,bw,6);
+                    ctx.fillStyle=color;ctx.fillRect(bx,yy+2,bw*amount/max,6);
+                    ctx.textAlign='right';ctx.font='bold 9px Segoe UI';ctx.fillStyle='#f1f5f9';ctx.fillText(Math.floor(amount).toLocaleString('pt-BR'),x+w-9,yy+8);
+                });
+            }
+            ctx.restore();
+        }
+
         let mineralChartHitTargets=[];
         const MINERAL_DISPLAY={
             quartz:{short:'QTZ',name:'Quartzo',color:'#c084fc'},
@@ -4814,6 +4845,7 @@ function drawColony(time){
                 }
                 if (nearest) selectStarMapPlanet(nearest.id);
             } else if (state.currentScreen === 'colony') {
+                if(planetInfoToggleTarget&&x>=planetInfoToggleTarget.x&&x<=planetInfoToggleTarget.x+planetInfoToggleTarget.w&&y>=planetInfoToggleTarget.y&&y<=planetInfoToggleTarget.y+planetInfoToggleTarget.h){state.planetInfoExpanded=state.planetInfoExpanded===false;return;}
                 const chartTarget=mineralChartHitTargets.find(target=>x>=target.x&&x<=target.x+target.w&&y>=target.y&&y<=target.y+target.h);
                 if(chartTarget)selectRadialVein(chartTarget.index);
             }
