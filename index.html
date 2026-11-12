@@ -4542,14 +4542,14 @@ ${hasAristocrats ? `
           refinery:{kind:'furnace',color:'#d97706',accent:'#fed7aa',glow:'#f97316'},
           research_center:{kind:'observatory',color:'#818cf8',accent:'#c7d2fe',glow:'#a5b4fc'},
           reactor:{kind:'reactor',color:'#22d3ee',accent:'#cffafe',glow:'#06b6d4'},
-          administration_center:{kind:'palace',color:'#e2e8f0',accent:'#fff',glow:'#cbd5e1'},
+          diamond_quarters:{kind:'chamber',color:'#e2e8f0',accent:'#fff',glow:'#cbd5e1'},
           defense_tower:{kind:'sentinel',color:'#ef4444',accent:'#fecaca',glow:'#f87171'},
-          teleporter:{kind:'portal',color:'#c084fc',accent:'#f5d0fe',glow:'#d8b4fe'},
+          galaxy_warp:{kind:'portal',color:'#c084fc',accent:'#f5d0fe',glow:'#d8b4fe'},
           shipyard:{kind:'hangar',color:'#64748b',accent:'#cbd5e1',glow:'#94a3b8'},
-          terraformer:{kind:'terraformer',color:'#2dd4bf',accent:'#99f6e4',glow:'#5eead4'},
+          lunar_base:{kind:'hall',color:'#94a3b8',accent:'#e2e8f0',glow:'#cbd5e1'},
           shield_generator:{kind:'shield',color:'#60a5fa',accent:'#dbeafe',glow:'#93c5fd'},
-          orbital_station:{kind:'orbital',color:'#94a3b8',accent:'#e2e8f0',glow:'#7dd3fc'},
-          planetary_network:{kind:'network',color:'#a78bfa',accent:'#ddd6fe',glow:'#c4b5fd'}
+          red_eye:{kind:'orbital',color:'#ef4444',accent:'#fecaca',glow:'#f87171'},
+          royal_palace:{kind:'palace',color:'#a78bfa',accent:'#ddd6fe',glow:'#c4b5fd'}
         };
 
         function drawGemStructureModel(id,x,y,size,operational,time,progress=100,palette=null){
@@ -4672,12 +4672,18 @@ ${hasAristocrats ? `
                         angle=camera.rotation+instance*2.399963229728653;
                         ratio=.28+(instance%3)*.17;
                         scale=size*.34;
+                    }else if(def.id==='royal_palace'){
+                        angle=-Math.PI/2+camera.rotation;ratio=.70;scale=size*1.28;
+                    }else if(def.id==='red_eye'){
+                        angle=camera.rotation;ratio=.0;scale=size*.45;
                     }else{
                         angle=index*2.399963229728653+.55+camera.rotation+instance*.16;
                         ratio=.39+(index%3)*.13+instance*.025;
                     }
-                    const x=cx+Math.cos(angle)*radius*ratio,y=cy+Math.sin(angle)*radius*ratio*.78;
-                    drawGemStructureModel(def.id,x,y,scale,structureIsOperational(def.id),time,100,rulerColors);
+                    const x=def.id==='red_eye'?cx+Math.cos(camera.rotation+time*.00012)*radius*1.18:cx+Math.cos(angle)*radius*ratio,y=def.id==='red_eye'?cy+Math.sin(camera.rotation+time*.00012)*radius*.92:cy+Math.sin(angle)*radius*ratio*.78;
+                    if(def.id==='red_eye'){
+                        ctx.save();ctx.fillStyle='#7f1d1d';ctx.shadowColor='#ef4444';ctx.shadowBlur=12;ctx.beginPath();ctx.arc(x,y,Math.max(5,radius*.035),0,Math.PI*2);ctx.fill();ctx.fillStyle='#fca5a5';ctx.beginPath();ctx.arc(x,y,Math.max(2,radius*.014),0,Math.PI*2);ctx.fill();ctx.restore();
+                    }else drawGemStructureModel(def.id,x,y,scale,structureIsOperational(def.id),time,100,rulerColors);
                     if(count>1&&def.id!=='injector'){ctx.fillStyle=rulerColors?.accent||'#e2e8f0';ctx.font='bold '+Math.max(8,9*size)+'px Segoe UI';ctx.textAlign='center';ctx.fillText(String(count),x+22*size,y-18*size);}
                 }
             });
