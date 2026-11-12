@@ -825,9 +825,9 @@
             {id:'essence_chamber',name:'Câmara de Extração de Essência',category:'Extração',desc:'Uma sauna ou piscina de essência onde a Primeira Diamante toma um banho de 30 segundos. Ao terminar, produz 50 vezes a essência de uma atividade física comum.',cost:{minerals:20,tech:0},buildTime:18,prerequisites:[],workers:{peridot:1},interaction:'Desbloqueia o banho de essência de 30 segundos.',maxCount:1},
             {id:'injector',name:'Injetor',category:'Criação',desc:'Cada unidade opera em paralelo em um setor do planeta, formando lotes simultâneos de Gems do material presente.',cost:{minerals:35,tech:0},buildTime:28,prerequisites:['essence_chamber'],workers:{peridot:1},interaction:'Produção paralela: cada Injetor acrescenta cinco Gems por ciclo.',maxCount:12},
             {id:'reef',name:'Recife de Pérolas',category:'Criação',desc:'Berçário nacarado que acolhe Pérolas recém-formadas sem dona. Elas permanecem armazenadas até serem vinculadas a uma Diamante ou aristocrata.',cost:{minerals:65,tech:12},buildTime:36,prerequisites:[],workers:{lapis:1,peridot:1},interaction:'Armazena Pérolas sem vínculo e permite distribuí-las posteriormente.',maxCount:5},
-            {id:'mineral_extractor',name:'Extrator Mineral',category:'Extração',desc:'Exige um Peridoto operador. Cada Quartzo designado extrai 1 mineral a cada 10 segundos, em paralelo. Cada Ágata coordena até 20 Quartzos e reduz o intervalo desse grupo para 5 segundos (2×); são necessárias 2 Ágatas para acelerar até 40 Quartzos. Cada intervalo gera 0,1% de dissidência por Quartzo em operação.',cost:{minerals:25,tech:0},buildTime:20,prerequisites:[],workers:{quartz:1,peridot:1},interaction:'Cada Quartzo extrai 1 mineral/10s; Ágatas aceleram até 2× com aumento de dissidência.',maxCount:3},
+            {id:'mineral_extractor',name:'Extrator Mineral',category:'Extração',desc:'Exige um Peridoto operador. Todos os Quartzos da população extraem 1 mineral a cada 10 segundos, em paralelo. Cada Ágata coordena até 20 Quartzos e reduz o intervalo desse grupo para 5 segundos (2×).',cost:{minerals:25,tech:0},buildTime:20,prerequisites:[],workers:{peridot:1},interaction:'Todos os Quartzos mineram automaticamente; Ágatas aceleram até 2×.',maxCount:3},
             {id:'workshop',name:'Oficina de Engenharia',category:'Indústria',desc:'Bismutos constroem ferramentas, peças e componentes; um Peridoto mantém as máquinas operacionais.',cost:{minerals:40,tech:0},buildTime:24,prerequisites:['mineral_extractor'],workers:{bismuth:1,peridot:1},interaction:'Fabrica ferramentas e componentes.',maxCount:2},
-            {id:'refinery',name:'Refinaria',category:'Indústria',desc:'Peridotos e Quartzos processam matérias-primas em materiais refinados.',cost:{minerals:45,tech:0},buildTime:26,prerequisites:['mineral_extractor','workshop'],workers:{peridot:1,quartz:1},interaction:'Converte minerais brutos em materiais refinados.',maxCount:2},
+            {id:'refinery',name:'Refinaria',category:'Indústria',desc:'Exige 1 Peridoto e 5 Bismutos operadores. Refina até 5% de cada matéria-prima coletada em seu tipo refinado.',cost:{minerals:45,tech:0},buildTime:26,prerequisites:['mineral_extractor','workshop'],workers:{peridot:1,bismuth:5},interaction:'Converte até 5% dos minerais coletados em materiais refinados.',maxCount:2},
             {id:'research_center',name:'Centro de Pesquisa',category:'Ciência',desc:'Safiras analisam os processos da colônia e transformam materiais refinados em tecnologia.',cost:{minerals:55,tech:8},buildTime:30,prerequisites:['workshop','refinery'],workers:{sapphire:1,peridot:1},interaction:'Permite desenvolver tecnologias.',maxCount:2},
             {id:'reactor',name:'Reator de Energia',category:'Energia',desc:'Peridotos operam o reator e mantêm uma reserva energética.',cost:{minerals:65,tech:15},buildTime:32,prerequisites:['refinery'],workers:{peridot:1},interaction:'Gera energia para estruturas dependentes.',maxCount:2},
             {id:'administration_center',name:'Centro Administrativo',category:'Administração',desc:'Pérolas organizam equipes, prioridades de produção e distribuição de trabalhadores; um Peridoto mantém os sistemas administrativos.',cost:{minerals:50,tech:10},buildTime:28,prerequisites:['workshop'],workers:{pearl:1,peridot:1},interaction:'Libera organização da força de trabalho.',maxCount:1},
@@ -1135,8 +1135,19 @@
             if(typeof planet.landmassCreated!=='boolean')planet.landmassCreated=false;
         });
         initializePlanetaryReserves();
-        const PLANET_TEMPERATURES={homeworld:8,ignis_prime:180,thalassa_9:12,caelum_gelidus:-80};
-        Object.entries(PLANET_TEMPERATURES).forEach(([id,temp])=>{if(PLANETS[id])PLANETS[id].temperatureC=temp;});
+        const PLANET_ENVIRONMENT={
+            homeworld:{temperatureC:8,atmosphericPressureAtm:1.0,orbitAU:1.12},
+            ignis_prime:{temperatureC:180,atmosphericPressureAtm:2.4,orbitAU:1.08},
+            thalassa_9:{temperatureC:12,atmosphericPressureAtm:3.2,orbitAU:1.65},
+            caelum_gelidus:{temperatureC:-80,atmosphericPressureAtm:0.55,orbitAU:2.22},
+            terra_veritas:{temperatureC:8,atmosphericPressureAtm:1.1,orbitAU:2.78}
+        };
+        function applyPlanetEnvironmentDefaults(planet){
+            const defaults=planet&&PLANET_ENVIRONMENT[planet.id];
+            if(!defaults)return;
+            Object.entries(defaults).forEach(([key,value])=>{if(typeof planet[key]!=='number'||!Number.isFinite(planet[key]))planet[key]=value;});
+        }
+        Object.values(PLANETS).forEach(applyPlanetEnvironmentDefaults);
 
 
         const state = {
@@ -1165,6 +1176,8 @@
                 firstGemCreated: false,
                 mineralSamples: { quartz: 0, silicate: 0, corundum: 0, metallic: 0, nacre: 0, garnet: 0, olivine: 0, lapisrock: 0, pyroxene:0, beryllium:0, topaz:0 },
                 gatheredMinerals: { quartz: 0, silicate: 0, corundum: 0, metallic: 0, nacre: 0, garnet: 0, olivine: 0, lapisrock: 0, pyroxene:0, beryllium:0, topaz:0 },
+                collectedMinerals: { quartz: 0, silicate: 0, corundum: 0, metallic: 0, nacre: 0, garnet: 0, olivine: 0, lapisrock: 0, pyroxene:0, beryllium:0, topaz:0 },
+                refineryProcessed: { quartz: 0, pyroxene: 0, beryllium: 0 },
                 essenceOutput: 0,
                 activityCount: 0,
                 essenceCooldown: 0,
@@ -1191,6 +1204,9 @@
                 creationProgress: 0,
                 creationActive: false,
                 injectorGemType: 'quartz',
+                injectorOrders: [],
+                creationBatches: [],
+                creationDuration: 42,
                 creationTarget: null,
                 creationSource: 'manual'
             },
@@ -1846,7 +1862,7 @@
         function renderDrawerContent() {
             const body = document.getElementById('drawer-body');
             if (!body) return;
-            if(document.activeElement&&document.activeElement.id==='injector-gem-order')return;
+            if(document.activeElement&&/^injector-order-context-/.test(document.activeElement.id||''))return;
             if (state.drawerTab === 'structures') { renderStructuresTab(body); return; }
             if (state.drawerTab === 'guide') { renderGemGuide(body); return; }
             if (state.drawerTab === 'population') { renderPopulationReport(body); return; }
@@ -1878,7 +1894,7 @@
             if (id === 'injector' && !structureIsOperational('essence_chamber')) return false;
             if(id==='mineral_extractor'){
                 const jobs=state.structureAssignments&&state.structureAssignments[id]||{};
-                return (Number(jobs.peridot)||0)>=1&&(Number(jobs.quartz)||0)>=1;
+                return (Number(jobs.peridot)||0)>=1&&(Number(state.census&&state.census.quartz)||0)>0;
             }
             return Object.entries(def.workers || {}).every(([type, required]) =>
                 (Number(state.structureAssignments && state.structureAssignments[id] && state.structureAssignments[id][type]) || 0) >= required
@@ -1922,10 +1938,6 @@
             if (reason) { setStatusTicker(reason, true); return; }
             state.minerals -= def.cost.minerals || 0;
             state.tech -= def.cost.tech || 0;
-            if(id==='injector') {
-                state.founding.injectorGemType=state.founding.selectedGem||'quartz';
-                state.founding.injectorSpecializationLocked=true;
-            }
             state.construction = {id:id,progress:0,active:true,builder:'bismuth',supervisor:Number(state.census.morganite||0)>0?'morganite':null};
             setStatusTicker('Construção iniciada: ' + def.name + '.');
             addChronicle('Construção iniciada', def.name + ' está sendo construída em Homeworld.', 'Infraestrutura em desenvolvimento');
@@ -1937,9 +1949,11 @@
             const def = structureDefinition(job.id);
             if (def) {
                 state.structures[def.id] = structureCount(def.id) + 1;
+                if(def.id==='injector') ensureInjectorOrders();
                 if(def.id==='mineral_extractor'){
-                    state.founding.gatheredMinerals={quartz:0,silicate:0,corundum:0,metallic:0,nacre:0,garnet:0,olivine:0,lapisrock:0,pyroxene:0,beryllium:0,topaz:0};
-                    setStatusTicker('Extrator construído: a coleta manual foi encerrada e o inventário mineral foi integrado ao estoque imperial.');
+                    state.founding.gatheredMinerals=Object.assign({quartz:0,silicate:0,corundum:0,metallic:0,nacre:0,garnet:0,olivine:0,lapisrock:0,pyroxene:0,beryllium:0,topaz:0},state.founding.gatheredMinerals||{});
+                    state.founding.collectedMinerals=Object.assign({},state.founding.gatheredMinerals,state.founding.collectedMinerals||{});
+                    setStatusTicker('Extrator construído: todos os Quartzos da população passam a minerar automaticamente.');
                 }
                 addChronicle('Estrutura concluída', def.name + ' foi concluída. ' + def.interaction, 'Aguardando operadores');
                 setStatusTicker(def.name + ' concluída. Designe Gems com a função adequada para operá-la.');
@@ -1958,49 +1972,140 @@
             setStatusTicker('Relatório detalhado dos Injetores aberto.');
         }
         function closeInjectorProductionWindow(){const modal=document.getElementById('injector-production-window');if(modal)modal.classList.add('hidden');}
+        function getDefaultInjectorGemType(){
+            const f=state.founding||{};
+            if(f.creationActive&&f.creationSource==='injector'&&FOUNDING_GEM_DATA[f.creationTarget]&&f.creationTarget!=='peridot')return f.creationTarget;
+            const reports=Array.isArray(f.productionReports)?f.productionReports:[];
+            const latest=reports.slice().reverse().find(report=>report&&FOUNDING_GEM_DATA[report.type]&&report.type!=='peridot');
+            if(latest)return latest.type;
+            const legacy=f.injectorGemType;
+            return legacy&&legacy!=='peridot'&&FOUNDING_GEM_DATA[legacy]?legacy:'quartz';
+        }
+        function ensureInjectorOrders(){
+            const f=state.founding||(state.founding={});
+            if(!Array.isArray(f.injectorOrders))f.injectorOrders=[];
+            const count=structureCount('injector'),defaultType=getDefaultInjectorGemType();
+            while(f.injectorOrders.length<count){
+                const previous=f.injectorOrders.length?f.injectorOrders[f.injectorOrders.length-1].type:defaultType;
+                f.injectorOrders.push({type:FOUNDING_GEM_DATA[previous]?previous:'quartz',quantity:5});
+            }
+            if(f.injectorOrders.length>count)f.injectorOrders.length=count;
+            f.injectorOrders.forEach(order=>{
+                if(!order||!FOUNDING_GEM_DATA[order.type]||order.type==='peridot')order.type='quartz';
+                const quantity=Number(order.quantity);
+                order.quantity=Number.isFinite(quantity)?Math.max(0,Math.min(5,Math.floor(quantity))):5;
+            });
+            return f.injectorOrders;
+        }
+        function getRefinedInjectorLimit(){
+            return Math.floor(structureCount('injector')/5);
+        }
+        function setInjectorOrderType(index,type){
+            const orders=ensureInjectorOrders();
+            if(!orders[index]||!FOUNDING_GEM_DATA[type])return;
+            if(FOUNDING_GEM_DATA[type].refinedMaterial){
+                const reserved=orders.filter((order,i)=>i!==index&&FOUNDING_GEM_DATA[order.type]&&FOUNDING_GEM_DATA[order.type].refinedMaterial).length;
+                if(reserved>=getRefinedInjectorLimit()){
+                    setStatusTicker('Limite de matéria refinada: reserve no máximo 1 Injetor a cada 5 unidades da frota.',true);
+                    ['context','modal'].forEach(prefix=>{const el=document.getElementById('injector-order-'+prefix+'-type-'+index);if(el)el.value=orders[index].type;});
+                    return;
+                }
+            }
+            orders[index].type=type;
+            if(index===0)state.founding.injectorGemType=type;
+            setStatusTicker('Injetor #'+(index+1)+' programado para produzir '+FOUNDING_GEM_DATA[type].label+'.');
+        }
+        function setInjectorOrderQuantity(index,value){
+            const orders=ensureInjectorOrders();
+            if(!orders[index])return;
+            const quantity=Number(value);
+            orders[index].quantity=Number.isFinite(quantity)?Math.max(0,Math.min(5,Math.floor(quantity))):0;
+            const field=document.getElementById('injector-order-context-qty-'+index)||document.getElementById('injector-order-modal-qty-'+index);
+            if(field)field.value=String(orders[index].quantity);
+            setStatusTicker('Quantidade do Injetor #'+(index+1)+' definida: '+orders[index].quantity+'/5 Gems.');
+        }
+        function buildInjectorProductionControlsHTML(prefix){
+            const orders=ensureInjectorOrders();
+            if(!orders.length)return '<div class="founding-note">Construa um Injetor para programar a produção.</div>';
+            const totalCapacity=orders.length*5,scheduled=orders.reduce((sum,order)=>sum+order.quantity,0);
+            const refinedReserved=orders.filter(order=>FOUNDING_GEM_DATA[order.type]&&FOUNDING_GEM_DATA[order.type].refinedMaterial).length;
+            const rows=orders.map((order,index)=>{
+                const gem=FOUNDING_GEM_DATA[order.type]||FOUNDING_GEM_DATA.quartz;
+                const options=Object.entries(FOUNDING_GEM_DATA).filter(([key])=>key!=='peridot').map(([key,item])=>'<option value="'+key+'" '+(order.type===key?'selected':'')+'>'+escapeHTML(item.label)+'</option>').join('');
+                return '<div class="stat-box" style="display:grid;gap:6px"><div style="display:flex;justify-content:space-between;align-items:center"><b>Injetor #'+(index+1)+'</b><small style="color:'+(gem.refinedMaterial?'#c084fc':'#94a3b8')+'">'+(gem.refinedMaterial?'REFINADO':'BRUTO')+'</small></div><div class="grid-2"><label style="font-size:10px;color:#94a3b8">Gem<select id="injector-order-'+prefix+'-type-'+index+'" onchange="setInjectorOrderType('+index+',this.value)">'+options+'</select></label><label style="font-size:10px;color:#94a3b8">Quantidade (0–5)<input id="injector-order-'+prefix+'-qty-'+index+'" type="number" min="0" max="5" step="1" value="'+order.quantity+'" onchange="setInjectorOrderQuantity('+index+',this.value)" style="width:100%;background:#080e1c;color:#f8fafc;border:1px solid rgba(148,163,184,.35);border-radius:6px;padding:6px"></label></div></div>';
+            }).join('');
+            return '<div class="founding-note">Cada Injetor produz até 5 Gems por ciclo. Apenas 1 unidade de cada grupo de 5 pode usar matéria-prima refinada; lotes refinados levam 84s, contra 42s para substrato bruto.</div><div class="stat-box">Programado: <b>'+scheduled+'/'+totalCapacity+'</b> Gems · Injetores reservados para refinados: <b>'+refinedReserved+'/'+getRefinedInjectorLimit()+'</b></div>'+rows;
+        }
+        function getInjectorProductionPlan(){
+            const orders=ensureInjectorOrders();
+            const batches=orders.map((order,index)=>({injectorIndex:index,type:order.type,quantity:order.quantity})).filter(order=>order.quantity>0);
+            const refinedReserved=orders.filter(order=>FOUNDING_GEM_DATA[order.type]&&FOUNDING_GEM_DATA[order.type].refinedMaterial).length;
+            if(refinedReserved>getRefinedInjectorLimit())return {valid:false,reason:'Somente 1 Injetor a cada 5 pode usar matéria-prima refinada.',batches:[]};
+            return {valid:true,batches};
+        }
+        function setInjectorGemType(type){
+            if(!FOUNDING_GEM_DATA[type])return;
+            const orders=ensureInjectorOrders();
+            if(orders.length)setInjectorOrderType(0,type);
+            else state.founding.injectorGemType=type;
+        }
         function updateInjectorProductionWindow(){
             const body=document.getElementById('injector-production-window-body');if(!body)return;
-            if(document.activeElement&&document.activeElement.id==='injector-modal-gem-order')return;
-            const f=state.founding,active=!!f.creationActive&&f.creationSource==='injector',progress=active?Math.min(100,Number(f.creationProgress)||0):100;
-            const count=structureCount('injector'),type=active?f.creationTarget:(f.injectorGemType||f.selectedGem),gem=FOUNDING_GEM_DATA[type]||FOUNDING_GEM_DATA.quartz;
-            const expected=active?Math.max(1,Number(f.creationBatchCount)||5):0;
-            const remaining=active?Math.ceil(42*(1-progress/100)/Math.max(.01,getPearlMultiplierFor('firstDiamond'))):0;
-            const reports=(f.productionReports||[]).slice(-8).reverse();
-            body.innerHTML='<div class="stat-box"><b>Injetores instalados: '+count+'</b> · Peridots executam os ciclos automaticamente</div><label for="injector-modal-gem-order">Tipo de Gem solicitado para os próximos ciclos</label><select id="injector-modal-gem-order" class="btn" style="width:100%;margin:6px 0 10px" onchange="setInjectorGemType(this.value)">'+Object.entries(FOUNDING_GEM_DATA).map(([key,g])=>'<option value="'+key+'" '+((f.injectorGemType||'quartz')===key?'selected':'')+'>'+escapeHTML(g.label)+'</option>').join('')+'</select><div class="stat-box">Ordem selecionada: <b id="injector-order-current-modal">'+(FOUNDING_GEM_DATA[f.injectorGemType||'quartz']?.label||'Quartzo')+'</b></div><div class="stat-box"><span class="stat-label">Ciclo atual</span><b>'+(active?'Em andamento':'Aguardando recursos')+'</b><div class="founding-progress"><div style="width:'+progress+'%"></div></div><small>'+Math.floor(progress)+'% concluído · '+(active?remaining+'s restantes':'sem ciclo ativo')+'</small></div><div class="stat-box"><span class="stat-label">Previsão do lote</span><b>'+(active?expected+' '+gem.label+'(s)':'Próximo lote: '+(FOUNDING_GEM_DATA[f.injectorGemType||'quartz']?.label||'Quartzo'))+'</b><small style="display:block;color:#94a3b8">'+(active?gem.mineralName+' · Qualidade prevista A':'Produção automática após disponibilidade de essência, substrato e clima compatível.')+'</small></div><div class="card"><b>Últimos lotes concluídos</b>'+(reports.length?reports.map(r=>'<div class="stat-box">'+escapeHTML(r.gemLabel)+' × '+Number(r.quantity||0)+' · '+escapeHTML(r.grade||'A')+'</div>').join(''):'<small style="color:#94a3b8">Nenhum lote concluído ainda.</small>')+'</div><button class="btn btn-block" onclick="closeInjectorProductionWindow()">Fechar relatório</button>';
+            if(document.activeElement&&/^injector-order-modal-/.test(document.activeElement.id||''))return;
+            const f=state.founding,active=!!f.creationActive&&f.creationSource==='injector';
+            const count=structureCount('injector'),orders=ensureInjectorOrders();
+            const reports=(f.productionReports||[]).slice(-8).reverse(),batches=Array.isArray(f.creationBatches)?f.creationBatches:[];
+            const expected=active?Math.max(1,Number(f.creationBatchCount)||0):orders.reduce((sum,order)=>sum+order.quantity,0);
+            const progress=active?Math.min(100,Number(f.creationProgress)||0):100,multiplier=Math.max(.01,getPearlMultiplierFor('firstDiamond'));
+            const unfinished=batches.filter(batch=>!batch.completed);
+            const remaining=active&&unfinished.length?Math.max(...unfinished.map(batch=>Math.ceil(Math.max(0,Number(batch.duration)||42)*(1-(Number(batch.progress)||0)/100)/multiplier))):0;
+            const schedule=active?batches.map(batch=>'#'+(Number(batch.injectorIndex)+1)+' '+Number(batch.quantity)+'× '+(FOUNDING_GEM_DATA[batch.type]?.label||batch.type)).join(' · '):'Aguardando os recursos programados.';
+            body.innerHTML='<div class="stat-box"><b>Injetores instalados: '+count+'</b> · Peridots operam a frota automaticamente</div>'+buildInjectorProductionControlsHTML('modal')+'<div class="stat-box"><span class="stat-label">Estado da produção</span><b>'+(active?'Em andamento':'Aguardando recursos')+'</b><div class="founding-progress"><div style="width:'+progress+'%"></div></div><small>'+Math.floor(progress)+'% do progresso total · '+(active?remaining+'s restantes':'sem ciclo ativo')+'</small></div><div class="stat-box"><span class="stat-label">Lote simultâneo</span><b>'+expected+' Gems</b><small style="display:block;color:#94a3b8">'+escapeHTML(schedule)+'</small></div><div class="card"><b>Últimos lotes concluídos</b>'+(reports.length?reports.map(r=>'<div class="stat-box">'+escapeHTML(r.gemLabel)+' × '+Number(r.quantity||0)+' · Injetor #'+(Number(r.injectorIndex)+1)+' · '+escapeHTML(r.grade||'A')+'</div>').join(''):'<small style="color:#94a3b8">Nenhum lote concluído ainda.</small>')+'</div><button class="btn btn-block" onclick="closeInjectorProductionWindow()">Fechar relatório</button>';
         }
-
         function startInjectorProduction(automatic=false) {
-            if (!structureIsOperational('injector')) { if(!automatic) setStatusTicker('O Injetor precisa estar construído e receber um Peridoto operador.', true); return; }
+            if (!structureIsOperational('injector')) { if(!automatic) setStatusTicker('A frota de Injetores precisa de um Peridoto operador e de uma Câmara operacional.', true); return; }
             if (state.founding.creationActive || state.founding.bathActive) { if(!automatic) setStatusTicker('A Diamante está ocupada. Aguarde a atividade atual.'); return; }
-            let type = state.founding.injectorGemType || 'quartz';
-            const injectorCount=Math.max(1,structureCount('injector'));
-            const batchCount=5*injectorCount;
-            const essenceCost=12*batchCount;
+            const plan=getInjectorProductionPlan();
+            if(!plan.valid){if(!automatic)setStatusTicker(plan.reason,true);return;}
+            if(!plan.batches.length){if(!automatic)setStatusTicker('Defina ao menos uma Gem em um Injetor, com quantidade entre 1 e 5.');return;}
             const planet=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld;
-            if(type==='jade'&&Number(state.refinedResources.pyroxene||0)<batchCount)type='nephrite';
-            const gem = FOUNDING_GEM_DATA[type];
-            if (!gem) return;
-            if(gem.stored&&!structureIsOperational('reef')){if(!automatic)setStatusTicker('Produção de Pérolas pausada: construa e opere um Recife para armazenar as Pérolas sem dona.');return;}
-            if(gem.climate&&!foundingGemClimateAllowed(gem,planet)){if(!automatic)setStatusTicker('Este planeta não possui as condições climáticas necessárias para produzir '+gem.label+'.');return;}
-            const refinedMaterial=gem.refinedMaterial||null;
-            const mineralCost=refinedMaterial?0:batchCount;
-            if(refinedMaterial&&Number(state.refinedResources&&state.refinedResources[refinedMaterial]||0)<batchCount){if(!automatic)setStatusTicker('Produção suspensa: faltam '+batchCount+' unidades de '+refinedMaterial+' refinado.');return;}
-            if(!planet.resourcesByType)planet.resourcesByType={};
-            const availableMinerals=Math.max(0,Number(planet.resourcesByType[gem.mineral])||0);
-            if (availableMinerals < mineralCost) { if(!automatic) setStatusTicker('Produção suspensa: o depósito planetário de '+gem.mineralName+' não possui '+mineralCost+' unidades.'); return; }
-            if ((state.founding.injectorEssence || 0) < essenceCost) { if(!automatic) setStatusTicker('A frota de Injetores aguarda '+essenceCost+' unidades de essência (12 por Gem).'); return; }
-            if(mineralCost>0){planet.resourcesByType[gem.mineral]=Math.max(0,availableMinerals-mineralCost);planet.resourcesRemaining=Math.max(0,Object.values(planet.resourcesByType).reduce((sum,value)=>sum+Math.max(0,Number(value)||0),0));planet.resourceDepleted=planet.resourcesRemaining<=0;}
-            if(refinedMaterial)state.refinedResources[refinedMaterial]=Math.max(0,(Number(state.refinedResources[refinedMaterial])||0)-batchCount);
-            state.founding.injectorEssence -= essenceCost;
-            state.founding.creationBatchCount = batchCount;
-            state.founding.creationTarget = type;
-            state.founding.creationSource = 'injector';
-            state.founding.creationProgress = 0;
-            state.founding.creationActive = true;
-            state.founding.stage = 'injecting';
-            setStatusTicker('Injeção iniciada: o Injetor está combinando essência e substrato mineral.');
+            const rawCosts={},refinedCosts={};
+            let totalGems=0;
+            for(const batch of plan.batches){
+                const gem=FOUNDING_GEM_DATA[batch.type];
+                if(!gem)continue;
+                totalGems+=batch.quantity;
+                if(gem.stored&&!structureIsOperational('reef')){if(!automatic)setStatusTicker('Produção de Pérolas pausada: construa e opere um Recife para armazená-las.');return;}
+                if(gem.climate&&!foundingGemClimateAllowed(gem,planet)){if(!automatic)setStatusTicker('Este planeta não possui as condições climáticas necessárias para produzir '+gem.label+'.');return;}
+                if(gem.refinedMaterial)refinedCosts[gem.refinedMaterial]=(Number(refinedCosts[gem.refinedMaterial])||0)+batch.quantity;
+                else rawCosts[gem.mineral]=(Number(rawCosts[gem.mineral])||0)+batch.quantity;
+            }
+            const rawInventory=state.founding.gatheredMinerals||(state.founding.gatheredMinerals={});
+            for(const [material,needed] of Object.entries(rawCosts)){
+                const available=Math.max(0,Number(rawInventory[material])||0);
+                if(available<needed){if(!automatic)setStatusTicker('Produção suspensa: estoque coletado de '+material+' insuficiente ('+available+'/'+needed+').');return;}
+            }
+            for(const [material,needed] of Object.entries(refinedCosts)){
+                const available=Math.max(0,Number(state.refinedResources&&state.refinedResources[material])||0);
+                if(available<needed){if(!automatic)setStatusTicker('Produção suspensa: faltam '+needed+' unidades de '+material+' refinado ('+available+'/'+needed+').');return;}
+            }
+            const essenceCost=12*totalGems;
+            if((Number(state.founding.injectorEssence)||0)<essenceCost){if(!automatic)setStatusTicker('A frota aguarda '+essenceCost+' unidades de essência (12 por Gem).');return;}
+            for(const [material,needed] of Object.entries(rawCosts))rawInventory[material]=Math.max(0,(Number(rawInventory[material])||0)-needed);
+            for(const [material,needed] of Object.entries(refinedCosts))state.refinedResources[material]=Math.max(0,(Number(state.refinedResources[material])||0)-needed);
+            state.founding.injectorEssence-=essenceCost;
+            state.founding.creationBatches=plan.batches.map(batch=>({injectorIndex:batch.injectorIndex,type:batch.type,quantity:batch.quantity,progress:0,duration:FOUNDING_GEM_DATA[batch.type].refinedMaterial?84:42,completed:false}));
+            state.founding.creationBatchCount=totalGems;
+            state.founding.creationDuration=Math.max(...state.founding.creationBatches.map(batch=>batch.duration));
+            state.founding.creationTarget=plan.batches[0].type;
+            state.founding.creationSource='injector';
+            state.founding.creationProgress=0;
+            state.founding.creationActive=true;
+            state.founding.stage='injecting';
+            setStatusTicker('Injeção simultânea iniciada: '+totalGems+' Gems em '+plan.batches.length+' Injetor(es).');
             updateStructureUI();
         }
+
         function executeStructureInteraction(id) {
             if (!structureIsOperational(id)) { setStatusTicker('A estrutura precisa de operadores disponíveis para executar essa interação.', true); return; }
             switch (id) {
@@ -2010,9 +2115,7 @@
                     setStatusTicker('A Oficina fabricou 5 componentes refinados.');
                     break;
                 case 'refinery':
-                    if (state.minerals < 30) { setStatusTicker('A Refinaria exige 30 minerais brutos.'); return; }
-                    state.minerals -= 30; state.refinedMaterials += 12;
-                    setStatusTicker('A Refinaria converteu 30 minerais em 12 materiais refinados.');
+                    setStatusTicker('Selecione uma matéria-prima na seção da Refinaria para processar até 5% do material coletado.');
                     break;
                 case 'research_center':
                     if (state.refinedMaterials < 5) { setStatusTicker('A pesquisa exige 5 materiais refinados.'); return; }
@@ -2062,7 +2165,7 @@
                     setStatusTicker('A rede planetária foi sincronizada. Instalações conectadas podem compartilhar operações.');
                     break;
                 case 'mineral_extractor':
-                    setStatusTicker('O extrator está trabalhando automaticamente enquanto houver um Quartzo designado.');
+                    setStatusTicker('O extrator está minerando automaticamente com todos os Quartzos da população.');
                     break;
                 case 'essence_chamber':
                     setStatusTicker('A Câmara está transferindo essência da Diamante para o estoque da colônia.');
@@ -2101,12 +2204,11 @@
                 state.resourceChartAccumulator=(Number(state.resourceChartAccumulator)||0)+dt;
                 if(state.resourceChartAccumulator>=1){state.resourceChartAccumulator=0;renderColonyContext(document.getElementById('drawer-body'));}
             }
-            // Cada Quartzo designado extrai 1 mineral por intervalo.
-            // Cada Ágata coordena até 20 Quartzos, reduzindo apenas o intervalo
-            // desse grupo de 10s para 5s (máximo de 2×, sem empilhar velocidade).
+            // Todos os Quartzos mineram automaticamente assim que o Extrator é operado.
+            // Cada Ágata acelera até 20 Quartzos: 10s -> 5s (máximo 2×).
             if(structureCount('mineral_extractor')>0){
+                const quartz=Math.max(0,Math.floor(Number(state.census.quartz)||0));
                 const jobs=state.structureAssignments&&state.structureAssignments.mineral_extractor||{};
-                const quartz=Math.max(0,Math.floor(Number(jobs.quartz)||0));
                 const peridot=Math.max(0,Number(jobs.peridot)||0);
                 if(peridot>=1&&quartz>0){
                     const planet=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld;
@@ -2120,10 +2222,14 @@
                         if(actual<=0)return;
                         let left=actual;
                         const pools=planet.resourcesByType||{};
+                        const inventory=state.founding.gatheredMinerals||(state.founding.gatheredMinerals={});
+                        const collected=state.founding.collectedMinerals||(state.founding.collectedMinerals={});
                         for(const [key,value] of Object.entries(pools)){
                             if(left<=0)break;
                             const take=Math.min(Math.max(0,Number(value)||0),left);
                             pools[key]=Math.max(0,(Number(pools[key])||0)-take);
+                            inventory[key]=(Number(inventory[key])||0)+take;
+                            collected[key]=(Number(collected[key])||0)+take;
                             left-=take;
                         }
                         const extracted=actual-left;
@@ -2215,17 +2321,18 @@
                         if (def.id === 'injector') {
                             const injectorType=state.founding.injectorGemType||'quartz';
                             const injectorGem=FOUNDING_GEM_DATA[injectorType]||FOUNDING_GEM_DATA.quartz;
-                            html += '<div class="founding-note">Especialização fixa: <b>' + injectorGem.label + '</b>. O Injetor opera automaticamente quando recebe um Peridoto, essência suficiente e substrato compatível. Não exige comandos do jogador. Essência disponível: ' + (state.founding.injectorEssence||0).toFixed(1) + ' unidades.</div>';
-                        } else if (['workshop','refinery','research_center','shipyard','terraformer','defense_tower','shield_generator','teleporter','administration_center','reactor','orbital_station','planetary_network'].includes(def.id)) {
+                            const orders=ensureInjectorOrders();
+                            html += '<div class="founding-note">Programação independente: '+orders.length+' Injetor(es), até 5 Gems por unidade. Essência disponível: '+(state.founding.injectorEssence||0).toFixed(1)+' unidades.</div>';
+                        } else if (['workshop','research_center','shipyard','terraformer','defense_tower','shield_generator','teleporter','administration_center','reactor','orbital_station','planetary_network'].includes(def.id)) {
                             const labels = {workshop:'🔧 Fabricar componentes',refinery:'⚗️ Refinar materiais',research_center:'🔬 Pesquisar',shipyard:'🚀 Construir nave',terraformer:'🌊 Terraformar',defense_tower:'🛡️ Calibrar defesa',shield_generator:'🔰 Ativar escudo',teleporter:'🌀 Sincronizar teletransporte',administration_center:'📋 Organizar equipes',reactor:'⚡ Verificar reator',orbital_station:'🛰️ Iniciar operação orbital',planetary_network:'🌐 Expandir rede planetária'};
                             html += '<button class="btn btn-block" onclick="executeStructureInteraction(\'' + def.id + '\')" ' + (!structureIsOperational(def.id) ? 'disabled' : '') + '>' + labels[def.id] + '</button>';
-                        } else if (def.id === 'mineral_extractor') html += '<div class="founding-note">Cada Quartzo designado extrai 1 mineral a cada 10s. Cada Ágata coordena até 20 Quartzos, reduzindo o intervalo desse grupo para 5s (2×). Cada intervalo gera 0,1% de dissidência por Quartzo em operação.</div>';
+                         } else if (def.id === 'mineral_extractor') html += '<div class="founding-note">Todos os ' + Math.max(0,Number(state.census.quartz)||0) + ' Quartzos da população mineram automaticamente, sem designação manual. Cada Quartzo extrai 1 mineral a cada 10s; cada Ágata acelera até 20 deles para 5s (2×).</div>';
                         else if (def.id === 'essence_chamber') html += '<div class="founding-note">Transfere essência da reserva interna da Diamante para o estoque.</div>';
-                        if(def.id==='refinery') html += '<div class="founding-note"><b>Refino específico · planeta ativo</b><br>Quartzo: '+Number(state.refinedResources.quartz||0)+' · Piroxênio: '+Number(state.refinedResources.pyroxene||0)+' · Berílio: '+Number(state.refinedResources.beryllium||0)+'</div><div class="grid-2"><button class="btn" onclick="refineSpecialMaterial(\'quartz\')" '+(Number(PLANETS[state.activeColonyPlanetId]?.resourcesByType?.quartz||0)<30?'disabled':'')+'>Refinar Quartzo · 30</button><button class="btn" onclick="refineSpecialMaterial(\'pyroxene\')" '+(Number(PLANETS[state.activeColonyPlanetId]?.resourcesByType?.pyroxene||0)<30?'disabled':'')+'>Refinar Piroxênio · 30</button><button class="btn" onclick="refineSpecialMaterial(\'beryllium\')" '+(Number(PLANETS[state.activeColonyPlanetId]?.resourcesByType?.beryllium||0)<5?'disabled':'')+'>Refinar Berílio · 5</button></div>';
+                         if(def.id==='refinery') html += '<div class="founding-note"><b>Refino limitado a 5% do total coletado</b><br>Estoque bruto: Quartzo '+Number(state.founding.gatheredMinerals.quartz||0)+' · Piroxênio '+Number(state.founding.gatheredMinerals.pyroxene||0)+' · Berílio '+Number(state.founding.gatheredMinerals.beryllium||0)+'<br>Refinados: Quartzo '+Number(state.refinedResources.quartz||0)+' · Piroxênio '+Number(state.refinedResources.pyroxene||0)+' · Berílio '+Number(state.refinedResources.beryllium||0)+'</div><div class="grid-2"><button class="btn" onclick="refineSpecialMaterial(\'quartz\')" '+(getRefinableAmount('quartz')<1?'disabled':'')+'>Refinar Quartzo · '+getRefinableAmount('quartz')+'</button><button class="btn" onclick="refineSpecialMaterial(\'pyroxene\')" '+(getRefinableAmount('pyroxene')<1?'disabled':'')+'>Refinar Piroxênio · '+getRefinableAmount('pyroxene')+'</button><button class="btn" onclick="refineSpecialMaterial(\'beryllium\')" '+(getRefinableAmount('beryllium')<1?'disabled':'')+'>Refinar Berílio · '+getRefinableAmount('beryllium')+'</button></div>';
                         if(def.id==='reef') html += '<div class="founding-note">Pérolas sem dona armazenadas: <b>'+(state.founding.reefPearlInventory||[]).length+'</b>. Use o Relatório populacional para atribuí-las.</div>';
                         if (def.id === 'injector' && count < (def.maxCount || 1)) {
                             const nextReason = canBuildStructure(def);
-                            html += '<div class="founding-note">Frota instalada: ' + count + ' / ' + def.maxCount + ' Injetores.</div><button class="btn btn-block" onclick="buildStructure(\'injector\')" ' + (nextReason ? 'disabled' : '') + '>🏗️ Construir outro Injetor · ' + costText + ' · ' + def.buildTime + 's</button>';
+                            html += '<div class="founding-note">Frota instalada: ' + count + ' / ' + def.maxCount + ' Injetores. Cada unidade possui uma programação separada.</div><button class="btn btn-block" onclick="buildStructure(\'injector\')" ' + (nextReason ? 'disabled' : '') + '>🏗️ Construir outro Injetor · ' + costText + ' · ' + def.buildTime + 's</button>';
                         }
                     } else {
                         html += '<div class="structure-locked">' + (reason || 'Disponível para construção.') + '</div>' +
@@ -3458,8 +3565,29 @@ ${hasAristocrats ? `
                 if(state.founding.bathProgress>=100)completeEssenceBath();
             }
             if (state.founding && state.founding.creationActive) {
-                state.founding.creationProgress = Math.min(100, state.founding.creationProgress + dt * 100 * getPearlMultiplierFor('firstDiamond') / 42);
-                if (state.founding.creationProgress >= 100) finishFirstGemCreation();
+                const f=state.founding,multiplier=getPearlMultiplierFor('firstDiamond');
+                if(f.creationSource==='injector'){
+                    if(!Array.isArray(f.creationBatches)||!f.creationBatches.length){
+                        const legacyType=FOUNDING_GEM_DATA[f.creationTarget]?f.creationTarget:'quartz';
+                        f.creationBatches=[{injectorIndex:0,type:legacyType,quantity:Math.max(1,Math.min(60,Number(f.creationBatchCount)||5)),progress:Number(f.creationProgress)||0,duration:42,completed:false}];
+                    }
+                    let weighted=0,total=0;
+                    f.creationBatches.forEach(batch=>{
+                        const quantity=Math.max(1,Number(batch.quantity)||1);total+=quantity;
+                        if(!batch.completed){
+                            const duration=Math.max(1,Number(batch.duration)||(FOUNDING_GEM_DATA[batch.type]&&FOUNDING_GEM_DATA[batch.type].refinedMaterial?84:42));
+                            batch.progress=Math.min(100,(Number(batch.progress)||0)+dt*100*multiplier/duration);
+                            if(batch.progress>=100)completeInjectorProductionBatch(batch);
+                        }
+                        weighted+=quantity*Math.min(100,Number(batch.progress)||0);
+                    });
+                    f.creationProgress=total?weighted/total:100;
+                    if(f.creationBatches.every(batch=>batch.completed))finishFirstGemCreation();
+                }else{
+                    const duration=Math.max(1,Number(f.creationDuration)||42);
+                    f.creationProgress=Math.min(100,Number(f.creationProgress||0)+dt*100*multiplier/duration);
+                    if(f.creationProgress>=100)finishFirstGemCreation();
+                }
             }
             if(state.diamondForge){
                 const forge=state.diamondForge;
@@ -4469,7 +4597,7 @@ ${hasAristocrats ? `
         }
 
         function drawPlanetStatusPanel(planet,stats,x,y){
-            const w=Math.min(190,canvasWidth*.48),h=132,r=12;
+            const w=Math.min(190,canvasWidth*.48),h=184,r=12;
             ctx.save();ctx.shadowColor='rgba(56,189,248,.16)';ctx.shadowBlur=18;ctx.fillStyle='rgba(5,10,25,.88)';ctx.strokeStyle='rgba(148,163,184,.38)';ctx.lineWidth=1;
             ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();ctx.fill();ctx.stroke();ctx.shadowBlur=0;
             ctx.textAlign='left';ctx.font='bold 9px Segoe UI';ctx.fillStyle='#7dd3fc';ctx.fillText('RELATÓRIO PLANETÁRIO',x+11,y+17);
@@ -4483,6 +4611,10 @@ ${hasAristocrats ? `
             const names=['Intacto','Primeiras fissuras','Crosta fraturada','Fragmentação','Mundo estilhaçado'];
             ctx.textAlign='left';ctx.font='bold 9px Segoe UI';ctx.fillStyle='#f8fafc';ctx.fillText('ESTÁGIO '+stats.stage+'/4',x+11,y+111);ctx.textAlign='right';ctx.font='9px Segoe UI';ctx.fillStyle='#94a3b8';ctx.fillText(names[stats.stage],x+w-11,y+111);
             ctx.textAlign='left';ctx.font='8px Segoe UI';ctx.fillStyle='#94a3b8';ctx.fillText(Math.floor(stats.remainingResources).toLocaleString('pt-BR')+' / '+Math.floor(stats.totalResources).toLocaleString('pt-BR')+' recursos restantes',x+11,y+124);
+            const temperature=Number(planet.temperatureC??8),pressure=Number(planet.atmosphericPressureAtm??1),distance=Number(planet.orbitAU??(Number(planet.orbitRadius)||0)/100);
+            ctx.font='9px Segoe UI';ctx.fillStyle='#cbd5e1';ctx.textAlign='left';ctx.fillText('Temperatura',x+11,y+143);ctx.textAlign='right';ctx.font='bold 9px Segoe UI';ctx.fillStyle='#f8fafc';ctx.fillText(temperature.toLocaleString('pt-BR')+' °C',x+w-11,y+143);
+            ctx.textAlign='left';ctx.font='9px Segoe UI';ctx.fillStyle='#cbd5e1';ctx.fillText('Pressão atmosférica',x+11,y+158);ctx.textAlign='right';ctx.font='bold 9px Segoe UI';ctx.fillStyle='#f8fafc';ctx.fillText(pressure.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:2})+' atm',x+w-11,y+158);
+            ctx.textAlign='left';ctx.font='9px Segoe UI';ctx.fillStyle='#cbd5e1';ctx.fillText('Distância da estrela',x+11,y+173);ctx.textAlign='right';ctx.font='bold 9px Segoe UI';ctx.fillStyle='#f8fafc';ctx.fillText(distance.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+' UA',x+w-11,y+173);
             ctx.restore();
         }
 
@@ -4968,17 +5100,26 @@ function drawColony(time){
             updateHUD();renderDrawerContent();renderBottomBar();
         }
 
+        function getRefinableAmount(type){
+            if(!['quartz','pyroxene','beryllium'].includes(type))return 0;
+            const f=state.founding||{};
+            const collected=Math.max(0,Number(f.collectedMinerals&&f.collectedMinerals[type])||0);
+            const processed=Math.max(0,Number(f.refineryProcessed&&f.refineryProcessed[type])||0);
+            const quota=Math.max(0,Math.floor(collected*0.05)-processed);
+            const available=Math.max(0,Number(f.gatheredMinerals&&f.gatheredMinerals[type])||0);
+            return Math.max(0,Math.floor(Math.min(quota,available)));
+        }
         function refineSpecialMaterial(type){
-            if(!structureIsOperational('refinery')){setStatusTicker('A Refinaria precisa estar operacional com Peridoto e Quartzo.',true);return;}
-            const costs={quartz:30,pyroxene:30,beryllium:5},labels={quartz:'Quartzo',pyroxene:'Piroxênio',beryllium:'Berílio'};
-            if(!Object.prototype.hasOwnProperty.call(costs,type))return;
-            const planet=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld,amount=costs[type];
-            const available=Math.max(0,Number(planet.resourcesByType&&planet.resourcesByType[type])||0);
-            if(available<amount){setStatusTicker('O depósito de '+labels[type]+' não possui '+amount+' unidades para refino.',true);return;}
-            planet.resourcesByType[type]-=amount;
-            planet.resourcesRemaining=Math.max(0,Object.values(planet.resourcesByType||{}).reduce((sum,value)=>sum+Math.max(0,Number(value)||0),0));
-            state.refinedResources[type]=(Number(state.refinedResources[type])||0)+1;
-            setStatusTicker('A Refinaria produziu 1 unidade de '+labels[type]+' refinado.');
+            if(!structureIsOperational('refinery')){setStatusTicker('A Refinaria exige 1 Peridot e 5 Bismutos designados.',true);return;}
+            const labels={quartz:'Quartzo',pyroxene:'Piroxênio',beryllium:'Berílio'};
+            if(!Object.prototype.hasOwnProperty.call(labels,type))return;
+            const amount=getRefinableAmount(type);
+            if(amount<1){setStatusTicker('Ainda não há material disponível para refino: o limite acumulado é 5% do total coletado.',true);return;}
+            const f=state.founding;
+            f.gatheredMinerals[type]=Math.max(0,(Number(f.gatheredMinerals[type])||0)-amount);
+            f.refineryProcessed[type]=(Number(f.refineryProcessed[type])||0)+amount;
+            state.refinedResources[type]=(Number(state.refinedResources[type])||0)+amount;
+            setStatusTicker('A Refinaria converteu '+amount+' unidades de '+labels[type]+' em material refinado (limite acumulado de 5% da coleta).');
             updateHUD();renderDrawerContent();
         }
 
@@ -5088,6 +5229,7 @@ function drawColony(time){
             sourcePlanet.resourcesRemaining=Math.max(0,(Number(sourcePlanet.resourcesRemaining)||0)-extractionAmount);
             if(sourcePlanet.resourcesRemaining<=0)sourcePlanet.resourceDepleted=true;
             found.gatheredMinerals[discovery.type]=(Number(found.gatheredMinerals[discovery.type])||0)+pearlBuff;
+            found.collectedMinerals[discovery.type]=(Number(found.collectedMinerals[discovery.type])||0)+pearlBuff;
             found.gatherCooldown=5/pearlBuff;
             state.minerals+=extractionAmount;
             setStatusTicker('Encontro mineral: '+discovery.label+'. Amostra adicionada ao estoque.');
@@ -5120,42 +5262,77 @@ function drawColony(time){
             renderDrawerContent(); renderBottomBar();
         }
 
-        function finishFirstGemCreation() {
-            const type = state.founding.creationTarget;
-            const data = FOUNDING_GEM_DATA[type];
-            if (!data) return;
-            const isFirst = !state.founding.firstGemCreated;
-            const batchCount=state.founding.creationSource==='injector'?Math.max(1,Math.min(60,Number(state.founding.creationBatchCount)||5)):1;
-            state.founding.creationBatchCount=0;
-            state.founding.creationActive = false;
-            state.founding.firstGemCreated = true;
-            state.founding.gemsCreatedCount = (state.founding.gemsCreatedCount || 0) + batchCount;
-            state.founding.stage = 'first-gem';
-            state.founding.creationTarget = null;
-            const source = state.founding.creationSource || 'manual';
-            state.founding.creationSource = 'manual';
-            if(source==='injector'){
-                if(!Array.isArray(state.founding.productionReports))state.founding.productionReports=[];
-                state.founding.productionReports.push({type,gemLabel:data.label,quantity:batchCount,grade:'A',mineralName:data.mineralName,cycle:Number(state.cycleCount)||1,description:'Lote produzido pela frota de '+Math.max(1,structureCount('injector'))+' Injetor(es), operados por Peridots.'});
-                if(state.founding.productionReports.length>50)state.founding.productionReports.shift();
-            }
-            if (!Object.prototype.hasOwnProperty.call(state.census, type)) state.census[type] = 0;
-            state.census[type]+=batchCount;
-            for(let i=0;i<batchCount;i++){
-                if(type==='pearl'){
+        function completeInjectorProductionBatch(batch){
+            const data=FOUNDING_GEM_DATA[batch.type];
+            if(!data||batch.completed)return;
+            const quantity=Math.max(1,Math.min(60,Number(batch.quantity)||1));
+            const planet=PLANETS[state.activeColonyPlanetId||'homeworld'];
+            if(!Object.prototype.hasOwnProperty.call(state.census,batch.type))state.census[batch.type]=0;
+            state.census[batch.type]+=quantity;
+            state.founding.gemsCreatedCount=(Number(state.founding.gemsCreatedCount)||0)+quantity;
+            state.founding.firstGemCreated=true;
+            for(let i=0;i<quantity;i++){
+                if(batch.type==='pearl'){
                     if(!Array.isArray(state.founding.reefPearlInventory))state.founding.reefPearlInventory=[];
-                    state.founding.reefPearlInventory.push({planetId:state.activeColonyPlanetId||'homeworld',originOcean:!!PLANETS[state.activeColonyPlanetId||'homeworld'].hasOcean,source:'reef',quality:'A'});
+                    state.founding.reefPearlInventory.push({planetId:state.activeColonyPlanetId||'homeworld',originOcean:!!planet.hasOcean,source:'reef',quality:'A'});
                 }else{
-                    const quartzVariant=type==='quartz'?getQuartzVariantForPlanet(PLANETS[state.activeColonyPlanetId||'homeworld'],i):type==='ruby'?'ruby':null;
-                    if(quartzVariant&&state.founding.quartzVariantCounts)state.founding.quartzVariantCounts[quartzVariant]=(Number(state.founding.quartzVariantCounts[quartzVariant])||0)+1;
-                    PLANETS[state.activeColonyPlanetId||'homeworld'].walkingGems.push({caste:type,variant:quartzVariant,color:data.color,grade:'A',isOrbiting:type==='lapis',bubbleText:'✨ Recém-emergida',angle:Math.random()*Math.PI*2,dir:1,speed:0.0005,bobPhase:0});
+                    const variant=batch.type==='quartz'?getQuartzVariantForPlanet(planet,i):batch.type==='ruby'?'ruby':null;
+                    if(variant&&state.founding.quartzVariantCounts)state.founding.quartzVariantCounts[variant]=(Number(state.founding.quartzVariantCounts[variant])||0)+1;
+                    planet.walkingGems.push({caste:batch.type,variant:variant,color:data.color,grade:'A',isOrbiting:batch.type==='lapis',bubbleText:'✨ Recém-emergida',angle:Math.random()*Math.PI*2,dir:1,speed:0.0005,bobPhase:0});
                 }
             }
-            const title = batchCount>1?'Lote de Gems produzido':(isFirst ? 'A primeira Gem nasceu' : 'Nova Gem nasceu');
-            const description = state.firstDiamond.name + ' formou ' + batchCount + ' ' + data.label + '(s) através de ' + (source === 'injector' ? 'um ciclo automático de injeção no veio local' : 'essência e substrato mineral') + '. Função: ' + data.role + '.';
-            addChronicle(title, description, isFirst ? 'Primeira Gem criada' : 'População ampliada');
-            setStatusTicker(batchCount>1?batchCount+' Gems '+data.label+' emergiram do veio local.':(isFirst ? 'A primeira Gem emergiu: ' : 'Nova Gem emergiu: ') + data.label + '. Ela já conhece sua função e pode ser designada a uma estrutura.');
-            updateHUD(); renderDrawerContent(); renderBottomBar();
+            if(!Array.isArray(state.founding.productionReports))state.founding.productionReports=[];
+            state.founding.productionReports.push({type:batch.type,injectorIndex:Number(batch.injectorIndex)||0,gemLabel:data.label,quantity:quantity,grade:'A',mineralName:data.mineralName,cycle:Number(state.cycleCount)||1,description:'Lote do Injetor #'+(Number(batch.injectorIndex)+1)+', operado automaticamente pela frota.'});
+            if(state.founding.productionReports.length>50)state.founding.productionReports.shift();
+            batch.completed=true;
+            batch.progress=100;
+            updateHUD();renderDrawerContent();renderBottomBar();
+        }
+        function finishFirstGemCreation() {
+            const source=state.founding.creationSource||'manual';
+            if(source==='injector'){
+                const batches=Array.isArray(state.founding.creationBatches)?state.founding.creationBatches:[];
+                const completed=batches.filter(batch=>batch.completed).reduce((sum,batch)=>sum+Math.max(0,Number(batch.quantity)||0),0);
+                state.founding.creationActive=false;
+                state.founding.firstGemCreated=true;
+                state.founding.creationBatchCount=0;
+                state.founding.creationTarget=null;
+                state.founding.creationSource='manual';
+                state.founding.creationBatches=[];
+                state.founding.creationDuration=42;
+                state.founding.creationProgress=100;
+                state.founding.stage='first-gem';
+                addChronicle('Frota de Injetores concluída','A frota concluiu '+completed+' Gems em lotes paralelos. Os Injetores que usaram matéria refinada levaram o dobro do tempo.','Produção simultânea concluída');
+                setStatusTicker('Produção concluída: '+completed+' Gems emergiram dos Injetores programados.');
+                updateHUD();renderDrawerContent();renderBottomBar();
+                return;
+            }
+            const type=state.founding.creationTarget,data=FOUNDING_GEM_DATA[type];
+            if(!data)return;
+            const isFirst=!state.founding.firstGemCreated;
+            state.founding.creationBatchCount=0;
+            state.founding.creationActive=false;
+            state.founding.firstGemCreated=true;
+            state.founding.gemsCreatedCount=(Number(state.founding.gemsCreatedCount)||0)+1;
+            state.founding.stage='first-gem';
+            state.founding.creationTarget=null;
+            state.founding.creationSource='manual';
+            state.founding.creationBatches=[];
+            state.founding.creationDuration=42;
+            if(!Object.prototype.hasOwnProperty.call(state.census,type))state.census[type]=0;
+            state.census[type]++;
+            const planet=PLANETS[state.activeColonyPlanetId||'homeworld'];
+            if(type==='pearl'){
+                if(!Array.isArray(state.founding.reefPearlInventory))state.founding.reefPearlInventory=[];
+                state.founding.reefPearlInventory.push({planetId:state.activeColonyPlanetId||'homeworld',originOcean:!!planet.hasOcean,source:'reef',quality:'A'});
+            }else{
+                const variant=type==='quartz'?getQuartzVariantForPlanet(planet,0):type==='ruby'?'ruby':null;
+                if(variant&&state.founding.quartzVariantCounts)state.founding.quartzVariantCounts[variant]=(Number(state.founding.quartzVariantCounts[variant])||0)+1;
+                planet.walkingGems.push({caste:type,variant:variant,color:data.color,grade:'A',isOrbiting:type==='lapis',bubbleText:'✨ Recém-emergida',angle:Math.random()*Math.PI*2,dir:1,speed:0.0005,bobPhase:0});
+            }
+            addChronicle(isFirst?'A primeira Gem nasceu':'Nova Gem nasceu',state.firstDiamond.name+' formou '+data.label+' através de essência e substrato mineral. Função: '+data.role+'.',isFirst?'Primeira Gem criada':'População ampliada');
+            setStatusTicker((isFirst?'A primeira Gem emergiu: ':'Nova Gem emergiu: ')+data.label+'. Ela já conhece sua função e pode ser designada a uma estrutura.');
+            updateHUD();renderDrawerContent();renderBottomBar();
         }
 
         function selectFoundingGem(type) {
@@ -5164,14 +5341,10 @@ function drawColony(time){
             renderDrawerContent();
         }
         function setInjectorGemType(type) {
-            if (!FOUNDING_GEM_DATA[type]) return;
-            // A ordem pode mudar durante um lote: creationTarget continua reservado
-            // ao lote atual; injectorGemType define exclusivamente o próximo lote.
-            state.founding.injectorGemType=type;
-            const label=FOUNDING_GEM_DATA[type].label;
-            const a=document.getElementById('injector-order-current');if(a)a.textContent=label;
-            const b=document.getElementById('injector-order-current-modal');if(b)b.textContent=label;
-            setStatusTicker('Próximo lote dos Injetores definido: '+label+'. O lote em andamento não será alterado.');
+            if(!FOUNDING_GEM_DATA[type])return;
+            const orders=ensureInjectorOrders();
+            if(orders.length)setInjectorOrderType(0,type);
+            else state.founding.injectorGemType=type;
         }
 
         function renderFoundingContext(container) {
@@ -5186,7 +5359,7 @@ function drawColony(time){
                 '<button type="button" class="founding-gem-option ' + (found.selectedGem===key?'selected':'') + '" data-gem="' + key + '" onclick="selectFoundingGem(this.dataset.gem)" ' + (found.creationActive||found.injectorSpecializationLocked?'disabled':'') + ' aria-pressed="' + (found.selectedGem===key?'true':'false') + '">' +
                 '<strong>' + g.label + (found.selectedGem===key?' ✓':'') + '</strong><small>' + g.mineralName + '</small><small>' + g.role + '</small></button>'
             ).join('');
-            const hasInjector = structureIsOperational('injector');
+            const hasInjector = structureCount('injector')>0;
             const hasChamber = structureIsOperational('essence_chamber');
             const reports=(found.productionReports||[]).slice().reverse();
             const reportHtml=reports.length?reports.map(r=>'<div class="stat-box"><b>'+escapeHTML(r.gemLabel||r.type||'Gem')+' × '+Number(r.quantity||0)+'</b><small style="display:block;color:var(--text-muted)">Qualidade: '+escapeHTML(r.grade||'A')+' · Substrato: '+escapeHTML(r.mineralName||'Não informado')+' · Ciclo '+Number(r.cycle||0)+'</small><small>'+escapeHTML(r.description||'Produção automática concluída.')+'</small></div>').join(''):'<div class="stat-box" style="color:#94a3b8">Nenhum lote produzido ainda. Os resultados aparecerão aqui após o primeiro ciclo do Injetor.</div>';
@@ -5201,7 +5374,7 @@ function drawColony(time){
                 '<div class="stat-box">Essência armazenada: <b>' + Object.values(state.essence).reduce((a,b)=>a+b,0).toFixed(1) + '</b> · Reserva interna da Diamante: <b>' + (found.diamondEssence || 0).toFixed(1) + '</b> · Recebida pelo Injetor: <b>' + (found.injectorEssence || 0).toFixed(1) + '</b></div>' +
                 (found.bathActive?'<div class="founding-progress"><div id="founder-bath-progress" style="width:'+Math.floor(found.bathProgress||0)+'%"></div></div><div id="founder-bath-label" style="font-size:10px;color:#cbd5e1">Banho de essência: '+Math.floor(found.bathProgress||0)+'% · '+Math.max(0,Math.ceil(30*(1-(Number(found.bathProgress)||0)/100)))+'s restantes</div>':(found.bathCooldown>0?'<div class="stat-box" style="color:#fbbf24">Próximo banho em: <b id="founder-bath-cooldown">'+formatDuration(found.bathCooldown)+'</b></div>':''))+
                 '<button id="founder-activity-button" class="btn btn-pink btn-block" onclick="performFounderActivity()" '+(found.bathActive||found.creationActive||found.bathCooldown>0||(structureCount('essence_chamber')>0&&!hasChamber)||(!hasChamber&&structureCount('essence_chamber')===0&&(found.essenceCooldown||0)>0)?'disabled':'')+'>'+(structureCount('essence_chamber')>0?(found.bathActive?'🛁 Banho de essência em andamento':hasChamber?(found.bathCooldown>0?'⏳ Próximo banho em '+formatDuration(found.bathCooldown):'🛁 Iniciar banho · 30s'):'⏳ Aguardando Peridot na Câmara'):(found.essenceCooldown||0)>0?'⏳ Recuperando fôlego · '+found.essenceCooldown.toFixed(1)+'s':'💪 Exercício físico · produzir 2 essência')+'</button></div>' +
-                (hasInjector?'<div class="card"><div class="card-header"><span class="card-title title-font">📊 Relatórios e ordem de produção</span><span class="badge">Injetor automático</span></div><div class="founding-note">Peridots operam os Injetores automaticamente. Defina aqui qual Gem deverá ser produzida; a ordem será respeitada nos próximos ciclos, desde que existam substrato, essência e condições climáticas adequadas.</div><label for="injector-gem-order">Tipo de Gem solicitado</label><select id="injector-gem-order" class="btn" style="width:100%;margin:6px 0 10px" onchange="setInjectorGemType(this.value">'+Object.entries(FOUNDING_GEM_DATA).map(([key,g])=>'<option value="'+key+'" '+((found.injectorGemType||'quartz')===key?'selected':'')+'>'+escapeHTML(g.label)+'</option>').join('')+'</select><div class="stat-box">Ordem atual: <b id="injector-order-current">'+(FOUNDING_GEM_DATA[found.injectorGemType||'quartz']?.label||'Quartzo')+'</b> · Lotes concluídos: <b>'+(found.productionReports||[]).length+'</b> · Gems produzidas: <b>'+(found.gemsCreatedCount||0)+'</b></div><button class="btn btn-emerald btn-block" onclick="requestGemProductionReport()">📄 Abrir relatório de produção</button></div>':
+                (hasInjector?'<div class="card"><div class="card-header"><span class="card-title title-font">📊 Programação dos Injetores</span><span class="badge">Produção paralela</span></div><div class="founding-note">Ajuste cada Injetor individualmente. Cada unidade faz até 5 Gems por ciclo; 1 Injetor a cada 5 fica reservado para matéria-prima refinada.</div>'+buildInjectorProductionControlsHTML('context')+'<div class="stat-box">Lotes concluídos: <b>'+(found.productionReports||[]).length+'</b> · Gems produzidas: <b>'+(found.gemsCreatedCount||0)+'</b></div><button class="btn btn-emerald btn-block" onclick="requestGemProductionReport()">📄 Abrir relatório detalhado</button></div>':
                 '<div class="card"><div class="card-header"><span class="card-title title-font">💎 Formação manual de Gems</span></div>' +
                 '<div class="card-header"><span class="card-title title-font">📚 Catálogo de tipos de Gem</span><span class="badge">Sempre aberto</span></div><div class="founding-note">Todos os tipos ficam visíveis aqui. Toque em uma opção para selecioná-la; não há lista suspensa.</div><div class="founding-gem-catalog" role="group" aria-label="Catálogo de tipos de Gem">' + gemCatalog + '</div>' +
                 '<div class="founding-note" style="margin-top:8px"><b>' + selected.label + '</b><br>Substrato: ' + selected.mineralName + '<br>Composição: ' + selected.elements + '<br>Função natural: ' + selected.role + '<br>Requer 12 unidades de essência e uma amostra compatível.</div>' +
@@ -5365,6 +5538,9 @@ function drawColony(time){
                 state.founding.gatherCooldown = Number(state.founding.gatherCooldown) || 0;
                 state.founding.injectorGemType = state.founding.injectorGemType || state.founding.selectedGem || 'quartz';
                 state.founding.injectorSpecializationLocked = false;
+                state.founding.injectorOrders = Array.isArray(state.founding.injectorOrders)?state.founding.injectorOrders:[];
+                state.founding.creationBatches = Array.isArray(state.founding.creationBatches)?state.founding.creationBatches:[];
+                state.founding.creationDuration = Math.max(1,Number(state.founding.creationDuration)||42);
                 state.founding.bathActive = !!state.founding.bathActive;
                 state.founding.bathProgress = Number(state.founding.bathProgress)||0;
                 state.founding.bathDuration = Number(state.founding.bathDuration)||30;
@@ -5378,6 +5554,7 @@ function drawColony(time){
                 state.founding.selectedGem = state.founding.selectedGem || 'quartz';
                 state.structures = state.structures || {};
                 state.structureAssignments = state.structureAssignments || {};
+                if(state.structureAssignments.mineral_extractor)delete state.structureAssignments.mineral_extractor.quartz;
                 state.construction = state.construction || null;
                 state.morganiteAutoBuild = state.morganiteAutoBuild !== false;
                 state.gemTransfers = Array.isArray(state.gemTransfers)?state.gemTransfers:[];
@@ -5392,6 +5569,10 @@ function drawColony(time){
                 PLANETS.homeworld.gemObjects = Array.isArray(PLANETS.homeworld.gemObjects)?PLANETS.homeworld.gemObjects:[];
                 state.census = state.census || {};
                 ['quartz','peridot','lapis','sapphire','hessonite','bismuth','ruby','pearl','prime','offcolor','pyrope','agate','nephrite','jade','morganite','aquamarine','emerald','topaz'].forEach(k=>state.census[k]=Math.max(0,Number(state.census[k])||0));
+                state.founding.gatheredMinerals=Object.assign({quartz:0,silicate:0,corundum:0,metallic:0,nacre:0,garnet:0,olivine:0,lapisrock:0,pyroxene:0,beryllium:0,topaz:0},state.founding.gatheredMinerals||{});
+                state.founding.collectedMinerals=Object.assign({},state.founding.gatheredMinerals,state.founding.collectedMinerals||{});
+                state.founding.refineryProcessed=Object.assign({quartz:0,pyroxene:0,beryllium:0},state.founding.refineryProcessed||{});
+                ensureInjectorOrders();
                 state.founding.reefPearlInventory = Array.isArray(state.founding.reefPearlInventory)?state.founding.reefPearlInventory:[];
                 state.founding.assignedPearls = Array.isArray(state.founding.assignedPearls)?state.founding.assignedPearls:[];
                 if(!state.founding.pearlAssignmentSystem){
@@ -5424,6 +5605,7 @@ function drawColony(time){
                     for (const gem of (data.planets[id]?.walkingGems||[])) if(gem.caste==='jasper') gem.caste='quartz';
                     for (const key of Object.keys(PLANETS[id])) delete PLANETS[id][key];
                     Object.assign(PLANETS[id], data.planets[id]);
+                    applyPlanetEnvironmentDefaults(PLANETS[id]);
                     const pools=PLANETS[id].resourcesByType=PLANETS[id].resourcesByType||{};
                     if(!Object.prototype.hasOwnProperty.call(pools,'pyroxene')){const n=Math.floor((Number(PLANETS[id].resourceTotal)||0)*.05);pools.pyroxene=n;pools.silicate=Math.max(0,(Number(pools.silicate)||0)-n);}
                     if(!Object.prototype.hasOwnProperty.call(pools,'beryllium')){const n=Math.floor((Number(PLANETS[id].resourceTotal)||0)*.01);pools.beryllium=n;pools.metallic=Math.max(0,(Number(pools.metallic)||0)-n);}
