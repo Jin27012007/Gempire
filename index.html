@@ -5664,6 +5664,7 @@ function drawColony(time){
                 state.selectedVeinIndex = Math.max(0, Math.min(PLANETS[state.activeColonyPlanetId].veins.length - 1, Number(state.selectedVeinIndex) || 0));
                 applyGameSettings();
                 saveGame(slotId,true);
+                ['throne','starmap','colony'].forEach(screen=>{const button=document.getElementById('nav-'+screen);if(button)button.classList.toggle('active',screen==='throne');});
                 updateHUD(); renderBottomBar(); renderDrawerContent(); syncDrawerTabButtons(); toggleDrawer(state.drawerOpen && window.innerWidth > 600);
                 gameHasStarted = true; setGameMenuVisible(false);
                 setStatusTicker('Partida carregada. A dinastia continua de onde foi salva.');
