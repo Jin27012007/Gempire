@@ -6311,6 +6311,9 @@ function drawColony(time){
                     PLANETS[id].landmassCreated=!!PLANETS[id].landmassCreated;
                     for(const type of ['pyroxene','beryllium','topaz']) if(!PLANETS[id].veins.some(v=>v.type===type)) PLANETS[id].veins.push({id:PLANETS[id].veins.length,type,label:type==='pyroxene'?'Veio de Piroxênio':type==='beryllium'?'Nódulo de Berílio':'Bolsa de Topázio',purity:45,angle:Math.random()*Math.PI*2,depthRatio:.82,injector:null,rebelBlocked:false,_screenX:0,_screenY:0});
                 }
+                // Regra canônica do cenário: saves antigos não podem restaurar luas em Homeworld.
+                // O conteúdo de luas salvo anteriormente era obsoleto e liberava indevidamente a Base Lunar.
+                PLANETS.homeworld.moons = [];
                 if(state.structures.galaxy_warp>0)PLANETS.homeworld.galaxyWarpBuilt=true;
                 if (!PLANETS[state.activeColonyPlanetId] || !PLANETS[state.activeColonyPlanetId].colonized) state.activeColonyPlanetId = 'homeworld';
                 if (!PLANETS[state.selectedStarMapPlanetId]) state.selectedStarMapPlanetId = 'homeworld';
