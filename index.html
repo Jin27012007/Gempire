@@ -2099,6 +2099,40 @@
             setStatusTicker('Injeção simultânea iniciada: '+totalGems+' Gems em '+readyBatches.length+' Injetor(es).'+(waiting?' '+waiting+' Injetor(es) aguardam recursos ou condições.':''));
             updateStructureUI();
         }
+        function dispatchGalaxyWarpExpedition(targetId){
+            const target=PLANETS[targetId],source=PLANETS[state.activeColonyPlanetId];
+            if(!structureIsOperational('galaxy_warp')){setStatusTicker('É necessário um Galaxy Warp operacional no planeta de origem.',true);return;}
+            if(!target||!target.colonized||target.id===source.id){setStatusTicker('A expedição exige outro planeta já colonizado.',true);return;}
+            if(target.galaxyWarpBuilt){setStatusTicker('Este planeta já possui um Galaxy Warp.');return;}
+            if(!(state.shipFleet||[]).length){setStatusTicker('É necessária ao menos uma nave para transportar a equipe de construção.',true);return;}
+            if(state.minerals<100||state.tech<40){setStatusTicker('A expedição exige 100 minerais e 40 de tecnologia.',true);return;}
+            state.minerals-=100;state.tech-=40;
+            state.galaxyWarpExpeditions=state.galaxyWarpExpeditions||[];
+            state.galaxyWarpExpeditions.push({targetId,sourceId:source.id,progress:0,duration:180,active:true});
+            setStatusTicker('Expedição enviada para construir um Galaxy Warp em '+target.shortName+'.');
+            updateHUD();renderDrawerContent();
+        }
+        function updateGalaxyWarpExpeditions(dt){
+            (state.galaxyWarpExpeditions||[]).forEach(exp=>{
+                if(!exp.active)return;
+                exp.progress=Math.min(100,(Number(exp.progress)||0)+Math.max(0,Number(dt)||0)*100/Math.max(1,Number(exp.duration)||180));
+                if(exp.progress<100)return;
+                const target=PLANETS[exp.targetId];if(target){target.galaxyWarpBuilt=true;target.colonized=true;}
+                exp.active=false;
+                setStatusTicker('Galaxy Warp construído por expedição em '+(target?.shortName||exp.targetId)+'. A conexão interplanetária está disponível.');
+                addChronicle('Galaxy Warp estabelecido', 'Uma expedição concluiu a construção de um Galaxy Warp em '+(target?.shortName||exp.targetId)+'.','Rede interplanetária ampliada');
+                updateHUD();renderDrawerContent();renderBottomBar();
+            });
+        }
+        function canGalaxyWarpToPlanet(targetId){
+            const source=PLANETS[state.activeColonyPlanetId],target=PLANETS[targetId];
+            return !!(source&&source.galaxyWarpBuilt&&target&&target.galaxyWarpBuilt&&target.colonized);
+        }
+        function travelThroughGalaxyWarp(targetId){
+            if(!canGalaxyWarpToPlanet(targetId)){setStatusTicker('A viagem exige Galaxy Warp operacional tanto na origem quanto no destino.',true);return;}
+            changeActiveColonyPlanet(targetId);switchScreen('colony');
+            setStatusTicker('Teletransporte instantâneo concluído para '+PLANETS[targetId].shortName+'.');
+        }
         function startRedEyeMission(mode='survey'){
             if(!structureIsOperational('red_eye')){setStatusTicker('O Olho Vermelho exige seus operadores e uma estrutura operacional.',true);return;}
             const ids=Object.keys(PLANETS),current=state.activeColonyPlanetId||'homeworld';
@@ -2247,6 +2281,7 @@
             processAutomaticRefinery();
             updateLogisticsCenter(dt);
             updateRedEyeMission(dt);
+            updateGalaxyWarpExpeditions(dt);
             if(Number(state.census.morganite||0)>0&&state.morganiteAutoBuild&&freeGemWorkers('bismuth')>0){
                 const next=STRUCTURE_CATALOG.find(def=>structureCount(def.id)<(def.maxCount||1)&&canBuildStructure(def)==='');
                 if(next)buildStructure(next.id);
@@ -2391,6 +2426,13 @@
                             const ruler=(PLANETS[state.activeColonyPlanetId]?.governor||'none').startsWith('matriarch_')?state.matriarchs.find(m=>'matriarch_'+m.id===PLANETS[state.activeColonyPlanetId].governor):state.firstDiamond;
                             html+='<div class="founding-note">Cinese da Diamante: <b>'+ensureDiamondKinesis(ruler).name+'</b><br>Essência Diamante disponível: <b>'+Number(state.founding.diamondEssence||0).toFixed(1)+'</b> · Custo por arma: 50<br>Armas desenvolvidas: '+weapons.length+'</div><button class="btn btn-block" onclick="developDiamondWeapon()" '+(!structureIsOperational('research_center')||Number(state.founding.diamondEssence||0)<50?'disabled':'')+'>⚔️ Desenvolver arma exclusiva · 50 Essências</button>';
                             weapons.slice(-5).reverse().forEach(w=>{html+='<div class="stat-box"><b>'+escapeHTML(w.name)+'</b><small style="display:block;color:var(--text-muted)">'+escapeHTML(w.owner)+' · '+escapeHTML(w.kinesis)+'</small>'+escapeHTML(w.effect)+'</div>';});
+                        } else if(def.id==='galaxy_warp'){
+                            const expeditions=state.galaxyWarpExpeditions||[];
+                            html+='<div class="founding-note">Teletransporte local instantâneo. Para viajar entre planetas, ambos precisam possuir um Galaxy Warp. A construção no destino exige uma expedição e uma nave.</div>';
+                            Object.values(PLANETS).filter(p=>p.colonized&&p.id!==state.activeColonyPlanetId).forEach(p=>{
+                                if(p.galaxyWarpBuilt)html+='<button class="btn btn-block" onclick="travelThroughGalaxyWarp(\''+p.id+'\')">🌀 Viajar para '+escapeHTML(p.shortName)+'</button>';
+                                else {const active=expeditions.some(e=>e.active&&e.targetId===p.id);html+='<button class="btn btn-block" onclick="dispatchGalaxyWarpExpedition(\''+p.id+'\')" '+(active?'disabled':'')+'>🚀 '+(active?'Expedição em andamento':'Enviar expedição para '+escapeHTML(p.shortName))+'</button>';}
+                            });
                         } else if(def.id==='red_eye'){
                             const mission=state.redEyeMission,reports=state.redEyeReports||[];
                             html+='<div class="founding-note">Sonda orbital com retorno automático. '+(mission&&mission.active?'Missão em andamento: '+escapeHTML(PLANETS[mission.planetId]?.shortName||'alvo')+' · '+Math.floor(mission.progress)+'%':'Aguardando missão')+'</div>';
