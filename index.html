@@ -4815,6 +4815,10 @@ ${hasAristocrats ? `
                         scale=size*.34;
                     }else if(def.id==='royal_palace'){
                         angle=-Math.PI/2;ratio=.70;scale=size*1.28;
+                    }else if(def.id==='diamond_quarters'||def.id==='essence_chamber'){
+                        angle=camera.rotation+instance*2.399963229728653;
+                        ratio=.38+(instance%4)*.12;
+                        scale=size*(def.id==='diamond_quarters'?.88:1);
                     }else if(def.id==='red_eye'){
                         angle=camera.rotation;ratio=.0;scale=size*.45;
                     }else{
