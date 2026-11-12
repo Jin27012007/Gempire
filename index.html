@@ -1822,7 +1822,10 @@
             if (state.drawerTab === 'population') { renderPopulationReport(body); return; }
             if (state.drawerTab === 'chronicle') { renderChronicleTab(body); return; }
             if (state.drawerTab === 'dynasty') { renderDynastyTab(body); return; }
-            if (state.firstGameStarted && state.founding) {
+            // O painel de fundação pertence exclusivamente à Era Primitiva.
+            // Depois da primeira Gem, o Contexto volta a refletir a tela ativa
+            // (Trono, Mapa Estelar ou Globo 360°), sem recriar a coleta manual.
+            if (state.firstGameStarted && state.founding && !state.founding.firstGemCreated) {
                 renderFoundingContext(body);
                 return;
             }
