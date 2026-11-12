@@ -2197,6 +2197,7 @@
         }
         function toggleMorganiteAutoBuild(){if(Number(state.census.morganite||0)<1)return;state.morganiteAutoBuild=!state.morganiteAutoBuild;setStatusTicker('Construção automática Morganita '+(state.morganiteAutoBuild?'ativada.':'desativada.'));renderDrawerContent();}
         function updateStructureSimulation(dt) {
+            processAutomaticRefinery();
             if(Number(state.census.morganite||0)>0&&state.morganiteAutoBuild&&!state.construction?.active){
                 const next=STRUCTURE_CATALOG.find(def=>structureCount(def.id)<(def.maxCount||1)&&canBuildStructure(def)==='');
                 if(next)buildStructure(next.id);
@@ -2343,7 +2344,7 @@
                             html += '<button class="btn btn-block" onclick="executeStructureInteraction(\'' + def.id + '\')" ' + (!structureIsOperational(def.id) ? 'disabled' : '') + '>' + labels[def.id] + '</button>';
                          } else if (def.id === 'mineral_extractor') html += '<div class="founding-note">Todos os ' + Math.max(0,Number(state.census.quartz)||0) + ' Quartzos da população mineram automaticamente, sem designação manual. Cada Quartzo extrai 1 mineral a cada 10s; cada Ágata acelera até 20 deles para 5s (2×).</div>';
                         else if (def.id === 'essence_chamber') html += '<div class="founding-note">Transfere essência da reserva interna da Diamante para o estoque.</div>';
-                         if(def.id==='refinery') html += '<div class="founding-note"><b>Refino limitado a 5% do total coletado</b><br>Estoque bruto: Quartzo '+Number(state.founding.gatheredMinerals.quartz||0)+' · Piroxênio '+Number(state.founding.gatheredMinerals.pyroxene||0)+' · Berílio '+Number(state.founding.gatheredMinerals.beryllium||0)+'<br>Refinados: Quartzo '+Number(state.refinedResources.quartz||0)+' · Piroxênio '+Number(state.refinedResources.pyroxene||0)+' · Berílio '+Number(state.refinedResources.beryllium||0)+'</div><div class="grid-2"><button class="btn" onclick="refineSpecialMaterial(\'quartz\')" '+(getRefinableAmount('quartz')<1?'disabled':'')+'>Refinar Quartzo · '+getRefinableAmount('quartz')+'</button><button class="btn" onclick="refineSpecialMaterial(\'pyroxene\')" '+(getRefinableAmount('pyroxene')<1?'disabled':'')+'>Refinar Piroxênio · '+getRefinableAmount('pyroxene')+'</button><button class="btn" onclick="refineSpecialMaterial(\'beryllium\')" '+(getRefinableAmount('beryllium')<1?'disabled':'')+'>Refinar Berílio · '+getRefinableAmount('beryllium')+'</button></div>';
+                          if(def.id==='refinery') html += '<div class="founding-note"><b>Refino automático · limite de 5% da coleta total</b><br>A Refinaria processa continuamente Quartzo, Piroxênio e Berílio assim que houver material bruto elegível e os operadores estiverem designados. Não é necessária intervenção manual.<br>Estoque bruto: Quartzo '+Number(state.founding.gatheredMinerals.quartz||0)+' · Piroxênio '+Number(state.founding.gatheredMinerals.pyroxene||0)+' · Berílio '+Number(state.founding.gatheredMinerals.beryllium||0)+'<br>Refinados: Quartzo '+Number(state.refinedResources.quartz||0)+' · Piroxênio '+Number(state.refinedResources.pyroxene||0)+' · Berílio '+Number(state.refinedResources.beryllium||0)+'</div>';
                         if(def.id==='reef') html += '<div class="founding-note">Pérolas sem dona armazenadas: <b>'+(state.founding.reefPearlInventory||[]).length+'</b>. Use o Relatório populacional para atribuí-las.</div>';
                         if (def.id === 'injector' && count < (def.maxCount || 1)) {
                             const nextReason = canBuildStructure(def);
@@ -5136,6 +5137,27 @@ function drawColony(time){
             state.refinedResources[type]=(Number(state.refinedResources[type])||0)+amount;
             setStatusTicker('A Refinaria converteu '+amount+' unidades de '+labels[type]+' em material refinado (limite acumulado de 5% da coleta).');
             updateHUD();renderDrawerContent();
+        }
+
+        function processAutomaticRefinery(){
+            if(!structureIsOperational('refinery'))return 0;
+            const labels={quartz:'Quartzo',pyroxene:'Piroxênio',beryllium:'Berílio'};
+            const f=state.founding;
+            f.refineryProcessed=f.refineryProcessed||{quartz:0,pyroxene:0,beryllium:0};
+            f.gatheredMinerals=f.gatheredMinerals||{};
+            state.refinedResources=state.refinedResources||{quartz:0,pyroxene:0,beryllium:0};
+            let total=0,details=[];
+            Object.keys(labels).forEach(type=>{
+                const amount=getRefinableAmount(type);
+                if(amount<1)return;
+                f.gatheredMinerals[type]=Math.max(0,(Number(f.gatheredMinerals[type])||0)-amount);
+                f.refineryProcessed[type]=(Number(f.refineryProcessed[type])||0)+amount;
+                state.refinedResources[type]=(Number(state.refinedResources[type])||0)+amount;
+                total+=amount;
+                details.push(labels[type]+' '+amount);
+            });
+            if(total>0)setStatusTicker('Refinaria automática: '+details.join(', ')+' convertidos em matéria refinada.');
+            return total;
         }
 
         function formatDuration(seconds){const value=Math.max(0,Math.ceil(Number(seconds)||0)),h=Math.floor(value/3600),m=Math.floor((value%3600)/60),sec=value%60;return h+'h '+String(m).padStart(2,'0')+'m '+String(sec).padStart(2,'0')+'s';}
