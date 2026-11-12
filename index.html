@@ -2078,21 +2078,31 @@
             if(field)field.value=String(orders[index].quantity);
             setStatusTicker('Quantidade do Injetor #'+(index+1)+' definida: '+orders[index].quantity+'/5 Gems.');
         }
+        function isInjectorManagerActive(){
+            return Number(state.census?.demantoid||0)>0;
+        }
         function isInjectorPaused(index){
             const f=state.founding||{};
+            if(isInjectorManagerActive()){
+                // Ao assumir o comando, a Demantoide ignora pausas antigas/manualizadas
+                // antes de sua chegada. Só respeita pausas solicitadas durante a gestão.
+                return !!f.injectorManualPauseAll||!!(f.injectorManualPausedByIndex&&f.injectorManualPausedByIndex[index]);
+            }
             return !!f.injectorPauseAll||!!(f.injectorPausedByIndex&&f.injectorPausedByIndex[index]);
         }
         function toggleInjectorPause(index){
             const f=state.founding||(state.founding={});
-            if(!f.injectorPausedByIndex||typeof f.injectorPausedByIndex!=='object')f.injectorPausedByIndex={};
-            f.injectorPausedByIndex[index]=!f.injectorPausedByIndex[index];
-            setStatusTicker('Injetor #'+(index+1)+(f.injectorPausedByIndex[index]?' pausado.':' retomado.'));
+            const managed=isInjectorManagerActive();
+            const pauseMap=managed?(f.injectorManualPausedByIndex||(f.injectorManualPausedByIndex={})):(f.injectorPausedByIndex||(f.injectorPausedByIndex={}));
+            pauseMap[index]=!pauseMap[index];
+            setStatusTicker('Injetor #'+(index+1)+(pauseMap[index]?' pausado.':' retomado.'));
             updateInjectorProductionWindow();renderDrawerContent();
         }
         function toggleAllInjectorsPause(){
             const f=state.founding||(state.founding={});
-            f.injectorPauseAll=!f.injectorPauseAll;
-            setStatusTicker(f.injectorPauseAll?'Todos os Injetores foram pausados.':'Todos os Injetores foram retomados.');
+            const key=isInjectorManagerActive()?'injectorManualPauseAll':'injectorPauseAll';
+            f[key]=!f[key];
+            setStatusTicker(f[key]?'Todos os Injetores foram pausados.':'Todos os Injetores foram retomados.');
             updateInjectorProductionWindow();renderDrawerContent();
         }
         function buildInjectorProductionControlsHTML(prefix){
@@ -2107,7 +2117,7 @@
                     '<div class="grid-2"><label style="font-size:10px;color:#94a3b8">Gem<select id="injector-order-'+prefix+'-type-'+index+'" onchange="setInjectorOrderType('+index+',this.value)">'+options+'</select></label><label style="font-size:10px;color:#94a3b8">Quantidade (0–5)<input id="injector-order-'+prefix+'-qty-'+index+'" type="number" min="0" max="5" step="1" value="'+order.quantity+'" onchange="setInjectorOrderQuantity('+index+',this.value)" style="width:100%;background:#080e1c;color:#f8fafc;border:1px solid rgba(148,163,184,.35);border-radius:6px;padding:6px"></label></div>';
                 return '<div class="stat-box" style="display:grid;gap:7px"><div style="display:flex;justify-content:space-between;align-items:center"><b>Injetor #'+(index+1)+'</b><small style="color:'+(gem.refinedMaterial?'#c084fc':'#94a3b8')+'">'+(gem.refinedMaterial?'REFINADO':'BRUTO')+'</small></div>'+configuration+'<div style="display:flex;justify-content:space-between;align-items:center"><small style="color:'+(paused?'#fbbf24':'#86efac')+'">'+(paused?'PAUSADO':'ATIVO')+'</small><button class="btn btn-block" style="max-width:150px" onclick="toggleInjectorPause('+index+')">'+(paused?'▶ Retomar':'Ⅱ Pausar')+'</button></div></div>';
             }).join('');
-            return '<div class="founding-note">'+(managed?'A Demantoide administra as ordens. Você ainda pode pausar qualquer unidade.':'Modo manual: escolha a Gem e a quantidade de cada Injetor. A produção só começa ao pressionar Iniciar.')+' Cada Injetor produz até 5 Gems. Matéria refinada: máximo de 1 Injetor a cada 5 unidades; ciclo de 84s em vez de 42s.</div><div class="stat-box">Programado: <b>'+scheduled+'/'+totalCapacity+'</b> Gems · Injetores refinados: <b>'+refinedReserved+'/'+getRefinedInjectorLimit()+'</b></div><button class="btn btn-block" style="margin-bottom:8px" onclick="toggleAllInjectorsPause()">'+((state.founding||{}).injectorPauseAll?'▶ Retomar todos':'Ⅱ Pausar todos')+'</button>'+rows;
+            return '<div class="founding-note">'+(managed?'A Demantoide administra as ordens. Você ainda pode pausar qualquer unidade.':'Modo manual: escolha a Gem e a quantidade de cada Injetor. A produção só começa ao pressionar Iniciar.')+' Cada Injetor produz até 5 Gems. Matéria refinada: máximo de 1 Injetor a cada 5 unidades; ciclo de 84s em vez de 42s.</div><div class="stat-box">Programado: <b>'+scheduled+'/'+totalCapacity+'</b> Gems · Injetores refinados: <b>'+refinedReserved+'/'+getRefinedInjectorLimit()+'</b></div><button class="btn btn-block" style="margin-bottom:8px" onclick="toggleAllInjectorsPause()">'+((isInjectorManagerActive()?(state.founding||{}).injectorManualPauseAll:(state.founding||{}).injectorPauseAll)?'▶ Retomar todos':'Ⅱ Pausar todos')+'</button>'+rows;
         }
         function getInjectorProductionPlan(){
             const orders=ensureInjectorOrders();
@@ -2161,7 +2171,7 @@
                 return;
             }
             if (state.founding.creationActive || state.founding.bathActive) { if(!automatic)setStatusTicker('A Diamante está ocupada. Aguarde a conclusão da atividade atual.');return; }
-            if(state.founding.injectorPauseAll){automationWait('Todos os Injetores estão pausados. Retome a frota para continuar.');return;}
+            if(isInjectorManagerActive()?state.founding.injectorManualPauseAll:state.founding.injectorPauseAll){automationWait('Todos os Injetores estão pausados manualmente. Retome a frota para continuar.');return;}
             const plan=getInjectorProductionPlan();
             if(!plan.valid){automationWait(plan.reason);return;}
             if(!plan.batches.length){
