@@ -2618,6 +2618,7 @@ ${hasAristocrats ? `
             if (!PLANETS[state.logisticsTargetId]?.colonized) state.logisticsTargetId = colonized[colonized.length - 1].id;
 
             const srcPlanet = PLANETS[state.logisticsSourceId];
+            const transitHtml=(state.gemTransfers||[]).map(t=>'<div class="stat-box">'+escapeHTML(GEM_RECIPES[t.gem.caste]?.shortName||t.gem.caste)+' · '+escapeHTML(PLANETS[t.sourceId]?.shortName||t.sourceId)+' → '+escapeHTML(PLANETS[t.targetId]?.shortName||t.targetId)+' · '+Math.ceil(t.remaining)+'s</div>').join('');
             const optsSrc = colonized.map(p => `<option value="${p.id}" ${p.id === state.logisticsSourceId ? 'selected' : ''}>${p.shortName}</option>`).join('');
             const optsTgt = colonized.map(p => `<option value="${p.id}" ${p.id === state.logisticsTargetId ? 'selected' : ''}>${p.shortName}</option>`).join('');
 
@@ -2645,6 +2646,7 @@ ${hasAristocrats ? `
                     </div>
                 </div>
 
+                <div class="card"><b>Em trânsito</b>${transitHtml||'<div class="stat-box">Nenhuma Gem em transporte.</div>'}</div>
                 <div class="card">
                     <div class="card-header">
                         <span class="card-title title-font">🛸 Logística Interplanetária de Castas</span>
@@ -3267,10 +3269,11 @@ ${hasAristocrats ? `
                 return;
             }
             const [moved] = source.walkingGems.splice(index, 1);
-            moved.angle = Math.random() * Math.PI * 2;
-            target.walkingGems.push(moved);
-            addChronicle(`Transferência para ${target.shortName}`, `Uma Gem da casta ${GEM_RECIPES[moved.caste]?.shortName || moved.caste} foi transferida de ${source.shortName}.`, 'População realocada');
-            setStatusTicker(`🛸 Transferência concluída: ${target.shortName} recebeu uma Gem.`);
+            const speed=getFleetTravelSpeedMultiplier();
+            state.gemTransfers=Array.isArray(state.gemTransfers)?state.gemTransfers:[];
+            state.gemTransfers.push({gem:moved,sourceId,targetId,remaining:30/speed,total:30/speed});
+            addChronicle(`Transferência iniciada para ${target.shortName}`, `Uma Gem da casta ${GEM_RECIPES[moved.caste]?.shortName || moved.caste} partiu de ${source.shortName}. Nefritas: velocidade ×${speed}.`, 'Em trânsito');
+            setStatusTicker(`🛸 Transporte iniciado. Tempo estimado: ${Math.ceil(30/speed)} segundos.`);
             updateHUD();
             renderTechModal();
             renderDrawerContent();
@@ -3373,6 +3376,23 @@ ${hasAristocrats ? `
             }
         }
 
+        function updateGemTransfers(dt){
+            if(!Array.isArray(state.gemTransfers)||!state.gemTransfers.length)return;
+            for(let i=state.gemTransfers.length-1;i>=0;i--){
+                const trip=state.gemTransfers[i];trip.remaining=Math.max(0,Number(trip.remaining||0)-dt);
+                if(trip.remaining>0)continue;
+                const target=PLANETS[trip.targetId];
+                if(target&&target.colonized){
+                    trip.gem.angle=Math.random()*Math.PI*2;
+                    trip.gem.bubbleText='🛸 Chegou de '+(PLANETS[trip.sourceId]?.shortName||'outro mundo');
+                    target.walkingGems.push(trip.gem);
+                    addChronicle('Transferência concluída','Uma Gem chegou a '+target.shortName+'.','População realocada');
+                    setStatusTicker('🛸 '+target.shortName+' recebeu uma Gem transportada.');
+                }
+                state.gemTransfers.splice(i,1);
+            }
+        }
+
         function updateWorld(deltaMs) {
             const dt = Math.min(0.05, Math.max(0, deltaMs / 1000));
             const elapsedMs = dt * 1000;
@@ -3405,6 +3425,7 @@ ${hasAristocrats ? `
                 }
             }
             if (state.firstGameStarted) updateStructureSimulation(dt);
+            updateGemTransfers(dt);
             updateSapphirePredictions(dt);
             updateAquamarineOrders(dt);
             updateLapisTerraforming(dt);
