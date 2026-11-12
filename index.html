@@ -825,7 +825,7 @@
             {id:'essence_chamber',name:'Câmara de Extração de Essência',category:'Extração',desc:'Uma sauna ou piscina de essência onde a Primeira Diamante toma um banho de 30 segundos. Ao terminar, produz 50 vezes a essência de uma atividade física comum.',cost:{minerals:20,tech:0},buildTime:18,prerequisites:[],workers:{peridot:1},interaction:'Desbloqueia o banho de essência de 30 segundos.',maxCount:1},
             {id:'injector',name:'Injetor',category:'Criação',desc:'Cada unidade opera em paralelo em um setor do planeta, formando lotes simultâneos de Gems do material presente.',cost:{minerals:35,tech:0},buildTime:28,prerequisites:['essence_chamber'],workers:{peridot:1},interaction:'Produção paralela: cada Injetor acrescenta cinco Gems por ciclo.',maxCount:12},
             {id:'reef',name:'Recife de Pérolas',category:'Criação',desc:'Berçário nacarado que acolhe Pérolas recém-formadas sem dona. Elas permanecem armazenadas até serem vinculadas a uma Diamante ou aristocrata.',cost:{minerals:65,tech:12},buildTime:36,prerequisites:[],workers:{lapis:1,peridot:1},interaction:'Armazena Pérolas sem vínculo e permite distribuí-las posteriormente.',maxCount:5},
-            {id:'mineral_extractor',name:'Extrator Mineral',category:'Extração',desc:'Quartzos extraem minerais continuamente; um Peridoto mantém os sistemas de perfuração e transporte em operação.',cost:{minerals:25,tech:0},buildTime:20,prerequisites:[],workers:{quartz:1,peridot:1},interaction:'Produção contínua de minerais.',maxCount:3},
+            {id:'mineral_extractor',name:'Extrator Mineral',category:'Extração',desc:'Exige um Peridoto operador e ao menos um Quartzo. Cada Quartzo extrai 1 mineral a cada 10 segundos; equipes adicionais aumentam a produção. Ágatas coordenam o setor e reduzem o intervalo em até 2×, mas cada intervalo gera 0,1% de dissidência por Quartzo em operação.',cost:{minerals:25,tech:0},buildTime:20,prerequisites:[],workers:{quartz:1,peridot:1},interaction:'Cada Quartzo extrai 1 mineral/10s; Ágatas aceleram até 2× com aumento de dissidência.',maxCount:3},
             {id:'workshop',name:'Oficina de Engenharia',category:'Indústria',desc:'Bismutos constroem ferramentas, peças e componentes; um Peridoto mantém as máquinas operacionais.',cost:{minerals:40,tech:0},buildTime:24,prerequisites:['mineral_extractor'],workers:{bismuth:1,peridot:1},interaction:'Fabrica ferramentas e componentes.',maxCount:2},
             {id:'refinery',name:'Refinaria',category:'Indústria',desc:'Peridotos e Quartzos processam matérias-primas em materiais refinados.',cost:{minerals:45,tech:0},buildTime:26,prerequisites:['mineral_extractor','workshop'],workers:{peridot:1,quartz:1},interaction:'Converte minerais brutos em materiais refinados.',maxCount:2},
             {id:'research_center',name:'Centro de Pesquisa',category:'Ciência',desc:'Safiras analisam os processos da colônia e transformam materiais refinados em tecnologia.',cost:{minerals:55,tech:8},buildTime:30,prerequisites:['workshop','refinery'],workers:{sapphire:1,peridot:1},interaction:'Permite desenvolver tecnologias.',maxCount:2},
@@ -1876,6 +1876,10 @@
             const def = structureDefinition(id);
             if (!def || structureCount(id) < 1 || !hasStructurePrerequisites(def)) return false;
             if (id === 'injector' && !structureIsOperational('essence_chamber')) return false;
+            if(id==='mineral_extractor'){
+                const jobs=state.structureAssignments&&state.structureAssignments[id]||{};
+                return (Number(jobs.peridot)||0)>=1&&(Number(jobs.quartz)||0)>=1;
+            }
             return Object.entries(def.workers || {}).every(([type, required]) =>
                 (Number(state.structureAssignments && state.structureAssignments[id] && state.structureAssignments[id][type]) || 0) >= required
             );
@@ -1886,7 +1890,8 @@
             if (!state.structureAssignments[id]) state.structureAssignments[id] = {};
             const jobs = state.structureAssignments[id];
             const current = Number(jobs[gemType]) || 0;
-            if (current >= def.workers[gemType]) { setStatusTicker('Esta estrutura já possui todos os operadores dessa função.'); return; }
+            const workerLimit=id==='mineral_extractor'&&gemType==='quartz'?Math.max(1,Number(state.census.quartz)||0):def.workers[gemType];
+            if (current >= workerLimit) { setStatusTicker('Não há mais vagas ou Quartzos livres para esta função.'); return; }
             if (freeGemWorkers(gemType) < 1) { setStatusTicker('Não há Gems livres dessa função. Crie outra Gem ou libere uma equipe.'); return; }
             jobs[gemType] = current + 1;
             setStatusTicker((GEM_ROLE_NAMES[gemType] || gemType) + ' designado para ' + def.name + '.');
@@ -2096,22 +2101,38 @@
                 state.resourceChartAccumulator=(Number(state.resourceChartAccumulator)||0)+dt;
                 if(state.resourceChartAccumulator>=1){state.resourceChartAccumulator=0;renderColonyContext(document.getElementById('drawer-body'));}
             }
-            if (structureIsOperational('mineral_extractor')) {
-                const planet=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld;
-                const available=Math.max(0,Number(planet.resourcesRemaining)||0);
-                const extracted=Math.min(available,dt*0.3);
-                if(extracted>0){
-                    let left=extracted;
-                    const pools=planet.resourcesByType||{};
-                    for(const [key,value] of Object.entries(pools)){
-                        if(left<=0)break;
-                        const take=Math.min(Math.max(0,Number(value)||0),left);
-                        pools[key]-=take;left-=take;
+            // Extração por equipe: cada Quartzo entrega 1 mineral por intervalo de 10s.
+            // Uma ou mais Ágatas aceleram o intervalo, limitado a 2×, e geram dissidência.
+            if(structureCount('mineral_extractor')>0){
+                const jobs=state.structureAssignments&&state.structureAssignments.mineral_extractor||{};
+                const quartz=Math.max(0,Math.floor(Number(jobs.quartz)||0));
+                const peridot=Math.max(0,Number(jobs.peridot)||0);
+                if(peridot>=1&&quartz>0){
+                    const planet=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld;
+                    const agates=Math.max(0,Number(state.census.agate)||0);
+                    const speed=agates>0?2:1;
+                    const interval=10/speed;
+                    state.mineralExtractorAccumulator=(Number(state.mineralExtractorAccumulator)||0)+dt;
+                    while(state.mineralExtractorAccumulator>=interval){
+                        state.mineralExtractorAccumulator-=interval;
+                        const available=Math.max(0,Number(planet.resourcesRemaining)||0);
+                        const requested=quartz;
+                        const actual=Math.min(available,requested);
+                        if(actual>0){
+                            let left=actual;
+                            const pools=planet.resourcesByType||{};
+                            for(const [key,value] of Object.entries(pools)){
+                                if(left<=0)break;
+                                const take=Math.min(Math.max(0,Number(value)||0),left);
+                                pools[key]=Math.max(0,(Number(pools[key])||0)-take);left-=take;
+                            }
+                            const extracted=actual-left;
+                            planet.resourcesRemaining=Math.max(0,available-extracted);
+                            state.minerals+=extracted;
+                            if(planet.resourcesRemaining<=0)planet.resourceDepleted=true;
+                        }
+                        if(agates>0)planet.dissent=Math.min(100,(Number(planet.dissent)||0)+0.1*quartz);
                     }
-                    const actual=extracted-left;
-                    planet.resourcesRemaining=Math.max(0,available-actual);
-                    state.minerals+=actual;
-                    if(planet.resourcesRemaining<=0)planet.resourceDepleted=true;
                 }
             }
             if (structureIsOperational('reactor')) state.energy += dt * 0.35;
@@ -2173,9 +2194,10 @@
                         workerTypes.forEach(([type,need]) => {
                             const assigned = Number(state.structureAssignments[def.id] && state.structureAssignments[def.id][type]) || 0;
                             const free = freeGemWorkers(type);
-                            html += '<div class="job-row"><span>' + (GEM_ROLE_NAMES[type] || type) + ': <b>' + assigned + '/' + need + '</b> · livres: ' + free + '</span><span>' +
+                            const displayNeed=def.id==='mineral_extractor'&&type==='quartz'?Math.max(1,Number(state.census.quartz)||0):need;
+                            html += '<div class="job-row"><span>' + (GEM_ROLE_NAMES[type] || type) + ': <b>' + assigned + '/' + displayNeed + '</b> · livres: ' + free + '</span><span>' +
                                 '<button class="btn" style="padding:2px 6px" onclick="unassignGemFromStructure(\'' + def.id + '\',\'' + type + '\')" ' + (assigned < 1 ? 'disabled' : '') + '>−</button>' +
-                                '<button class="btn" style="padding:2px 6px" onclick="assignGemToStructure(\'' + def.id + '\',\'' + type + '\')" ' + (assigned >= need || free < 1 ? 'disabled' : '') + '>+</button></span></div>';
+                                '<button class="btn" style="padding:2px 6px" onclick="assignGemToStructure(\'' + def.id + '\',\'' + type + '\')" ' + (assigned >= displayNeed || free < 1 ? 'disabled' : '') + '>+</button></span></div>';
                         });
                         html += '</div>';
                         if (def.id === 'injector') {
