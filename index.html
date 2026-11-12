@@ -873,7 +873,7 @@
                     drainedCrust: '#292524', atmosphere: 'rgba(148, 120, 91, 0.16)', cloud: 'rgba(214, 184, 139, 0.08)'
                 },
                 hasRings: false,
-                moons: [{ dist: 1.55, size: 7, speed: 0.0002, color: '#78716c' }],
+                moons: [], // Homeworld não possui luas naturais.
                 veins: createRadialVeins([
                     { type: 'quartz', label: 'Afloramento de Quartzo Bruto', purity: 68 },
                     { type: 'silicate', label: 'Rocha Silicatada Escura', purity: 61 },
@@ -1903,7 +1903,7 @@
         }
         function canBuildStructure(def) {
             if (!state.firstGameStarted || !state.founding || !state.founding.firstGemCreated) return 'A primeira Gem precisa nascer antes da construção.';
-            if(def.id==='lunar_base'&&!(PLANETS[state.activeColonyPlanetId]?.moons||[]).length)return 'Indisponível: este planeta não possui uma lua natural para receber uma Base Lunar.';
+            if(def.id==='lunar_base'&&!(PLANETS[state.activeColonyPlanetId||'homeworld']?.moons||[]).length)return 'Indisponível: este planeta não possui uma lua natural para receber uma Base Lunar.';
             if(def.id==='galaxy_warp'){if(PLANETS[state.activeColonyPlanetId]?.galaxyWarpBuilt)return 'Este planeta já possui um Galaxy Warp.';}else if (!['diamond_quarters','red_eye'].includes(def.id) && structureCount(def.id) >= (def.maxCount || 1)) return 'Limite desta estrutura atingido.';
             if(def.id==='red_eye'){
                 const planetId=state.activeColonyPlanetId||'homeworld',queued=(state.constructionQueue||[]).filter(job=>job&&job.active&&job.id==='red_eye'&&(job.planetId||'homeworld')===planetId).length;
@@ -1923,7 +1923,7 @@
                 const queuedChambers=(state.constructionQueue||[]).filter(job=>job&&job.active&&job.id==='essence_chamber').length;
                 if(structureCount('essence_chamber')+queuedChambers>=getDiamondOwners().length)return 'Todas as Diamantes já possuem uma Câmara construída ou em construção.';
             }
-            if(def.id==='lunar_base'&&!(PLANETS[state.activeColonyPlanetId]?.moons||[]).length)return 'Esta construção exige uma lua natural.';
+            if(def.id==='lunar_base'&&!(PLANETS[state.activeColonyPlanetId||'homeworld']?.moons||[]).length)return 'Esta construção exige uma lua natural.';
 
             if (freeGemWorkers('bismuth') < 1) return Number(state.census.morganite||0)>0 ? 'A Morganita aguarda uma Bismuto livre para comandar a próxima obra.' : 'Requer uma Bismuto livre para executar a construção.';
             return '';
@@ -5153,7 +5153,7 @@ ${hasAristocrats ? `
         function drawPlanetCombinedInfoPanel(planet,stats,x,y){
             const expanded=state.planetInfoExpanded!==false,w=Math.min(286,canvasWidth-24),header=30;
             const resources=[['quartz','Quartzo','#c084fc'],['silicate','Silicatos','#34d399'],['corundum','Coríndon','#38bdf8'],['metallic','Metálicos','#facc15'],['nacre','Nácar','#f8fafc'],['garnet','Granada','#fb7185'],['olivine','Olivina','#86efac'],['lapisrock','Lápis-lazúli','#818cf8'],['pyroxene','Piroxênio','#f59e0b'],['beryllium','Berílio','#67e8f9'],['topaz','Topázio','#fbbf24']];
-            const h=expanded?header+58+resources.length*13:header;
+            const h=expanded?header+71+resources.length*13:header;
             planetInfoToggleTarget={x,y,w,h:header};
             const total=resources.reduce((sum,[key])=>sum+Math.max(0,Number(planet.resourcesByType?.[key])||0),0);
             const max=Math.max(1,...resources.map(([key])=>Math.max(0,Number(planet.resourcesByType?.[key])||0)));
@@ -5166,10 +5166,11 @@ ${hasAristocrats ? `
                 ctx.fillText('Gems: '+stats.gemCount+'  ·  Vida orgânica: '+(stats.organicLifeKnown?stats.organicLife:'—'),x+10,y+35);
                 ctx.fillText('Estágio '+stats.stage+'/4  ·  '+Math.floor(stats.remainingResources).toLocaleString('pt-BR')+' recursos restantes',x+10,y+48);
                 ctx.fillText('Temperatura: '+Number(planet.temperatureC??8).toLocaleString('pt-BR')+' °C  ·  Pressão: '+Number(planet.atmosphericPressureAtm??1).toLocaleString('pt-BR')+' atm',x+10,y+61);
-                ctx.font='bold 9px Segoe UI';ctx.fillStyle='#7dd3fc';ctx.fillText('RESERVAS MINERAIS',x+10,y+78);
-                ctx.textAlign='right';ctx.fillStyle='#f8fafc';ctx.fillText(Math.floor(total).toLocaleString('pt-BR'),x+w-10,y+78);
+                ctx.fillText('Luas naturais: '+(Array.isArray(planet.moons)?planet.moons.length:0),x+10,y+74);
+                ctx.font='bold 9px Segoe UI';ctx.fillStyle='#7dd3fc';ctx.fillText('RESERVAS MINERAIS',x+10,y+91);
+                ctx.textAlign='right';ctx.fillStyle='#f8fafc';ctx.fillText(Math.floor(total).toLocaleString('pt-BR'),x+w-10,y+91);
                 resources.forEach(([key,label,color],i)=>{
-                    const amount=Math.max(0,Number(planet.resourcesByType?.[key])||0),yy=y+84+i*13;
+                    const amount=Math.max(0,Number(planet.resourcesByType?.[key])||0),yy=y+97+i*13;
                     ctx.textAlign='left';ctx.font='9px Segoe UI';ctx.fillStyle='#cbd5e1';ctx.fillText(label,x+10,yy+8);
                     const bx=x+94,bw=w-145;ctx.fillStyle='rgba(15,23,42,.9)';ctx.fillRect(bx,yy+2,bw,6);
                     ctx.fillStyle=color;ctx.fillRect(bx,yy+2,bw*amount/max,6);
