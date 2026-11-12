@@ -5038,7 +5038,7 @@ function drawColony(time){
             const surface=ctx.createRadialGradient(lightX,lightY,radius*.04,cx+radius*.12,cy+radius*.12,radius*1.12);
             surface.addColorStop(0,palette.secondary);surface.addColorStop(.42,palette.primary);surface.addColorStop(.78,palette.continent);surface.addColorStop(1,palette.mantle);
             ctx.save();ctx.shadowColor=palette.atmosphere||'rgba(125,211,252,.25)';ctx.shadowBlur=stage>=2?34:24;ctx.fillStyle=surface;ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
-            ctx.save();ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.clip();ctx.translate(cx,cy);ctx.scale(radius*Math.cos(cam.rotation),radius);
+            ctx.save();ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.clip();ctx.translate(cx,cy);ctx.transform(Math.cos(cam.rotation),0,Math.sin(cam.rotation)*.22,1,0,0);ctx.scale(radius,radius);
 
             // Continentes e placas rochosas curvas.
             const landmasses=[
@@ -5081,7 +5081,7 @@ function drawColony(time){
             // Sombreamento esférico aplicado por cima da textura.
             const terminator=ctx.createRadialGradient(lightX,lightY,radius*.08,cx,cy,radius*1.12);terminator.addColorStop(0,'rgba(255,255,255,0)');terminator.addColorStop(.62,'rgba(2,6,23,.02)');terminator.addColorStop(1,'rgba(1,4,14,.72)');
             ctx.fillStyle=terminator;ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.fill();
-            if(cam.xrayMode){ctx.save();ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.clip();ctx.translate(cx,cy);ctx.scale(radius*Math.cos(cam.rotation),radius);drawXRayMineralSeams(planet);ctx.restore();}
+            if(cam.xrayMode){ctx.save();ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.clip();ctx.translate(cx,cy);ctx.transform(Math.cos(cam.rotation),0,Math.sin(cam.rotation)*.22,1,0,0);ctx.scale(radius,radius);drawXRayMineralSeams(planet);ctx.restore();}
             ctx.strokeStyle='rgba(219,234,254,.58)';ctx.lineWidth=1.2;ctx.beginPath();ctx.arc(cx,cy,radius-1,Math.PI*1.05,Math.PI*1.9);ctx.stroke();
 
             drawHomeworldStructures(planet,cx,cy,radius,cam,time);
