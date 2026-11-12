@@ -792,7 +792,7 @@
             {id:'injector',name:'Injetor',category:'Criação',desc:'Cada unidade opera em paralelo em um setor do planeta, formando lotes simultâneos de Gems do material presente.',cost:{minerals:35,tech:0},buildTime:28,prerequisites:['essence_chamber'],workers:{peridot:1},interaction:'Produção paralela: cada Injetor acrescenta cinco Gems por ciclo.',maxCount:12},
             {id:'reef',name:'Recife de Pérolas',category:'Criação',desc:'Berçário nacarado que acolhe Pérolas recém-formadas sem dona. Elas permanecem armazenadas até serem vinculadas a uma Diamante ou aristocrata.',cost:{minerals:65,tech:12},buildTime:36,prerequisites:[],workers:{lapis:1,peridot:1},interaction:'Armazena Pérolas sem vínculo e permite distribuí-las posteriormente.',maxCount:5},
             {id:'mineral_extractor',name:'Extrator Mineral',category:'Extração',desc:'Exige um Peridoto operador. Todos os Quartzos da população extraem 1 mineral a cada 10 segundos, em paralelo. Cada Ágata coordena até 20 Quartzos e reduz o intervalo desse grupo para 5 segundos (2×).',cost:{minerals:25,tech:0},buildTime:20,prerequisites:[],workers:{peridot:1},interaction:'Todos os Quartzos mineram automaticamente; Ágatas aceleram até 2×.',maxCount:3},
-            {id:'workshop',name:'Oficina de Engenharia',category:'Indústria',desc:'Bismutos constroem ferramentas, peças e componentes; um Peridoto mantém as máquinas operacionais.',cost:{minerals:40,tech:0},buildTime:24,prerequisites:['mineral_extractor'],workers:{bismuth:1,peridot:1},interaction:'Fabrica ferramentas e componentes.',maxCount:2},
+            {id:'workshop',name:'Centro de Logística',category:'Transporte',desc:'Centro autônomo que transporta minerais em alta velocidade por todo o planeta. Seu anel logístico cresce conforme o estoque mineral aumenta e diminui conforme os recursos são consumidos. Exige manutenção de 1.000 unidades de metal a cada 10 minutos de operação.',cost:{minerals:40,tech:0},buildTime:24,prerequisites:['mineral_extractor'],workers:{},interaction:'Distribui recursos rapidamente pelo planeta; futuramente permitirá transporte interplanetário.',maxCount:1},
             {id:'refinery',name:'Refinaria',category:'Indústria',desc:'Exige 1 Peridoto e 5 Bismutos operadores. Refina até 5% de cada matéria-prima coletada em seu tipo refinado.',cost:{minerals:45,tech:0},buildTime:26,prerequisites:['mineral_extractor','workshop'],workers:{peridot:1,bismuth:5},interaction:'Converte até 5% dos minerais coletados em materiais refinados.',maxCount:2},
             {id:'research_center',name:'Centro de Pesquisa',category:'Ciência',desc:'Safiras analisam os processos da colônia e transformam materiais refinados em tecnologia.',cost:{minerals:55,tech:8},buildTime:30,prerequisites:['workshop','refinery'],workers:{sapphire:1,peridot:1},interaction:'Permite desenvolver tecnologias.',maxCount:2},
             {id:'reactor',name:'Reator de Energia',category:'Energia',desc:'Peridotos operam o reator e mantêm uma reserva energética.',cost:{minerals:65,tech:15},buildTime:32,prerequisites:['refinery'],workers:{peridot:1},interaction:'Gera energia para estruturas dependentes.',maxCount:2},
@@ -1855,6 +1855,7 @@
             const def = structureDefinition(id);
             if (!def || structureCount(id) < 1 || !hasStructurePrerequisites(def)) return false;
             if (id === 'injector' && !structureIsOperational('essence_chamber')) return false;
+            if(id==='workshop')return true;
             if(id==='mineral_extractor'){
                 const jobs=state.structureAssignments&&state.structureAssignments[id]||{};
                 return (Number(jobs.peridot)||0)>=1&&(Number(state.census&&state.census.quartz)||0)>0;
@@ -1913,7 +1914,8 @@
             if (def) {
                 state.structures[def.id] = structureCount(def.id) + 1;
                 if(def.id==='injector') ensureInjectorOrders();
-                if(def.id==='mineral_extractor'){
+                if(def.id==='workshop'){state.logisticsMaintenanceTimer=0;state.logisticsActive=true;}
+            if(def.id==='mineral_extractor'){
                     state.founding.gatheredMinerals=Object.assign({quartz:0,silicate:0,corundum:0,metallic:0,nacre:0,garnet:0,olivine:0,lapisrock:0,pyroxene:0,beryllium:0,topaz:0},state.founding.gatheredMinerals||{});
                     state.founding.collectedMinerals=Object.assign({},state.founding.gatheredMinerals,state.founding.collectedMinerals||{});
                     setStatusTicker('Extrator construído: todos os Quartzos da população passam a minerar automaticamente.');
@@ -2160,8 +2162,36 @@
             updateHUD(); renderDrawerContent(); renderBottomBar();
         }
         function toggleMorganiteAutoBuild(){if(Number(state.census.morganite||0)<1)return;state.morganiteAutoBuild=!state.morganiteAutoBuild;setStatusTicker('Construção automática Morganita '+(state.morganiteAutoBuild?'ativada.':'desativada.'));renderDrawerContent();}
+        function updateLogisticsCenter(dt){
+            if(structureCount('workshop')<1)return;
+            const f=state.founding||(state.founding={});
+            f.gatheredMinerals=f.gatheredMinerals||{};
+            let metal=Math.max(0,Number(f.gatheredMinerals.metallic)||0);
+            if(state.logisticsActive===false){
+                if(metal<1000)return;
+                state.logisticsActive=true;
+                state.logisticsMaintenanceTimer=0;
+                setStatusTicker('Centro de Logística reativado: 1.000 unidades de metal disponíveis para manutenção.');
+            }
+            state.logisticsMaintenanceTimer=(Number(state.logisticsMaintenanceTimer)||0)+Math.max(0,Number(dt)||0);
+            while(state.logisticsMaintenanceTimer>=600){
+                metal=Math.max(0,Number(f.gatheredMinerals.metallic)||0);
+                if(metal<1000){
+                    state.logisticsActive=false;
+                    state.logisticsMaintenanceTimer=0;
+                    setStatusTicker('Centro de Logística suspenso: faltam 1.000 unidades de metal para a manutenção.',true);
+                    break;
+                }
+                f.gatheredMinerals.metallic=metal-1000;
+                state.minerals=Math.max(0,(Number(state.minerals)||0)-1000);
+                state.logisticsMaintenanceTimer-=600;
+                setStatusTicker('Manutenção do Centro de Logística concluída: 1.000 unidades de metal consumidas.');
+            }
+        }
+
         function updateStructureSimulation(dt) {
             processAutomaticRefinery();
+            updateLogisticsCenter(dt);
             if(Number(state.census.morganite||0)>0&&state.morganiteAutoBuild&&freeGemWorkers('bismuth')>0){
                 const next=STRUCTURE_CATALOG.find(def=>structureCount(def.id)<(def.maxCount||1)&&canBuildStructure(def)==='');
                 if(next)buildStructure(next.id);
@@ -2301,8 +2331,11 @@
                         if (def.id === 'injector') {
                             const orders=ensureInjectorOrders();
                             html += '<div class="founding-note">Programação independente: '+orders.length+' Injetor(es), até 5 Gems por unidade. Essência disponível: '+(state.founding.injectorEssence||0).toFixed(1)+' unidades.</div>';
-                        } else if (['workshop','research_center','shipyard','terraformer','defense_tower','shield_generator','teleporter','administration_center','reactor','orbital_station','planetary_network'].includes(def.id)) {
-                            const labels = {workshop:'🔧 Fabricar componentes',refinery:'⚗️ Refinar materiais',research_center:'🔬 Pesquisar',shipyard:'🚀 Construir nave',terraformer:'🌊 Terraformar',defense_tower:'🛡️ Calibrar defesa',shield_generator:'🔰 Ativar escudo',teleporter:'🌀 Sincronizar teletransporte',administration_center:'📋 Organizar equipes',reactor:'⚡ Verificar reator',orbital_station:'🛰️ Iniciar operação orbital',planetary_network:'🌐 Expandir rede planetária'};
+                        } else if(def.id==='workshop'){
+                            const metallic=Math.max(0,Number(state.founding.gatheredMinerals?.metallic)||0),timer=Math.max(0,Number(state.logisticsMaintenanceTimer)||0);
+                            html+='<div class="founding-note">🚚 Transporte planetário autônomo · '+(state.logisticsActive===false?'Aguardando metal para reativar':'Operacional')+'<br>Metal disponível: <b>'+Math.floor(metallic).toLocaleString('pt-BR')+'</b> / 1.000 para manutenção<br>Próxima manutenção: <b>'+formatDuration(Math.max(0,600-timer))+'</b>. Consumo: 1.000 metais a cada 10 minutos.</div>';
+                        } else if (['research_center','shipyard','terraformer','defense_tower','shield_generator','teleporter','administration_center','reactor','orbital_station','planetary_network'].includes(def.id)) {
+                            const labels = {refinery:'⚗️ Refinar materiais',research_center:'🔬 Pesquisar',shipyard:'🚀 Construir nave',terraformer:'🌊 Terraformar',defense_tower:'🛡️ Calibrar defesa',shield_generator:'🔰 Ativar escudo',teleporter:'🌀 Sincronizar teletransporte',administration_center:'📋 Organizar equipes',reactor:'⚡ Verificar reator',orbital_station:'🛰️ Iniciar operação orbital',planetary_network:'🌐 Expandir rede planetária'};
                             html += '<button class="btn btn-block" onclick="executeStructureInteraction(\'' + def.id + '\')" ' + (!structureIsOperational(def.id) ? 'disabled' : '') + '>' + labels[def.id] + '</button>';
                          } else if (def.id === 'mineral_extractor') html += '<div class="founding-note">Todos os ' + Math.max(0,Number(state.census.quartz)||0) + ' Quartzos da população mineram automaticamente, sem designação manual. Cada Quartzo extrai 1 mineral a cada 10s; cada Ágata acelera até 20 deles para 5s (2×).</div>';
                         else if (def.id === 'essence_chamber') html += '<div class="founding-note">Transfere essência da reserva interna da Diamante para o estoque.</div>';
@@ -4426,7 +4459,7 @@ ${hasAristocrats ? `
           essence_chamber:{kind:'chamber',color:'#a78bfa',accent:'#e9d5ff',glow:'#8b5cf6'},
           injector:{kind:'injector',color:'#38bdf8',accent:'#bae6fd',glow:'#0ea5e9'},
           mineral_extractor:{kind:'drill',color:'#b6a18a',accent:'#f5d0a0',glow:'#d6b88b'},
-          workshop:{kind:'hall',color:'#a8a29e',accent:'#e7e5e4',glow:'#a8a29e'},
+          workshop:{kind:'network',color:'#a8a29e',accent:'#d6d3d1',glow:'#78716c'},
           refinery:{kind:'furnace',color:'#d97706',accent:'#fed7aa',glow:'#f97316'},
           research_center:{kind:'observatory',color:'#818cf8',accent:'#c7d2fe',glow:'#a5b4fc'},
           reactor:{kind:'reactor',color:'#22d3ee',accent:'#cffafe',glow:'#06b6d4'},
@@ -4533,6 +4566,18 @@ ${hasAristocrats ? `
         function drawHomeworldStructures(planet,cx,cy,radius,camera,time){
             if(!planet||planet.id!=='homeworld')return;
             const size=Math.max(.30,Math.min(.56,radius/390)),rulerColors=getPlanetRulerColors(planet);
+            if(structureCount('workshop')>0&&state.logisticsActive!==false){
+                const stock=Math.max(0,Number(state.minerals)||0),growth=Math.max(0,Math.min(1,Math.log1p(stock)/Math.log1p(50000)));
+                const orbitRadius=radius*(1.075+growth*.48),rotation=camera.rotation*.16;
+                ctx.save();ctx.translate(cx,cy);ctx.rotate(rotation);
+                ctx.strokeStyle=rulerColors?.glow||'#d6d3d1';ctx.globalAlpha=.28+growth*.62;
+                ctx.lineWidth=Math.max(1.2,radius*(.004+growth*.004));ctx.setLineDash([Math.max(5,radius*.045),Math.max(3,radius*.025)]);
+                ctx.shadowColor=rulerColors?.glow||'#d6d3d1';ctx.shadowBlur=5+growth*10;
+                ctx.beginPath();ctx.ellipse(0,0,orbitRadius,orbitRadius*.91,0,0,Math.PI*2);ctx.stroke();
+                ctx.setLineDash([]);ctx.globalAlpha=.85;ctx.fillStyle=rulerColors?.accent||'#e7e5e4';
+                for(let n=0;n<3;n++){const a=time*.00018+n*Math.PI*2/3;ctx.beginPath();ctx.arc(Math.cos(a)*orbitRadius,Math.sin(a)*orbitRadius*.91,Math.max(2,radius*.012),0,Math.PI*2);ctx.fill();}
+                ctx.restore();
+            }
             if(structureCount('planetary_network')>0){
                 ctx.save();ctx.strokeStyle=structureIsOperational('planetary_network')?(rulerColors?.glow||'rgba(196,181,253,.58)'):(rulerColors?.accent||'rgba(100,116,139,.28)');ctx.lineWidth=Math.max(1,radius*.006);ctx.setLineDash([5,5]);
                 for(let k=0;k<8;k++){const a=camera.rotation+k*Math.PI/4,b=camera.rotation+(k+1)*Math.PI/4;ctx.beginPath();ctx.moveTo(cx+Math.cos(a)*radius*.22,cy+Math.sin(a)*radius*.18);ctx.quadraticCurveTo(cx,cy,cx+Math.cos(b)*radius*.22,cy+Math.sin(b)*radius*.18);ctx.stroke();}
@@ -5608,6 +5653,8 @@ function drawColony(time){
                 state.construction=state.constructionQueue[0]||null;
                 state.currentScreen='throne';
                 state.morganiteAutoBuild = state.morganiteAutoBuild !== false;
+                state.logisticsMaintenanceTimer=Math.max(0,Number(state.logisticsMaintenanceTimer)||0);
+                state.logisticsActive=state.logisticsActive!==false;
                 state.gemTransfers = Array.isArray(state.gemTransfers)?state.gemTransfers:[];
                 state.energy = Number(state.energy) || 0;
                 state.refinedMaterials = Number(state.refinedMaterials) || 0;
