@@ -2098,6 +2098,28 @@
             setStatusTicker('Injeção simultânea iniciada: '+totalGems+' Gems em '+readyBatches.length+' Injetor(es).'+(waiting?' '+waiting+' Injetor(es) aguardam recursos ou condições.':''));
             updateStructureUI();
         }
+        function startRedEyeMission(mode='survey'){
+            if(!structureIsOperational('red_eye')){setStatusTicker('O Olho Vermelho exige seus operadores e uma estrutura operacional.',true);return;}
+            const ids=Object.keys(PLANETS),current=state.activeColonyPlanetId||'homeworld';
+            const target=mode==='tracking'?current:(ids.find(id=>id!==current&&PLANETS[id].colonized)||ids.find(id=>id!==current));
+            if(!target){setStatusTicker('Não há outro planeta conhecido para reconhecimento.',true);return;}
+            state.redEyeMission={planetId:target,originId:current,progress:0,duration:120,active:true,returning:false,missionType:mode};
+            setStatusTicker(mode==='tracking'?'Olho Vermelho iniciou uma varredura de rastreamento.':'Olho Vermelho partiu para reconhecer '+PLANETS[target].shortName+'.');
+            updateHUD();renderDrawerContent();
+        }
+        function updateRedEyeMission(dt){
+            const mission=state.redEyeMission;if(!mission||!mission.active)return;
+            mission.progress=Math.min(100,(Number(mission.progress)||0)+Math.max(0,Number(dt)||0)*100/Math.max(1,Number(mission.duration)||120));
+            if(mission.progress<100)return;
+            const p=PLANETS[mission.planetId];if(!p){mission.active=false;return;}
+            const env=PLANET_ENVIRONMENT[mission.planetId]||{};
+            const report={id:'scan_'+Date.now(),planetId:p.id,planetName:p.shortName||p.name,size:p.resourceSize||'Não catalogado',distanceAU:Number(env.orbitAU??p.orbitRadius)||0,temperatureC:Number(env.temperatureC)||0,pressureAtm:Number(env.atmosphericPressureAtm)||0,composition:Object.entries(p.resourcesByType||{}).sort((a,b)=>Number(b[1])-Number(a[1])).slice(0,5).map(([k,v])=>({type:k,amount:Math.floor(Number(v)||0)})),trackedGems:mission.missionType==='tracking'?(Number(state.census.offcolor)||0)+(Array.isArray(p.walkingGems)?p.walkingGems.length:0):null,missionType:mission.missionType,cycle:state.cycleCount||1};
+            state.redEyeReports=state.redEyeReports||[];state.redEyeReports.unshift(report);state.redEyeReports=state.redEyeReports.slice(0,20);
+            mission.active=false;mission.progress=100;
+            setStatusTicker('Olho Vermelho retornou com relatório de '+report.planetName+'.');
+            addChronicle('Relatório do Olho Vermelho',report.planetName+' foi analisado: '+report.size+', '+report.temperatureC+' °C, '+report.pressureAtm+' atm.','Reconhecimento concluído');
+            updateHUD();renderDrawerContent();
+        }
         const SHIP_BLUEPRINTS={
             diamond:{name:'Nave Diamante',cost: {minerals:500,tech:250},speed:'FTL extremo',capacity:1,description:'Nave colossal, uma por Diamante, capaz de orbitar planetas e cruzar sistemas em velocidade acima da luz.',operator:'diamond',shape:'colossal'},
             elite:{name:'Nave da Elite',cost:{minerals:180,tech:90},speed:'FTL',capacity:6,description:'Casco losangular para a família Berílio: Hessonitas, Esmeraldas, Aquamarinas, Morganitas e outras Gems relacionadas. Canhões de energia leves.',operator:'beryl',shape:'losango'},
@@ -2223,6 +2245,7 @@
         function updateStructureSimulation(dt) {
             processAutomaticRefinery();
             updateLogisticsCenter(dt);
+            updateRedEyeMission(dt);
             if(Number(state.census.morganite||0)>0&&state.morganiteAutoBuild&&freeGemWorkers('bismuth')>0){
                 const next=STRUCTURE_CATALOG.find(def=>structureCount(def.id)<(def.maxCount||1)&&canBuildStructure(def)==='');
                 if(next)buildStructure(next.id);
@@ -2367,6 +2390,11 @@
                             const ruler=(PLANETS[state.activeColonyPlanetId]?.governor||'none').startsWith('matriarch_')?state.matriarchs.find(m=>'matriarch_'+m.id===PLANETS[state.activeColonyPlanetId].governor):state.firstDiamond;
                             html+='<div class="founding-note">Cinese da Diamante: <b>'+ensureDiamondKinesis(ruler).name+'</b><br>Essência Diamante disponível: <b>'+Number(state.founding.diamondEssence||0).toFixed(1)+'</b> · Custo por arma: 50<br>Armas desenvolvidas: '+weapons.length+'</div><button class="btn btn-block" onclick="developDiamondWeapon()" '+(!structureIsOperational('research_center')||Number(state.founding.diamondEssence||0)<50?'disabled':'')+'>⚔️ Desenvolver arma exclusiva · 50 Essências</button>';
                             weapons.slice(-5).reverse().forEach(w=>{html+='<div class="stat-box"><b>'+escapeHTML(w.name)+'</b><small style="display:block;color:var(--text-muted)">'+escapeHTML(w.owner)+' · '+escapeHTML(w.kinesis)+'</small>'+escapeHTML(w.effect)+'</div>';});
+                        } else if(def.id==='red_eye'){
+                            const mission=state.redEyeMission,reports=state.redEyeReports||[];
+                            html+='<div class="founding-note">Sonda orbital com retorno automático. '+(mission&&mission.active?'Missão em andamento: '+escapeHTML(PLANETS[mission.planetId]?.shortName||'alvo')+' · '+Math.floor(mission.progress)+'%':'Aguardando missão')+'</div>';
+                            html+='<button class="btn btn-block" onclick="startRedEyeMission(\'survey\')" '+(mission&&mission.active?'disabled':'')+'>🔭 Reconhecer outro planeta</button><button class="btn btn-block" onclick="startRedEyeMission(\'tracking\')" '+(mission&&mission.active?'disabled':'')+'>🧭 Rastrear fugitivas e Off-Colors</button>';
+                            reports.slice(0,5).forEach(r=>{html+='<div class="stat-box"><b>'+escapeHTML(r.planetName)+'</b><small style="display:block;color:var(--text-muted)">Porte: '+escapeHTML(r.size)+' · '+r.distanceAU+' UA · '+r.temperatureC+' °C · '+r.pressureAtm+' atm</small>'+(r.trackedGems===null?'':'Rastros detectados: '+r.trackedGems)+'</div>';});
                         } else if(def.id==='shipyard'){
                             html+='<div class="founding-note">Frota construída: '+(state.shipFleet||[]).length+' nave(s). Projetos exigem Centro de Pesquisa operacional.</div>';
                             Object.entries(SHIP_BLUEPRINTS).forEach(([type,bp])=>{
