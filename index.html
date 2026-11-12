@@ -2063,18 +2063,26 @@
         function updateInjectorProductionWindow(){
             const body=document.getElementById('injector-production-window-body');if(!body)return;
             cancelUnauthorizedInjectorProduction();
-            const f=state.founding||{},count=structureCount('injector');
-            const managed=Number(state.census?.demantoid||0)>0;
+            const f=state.founding||{},count=structureCount('injector'),managed=Number(state.census?.demantoid||0)>0;
             const active=!!f.creationActive&&f.creationSource==='injector';
             const batches=Array.isArray(f.creationBatches)?f.creationBatches:[];
+            const reports=(f.productionReports||[]).slice(-10).reverse();
             const progress=active?Math.min(100,Number(f.creationProgress)||0):0;
-            const remaining=active?Math.max(0,Math.ceil(Math.max(...batches.filter(b=>!b.completed).map(b=>Number(b.duration)||42),0))):0;
-            body.innerHTML='<div class="stat-box"><b>Injetores instalados: '+count+'</b><br>'+(managed?'Demantoide no comando: programação automática por necessidade populacional e disponibilidade de substrato. Peridotos recebem as ordens sem intervenção do jogador.':'Sem Demantoide: os Injetores aguardam uma supervisora para administrar a produção.')+'</div><div class="stat-box"><span class="stat-label">Estado industrial</span><b>'+(active?'Produção em andamento':'Aguardando ordens ou materiais')+'</b>'+(active?'<div class="founding-progress"><div style="width:'+progress+'%"></div></div><small>'+Math.floor(progress)+'% · '+remaining+'s estimados</small>':'')+'</div><button class="btn btn-block" onclick="closeInjectorProductionWindow()">Fechar</button>';
+            const unfinished=batches.filter(batch=>!batch.completed);
+            const remaining=active&&unfinished.length?Math.max(...unfinished.filter(batch=>!isInjectorPaused(Number(batch.injectorIndex)||0)).map(batch=>Math.ceil(Math.max(1,Number(batch.duration)||42)*(1-(Number(batch.progress)||0)/100))),0):0;
+            const schedule=active?batches.map(batch=>'#'+(Number(batch.injectorIndex)+1)+' '+Number(batch.quantity)+'× '+(FOUNDING_GEM_DATA[batch.type]?.label||batch.type)+(batch.completed?' · concluído':isInjectorPaused(Number(batch.injectorIndex)||0)?' · pausado':'')).join(' · '):'Nenhum lote em andamento.';
+            const modeText=managed?'A Demantoide está no comando e escolhe automaticamente as Gems e os substratos. As pausas individuais e geral continuam disponíveis.':'Modo manual ativo: configure cada Injetor e inicie a produção por este relatório. A criação automática só será liberada quando a primeira Demantoide surgir.';
+            const history=reports.length?reports.map(report=>'<div class="stat-box"><b>'+escapeHTML(report.gemLabel||report.type||'Gem')+' × '+Number(report.quantity||0)+'</b><small style="display:block;color:var(--text-muted)">Injetor #'+(Number(report.injectorIndex)+1)+' · '+escapeHTML(report.mineralName||'Substrato')+' · Ciclo '+Number(report.cycle||0)+'</small><small>'+escapeHTML(report.description||'Lote concluído.')+'</small></div>').join(''):'<div class="stat-box" style="color:#94a3b8">Nenhum lote concluído ainda. Os resultados aparecerão aqui depois da primeira produção.</div>';
+            body.innerHTML='<div class="stat-box"><b>Injetores instalados: '+count+'</b><br>'+modeText+'</div>'+buildInjectorProductionControlsHTML('modal')+
+                '<div class="stat-box"><span class="stat-label">Estado da produção</span><b>'+(active?'Em andamento':f.injectorPauseAll?'Frota pausada':'Aguardando comando ou materiais')+'</b>'+(active?'<div class="founding-progress"><div style="width:'+progress+'%"></div></div><small>'+Math.floor(progress)+'% do progresso · '+(remaining?remaining+'s restantes nas unidades ativas':'aguardando retomada ou conclusão')+'</small><small style="display:block;color:#94a3b8;margin-top:5px">'+escapeHTML(schedule)+'</small>':'')+'</div>'+
+                (!managed&&count>0?'<button class="btn btn-emerald btn-block" onclick="startInjectorProduction(false)" '+(active||f.injectorPauseAll?'disabled':'')+'>▶ Iniciar produção manual</button>':'')+
+                '<div class="card"><div class="card-header"><b>Histórico de criação de Gems</b><span class="badge">'+(f.productionReports||[]).length+' lotes</span></div>'+history+'</div><button class="btn btn-block" onclick="closeInjectorProductionWindow()">Fechar relatório</button>';
         }
         function startInjectorProduction(automatic=false) {
             if(!(Number(state.census?.demantoid||0)>0)){if(!automatic)setStatusTicker('A produção automática dos Injetores exige uma Demantoide supervisora.',true);return;}
             if (!structureIsOperational('injector')) { if(!automatic) setStatusTicker('A frota de Injetores precisa de um Peridoto operador e de uma Câmara operacional.', true); return; }
             if (state.founding.creationActive || state.founding.bathActive) { if(!automatic) setStatusTicker('A Diamante está ocupada. Aguarde a conclusão da atividade atual.'); return; }
+            if(state.founding.injectorPauseAll){if(!automatic)setStatusTicker('Todos os Injetores estão pausados. Retome a frota para iniciar a produção.',true);return;}
             const plan=getInjectorProductionPlan();
             if(!plan.valid){if(!automatic)setStatusTicker(plan.reason,true);return;}
             if(!plan.batches.length){if(!automatic)setStatusTicker('Defina ao menos uma Gem em um Injetor, com quantidade entre 1 e 5.');return;}
@@ -2106,7 +2114,7 @@
                 readyBatches.push(batch);
             }
             if(!readyBatches.length){
-                if(!automatic)setStatusTicker('Nenhum Injetor possui todos os recursos da sua programação. '+(waitingReasons[0]||'Verifique os estoques.'),true);
+                if(!automatic)setStatusTicker(plan.batches.length===0?'Todos os Injetores estão pausados ou sem quantidade programada.':'Nenhum Injetor possui todos os recursos da sua programação. '+(waitingReasons[0]||'Verifique os estoques.'),true);
                 return;
             }
             for(const [material,needed] of Object.entries(rawCosts))rawInventory[material]=Math.max(0,(Number(rawInventory[material])||0)-needed);
@@ -2728,10 +2736,11 @@ ${hasAristocrats ? `
         // 10C. Contexto do Globo da Colônia 360°
         function buildGemProductionReportCard() {
             cancelUnauthorizedInjectorProduction();
-            const managed=Number(state.census?.demantoid||0)>0;
-            const injectorCount=structureCount('injector');
-            const active=!!(state.founding?.creationActive&&state.founding?.creationSource==='injector');
-            return '<div class="card card-cyan"><div class="card-header"><span class="card-title title-font">⚙️ Administração dos Injetores</span><span class="badge">'+(managed?'Automática':'Sem supervisão')+'</span></div><div class="founding-note">'+(managed?'A Demantoide avalia a população, os substratos disponíveis e a necessidade de cada casta. Ela distribui as ordens aos Peridotos automaticamente.':'A produção automática será assumida quando uma Demantoide for criada.')+'</div><div class="stat-box">Injetores instalados: <b>'+injectorCount+'</b> · Produção: <b>'+(active?'Em andamento':'Aguardando materiais')+'</b></div></div>';
+            const managed=Number(state.census?.demantoid||0)>0,injectorCount=structureCount('injector');
+            const f=state.founding||{},active=!!(f.creationActive&&f.creationSource==='injector');
+            const reports=Array.isArray(f.productionReports)?f.productionReports:[];
+            const paused=!!f.injectorPauseAll;
+            return '<div class="card card-cyan"><div class="card-header"><span class="card-title title-font">⚙️ '+(managed?'Administração dos Injetores':'Relatório de criação de Gems')+'</span><span class="badge">'+(managed?'Demantoide no comando':'Modo manual')+'</span></div><div class="founding-note">'+(managed?'A Demantoide administra automaticamente as ordens e os materiais. Você mantém o controle para pausar todos os Injetores ou unidades individuais.':'Antes da primeira Demantoide, você define manualmente o que cada Injetor produzirá. O relatório, a programação e o comando de início manual permanecem disponíveis.')+'</div><div class="stat-box">Injetores: <b>'+injectorCount+'</b> · Produção: <b>'+(active?'Em andamento':paused?'Frota pausada':'Aguardando comando')+'</b> · Lotes concluídos: <b>'+reports.length+'</b></div><button class="btn btn-emerald btn-block" onclick="requestGemProductionReport()">📊 Abrir relatório e controles dos Injetores</button></div>';
         }
 
         function buildEssenceBathCard() {
