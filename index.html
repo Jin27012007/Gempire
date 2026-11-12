@@ -2619,10 +2619,12 @@ ${hasAristocrats ? `
 
             const srcPlanet = PLANETS[state.logisticsSourceId];
             const transitHtml=(state.gemTransfers||[]).map(t=>'<div class="stat-box">'+escapeHTML(GEM_RECIPES[t.gem.caste]?.shortName||t.gem.caste)+' · '+escapeHTML(PLANETS[t.sourceId]?.shortName||t.sourceId)+' → '+escapeHTML(PLANETS[t.targetId]?.shortName||t.targetId)+' · '+Math.ceil(t.remaining)+'s</div>').join('');
+            const transitHtml=(state.gemTransfers||[]).map(t=>'<div class="stat-box">'+escapeHTML(GEM_RECIPES[t.gem.caste]?.shortName||t.gem.caste)+' · '+escapeHTML(PLANETS[t.sourceId]?.shortName||t.sourceId)+' → '+escapeHTML(PLANETS[t.targetId]?.shortName||t.targetId)+' · '+Math.ceil(t.remaining)+'s</div>').join('');
             const optsSrc = colonized.map(p => `<option value="${p.id}" ${p.id === state.logisticsSourceId ? 'selected' : ''}>${p.shortName}</option>`).join('');
             const optsTgt = colonized.map(p => `<option value="${p.id}" ${p.id === state.logisticsTargetId ? 'selected' : ''}>${p.shortName}</option>`).join('');
 
             box.innerHTML = `
+                <div class="card"><b>Gems em trânsito</b>${transitHtml||'<div class="stat-box">Nenhuma Gem em transporte.</div>'}</div>
                 <div class="card">
                     <div class="card-header">
                         <span class="card-title title-font">🔬 Tecnologias Imperiais da Era 1</span>
