@@ -2441,7 +2441,7 @@
             categories.forEach(category => {
                 html += '<div class="structure-category"><div class="card-header"><b>' + category + '</b></div>';
                 STRUCTURE_CATALOG.filter(def => def.category === category).forEach(def => {
-                    const count = structureCount(def.id);
+                    const count = def.id==='galaxy_warp'?(PLANETS[state.activeColonyPlanetId]?.galaxyWarpBuilt?1:0):structureCount(def.id);
                     const reason = canBuildStructure(def);
                     const prereqs = def.prerequisites.length ? def.prerequisites.map(id => structureDefinition(id).name).join(' + ') : 'Nenhuma';
                     const costText = (def.cost.minerals || 0) + ' minerais' + ((def.cost.tech || 0) ? ' · ' + def.cost.tech + ' tecnologia' : '');
@@ -4869,7 +4869,7 @@ ${hasAristocrats ? `
             const count=[4,4,9,15,23][stage]||4;if(!planet||planet.id!=='homeworld'||structureCount('workshop')<1||!structureIsOperational('workshop'))return;
             ctx.save();ctx.translate(cx,cy);ctx.rotate(-.19+camera.rotation*.08);
             ctx.strokeStyle=stage>=2?'rgba(148,163,184,.22)':'rgba(148,163,184,.12)';ctx.lineWidth=1;ctx.setLineDash([5,9]);
-            ctx.beginPath();ctx.ellipse(0,0,radius*(1.38+stage*.035),radius*(.47+stage*.018),0,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
+            if(!front){ctx.beginPath();ctx.ellipse(0,0,radius*(1.38+stage*.035),radius*(.47+stage*.018),0,0,Math.PI*2);ctx.stroke();}ctx.setLineDash([]);
             for(let i=0;i<count;i++){
                 const a=time*(.000035+i%3*.000008)+i*2.399963229728653+camera.rotation*.12,isFront=Math.sin(a)>0;
                 if(isFront!==front)continue;
@@ -5089,7 +5089,7 @@ function drawColony(time){
             drawColonyInjectors(planet,cx,cy,radius,cam);
             // Fragmentos que passam pela frente fecham o efeito de órbita 360°.
             drawPlanetDebris(planet,cx,cy,radius,time,cam,stage,true);
-            drawPlanetCombinedInfoPanel(planet,stats,12,12);
+            drawPlanetCombinedInfoPanel(planet,stats,12,62);
             ctx.textAlign='center';ctx.fillStyle='#f8fafc';ctx.font='bold 16px Georgia';ctx.fillText(planet.shortName,cx,Math.max(24,cy-radius-24));
         }
 
