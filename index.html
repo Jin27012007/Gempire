@@ -2950,8 +2950,10 @@ ${hasAristocrats ? `
             const forgePower=Number(planet.diamondPower)||1;
             const activeForge=state.diamondForge;
             const gatheredTotal=Object.values(state.founding?.gatheredMinerals||{}).reduce((sum,value)=>sum+Math.max(0,Number(value)||0),0);
-            const externalNeed=Math.max(0,mineralCost-remaining),canUseLogistics=structureCount('workshop')>0&&structureIsOperational('workshop');
-            const canForge=(remaining>=mineralCost||(canUseLogistics&&gatheredTotal>=externalNeed))&&!activeForge;
+            const compositionTotal=Object.values(planet.resourcesByType||{}).reduce((sum,value)=>sum+Math.max(0,Number(value)||0),0);
+            const planetAvailable=Math.min(remaining,compositionTotal);
+            const externalNeed=Math.max(0,mineralCost-planetAvailable),canUseLogistics=structureCount('workshop')>0&&structureIsOperational('workshop');
+            const canForge=(planetAvailable>=mineralCost||(canUseLogistics&&gatheredTotal>=externalNeed))&&!activeForge;
             const influence=Math.min(100,Math.round(25+state.matriarchs.length*8+admin.colonizedCount*7+state.era*5));
             const reputation=Math.max(0,Math.min(100,Math.round((Number(state.order)||0)*.65+(Number(state.ideologyAxis)||0)*.35+50)));
             const mineralNames={quartz:'Quartzo',silicate:'Silicato',corundum:'Coríndon',metallic:'Metal',nacre:'Nácar',garnet:'Granada hessonítica',olivine:'Olivina',lapisrock:'Lápis-lazúli'};
@@ -2981,7 +2983,9 @@ ${hasAristocrats ? `
             if(state.diamondForge){setStatusTicker('Uma Diamante já está sendo formada no núcleo planetário.',true);return;}
             const total=Math.max(1,Number(planet.resourceTotal)||1);
             const remaining=Math.max(0,Number(planet.resourcesRemaining)||0);
-            const cost=Math.ceil(total*.40),externalNeed=Math.max(0,cost-remaining),gathered=state.founding.gatheredMinerals||(state.founding.gatheredMinerals={});
+            const cost=Math.ceil(total*.40),gathered=state.founding.gatheredMinerals||(state.founding.gatheredMinerals={});
+            const compositionTotal=Object.values(planet.resourcesByType||{}).reduce((sum,value)=>sum+Math.max(0,Number(value)||0),0);
+            const planetAvailable=Math.min(remaining,compositionTotal),externalNeed=Math.max(0,cost-planetAvailable);
             const gatheredTotal=Object.values(gathered).reduce((sum,value)=>sum+Math.max(0,Number(value)||0),0);
             if(externalNeed>0&&(!structureIsOperational('workshop')||gatheredTotal<externalNeed)){setStatusTicker('A forja exige 40% dos recursos do planeta. Para completar o déficit de '+externalNeed.toLocaleString('pt-BR')+' unidades, opere o Centro de Logística e reúna minerais coletados.',true);return;}
             if(cost<1){setStatusTicker('Reserva mineral inválida para a forja.',true);return;}
@@ -2989,7 +2993,7 @@ ${hasAristocrats ? `
             const size=String(planet.resourceSize||'pequeno').toLowerCase();
             const drillBase=size.includes('gigante')?70:size.includes('grande')?48:size.includes('médio')?28:14;
             const drillDuration=drillBase/Math.max(0.75,getPearlMultiplierFor('firstDiamond'));
-            state.diamondForge={planetId:planet.id,stage:'drilling',drillProgress:0,drillDuration,progress:0,duration:(Number(planet.diamondForgeSeconds)||180)/getPearlMultiplierFor('firstDiamond'),pressure,mineralCost:cost,externalMineralCost:externalNeed,power:Number(planet.diamondPower)||1};
+            state.diamondForge={planetId:planet.id,stage:'drilling',drillProgress:0,drillDuration,progress:0,duration:(Number(planet.diamondForgeSeconds)||180)/getPearlMultiplierFor('firstDiamond'),pressure,mineralCost:cost,externalMineralCost:externalNeed,power:Number(planet.diamondPower)||1,waitingForResources:false};
             setStatusTicker('Injetor exclusivo lançado em '+planet.shortName+'. A perfuração até o núcleo começou; a formação só iniciará quando ele chegar ao centro.');
             updateHUD();
         }
@@ -2999,23 +3003,48 @@ ${hasAristocrats ? `
             if(!forge)return;
             const planet=PLANETS[forge.planetId];
             if(!planet){state.diamondForge=null;return;}
-            const remaining=Math.max(0,Number(planet.resourcesRemaining)||0),gathered=state.founding.gatheredMinerals||(state.founding.gatheredMinerals={}),gatheredTotal=Object.values(gathered).reduce((sum,value)=>sum+Math.max(0,Number(value)||0),0);
-            if(remaining+gatheredTotal<forge.mineralCost||Number(forge.externalMineralCost||0)>0&&!structureIsOperational('workshop')){state.diamondForge=null;setStatusTicker('A forja foi interrompida: minerais coletados ou Centro de Logística insuficientes.',true);return;}
+            const remaining=Math.max(0,Number(planet.resourcesRemaining)||0),gathered=state.founding.gatheredMinerals||(state.founding.gatheredMinerals={});
+            const gatheredTotal=Object.values(gathered).reduce((sum,value)=>sum+Math.max(0,Number(value)||0),0);
             const pools=planet.resourcesByType||{};
-            const available=Object.entries(pools).filter(([,amount])=>amount>0);
-            if(!available.length){state.diamondForge=null;setStatusTicker('A forja foi interrompida: não há composição mineral disponível.',true);return;}
-            let remainingCost=forge.mineralCost;const consumed={};
-            while(remainingCost>0){
-                const candidates=available.filter(([key])=>(pools[key]||0)>0);
-                if(!candidates.length)break;
-                const [key]=candidates[Math.floor(Math.random()*candidates.length)];
-                const amount=Math.max(0,Number(pools[key])||0);
-                const take=Math.min(amount,Math.max(1,Math.ceil(remainingCost/(candidates.length*.8))));
-                pools[key]-=take;consumed[key]=(consumed[key]||0)+take;remainingCost-=take;
+            const poolEntries=Object.entries(pools).filter(([,amount])=>Math.max(0,Number(amount)||0)>0);
+            const compositionTotal=poolEntries.reduce((sum,[,amount])=>sum+Math.max(0,Number(amount)||0),0);
+            const planetCost=Math.min(forge.mineralCost,remaining,compositionTotal);
+            const collectedCost=Math.max(0,forge.mineralCost-planetCost);
+            const logisticsReady=structureCount('workshop')>0&&structureIsOperational('workshop');
+            if(collectedCost>0&&(!logisticsReady||gatheredTotal<collectedCost)){
+                forge.progress=100;forge.waitingForResources=true;
+                setStatusTicker('A forja chegou ao núcleo, mas aguarda '+Math.ceil(Math.max(0,collectedCost-gatheredTotal)).toLocaleString('pt-BR')+' minerais coletados e um Centro de Logística operacional. Reúna os recursos para concluir.',true);
+                updateHUD();return;
             }
-            const actualCost=forge.mineralCost-remainingCost,planetCost=Math.min(remaining,actualCost),collectedCost=Math.max(0,actualCost-planetCost);
+            const consumed={};
+            let planetToConsume=planetCost;
+            for(const [key,value] of poolEntries){
+                if(planetToConsume<=0)break;
+                const amount=Math.max(0,Number(pools[key])||0),take=Math.min(amount,planetToConsume);
+                if(take<=0)continue;
+                pools[key]=Math.max(0,amount-take);consumed[key]=(consumed[key]||0)+take;planetToConsume-=take;
+            }
+            if(planetToConsume>0.001){
+                forge.progress=100;forge.waitingForResources=true;
+                setStatusTicker('A composição mineral mudou durante a forja. Verifique as reservas do planeta e tente novamente.',true);
+                updateHUD();return;
+            }
+            let toCollect=collectedCost;
+            for(const key of Object.keys(gathered)){
+                if(toCollect<=0)break;
+                const available=Math.max(0,Number(gathered[key])||0),take=Math.min(available,toCollect);
+                if(take<=0)continue;
+                gathered[key]=Math.max(0,available-take);consumed[key]=(consumed[key]||0)+take;toCollect-=take;
+            }
+            if(toCollect>0.001){
+                forge.progress=100;forge.waitingForResources=true;
+                setStatusTicker('O estoque coletado mudou durante a forja. Reúna os minerais que faltam para concluir.',true);
+                updateHUD();return;
+            }
             planet.resourcesRemaining=Math.max(0,remaining-planetCost);
-            let toCollect=collectedCost;for(const key of Object.keys(gathered)){if(toCollect<=0)break;const take=Math.min(Math.max(0,Number(gathered[key])||0),toCollect);gathered[key]=Math.max(0,(Number(gathered[key])||0)-take);toCollect-=take;}
+            if(collectedCost>0)state.minerals=Math.max(0,(Number(state.minerals)||0)-collectedCost);
+            forge.waitingForResources=false;
+            const actualCost=forge.mineralCost;
             const dominant=Object.entries(consumed).sort((a,b)=>b[1]-a[1])[0]?.[0]||'quartz';
             const mineralColors={quartz:'violet',silicate:'emerald',corundum:'blue',metallic:'yellow',nacre:'white',garnet:'pink',olivine:'emerald',lapisrock:'blue'};
             const colorKey=mineralColors[dominant]||'white';
@@ -3934,8 +3963,17 @@ ${hasAristocrats ? `
                         setStatusTicker('O Injetor alcançou o núcleo de '+(PLANETS[forge.planetId]?.shortName||'planeta')+'. A cristalização da Diamante começou.');
                         if(state.drawerOpen&&state.drawerTab==='dynasty')renderDrawerContent();
                     }
+                }else if(forge.waitingForResources){
+                    const planet=PLANETS[forge.planetId],remaining=Math.max(0,Number(planet?.resourcesRemaining)||0);
+                    const composition=Object.values(planet?.resourcesByType||{}).reduce((sum,value)=>sum+Math.max(0,Number(value)||0),0);
+                    const planetAvailable=Math.min(remaining,composition);
+                    const gathered=Object.values(state.founding?.gatheredMinerals||{}).reduce((sum,value)=>sum+Math.max(0,Number(value)||0),0);
+                    const need=Math.max(0,Number(forge.mineralCost||0)-planetAvailable);
+                    if(need<=0||(structureCount('workshop')>0&&structureIsOperational('workshop')&&gathered>=need)){
+                        forge.waitingForResources=false;completeDiamondForge();
+                    }
                 }else{
-                    forge.progress=Math.min(100,forge.progress+dt*100/Math.max(1,forge.duration));
+                    forge.progress=Math.min(100,(Number(forge.progress)||0)+dt*100/Math.max(1,Number(forge.duration)||180));
                     if(forge.progress>=100)completeDiamondForge();
                 }
             }
