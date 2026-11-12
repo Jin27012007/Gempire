@@ -2368,21 +2368,20 @@ ${hasAristocrats ? `
         }
 
         // 10C. Contexto do Globo da Colônia 360°
+        function buildGemProductionReportCard() {
+            const found=state.founding||{},reports=(found.productionReports||[]).slice().reverse();
+            const reportHtml=reports.length?reports.map(r=>'<div class="stat-box"><b>'+escapeHTML(r.gemLabel||r.type||'Gem')+' × '+Number(r.quantity||0)+'</b><small style="display:block;color:var(--text-muted)">Qualidade: '+escapeHTML(r.grade||'A')+' · Substrato: '+escapeHTML(r.mineralName||'Não informado')+' · Ciclo '+Number(r.cycle||0)+'</small><small>'+escapeHTML(r.description||'Produção automática concluída.')+'</small></div>').join(''):'<div class="stat-box" style="color:#94a3b8">Nenhum lote produzido ainda. Os resultados aparecerão aqui após o primeiro ciclo do Injetor.</div>';
+            const operational=structureIsOperational('injector');
+            return '<div class="card card-cyan"><div class="card-header"><span class="card-title title-font">📊 Relatórios de formação de Gems</span><span class="badge">'+(operational?'Injetor operacional':'Aguardando Injetor')+'</span></div><div class="founding-note">Consulte os lotes produzidos automaticamente, incluindo tipo de Gem, quantidade, qualidade e substrato utilizado.</div><div class="stat-box">Lotes concluídos: <b>'+(found.productionReports||[]).length+'</b> · Gems produzidas: <b>'+(found.gemsCreatedCount||0)+'</b></div><button class="btn btn-emerald btn-block" onclick="requestGemProductionReport()" '+(operational?'':'disabled')+'>📄 Solicitar relatório de formação</button>'+(found.productionReportRequested?reportHtml:'<div class="founding-note">O relatório detalhado será exibido quando solicitado.</div>')+'</div>';
+        }
+
         function renderColonyContext(container) {
-            const p=PLANETS[state.activeColonyPlanetId],vein=p.veins[state.selectedVeinIndex]||p.veins[0];
-            const activeInjectors=p.veins.filter(v=>v.injector).length,peridotAvailable=Math.max(0,Number(state.census.peridot)||0);
-            const resourceLabels={quartz:'Quartzo',silicate:'Silicatos',corundum:'Coríndon',metallic:'Minérios metálicos',nacre:'Nácar',garnet:'Granada',olivine:'Olivina',lapisrock:'Lápis-lazúli',pyroxene:'Piroxênio',beryllium:'Berílio',topaz:'Topázio'};
-            const resourceTotal=Object.values(p.resourcesByType||{}).reduce((sum,value)=>sum+Math.max(0,Number(value)||0),0);
-            const resourceChart=Object.entries(resourceLabels).map(([key,label])=>{const amount=Math.max(0,Number(p.resourcesByType&&p.resourcesByType[key])||0);const pct=resourceTotal>0?Math.max(0,Math.min(100,amount/Math.max(1,Number(p.resourceTotal)||resourceTotal)*100)):0;return '<div style="display:grid;grid-template-columns:100px 1fr 58px;gap:7px;align-items:center;margin:7px 0;font-size:10px"><span>'+label+'</span><div style="height:8px;background:#0b1220;border-radius:8px;overflow:hidden"><div style="height:100%;width:'+pct.toFixed(2)+'%;background:linear-gradient(90deg,#0e7490,#67e8f9)"></div></div><b style="text-align:right">'+Math.floor(amount).toLocaleString('pt-BR')+'</b></div>';}).join('');
+            const p=PLANETS[state.activeColonyPlanetId];
             container.innerHTML=`
                 <div class="card"><div class="card-header"><span class="card-title title-font">🌍 ${p.shortName}</span><span class="badge">Crosta: ${p.crustHealth}%</span></div>
-                <div class="card card-cyan"><div class="card-header"><span class="card-title">📊 Reservas minerais do planeta</span><b>${Math.floor(resourceTotal).toLocaleString('pt-BR')}</b></div><div>${resourceChart}</div><small style="color:var(--text-muted)">As barras representam o estoque real de cada matéria-prima. A largura diminui conforme a extração e a produção consomem o depósito.</small></div>
                 <div class="grid-2"><div class="stat-box" style="display:flex;justify-content:space-between;"><span style="color:var(--text-muted)">Calor Sísmico:</span><b style="color:${p.seismicHeat>=75?'#fb7185':'#fde047'}">${Math.round(p.seismicHeat)}%</b></div><div class="stat-box" style="display:flex;justify-content:space-between;"><span style="color:var(--text-muted)">Dissidência:</span><b style="color:${p.dissent>=70?'#fb7185':'#7dd3fc'}">${Math.round(p.dissent)}%</b></div></div></div>
-                <div class="card card-cyan"><div class="card-header"><span class="card-title title-font">💚 Operação de Peridot</span><span class="badge">${peridotAvailable} disponíveis</span></div>
-                <div class="stat-label">Nodo #${vein.id+1} • ${vein.label} • Pureza ${vein.purity}%</div>
-                <p style="font-size:11px;color:var(--text-muted);line-height:1.5;margin:7px 0;">Peridots coordenam a implantação e a operação dos injetores, ancorados na borda do planeta e conectados aos estratos minerais.</p>
-                <div class="stat-box" style="display:flex;justify-content:space-between;align-items:center;"><span>Injetores ativos neste mundo</span><b style="color:var(--cyan)">${activeInjectors} / ${p.veins.length}</b></div><div id="injector-action-area">${buildInjectorActionHTML(vein)}</div></div>
-                `;
+                ${buildGemProductionReportCard()}
+            `;
         }
 
         function buildForecastHTML(evalData) {
@@ -4459,20 +4458,27 @@ ${hasAristocrats ? `
             return Object.values(groups).sort((a,b)=>a.firstIndex-b.firstIndex);
         }
         function drawMineralBarChart(planet,x,y){
-            const groups=getMineralGroups(planet),w=Math.min(172,canvasWidth*.44),rowH=15,h=27+groups.length*rowH;
+            const resources=[
+                ['quartz','Quartzo','#c084fc'],['silicate','Silicatos','#34d399'],['corundum','Coríndon','#38bdf8'],
+                ['metallic','Metálicos','#facc15'],['nacre','Nácar','#f8fafc'],['garnet','Granada','#fb7185'],
+                ['olivine','Olivina','#86efac'],['lapisrock','Lápis-lazúli','#818cf8'],['pyroxene','Piroxênio','#f59e0b'],
+                ['beryllium','Berílio','#67e8f9'],['topaz','Topázio','#fbbf24']
+            ];
+            const total=resources.reduce((sum,[key])=>sum+Math.max(0,Number(planet.resourcesByType?.[key])||0),0);
+            const max=Math.max(1,...resources.map(([key])=>Math.max(0,Number(planet.resourcesByType?.[key])||0)));
+            const w=Math.min(224,canvasWidth*.57),rowH=13,h=29+resources.length*rowH;
             mineralChartHitTargets=[];
-            ctx.save();ctx.fillStyle='rgba(5,10,25,.88)';ctx.strokeStyle='rgba(148,163,184,.36)';ctx.lineWidth=1;
+            ctx.save();ctx.fillStyle='rgba(5,10,25,.9)';ctx.strokeStyle='rgba(56,189,248,.48)';ctx.lineWidth=1;
             ctx.beginPath();ctx.roundRect(x,y,w,h,10);ctx.fill();ctx.stroke();
-            ctx.font='bold 9px Segoe UI';ctx.fillStyle='#7dd3fc';ctx.textAlign='left';ctx.fillText('MINÉRIOS • DEPÓSITOS',x+9,y+14);
-            const max=Math.max(1,...groups.map(g=>g.count));
-            groups.forEach((g,i)=>{
-                const yy=y+25+i*rowH,selected=planet.veins[state.selectedVeinIndex]?.type===g.type;
-                ctx.font='bold 9px Segoe UI';ctx.fillStyle=selected?'#fff':'#cbd5e1';ctx.textAlign='left';ctx.fillText(g.meta.short,x+9,yy+8);
-                const bx=x+39,bw=w-65;
-                ctx.fillStyle='rgba(71,85,105,.55)';ctx.fillRect(bx,yy+2,bw,6);
-                ctx.fillStyle=g.meta.color;ctx.fillRect(bx,yy+2,bw*g.count/max,6);
-                ctx.textAlign='right';ctx.fillStyle='#e2e8f0';ctx.fillText(String(g.count),x+w-9,yy+8);
-                mineralChartHitTargets.push({x,y:yy-2,w,h:rowH,type:g.type,index:g.firstIndex});
+            ctx.font='bold 9px Segoe UI';ctx.fillStyle='#7dd3fc';ctx.textAlign='left';ctx.fillText('RESERVAS MINERAIS',x+9,y+13);
+            ctx.textAlign='right';ctx.fillStyle='#f8fafc';ctx.fillText(Math.floor(total).toLocaleString('pt-BR'),x+w-9,y+13);
+            resources.forEach(([key,label,color],i)=>{
+                const amount=Math.max(0,Number(planet.resourcesByType?.[key])||0),yy=y+22+i*rowH;
+                ctx.font='9px Segoe UI';ctx.textAlign='left';ctx.fillStyle='#cbd5e1';ctx.fillText(label,x+9,yy+8);
+                const bx=x+91,bw=w-145;
+                ctx.fillStyle='rgba(15,23,42,.9)';ctx.fillRect(bx,yy+2,bw,6);
+                ctx.fillStyle=color;ctx.fillRect(bx,yy+2,bw*amount/max,6);
+                ctx.textAlign='right';ctx.font='bold 9px Segoe UI';ctx.fillStyle='#f1f5f9';ctx.fillText(Math.floor(amount).toLocaleString('pt-BR'),x+w-8,yy+8);
             });
             ctx.restore();
         }
