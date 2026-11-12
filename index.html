@@ -1846,6 +1846,7 @@
         function renderDrawerContent() {
             const body = document.getElementById('drawer-body');
             if (!body) return;
+            if(document.activeElement&&document.activeElement.id==='injector-gem-order')return;
             if (state.drawerTab === 'structures') { renderStructuresTab(body); return; }
             if (state.drawerTab === 'guide') { renderGemGuide(body); return; }
             if (state.drawerTab === 'population') { renderPopulationReport(body); return; }
