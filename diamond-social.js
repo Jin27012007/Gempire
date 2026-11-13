@@ -225,6 +225,7 @@
                 observed.pearl = (Number(observed.pearl) || 0) + 1;
             });
             Object.entries(state.census || {}).forEach(([type, total]) => {
+                if (typeof FOUNDING_GEM_DATA !== 'undefined' && !FOUNDING_GEM_DATA[type]) return;
                 const missing = Math.max(0, Math.floor(Number(total) || 0) - (Number(observed[type]) || 0));
                 if (missing) data.courts.first.byType[type] = (Number(data.courts.first.byType[type]) || 0) + missing;
             });
@@ -464,7 +465,7 @@
         renderSocialTab(document.getElementById('drawer-body'));
     }
     function issueDiamondOrder(diamondId, orderType, gemType) {
-        const payload = { type: orderType, gemType: gemType || null };
+        const payload = { type: orderType, gemType: gemType || null, value: gemType || null };
         queueSocialInteraction(diamondId, 'order', payload);
     }
     function calculateOutcome(diamond, actionId, item) {
@@ -537,6 +538,18 @@
             } else if (order.type === 'resume') {
                 diamond.courtProductionEnabled = true;
                 result.response = 'Retomarei a produção independente assim que houver essência e minerais suficientes.';
+            } else if (order.type === 'authority') {
+                const authorityLabels = { supervised: 'Supervisionada', delegated: 'Delegada', autonomous: 'Autônoma' };
+                if (authorityLabels[order.value] && typeof window.setDiamondAuthority === 'function') {
+                    window.setDiamondAuthority(diamond.id, order.value);
+                    result.response = 'Entendido. Meu nível de autoridade foi alterado para ' + authorityLabels[order.value] + '.';
+                } else result.response = 'A ordem de autoridade não foi reconhecida.';
+            } else if (order.type === 'office') {
+                const officeLabels = { administration: 'Administração geral', industry: 'Indústria e produção', science: 'Ciência e pesquisa', defense: 'Defesa e segurança', diplomacy: 'Diplomacia e estabilidade', expansion: 'Expansão imperial' };
+                if (officeLabels[order.value] && typeof window.setDiamondOffice === 'function') {
+                    window.setDiamondOffice(diamond.id, order.value);
+                    result.response = 'Aceito a designação para ' + officeLabels[order.value] + '.';
+                } else result.response = 'O cargo solicitado não foi reconhecido.';
             }
         }
         relation.friendship = clamp(relation.friendship + result.friendship);
@@ -727,7 +740,9 @@
             '<button class="social-action" type="button" onclick="issueDiamondOrder(\'' + escapeSocial(selected.id) + '\',\'proposal\')" ' + (busy || queue.length >= 3 || !canPropose ? 'disabled' : '') + '><span class="social-action-icon">⚖</span><span><b>Apresentar plano administrativo</b><small>' + (canPropose ? 'Preparar uma proposta real para sua colônia governada' : 'Disponível quando houver uma colônia sob sua governança') + '</small></span></button>' +
             '<label class="stat-label" for="social-production-type">Casta que sua corte deve produzir</label><select id="social-production-type">' + productionOptions + '</select>' +
             '<button class="social-action" type="button" onclick="issueDiamondOrder(\'' + escapeSocial(selected.id) + '\',\'production\',document.getElementById(\'social-production-type\').value)" ' + (busy || queue.length >= 3 ? 'disabled' : '') + '><span class="social-action-icon">✥</span><span><b>Ordenar foco de produção</b><small>Consome essência pessoal e minerais para gerar Gems em sua corte</small></span></button>' +
-            '<button class="btn" type="button" onclick="issueDiamondOrder(\'' + escapeSocial(selected.id) + '\',\'' + (selected.courtProductionEnabled === false ? 'resume' : 'pause') + '\')" ' + (busy || queue.length >= 3 ? 'disabled' : '') + '>' + (selected.courtProductionEnabled === false ? 'Retomar produção autônoma' : 'Suspender produção autônoma') + '</button></div>';
+            '<button class="btn" type="button" onclick="issueDiamondOrder(\'' + escapeSocial(selected.id) + '\',\'' + (selected.courtProductionEnabled === false ? 'resume' : 'pause') + '\')" ' + (busy || queue.length >= 3 ? 'disabled' : '') + '>' + (selected.courtProductionEnabled === false ? 'Retomar produção autônoma' : 'Suspender produção autônoma') + '</button>' +
+            '<label class="stat-label" for="social-order-authority">Nível de autoridade</label><select id="social-order-authority"><option value="supervised">Supervisionada</option><option value="delegated">Delegada</option><option value="autonomous">Autônoma</option></select><button class="btn" type="button" onclick="issueDiamondOrder(\'' + escapeSocial(selected.id) + '\',\'authority\',document.getElementById(\'social-order-authority\').value)" ' + (busy || queue.length >= 3 ? 'disabled' : '') + '>Ordenar alteração de autoridade</button>' +
+            '<label class="stat-label" for="social-order-office">Cargo imperial</label><select id="social-order-office"><option value="administration">Administração geral</option><option value="industry">Indústria e produção</option><option value="science">Ciência e pesquisa</option><option value="defense">Defesa e segurança</option><option value="diplomacy">Diplomacia e estabilidade</option><option value="expansion">Expansão imperial</option></select><button class="btn" type="button" onclick="issueDiamondOrder(\'' + escapeSocial(selected.id) + '\',\'office\',document.getElementById(\'social-order-office\').value)" ' + (busy || queue.length >= 3 ? 'disabled' : '') + '>Ordenar novo cargo</button></div>';
         const active = queue.length ? queue[0] : null;
         const activeDiamond = active ? getDiamond(active.diamondId) : null;
         const queueHtml = queue.length ? queue.map((item, index) => {
