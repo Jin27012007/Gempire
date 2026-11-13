@@ -269,6 +269,11 @@
             updateGovernanceUI('A proposta não pode ser executada: a colônia ou os recursos mudaram desde sua apresentação.');
             return false;
         }
+        const expansionTarget = decision.type === 'expansion' ? PLANETS[decision.targetPlanetId] : null;
+        if (decision.type === 'expansion' && (!expansionTarget || expansionTarget.colonized)) {
+            updateGovernanceUI('A colonização não foi executada: o mundo de destino já não está disponível.');
+            return false;
+        }
         const cost = decision.cost || {};
         state.minerals -= Number(cost.minerals || 0);
         state.tech -= Number(cost.tech || 0);
@@ -284,18 +289,11 @@
         } else if (decision.type === 'industry') {
             planet.governanceIndustryLevel = Math.min(3, Number(planet.governanceIndustryLevel || 0) + 1);
         } else if (decision.type === 'expansion') {
-            const target = PLANETS[decision.targetPlanetId];
-            if (!target || target.colonized || Number(state.minerals || 0) + Number(cost.minerals || 0) < Number(cost.minerals || 0)) {
-                state.minerals += Number(cost.minerals || 0);
-                state.essence.white += Number(cost.white || 0);
-                updateGovernanceUI('A colonização não foi executada: o mundo de destino já não está disponível.');
-                return false;
-            }
-            target.colonized = true;
-            target.governor = 'matriarch_' + diamond.id;
-            target.walkingGems = Array.isArray(target.walkingGems) ? target.walkingGems : [];
-            target.governanceIndustryLevel = Number(target.governanceIndustryLevel) || 0;
-            diamond.governance.planetId = target.id;
+            expansionTarget.colonized = true;
+            expansionTarget.governor = 'matriarch_' + diamond.id;
+            expansionTarget.walkingGems = Array.isArray(expansionTarget.walkingGems) ? expansionTarget.walkingGems : [];
+            expansionTarget.governanceIndustryLevel = Number(expansionTarget.governanceIndustryLevel) || 0;
+            diamond.governance.planetId = expansionTarget.id;
         }
 
         decision.status = automatic ? 'executed_auto' : 'approved';
@@ -366,8 +364,6 @@
             if (office === 'science') state.tech += 0.025 * dt;
             if (office === 'diplomacy') planet.dissent = Math.max(0, Number(planet.dissent || 0) - 0.025 * dt);
             if (office === 'defense') planet.dissent = Math.max(0, Number(planet.dissent || 0) - 0.012 * dt);
-            const researchBonus = Math.max(0, Number(planet.governanceResearchBonus) || 0);
-            if (researchBonus) state.tech += researchBonus * 0.025 * dt;
         });
 
         gov.autoAccumulator += dt;
