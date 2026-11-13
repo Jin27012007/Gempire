@@ -4406,7 +4406,7 @@ ${hasAristocrats ? `
                 if (!planet.colonized) continue;
                 const yieldRate = calculatePlanetYield(planet);
                 // Reservas minerais são estáticas: só operações explícitas de mineração as consomem.
-                state.tech += yieldRate.tech * dt;
+                state.tech += yieldRate.tech * dt * (1 + Math.max(0, Math.min(0.20, Number(planet.governanceResearchBonus) || 0)));
                 state.essence.white += yieldRate.white * dt;
                 state.essence.yellow += yieldRate.yellow * dt;
                 state.essence.blue += yieldRate.blue * dt;
