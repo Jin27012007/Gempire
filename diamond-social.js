@@ -437,6 +437,7 @@
         const pending = (state.diamondGovernance?.decisions || []).filter(item => item.diamondId === diamond.id && item.status === 'pending');
         const chamber = (state.diamondChambers || []).find(item => item.ownerId === diamond.id);
         const fleet = (state.shipFleet || []).filter(ship => ship.ownerId === diamond.id);
+        const recentOrders = (diamond.socialOrderLog || []).slice(0, 5);
         const lines = [
             'Corte: ' + (court?.total || 0) + ' Gems' + (court?.byType ? ' (' + Object.entries(court.byType).filter(([,n]) => Number(n) > 0).map(([type,n]) => type + ' ' + n).join(', ') + ')' : ''),
             'Essência pessoal: ' + Math.floor(Number(diamond.essence) || 0),
@@ -446,6 +447,7 @@
             'Equipes designadas no Império (contagem por casta, não por indivíduo; o jogo ainda não identifica cada trabalhadora): ' + (assignments.join('; ') || 'nenhuma atribuição registrada'),
             'Construções ativas: ' + (jobs.map(job => (job.name || job.id || 'Obra') + ' ' + Math.floor(Number(job.progress) || 0) + '%').join('; ') || 'nenhuma obra ativa identificada'),
             'Propostas aguardando decisão: ' + (pending.map(item => item.title).join('; ') || 'nenhuma'),
+            'Ordens recentes: ' + (recentOrders.map(order => 'Ciclo ' + order.cycle + ' · ' + order.label + ' — ' + order.result).join('; ') || 'nenhuma ordem registrada'),
             'Naves sob sua propriedade: ' + (fleet.map(ship => ship.name || ship.type).join(', ') || 'nenhuma'),
             'Câmara de essência: ' + (chamber ? (chamber.active ? 'banho em andamento (' + Math.floor(chamber.progress || 0) + '%)' : chamber.cooldown > 0 ? 'recuperação (' + Math.ceil(chamber.cooldown) + 's)' : 'disponível') : 'sem câmara própria')
         ];
@@ -521,6 +523,7 @@
         const relation = ensureSocialData().relations[item.diamondId];
         if (!diamond || !relation) return;
         let result = calculateOutcome(diamond, item.actionId, item);
+        let orderRecordLabel = '';
         if (item.actionId === 'order') {
             const order = item.order || {};
             if (order.type === 'proposal') {
@@ -528,28 +531,34 @@
                 if (typeof window.requestDiamondGovernanceDecision === 'function') window.requestDiamondGovernanceDecision(diamond.id);
                 const after = (state.diamondGovernance?.decisions || []).length;
                 result.response = after > before ? 'A proposta administrativa foi preparada e aguarda a aprovação da Suprema.' : (diamond.currentSpeech || 'Não encontrei uma medida viável com as condições atuais.');
+                orderRecordLabel = 'Solicitou um plano administrativo';
                 result.respect += 1;
             } else if (order.type === 'production') {
                 const type = getProductionData(order.gemType) ? order.gemType : defaultProductionType(diamond);
                 diamond.courtProductionType = type;
                 diamond.courtProductionEnabled = true;
+                orderRecordLabel = 'Produção priorizada: ' + (FOUNDING_GEM_DATA[type]?.label || type);
                 result.response = 'Ordem recebida. Minha corte priorizará ' + (FOUNDING_GEM_DATA[type]?.label || type) + ', condicionada à essência e aos minerais disponíveis.';
             } else if (order.type === 'pause') {
                 diamond.courtProductionEnabled = false;
+                orderRecordLabel = 'Suspendeu a produção da corte';
                 result.response = 'Suspenderei temporariamente a produção de Gems da minha corte.';
             } else if (order.type === 'resume') {
                 diamond.courtProductionEnabled = true;
+                orderRecordLabel = 'Retomou a produção da corte';
                 result.response = 'Retomarei a produção independente assim que houver essência e minerais suficientes.';
             } else if (order.type === 'authority') {
                 const authorityLabels = { supervised: 'Supervisionada', delegated: 'Delegada', autonomous: 'Autônoma' };
                 if (authorityLabels[order.value] && typeof window.setDiamondAuthority === 'function') {
                     window.setDiamondAuthority(diamond.id, order.value);
+                    orderRecordLabel = 'Nível de autoridade alterado para ' + authorityLabels[order.value];
                     result.response = 'Entendido. Meu nível de autoridade foi alterado para ' + authorityLabels[order.value] + '.';
                 } else result.response = 'A ordem de autoridade não foi reconhecida.';
             } else if (order.type === 'office') {
                 const officeLabels = { administration: 'Administração geral', industry: 'Indústria e produção', science: 'Ciência e pesquisa', defense: 'Defesa e segurança', diplomacy: 'Diplomacia e estabilidade', expansion: 'Expansão imperial' };
                 if (officeLabels[order.value] && typeof window.setDiamondOffice === 'function') {
                     window.setDiamondOffice(diamond.id, order.value);
+                    orderRecordLabel = 'Cargo alterado para ' + officeLabels[order.value];
                     result.response = 'Aceito a designação para ' + officeLabels[order.value] + '.';
                 } else result.response = 'O cargo solicitado não foi reconhecido.';
             } else if (order.type === 'assign' || order.type === 'release') {
@@ -559,10 +568,20 @@
                 if (order.type === 'assign' && typeof window.assignGemToStructure === 'function') window.assignGemToStructure(structureId, gemType);
                 if (order.type === 'release' && typeof window.unassignGemFromStructure === 'function') window.unassignGemFromStructure(structureId, gemType);
                 const after = Number(state.structureAssignments?.[structureId]?.[gemType]) || 0;
+                const structureName = (typeof STRUCTURE_CATALOG !== 'undefined' ? STRUCTURE_CATALOG.find(def => def.id === structureId)?.name : null) || structureId;
+                const casteName = FOUNDING_GEM_DATA[gemType]?.label || gemType;
                 result.response = after !== before
-                    ? (order.type === 'assign' ? 'Ordem executada: uma ' : 'Ordem executada: uma ') + (FOUNDING_GEM_DATA[gemType]?.label || gemType) + (order.type === 'assign' ? ' foi designada para ' : ' foi liberada de ') + structureId + '.'
+                    ? 'Ordem executada: uma ' + casteName + (order.type === 'assign' ? ' foi designada para ' : ' foi liberada de ') + structureName + '.'
                     : 'Não foi possível alterar essa equipe: verifique vagas, operadores necessários e Gems disponíveis.';
+                orderRecordLabel = after !== before
+                    ? (order.type === 'assign' ? 'Designou uma ' : 'Liberou uma ') + casteName + (order.type === 'assign' ? ' para ' : ' de ') + structureName
+                    : 'Ordem não executada: equipe sem vaga ou sem Gems livres';
             }
+        }
+        if (item.actionId === 'order') {
+            if (!Array.isArray(diamond.socialOrderLog)) diamond.socialOrderLog = [];
+            diamond.socialOrderLog.unshift({ cycle: Number(state.cycleCount) || 1, label: orderRecordLabel || 'Ordem imperial', result: result.response, successful: !String(result.response).startsWith('Não foi possível') });
+            if (diamond.socialOrderLog.length > 20) diamond.socialOrderLog.length = 20;
         }
         relation.friendship = clamp(relation.friendship + result.friendship);
         relation.trust = clamp(relation.trust + result.trust);
@@ -581,7 +600,7 @@
         const action = ACTIONS[item.actionId];
         const event = {
             cycle: Number(state.cycleCount) || 1, diamondId: diamond.id, diamondName: diamond.name,
-            actionId: item.actionId, actionLabel: action.label, response: result.response, detail: item.reasonLabel || item.topicLabel || (item.order?.type || ''),
+            actionId: item.actionId, actionLabel: action.label, response: result.response, detail: item.reasonLabel || item.topicLabel || orderRecordLabel || (item.order?.type || ''),
             relationship: getRelationshipLabel(relation)
         };
         state.diamondSocial.history.unshift(event);
