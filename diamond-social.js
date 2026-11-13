@@ -552,6 +552,16 @@
                     window.setDiamondOffice(diamond.id, order.value);
                     result.response = 'Aceito a designação para ' + officeLabels[order.value] + '.';
                 } else result.response = 'O cargo solicitado não foi reconhecido.';
+            } else if (order.type === 'assign' || order.type === 'release') {
+                const parts = String(order.value || '').split('|');
+                const structureId = parts[0], gemType = parts[1];
+                const before = Number(state.structureAssignments?.[structureId]?.[gemType]) || 0;
+                if (order.type === 'assign' && typeof window.assignGemToStructure === 'function') window.assignGemToStructure(structureId, gemType);
+                if (order.type === 'release' && typeof window.unassignGemFromStructure === 'function') window.unassignGemFromStructure(structureId, gemType);
+                const after = Number(state.structureAssignments?.[structureId]?.[gemType]) || 0;
+                result.response = after !== before
+                    ? (order.type === 'assign' ? 'Ordem executada: uma ' : 'Ordem executada: uma ') + (FOUNDING_GEM_DATA[gemType]?.label || gemType) + (order.type === 'assign' ? ' foi designada para ' : ' foi liberada de ') + structureId + '.'
+                    : 'Não foi possível alterar essa equipe: verifique vagas, operadores necessários e Gems disponíveis.';
             }
         }
         relation.friendship = clamp(relation.friendship + result.friendship);
