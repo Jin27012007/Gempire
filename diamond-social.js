@@ -416,9 +416,6 @@
         const planet = getGovernedPlanet(diamond);
         if (planet && Number(planet.dissent || 0) >= 10) reasons.push({ id: 'dissent', label: 'Dissidência elevada em ' + planet.shortName + ' (' + Math.round(planet.dissent) + '%)' });
         if (planet?.rebellionActive) reasons.push({ id: 'rebellion', label: 'Rebelião ativa em ' + planet.shortName });
-        const pending = (state.diamondGovernance?.decisions || []).filter(item => item.diamondId === diamond.id && item.status === 'pending');
-        if (pending.length) reasons.push({ id: 'pending', label: 'Proposta administrativa ainda não resolvida (' + pending.length + ')' });
-        if (diamond.courtProductionEnabled === false) reasons.push({ id: 'production', label: 'Programa de produção da corte suspenso' });
         reasons.push({ id: 'conduct', label: 'Conduta incompatível com o cargo' });
         return reasons;
     }
@@ -427,8 +424,12 @@
         const planet = getGovernedPlanet(diamond);
         const assignments = [];
         Object.entries(state.structureAssignments || {}).forEach(([structure, jobs]) => {
+            const structureName = (typeof STRUCTURE_CATALOG !== 'undefined' ? STRUCTURE_CATALOG.find(def => def.id === structure)?.name : null) || structure;
             Object.entries(jobs || {}).forEach(([type, qty]) => {
-                if (Number(qty) > 0) assignments.push(structure + ': ' + type + ' ' + Number(qty));
+                if (Number(qty) > 0) {
+                    const casteName = (typeof FOUNDING_GEM_DATA !== 'undefined' ? FOUNDING_GEM_DATA[type]?.label : null) || type;
+                    assignments.push(structureName + ': ' + casteName + ' ' + Number(qty));
+                }
             });
         });
         const jobs = (state.constructionQueue || []).filter(job => job && job.active && (!planet || (job.planetId || 'homeworld') === planet.id));
@@ -440,9 +441,9 @@
             'Corte: ' + (court?.total || 0) + ' Gems' + (court?.byType ? ' (' + Object.entries(court.byType).filter(([,n]) => Number(n) > 0).map(([type,n]) => type + ' ' + n).join(', ') + ')' : ''),
             'Essência pessoal: ' + Math.floor(Number(diamond.essence) || 0),
             'Produção: ' + (diamond.courtProductionEnabled === false ? 'suspensa' : 'ativa') + ' · foco: ' + (FOUNDING_GEM_DATA[diamond.courtProductionType]?.label || diamond.courtProductionType || 'automático'),
-            'Cargo: ' + (diamond.governance?.office || 'sem cargo') + ' · autoridade: ' + (diamond.governance?.authority || 'supervisionada'),
+            'Cargo: ' + ({ administration: 'Administração geral', industry: 'Indústria e produção', science: 'Ciência e pesquisa', defense: 'Defesa e segurança', diplomacy: 'Diplomacia e estabilidade', expansion: 'Expansão imperial' }[diamond.governance?.office] || 'sem cargo') + ' · autoridade: ' + ({ supervised: 'Supervisionada', delegated: 'Delegada', autonomous: 'Autônoma' }[diamond.governance?.authority] || 'Supervisionada'),
             'Governança: ' + (planet ? planet.shortName + ' · dissidência ' + Math.round(Number(planet.dissent) || 0) + '% · rebelião ' + (planet.rebellionActive ? 'ativa' : 'inativa') : 'nenhuma colônia designada'),
-            'Equipes atualmente designadas (contagem por casta, não por indivíduo): ' + (assignments.join('; ') || 'nenhuma atribuição registrada'),
+            'Equipes designadas no Império (contagem por casta, não por indivíduo; o jogo ainda não identifica cada trabalhadora): ' + (assignments.join('; ') || 'nenhuma atribuição registrada'),
             'Construções ativas: ' + (jobs.map(job => (job.name || job.id || 'Obra') + ' ' + Math.floor(Number(job.progress) || 0) + '%').join('; ') || 'nenhuma obra ativa identificada'),
             'Propostas aguardando decisão: ' + (pending.map(item => item.title).join('; ') || 'nenhuma'),
             'Naves sob sua propriedade: ' + (fleet.map(ship => ship.name || ship.type).join(', ') || 'nenhuma'),
@@ -754,7 +755,7 @@
                 '</div>' + (index === 0 ? '<div class="social-progress"><i style="width:' + clamp(item.progress) + '%"></i></div>' : '');
         }).join('') : '<p class="social-muted">Nenhuma interação agendada. Escolha uma ação para iniciar.</p>';
         const history = social.history.filter(item => item.diamondId === selected.id).slice(0, 5).map(item =>
-            '<div class="social-history-item"><small>Ciclo ' + item.cycle + ' · ' + escapeSocial(item.actionLabel) + '</small><p>“' + escapeSocial(item.response) + '”</p><b>' + escapeSocial(item.relationship) + '</b></div>'
+            '<div class="social-history-item"><small>Ciclo ' + item.cycle + ' · ' + escapeSocial(item.actionLabel) + '</small>' + (item.detail ? '<small class="social-muted">Contexto: ' + escapeSocial(item.detail) + '</small>' : '') + '<p>“' + escapeSocial(item.response) + '”</p><b>' + escapeSocial(item.relationship) + '</b></div>'
         ).join('') || '<p class="social-muted">As conversas e encontros aparecerão aqui conforme o vínculo se desenvolver.</p>';
 
         container.innerHTML =
@@ -764,7 +765,8 @@
             '<div class="card social-profile"><div class="social-profile-head"><span class="social-gem social-gem-large" style="--gem-color:' + escapeSocial(selected.colorHex || '#c4b5fd') + '">◇</span><div><h3>' + escapeSocial(selected.name) + '</h3><p>' + escapeSocial(selected.personalityName || 'Personalidade em formação') + ' · ' + escapeSocial(bond) + '</p><small>' + escapeSocial(mood.icon + ' ' + mood.label) + (mood.remaining > 0 ? ' · ' + Math.ceil(mood.remaining) + 's' : '') + '</small></div></div>' +
             '<div class="social-metrics">' + metric('Amizade', 'friendship', '#f0abfc') + metric('Confiança', 'trust', '#7dd3fc') + metric('Respeito', 'respect', '#fcd34d') + metric('Tensão', 'tension', '#fb7185') + '</div>' +
             '<div class="social-speech">“' + escapeSocial(selected.currentSpeech || 'Aguardo um momento para conversar.') + '”</div></div>' +
-            '<div class="card"><div class="card-header"><span class="card-title title-font">Autoridade da Suprema</span></div><p class="social-muted">A convocação interrompe qualquer atividade desta Diamante. Personalidades disciplinadas aceitam melhor a ordem; outras podem ressentir-se.</p><button class="social-action" type="button" onclick="summonDiamond(\'' + escapeSocial(selected.id) + '\')"><span class="social-action-icon">♛</span><span><b>Exigir presença imediata</b><small>Interromper trabalho e convocá-la à Corte</small></span></button></div>' +
+            '<div class="card"><div class="card-header"><span class="card-title title-font">Autoridade da Suprema</span></div><p class="social-muted">A convocação interrompe qualquer atividade desta Diamante. A reação depende da personalidade, da disciplina e do vínculo atual.</p><button class="social-action" type="button" onclick="summonDiamond(\'' + escapeSocial(selected.id) + '\')"><span class="social-action-icon">♛</span><span><b>Exigir presença imediata</b><small>Interromper trabalho e convocá-la à Corte</small></span></button></div>' +
+            '<div class="card"><div class="card-header"><span class="card-title title-font">Assuntos de conversa</span></div><div class="social-actions">' + topicHtml + '</div></div>' +
             '<div class="card"><div class="card-header"><span class="card-title title-font">Interações disponíveis</span><span class="badge">' + queue.length + '/3 na fila</span></div><div class="social-actions">' + actionButtons + '</div></div>' +
             disciplineHtml + orderHtml + reportHtml +
             '<div class="card"><div class="card-header"><span class="card-title title-font">Fila de convivência</span></div>' + (active ? '<div class="social-muted">Em andamento: ' + escapeSocial(activeDiamond?.name || 'Diamante') + ' · ' + ACTIONS[active.actionId].label + '</div>' : '') + queueHtml + '</div>' +
