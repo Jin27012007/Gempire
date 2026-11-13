@@ -447,9 +447,18 @@
         const chamber = (state.diamondChambers || []).find(item => item.ownerId === diamond.id);
         const fleet = (state.shipFleet || []).filter(ship => ship.ownerId === diamond.id);
         const recentOrders = (diamond.socialOrderLog || []).slice(0, 5);
+        const essence = state.essence || {};
+        const resources = 'Minerais ' + Math.floor(Number(state.minerals) || 0) + ' · Tecnologia ' + Math.floor(Number(state.tech) || 0) + ' · Energia ' + Math.floor(Number(state.energy) || 0) + ' · Materiais refinados ' + Math.floor(Number(state.refinedMaterials) || 0);
+        const essenceSummary = 'Branca ' + Math.floor(Number(essence.white) || 0) + ' · Amarela ' + Math.floor(Number(essence.yellow) || 0) + ' · Azul ' + Math.floor(Number(essence.blue) || 0) + ' · Rosa ' + Math.floor(Number(essence.pink) || 0);
+        const colonies = Object.values(PLANETS || {}).filter(item => item.colonized).map(item => item.shortName).join(', ') || 'nenhuma';
+        const localPopulation = planet ? (planet.walkingGems || []).length : 0;
         const lines = [
             'Corte: ' + (court?.total || 0) + ' Gems' + (court?.byType ? ' (' + Object.entries(court.byType).filter(([,n]) => Number(n) > 0).map(([type,n]) => type + ' ' + n).join(', ') + ')' : ''),
             'Essência pessoal: ' + Math.floor(Number(diamond.essence) || 0),
+            'Recursos imperiais: ' + resources,
+            'Essências imperiais: ' + essenceSummary,
+            'Mundos colonizados: ' + colonies,
+            'Gems na superfície da colônia governada: ' + (planet ? localPopulation : 'sem colônia designada'),
             'Produção: ' + (diamond.courtProductionEnabled === false ? 'suspensa' : 'ativa') + ' · foco: ' + (FOUNDING_GEM_DATA[diamond.courtProductionType]?.label || diamond.courtProductionType || 'automático'),
             'Cargo: ' + ({ administration: 'Administração geral', industry: 'Indústria e produção', science: 'Ciência e pesquisa', defense: 'Defesa e segurança', diplomacy: 'Diplomacia e estabilidade', expansion: 'Expansão imperial' }[diamond.governance?.office] || 'sem cargo') + ' · autoridade: ' + ({ supervised: 'Supervisionada', delegated: 'Delegada', autonomous: 'Autônoma' }[diamond.governance?.authority] || 'Supervisionada'),
             'Governança: ' + (planet ? planet.shortName + ' · dissidência ' + Math.round(Number(planet.dissent) || 0) + '% · rebelião ' + (planet.rebellionActive ? 'ativa' : 'inativa') : 'nenhuma colônia designada'),
