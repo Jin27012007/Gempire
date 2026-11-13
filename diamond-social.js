@@ -207,6 +207,7 @@
             amused: { label: 'Divertida', icon: '☼', duration: 65 },
             inspired: { label: 'Inspirada', icon: '◇', duration: 90 },
             thoughtful: { label: 'Pensativa', icon: '⚖', duration: 75 },
+            tense: { label: 'Tensa', icon: '!', duration: 85 },
             neutral: { label: 'Neutra', icon: '◇', duration: 0 }
         };
         const mood = moods[moodType] || moods.neutral;
@@ -222,6 +223,7 @@
         let trust = action.trust;
         let respect = action.respect;
         let tension = action.tension;
+        let mood = action.mood;
 
         if (actionId === 'converse') friendship += get('sociability') * 0.025;
         if (actionId === 'praise') friendship += (get('sociability') + get('empathy')) * 0.012;
@@ -237,12 +239,12 @@
         if (actionId === 'ideology') {
             const openness = get('empathy') * 0.5 + (100 - get('caution')) * 0.5;
             if (openness >= 65) { friendship += 2; trust += 1; tension -= 2; }
-            else { tension += 3; respect += get('discipline') * 0.015; }
+            else { tension += 3; respect += get('discipline') * 0.015; mood = 'tense'; }
         }
         const responsePool = PERSONALITY_RESPONSES[diamond.personalityId] || PERSONALITY_RESPONSES.technocrat;
         const lines = responsePool[actionId] || responsePool.converse;
         const response = lines[Math.floor(Math.random() * lines.length)];
-        return { friendship, trust, respect, tension, response, mood: action.mood, relation };
+        return { friendship, trust, respect, tension, response, mood, relation };
     }
 
     function completeSocialInteraction(item) {
@@ -359,9 +361,16 @@
                 '<span class="social-gem" style="--gem-color:' + escapeSocial(diamond.colorHex || '#c4b5fd') + '">◇</span><span class="social-person-meta"><b>' + escapeSocial(diamond.name) + '</b><small>' + escapeSocial(diamond.personalityName || 'Personalidade em formação') + '</small></span><span class="social-person-mood">' + escapeSocial(currentMood.icon) + '</span></button>';
         }).join('');
         const metric = (label, key, color) => '<div class="social-metric"><div><span>' + label + '</span><b>' + Math.round(relation[key]) + '%</b></div><div class="social-meter"><i style="width:' + relation[key] + '%;--metric-color:' + color + '"></i></div></div>';
-        const actionButtons = Object.entries(ACTIONS).map(([id, action]) =>
-            '<button class="social-action" type="button" onclick="queueSocialInteraction(\'' + selected.id + '\',\'' + id + '\')"' + (queue.length >= 3 ? ' disabled' : '') + '><span class="social-action-icon">' + action.icon + '</span><span><b>' + action.label + '</b><small>' + action.description + '</small></span><em>' + action.duration + 's</em></button>'
-        ).join('');
+        const actionGroups = ['Social', 'Afeto', 'Apoio', 'Conversa profunda'];
+        const actionButtons = actionGroups.map(category => {
+            const buttons = Object.entries(ACTIONS).filter(([, action]) => action.category === category).map(([id, action]) => {
+                const comfortLocked = id === 'comfort' && relation.tension < 5 && Number(selected.loyalty || 0) >= 80 && mood.type !== 'tense';
+                const disabled = queue.length >= 3 || comfortLocked;
+                const description = comfortLocked ? 'Disponível quando ela demonstrar tensão ou precisar de apoio.' : action.description;
+                return '<button class="social-action" type="button" onclick="queueSocialInteraction(\'' + selected.id + '\',\'' + id + '\')"' + (disabled ? ' disabled' : '') + '><span class="social-action-icon">' + action.icon + '</span><span><b>' + action.label + '</b><small>' + description + '</small></span><em>' + action.duration + 's</em></button>';
+            }).join('');
+            return buttons ? '<section class="social-action-group"><h4>' + category + '</h4>' + buttons + '</section>' : '';
+        }).join('');
         const active = queue.length ? queue[0] : null;
         const activeDiamond = active ? getDiamond(active.diamondId) : null;
         const queueHtml = queue.length ? queue.map((item, index) => {
