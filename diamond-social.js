@@ -386,11 +386,12 @@
             { id: 'ambitions', label: 'Planos e ambições', icon: '✦' },
             { id: 'doctrine', label: 'Doutrina e autoridade', icon: '⚖' }
         ];
+        if (Number(state.era || 0) > 0 || Number(state.ideologyAxis || 0) !== 0) topics.push({ id: 'culture', label: 'Cultura e tradição Gem', icon: '♫' });
         const planet = getGovernedPlanet(diamond);
         if (planet) topics.push({ id: 'colony', label: 'Sua colônia', icon: '◎' });
         if (Number(diamond.essence || 0) > 0 || diamond.courtProductionEnabled !== false) topics.push({ id: 'production', label: 'Produção da corte', icon: '✥' });
-        if (Number(state.tech || 0) > 0 || Object.keys(state.researchedTechs || {}).length) topics.push({ id: 'science', label: 'Ciência e tecnologia', icon: '⌬' });
-        if (Number(state.census?.hessonite || 0) + Number(state.census?.pyrope || 0) + Number(state.census?.ruby || 0) > 0 || Object.values(PLANETS || {}).some(p => p.rebellionActive)) topics.push({ id: 'defense', label: 'Defesa e segurança', icon: '⚔' });
+        if (Number(state.tech || 0) > 0 || Object.keys(state.researchedTechs || {}).length || Number(state.structures?.research_center || 0) > 0) topics.push({ id: 'science', label: 'Ciência e tecnologia', icon: '⌬' });
+        if (Number(state.census?.hessonite || 0) + Number(state.census?.pyrope || 0) + Number(state.census?.ruby || 0) > 0 || Number(state.structures?.defense_tower || 0) > 0 || Number(state.structures?.shield_generator || 0) > 0 || Object.values(PLANETS || {}).some(p => p.rebellionActive)) topics.push({ id: 'defense', label: 'Defesa e segurança', icon: '⚔' });
         if ((Array.isArray(diamond.personalHistory) && diamond.personalHistory.length) || diamond.originStory) topics.push({ id: 'past', label: 'Recordar seu passado', icon: '⌛' });
         return topics;
     }
@@ -404,6 +405,7 @@
             court: 'Minha corte reúne ' + (court?.total || 0) + ' Gems. Essência pessoal disponível: ' + Math.floor(Number(diamond.essence) || 0) + '. Minha corte ' + (diamond.courtProductionEnabled === false ? 'está com a produção suspensa.' : 'está autorizada a produzir ' + (FOUNDING_GEM_DATA[diamond.courtProductionType]?.label || diamond.courtProductionType || 'Gems') + ' quando houver recursos.'),
             ambitions: 'Quero que minhas decisões deixem uma marca real no Império. Minha personalidade influencia o que considero prioridade, mas também quero que a Suprema saiba o que espero do meu futuro.',
             doctrine: 'A doutrina atual é ' + String(state.firstDiamond?.doctrine || 'não definida') + '. O eixo ideológico está em ' + Math.round(Number(state.ideologyAxis) || 0) + '. A autoridade da Suprema continua acima de qualquer cargo matriarcal.',
+            culture: 'A identidade pública do Império está ligada à doutrina ' + String(state.firstDiamond?.doctrine || 'ainda não definida') + ' e ao eixo ideológico atual de ' + Math.round(Number(state.ideologyAxis) || 0) + '. Ainda não há um sistema cultural separado de tradições, eventos e costumes; não vou inventar costumes que o jogo ainda não registrou.',
             colony: planet ? 'Estou responsável por ' + planet.shortName + '. A dissidência está em ' + Math.round(Number(planet.dissent) || 0) + '%, a população Gem local é de ' + (planet.walkingGems || []).length + ' e o estado da rebelião é ' + (planet.rebellionActive ? 'ativo' : 'inativo') + '.' : '',
             production: 'Minha produção está ' + (diamond.courtProductionEnabled === false ? 'suspensa' : 'ativa') + '. Prioridade atual: ' + (FOUNDING_GEM_DATA[diamond.courtProductionType]?.label || diamond.courtProductionType || 'a definir') + '. Tenho ' + Math.floor(Number(diamond.essence) || 0) + ' de essência e o progresso do próximo ciclo está em ' + Math.floor(Number(diamond.courtProductionProgress) || 0) + '%.',
             science: 'O Império acumula ' + Math.floor(Number(state.tech) || 0) + ' pontos de tecnologia. Existem ' + Object.keys(state.researchedTechs || {}).length + ' tecnologias registradas como pesquisadas.',
