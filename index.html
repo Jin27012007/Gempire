@@ -1200,8 +1200,8 @@
                     planet.surfaceProfile={version:1,seed,...defaults};
                 }else{
                     const random=surfaceRandom(seed);
-                    const topologies=['continental','archipelago','oceanic','terrestrial','polar','fragmented','superterrestrial'];
-                    const topology=topologies[Math.floor(random()*topologies.length)];
+                    const topologyRoll=random();
+                    const topology=topologyRoll<.35?'continental':topologyRoll<.55?'archipelago':topologyRoll<.67?'oceanic':topologyRoll<.79?'terrestrial':topologyRoll<.87?'polar':topologyRoll<.95?'fragmented':'superterrestrial';
                     const coverages={continental:.43,archipelago:.22,oceanic:.12,terrestrial:.76,polar:.55,fragmented:.48,superterrestrial:.9};
                     const biome=/vulc|ignis/i.test(planet.biomeTag||'')?'volcanic':/gla|gel|ice/i.test(planet.biomeTag||'')?'icy':/org|bio|vida/i.test(planet.biomeTag||'')?'organic':planet.hasOcean?'oceanic':'rocky';
                     planet.surfaceProfile={version:1,seed,topology,biome,landCoverage:coverages[topology],waterKind:biome==='volcanic'?'lava':biome==='icy'?'ice':planet.hasOcean?'water':'none',featureCount:4};
@@ -1221,7 +1221,7 @@
             const profile=ensurePlanetSurfaceProfile(planet);
             const cacheKey=[planet.id,profile.seed,profile.topology,profile.biome,profile.landCoverage].join(':');
             if(PLANET_SURFACE_CACHE.has(cacheKey))return PLANET_SURFACE_CACHE.get(cacheKey);
-            const nx=72,ny=36,random=surfaceRandom(profile.seed),features=[];
+            const nx=96,ny=48,random=surfaceRandom(profile.seed),features=[];
             const count=Math.max(1,Math.floor(profile.featureCount||4));
             for(let i=0;i<count;i++){
                 let lat;
@@ -1275,7 +1275,7 @@
         }
         function projectSurfacePoint(lon,lat,rotation){
             const relative=lon-rotation,cosLat=Math.cos(lat);
-            return {x:cosLat*Math.sin(relative),y:Math.sin(lat)*.82,z:cosLat*Math.cos(relative)};
+            return {x:cosLat*Math.sin(relative),y:Math.sin(lat),z:cosLat*Math.cos(relative)};
         }
         function clipSurfacePolygon(points){
             const output=[];
@@ -5564,7 +5564,7 @@ function drawColony(time){
 
             // Esfera com iluminação direcional e terminador.
             const surface=ctx.createRadialGradient(lightX,lightY,radius*.04,cx+radius*.12,cy+radius*.12,radius*1.12);
-            surface.addColorStop(0,surfacePalette.baseLight);surface.addColorStop(.42,surfacePalette.base);surface.addColorStop(.78,surfacePalette.baseDeep);surface.addColorStop(1,palette.mantle||surfacePalette.baseDeep);
+            surface.addColorStop(0,surfacePalette.baseLight);surface.addColorStop(.42,surfacePalette.base);surface.addColorStop(.78,surfacePalette.baseDeep);surface.addColorStop(1,surfacePalette.baseDeep);
             ctx.save();ctx.shadowColor=palette.atmosphere||'rgba(125,211,252,.25)';ctx.shadowBlur=stage>=2?34:24;ctx.fillStyle=surface;ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
             ctx.save();ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.clip();ctx.translate(cx,cy);ctx.scale(radius,radius);
 
