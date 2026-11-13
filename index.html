@@ -3920,13 +3920,17 @@ ${hasAristocrats ? `
                 state.census.prime++;
             }
             const censusKey = recipe.id;
+            const governorValue=String(planet.governor||'');
+            const courtOwner=governorValue.startsWith('matriarch_')?governorValue:'first';
+            if(typeof window.recordDiamondCourtGem==='function')window.recordDiamondCourtGem(courtOwner,censusKey,1);
             if(!Object.prototype.hasOwnProperty.call(state.census,censusKey))state.census[censusKey]=0;
             state.census[censusKey]++;
             if(recipe.id==='pearl'){
                 if(!Array.isArray(state.founding.reefPearlInventory))state.founding.reefPearlInventory=[];
-                state.founding.reefPearlInventory.push({planetId:planet.id,originOcean:planet.hasOcean===true,quality:isPrime?'S':result.grade});
+                state.founding.reefPearlInventory.push({ownerId:courtOwner,planetId:planet.id,originOcean:planet.hasOcean===true,quality:isPrime?'S':result.grade});
             }
             const gem = {
+                ownerId: courtOwner,
                 caste: recipe.id,
                 variant: recipe.id==='quartz'?getQuartzVariantForPlanet(planet,Number(state.census.quartz)||0):recipe.id==='ruby'?'ruby':null,
                 color,
