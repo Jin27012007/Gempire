@@ -167,7 +167,7 @@
         if (!Array.isArray(social.queue)) social.queue = [];
         if (!Array.isArray(social.history)) social.history = [];
         social.elapsed = Math.max(0, Number(social.elapsed) || 0);
-        social.uiAccumulator = 0;
+        social.uiAccumulator = Math.max(0, Number(social.uiAccumulator) || 0);
         (state.matriarchs || []).forEach(diamond => {
             const initialFriendship = Math.max(25, Math.min(55, Number(diamond.loyalty || 0) * 0.45));
             const relation = social.relations[diamond.id] || (social.relations[diamond.id] = {
