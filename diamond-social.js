@@ -297,11 +297,19 @@
             diamond.courtNextAttemptAt = (Number(state.diamondSocial?.elapsed) || 0) + 5;
             const type = getProductionData(diamond.courtProductionType) ? diamond.courtProductionType : defaultProductionType(diamond);
             const gemData = getProductionData(type);
-            if (!gemData || Number(diamond.essence || 0) < 250 || Number(state.minerals || 0) < 10) return;
+            const refinedMaterial = gemData?.refinedMaterial || null;
+            const hasSubstrate = refinedMaterial
+                ? Number(state.refinedResources?.[refinedMaterial] || 0) >= 1
+                : Number(state.minerals || 0) >= 10;
+            if (!gemData || Number(diamond.essence || 0) < 250 || !hasSubstrate) return;
             const planet = getGovernedPlanet(diamond) || PLANETS[diamond.consumedPlanet] || PLANETS.homeworld;
             if (!planet) return;
             diamond.essence = Math.max(0, Number(diamond.essence || 0) - 250);
-            state.minerals = Math.max(0, Number(state.minerals || 0) - 10);
+            if (refinedMaterial) {
+                state.refinedResources[refinedMaterial] = Math.max(0, Number(state.refinedResources[refinedMaterial] || 0) - 1);
+            } else {
+                state.minerals = Math.max(0, Number(state.minerals || 0) - 10);
+            }
             if (!state.census[type]) state.census[type] = 0;
             state.census[type] += 1;
             if (type === 'quartz' && state.founding?.quartzVariantCounts) {
@@ -314,7 +322,7 @@
             recordDiamondCourtGem(courtOwnerKey(diamond), type, 1);
             diamond.courtProductionProgress = 0;
             diamond.currentSpeech = 'Minha corte concluiu a formação de uma ' + (gemData.label || type) + '. A essência e os minerais foram contabilizados.';
-            addChronicle('Nova Gem na corte de ' + diamond.name, diamond.currentSpeech, '-250 essência · -10 minerais · +1 Gem');
+            addChronicle('Nova Gem na corte de ' + diamond.name, diamond.currentSpeech, '-250 essência · substrato compatível · +1 Gem');
             setStatusTicker(diamond.name + ' produziu uma nova Gem para sua corte: ' + (gemData.label || type) + '.');
             if (state.drawerOpen && state.drawerTab === 'population') renderDrawerContent();
         });
@@ -803,7 +811,7 @@
             '<button class="social-action" type="button" onclick="requestDiamondReport(\'' + escapeSocial(selected.id) + '\')" ' + (busy ? 'disabled' : '') + '><span class="social-action-icon">▤</span><span><b>Exigir relatório</b><small>Atividades, governança, equipes, recursos e corte</small></span></button>' +
             '<button class="social-action" type="button" onclick="issueDiamondOrder(\'' + escapeSocial(selected.id) + '\',\'proposal\')" ' + (busy || queue.length >= 3 || !canPropose ? 'disabled' : '') + '><span class="social-action-icon">⚖</span><span><b>Apresentar plano administrativo</b><small>' + (canPropose ? 'Preparar uma proposta real para sua colônia governada' : 'Disponível quando houver uma colônia sob sua governança') + '</small></span></button>' +
             '<label class="stat-label" for="social-production-type">Casta que sua corte deve produzir</label><select id="social-production-type">' + productionOptions + '</select>' +
-            '<button class="social-action" type="button" onclick="issueDiamondOrder(\'' + escapeSocial(selected.id) + '\',\'production\',document.getElementById(\'social-production-type\').value)" ' + (busy || queue.length >= 3 ? 'disabled' : '') + '><span class="social-action-icon">✥</span><span><b>Ordenar foco de produção</b><small>Consome essência pessoal e minerais para gerar Gems em sua corte</small></span></button>' +
+            '<button class="social-action" type="button" onclick="issueDiamondOrder(\'' + escapeSocial(selected.id) + '\',\'production\',document.getElementById(\'social-production-type\').value)" ' + (busy || queue.length >= 3 ? 'disabled' : '') + '><span class="social-action-icon">✥</span><span><b>Ordenar foco de produção</b><small>Consome 250 de essência pessoal e o substrato correspondente à casta para gerar Gems em sua corte</small></span></button>' +
             '<button class="btn" type="button" onclick="issueDiamondOrder(\'' + escapeSocial(selected.id) + '\',\'' + (selected.courtProductionEnabled === false ? 'resume' : 'pause') + '\')" ' + (busy || queue.length >= 3 ? 'disabled' : '') + '>' + (selected.courtProductionEnabled === false ? 'Retomar produção autônoma' : 'Suspender produção autônoma') + '</button>' +
             '<label class="stat-label" for="social-order-authority">Nível de autoridade</label><select id="social-order-authority"><option value="supervised">Supervisionada</option><option value="delegated">Delegada</option><option value="autonomous">Autônoma</option></select><button class="btn" type="button" onclick="issueDiamondOrder(\'' + escapeSocial(selected.id) + '\',\'authority\',document.getElementById(\'social-order-authority\').value)" ' + (busy || queue.length >= 3 ? 'disabled' : '') + '>Ordenar alteração de autoridade</button>' +
             '<label class="stat-label" for="social-order-office">Cargo imperial</label><select id="social-order-office"><option value="administration">Administração geral</option><option value="industry">Indústria e produção</option><option value="science">Ciência e pesquisa</option><option value="defense">Defesa e segurança</option><option value="diplomacy">Diplomacia e estabilidade</option><option value="expansion">Expansão imperial</option></select><button class="btn" type="button" onclick="issueDiamondOrder(\'' + escapeSocial(selected.id) + '\',\'office\',document.getElementById(\'social-order-office\').value)" ' + (busy || queue.length >= 3 ? 'disabled' : '') + '>Ordenar novo cargo</button>' +
