@@ -322,6 +322,7 @@
         if (!social.relations || typeof social.relations !== 'object') social.relations = {};
         if (!Array.isArray(social.queue)) social.queue = [];
         if (!Array.isArray(social.history)) social.history = [];
+        if (typeof window.ensureDiamondGovernanceData === 'function') window.ensureDiamondGovernanceData();
         social.elapsed = Math.max(0, Number(social.elapsed) || 0);
         social.uiAccumulator = Math.max(0, Number(social.uiAccumulator) || 0);
         (state.matriarchs || []).forEach(diamond => {
