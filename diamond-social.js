@@ -46,7 +46,9 @@
         secrets: { label: 'Compartilhar um segredo', icon: '☾', category: 'Assuntos', duration: 8, description: 'Compartilhar algo reservado para testar a confiança.', friendship: 1, trust: 5, respect: 1, tension: 0, mood: 'pleased' },
         reprimand: { label: 'Repreender', icon: '⚑', category: 'Disciplina', duration: 5, description: 'Advertir formalmente por uma conduta ou falha.', friendship: -3, trust: -2, respect: 1, tension: 5, mood: 'tense' },
         duty: { label: 'Impor serviço disciplinar', icon: '▤', category: 'Disciplina', duration: 8, description: 'Determinar uma tarefa adicional como sanção.', friendship: -5, trust: -4, respect: -1, tension: 9, mood: 'tense' },
-        revoke: { label: 'Retirar privilégios', icon: '⌁', category: 'Disciplina', duration: 6, description: 'Suspender privilégios cortesãos temporariamente.', friendship: -7, trust: -6, respect: -3, tension: 12, mood: 'tense' }
+        revoke: { label: 'Retirar privilégios', icon: '⌁', category: 'Disciplina', duration: 6, description: 'Suspender privilégios cortesãos temporariamente.', friendship: -7, trust: -6, respect: -3, tension: 12, mood: 'tense' },
+        topic: { label: 'Conversa temática', icon: '◈', category: 'Conversa guiada', duration: 6, description: 'Conversar sobre um assunto escolhido.', friendship: 2, trust: 2, respect: 1, tension: 0, mood: 'thoughtful' },
+        order: { label: 'Ordem imperial', icon: '♛', category: 'Ordens', duration: 5, description: 'Receber e executar uma determinação da Suprema.', friendship: 0, trust: -1, respect: 2, tension: 1, mood: 'thoughtful' }
     };
     const EXTRA_DIALOGUES = {
         past: ['Minha origem ainda influencia minhas escolhas.', 'Há lembranças que raramente compartilho na Corte.', 'Nem tudo que vivi aparece nos registros oficiais.'],
@@ -173,6 +175,144 @@
     function clamp(value, min = 0, max = 100) { return Math.max(min, Math.min(max, Number(value) || 0)); }
     function getDiamond(id) { return (state.matriarchs || []).find(item => item.id === id) || null; }
 
+    function courtOwnerKey(diamond) { return diamond && diamond.id ? 'matriarch_' + diamond.id : 'first'; }
+    function normalizeCourtOwner(value) {
+        if (!value || value === 'firstDiamond' || value === 'first') return 'first';
+        return String(value).startsWith('matriarch_') ? String(value) : 'matriarch_' + String(value);
+    }
+    function getGovernedPlanet(diamond) {
+        if (!diamond) return null;
+        return Object.values(PLANETS || {}).find(planet => planet.governor === 'matriarch_' + diamond.id) || null;
+    }
+    function ensureCourtData() {
+        if (!state.diamondCourts || typeof state.diamondCourts !== 'object') state.diamondCourts = {};
+        const data = state.diamondCourts;
+        if (!data.courts || typeof data.courts !== 'object') data.courts = {};
+        const owners = [{ id: 'first', name: state.firstDiamond?.name || 'Primeira Diamante' }, ...(state.matriarchs || []).map(d => ({ id: courtOwnerKey(d), name: d.name }))];
+        owners.forEach(owner => {
+            if (!data.courts[owner.id] || typeof data.courts[owner.id] !== 'object') data.courts[owner.id] = { name: owner.name, byType: {} };
+            data.courts[owner.id].name = owner.name;
+            if (!data.courts[owner.id].byType || typeof data.courts[owner.id].byType !== 'object') data.courts[owner.id].byType = {};
+        });
+        if (!data.initialized) {
+            const observed = {};
+            const countGem = gem => {
+                if (!gem || typeof gem !== 'object') return;
+                const type = gem.caste || gem.type;
+                if (!type) return;
+                const owner = normalizeCourtOwner(gem.ownerId);
+                gem.ownerId = owner;
+                if (!data.courts[owner]) data.courts[owner] = { name: owner === 'first' ? (state.firstDiamond?.name || 'Primeira Diamante') : (getDiamond(owner.replace('matriarch_', ''))?.name || 'Diamante'), byType: {} };
+                const ledger = data.courts[owner].byType;
+                ledger[type] = Math.max(0, Number(ledger[type]) || 0) + 1;
+                observed[type] = (Number(observed[type]) || 0) + 1;
+            };
+            Object.values(PLANETS || {}).forEach(planet => (planet.walkingGems || []).forEach(countGem));
+            (state.gemTransfers || []).forEach(trip => countGem(trip.gem));
+            const pearlInventory = state.founding?.reefPearlInventory || [];
+            pearlInventory.forEach(pearl => {
+                const owner = normalizeCourtOwner(pearl.ownerId || 'first');
+                pearl.ownerId = owner;
+                if (!data.courts[owner]) data.courts[owner] = { name: getDiamond(owner.replace('matriarch_', ''))?.name || state.firstDiamond?.name || 'Primeira Diamante', byType: {} };
+                data.courts[owner].byType.pearl = (Number(data.courts[owner].byType.pearl) || 0) + 1;
+                observed.pearl = (Number(observed.pearl) || 0) + 1;
+            });
+            (state.founding?.assignedPearls || []).forEach(pearl => {
+                const owner = normalizeCourtOwner(pearl.ownerId || pearl.targetId || 'first');
+                pearl.ownerId = owner;
+                if (!data.courts[owner]) data.courts[owner] = { name: getDiamond(owner.replace('matriarch_', ''))?.name || state.firstDiamond?.name || 'Primeira Diamante', byType: {} };
+                data.courts[owner].byType.pearl = (Number(data.courts[owner].byType.pearl) || 0) + 1;
+                observed.pearl = (Number(observed.pearl) || 0) + 1;
+            });
+            Object.entries(state.census || {}).forEach(([type, total]) => {
+                const missing = Math.max(0, Math.floor(Number(total) || 0) - (Number(observed[type]) || 0));
+                if (missing) data.courts.first.byType[type] = (Number(data.courts.first.byType[type]) || 0) + missing;
+            });
+            data.initialized = true;
+        }
+        (state.matriarchs || []).forEach(diamond => {
+            if (!Number.isFinite(Number(diamond.courtProductionProgress))) diamond.courtProductionProgress = 0;
+            if (diamond.courtProductionEnabled === undefined) diamond.courtProductionEnabled = true;
+            if (!diamond.courtProductionType) diamond.courtProductionType = defaultProductionType(diamond);
+            if (!Number.isFinite(Number(diamond.courtNextAttemptAt))) diamond.courtNextAttemptAt = 0;
+        });
+        return data;
+    }
+    function recordDiamondCourtGem(ownerId, type, quantity = 1) {
+        const data = ensureCourtData();
+        const owner = normalizeCourtOwner(ownerId);
+        if (!data.courts[owner]) data.courts[owner] = { name: owner === 'first' ? (state.firstDiamond?.name || 'Primeira Diamante') : (getDiamond(owner.replace('matriarch_', ''))?.name || 'Diamante'), byType: {} };
+        data.courts[owner].byType[type] = Math.max(0, Number(data.courts[owner].byType[type]) || 0) + Math.max(0, Math.floor(Number(quantity) || 0));
+    }
+    function getDiamondCourtReport() {
+        const data = ensureCourtData();
+        const owners = [{ id: 'first', name: state.firstDiamond?.name || 'Primeira Diamante', diamond: state.firstDiamond }, ...(state.matriarchs || []).map(d => ({ id: courtOwnerKey(d), name: d.name, diamond: d }))];
+        return owners.map(owner => {
+            const court = data.courts[owner.id] || { byType: {} };
+            const byType = { ...(court.byType || {}) };
+            const total = Object.values(byType).reduce((sum, value) => sum + Math.max(0, Number(value) || 0), 0);
+            return { id: owner.id, name: owner.name, byType, total, essence: Number(owner.diamond?.essence) || 0, productionEnabled: owner.diamond?.courtProductionEnabled !== false, productionType: owner.diamond?.courtProductionType || null, productionProgress: Number(owner.diamond?.courtProductionProgress) || 0, planet: owner.diamond ? getGovernedPlanet(owner.diamond)?.shortName || null : null };
+        });
+    }
+    function defaultProductionType(diamond) {
+        const office = diamond?.governance?.office;
+        const choices = { defense: 'quartz', industry: 'bismuth', science: 'sapphire', diplomacy: 'peridot', administration: 'peridot', expansion: 'lapis' };
+        return choices[office] || 'quartz';
+    }
+    function getProductionData(type) {
+        if (typeof FOUNDING_GEM_DATA === 'undefined') return null;
+        const data = FOUNDING_GEM_DATA[type];
+        return data && !data.stored ? data : null;
+    }
+    function setDiamondCourtProduction(diamondId, type) {
+        const diamond = getDiamond(diamondId);
+        if (!diamond) return;
+        const social = ensureSocialData();
+        if (social.queue.some(item => item.diamondId === diamondId)) {
+            setStatusTicker(diamond.name + ' está ocupada. Convoque-a antes de alterar suas ordens.');
+            return;
+        }
+        if (!getProductionData(type)) return;
+        diamond.courtProductionType = type;
+        diamond.courtProductionEnabled = true;
+        diamond.currentSpeech = 'Entendido. Minha corte priorizará a formação de ' + (FOUNDING_GEM_DATA[type]?.label || type) + ', desde que haja essência e minerais disponíveis.';
+        setStatusTicker(diamond.name + ' recebeu uma ordem de produção: ' + (FOUNDING_GEM_DATA[type]?.label || type) + '.');
+        renderSocialTab(document.getElementById('drawer-body'));
+    }
+    function updateMatriarchCourtProduction(dt) {
+        if (!state.firstGameStarted || !Number.isFinite(dt) || dt <= 0) return;
+        const data = ensureCourtData();
+        (state.matriarchs || []).forEach(diamond => {
+            if (diamond.courtProductionEnabled === false) return;
+            diamond.courtProductionProgress = Math.min(60, (Number(diamond.courtProductionProgress) || 0) + dt);
+            if (diamond.courtProductionProgress < 60 || (Number(state.diamondSocial?.elapsed) || 0) < (Number(diamond.courtNextAttemptAt) || 0)) return;
+            diamond.courtNextAttemptAt = (Number(state.diamondSocial?.elapsed) || 0) + 5;
+            const type = getProductionData(diamond.courtProductionType) ? diamond.courtProductionType : defaultProductionType(diamond);
+            const gemData = getProductionData(type);
+            if (!gemData || Number(diamond.essence || 0) < 250 || Number(state.minerals || 0) < 10) return;
+            const planet = getGovernedPlanet(diamond) || PLANETS[diamond.consumedPlanet] || PLANETS.homeworld;
+            if (!planet) return;
+            diamond.essence = Math.max(0, Number(diamond.essence || 0) - 250);
+            state.minerals = Math.max(0, Number(state.minerals || 0) - 10);
+            if (!state.census[type]) state.census[type] = 0;
+            state.census[type] += 1;
+            if (type === 'quartz' && state.founding?.quartzVariantCounts) {
+                const variant = typeof getQuartzVariantForPlanet === 'function' ? getQuartzVariantForPlanet(planet, 0) : null;
+                if (variant) state.founding.quartzVariantCounts[variant] = (Number(state.founding.quartzVariantCounts[variant]) || 0) + 1;
+                planet.walkingGems.push({ caste: type, variant, color: gemData.color, grade: 'A', ownerId: courtOwnerKey(diamond), bubbleText: '✦ Produzida pela corte de ' + diamond.name, angle: Math.random() * Math.PI * 2, dir: 1, speed: 0.0005, bobPhase: 0 });
+            } else {
+                planet.walkingGems.push({ caste: type, color: gemData.color, grade: 'A', ownerId: courtOwnerKey(diamond), bubbleText: '✦ Produzida pela corte de ' + diamond.name, angle: Math.random() * Math.PI * 2, dir: 1, speed: 0.0005, bobPhase: 0 });
+            }
+            recordDiamondCourtGem(courtOwnerKey(diamond), type, 1);
+            diamond.courtProductionProgress = 0;
+            diamond.currentSpeech = 'Minha corte concluiu a formação de uma ' + (gemData.label || type) + '. A essência e os minerais foram contabilizados.';
+            addChronicle('Nova Gem na corte de ' + diamond.name, diamond.currentSpeech, '-250 essência · -10 minerais · +1 Gem');
+            setStatusTicker(diamond.name + ' produziu uma nova Gem para sua corte: ' + (gemData.label || type) + '.');
+            if (state.drawerOpen && state.drawerTab === 'population') renderDrawerContent();
+        });
+    }
+
+
     function ensureSocialData() {
         if (!state.diamondSocial || typeof state.diamondSocial !== 'object') {
             state.diamondSocial = { selectedDiamondId: null, relations: {}, queue: [], history: [], elapsed: 0, uiAccumulator: 0 };
@@ -229,7 +369,105 @@
         diamond.socialMood = { type: moodType, label: mood.label, icon: mood.icon, remaining: mood.duration };
     }
 
-    function calculateOutcome(diamond, actionId) {
+
+    function getAvailableTopics(diamond) {
+        const topics = [
+            { id: 'empire', label: 'Situação atual do Império', icon: '✧' },
+            { id: 'court', label: 'Sua corte e suas Gems', icon: '◇' },
+            { id: 'ambitions', label: 'Planos e ambições', icon: '✦' },
+            { id: 'doctrine', label: 'Doutrina e autoridade', icon: '⚖' }
+        ];
+        const planet = getGovernedPlanet(diamond);
+        if (planet) topics.push({ id: 'colony', label: 'Sua colônia', icon: '◎' });
+        if (Number(diamond.essence || 0) > 0 || diamond.courtProductionEnabled !== false) topics.push({ id: 'production', label: 'Produção da corte', icon: '✥' });
+        if (Number(state.tech || 0) > 0 || Object.keys(state.researchedTechs || {}).length) topics.push({ id: 'science', label: 'Ciência e tecnologia', icon: '⌬' });
+        if (Number(state.census?.hessonite || 0) + Number(state.census?.pyrope || 0) + Number(state.census?.ruby || 0) > 0 || Object.values(PLANETS || {}).some(p => p.rebellionActive)) topics.push({ id: 'defense', label: 'Defesa e segurança', icon: '⚔' });
+        if ((Array.isArray(diamond.personalHistory) && diamond.personalHistory.length) || diamond.originStory) topics.push({ id: 'past', label: 'Recordar seu passado', icon: '⌛' });
+        return topics;
+    }
+    function buildTopicResponse(diamond, topicId) {
+        const court = getDiamondCourtReport().find(item => item.id === courtOwnerKey(diamond));
+        const planet = getGovernedPlanet(diamond);
+        const colonized = Object.values(PLANETS || {}).filter(p => p.colonized);
+        const totalGems = Object.values(state.census || {}).reduce((sum, value) => sum + Math.max(0, Number(value) || 0), 0);
+        const themes = {
+            empire: 'Neste momento, o Império possui ' + colonized.length + ' mundo(s) colonizado(s), ' + totalGems.toLocaleString('pt-BR') + ' Gems, ' + Math.floor(Number(state.minerals) || 0).toLocaleString('pt-BR') + ' minerais e ' + Math.floor(Number(state.tech) || 0).toLocaleString('pt-BR') + ' de tecnologia. A ordem imperial está em ' + Math.round(Number(state.order) || 0) + '%.',
+            court: 'Minha corte reúne ' + (court?.total || 0) + ' Gems. Essência pessoal disponível: ' + Math.floor(Number(diamond.essence) || 0) + '. Minha corte ' + (diamond.courtProductionEnabled === false ? 'está com a produção suspensa.' : 'está autorizada a produzir ' + (FOUNDING_GEM_DATA[diamond.courtProductionType]?.label || diamond.courtProductionType || 'Gems') + ' quando houver recursos.'),
+            ambitions: 'Quero que minhas decisões deixem uma marca real no Império. Minha personalidade influencia o que considero prioridade, mas também quero que a Suprema saiba o que espero do meu futuro.',
+            doctrine: 'A doutrina atual é ' + String(state.firstDiamond?.doctrine || 'não definida') + '. O eixo ideológico está em ' + Math.round(Number(state.ideologyAxis) || 0) + '. A autoridade da Suprema continua acima de qualquer cargo matriarcal.',
+            colony: planet ? 'Estou responsável por ' + planet.shortName + '. A dissidência está em ' + Math.round(Number(planet.dissent) || 0) + '%, a população Gem local é de ' + (planet.walkingGems || []).length + ' e o estado da rebelião é ' + (planet.rebellionActive ? 'ativo' : 'inativo') + '.' : '',
+            production: 'Minha produção está ' + (diamond.courtProductionEnabled === false ? 'suspensa' : 'ativa') + '. Prioridade atual: ' + (FOUNDING_GEM_DATA[diamond.courtProductionType]?.label || diamond.courtProductionType || 'a definir') + '. Tenho ' + Math.floor(Number(diamond.essence) || 0) + ' de essência e o progresso do próximo ciclo está em ' + Math.floor(Number(diamond.courtProductionProgress) || 0) + '%.',
+            science: 'O Império acumula ' + Math.floor(Number(state.tech) || 0) + ' pontos de tecnologia. Existem ' + Object.keys(state.researchedTechs || {}).length + ' tecnologias registradas como pesquisadas.',
+            defense: 'O Império possui ' + Math.floor(Number(state.census?.hessonite) || 0) + ' Hessonitas, ' + Math.floor(Number(state.census?.pyrope) || 0) + ' Piropos e ' + Math.floor(Number(state.census?.ruby) || 0) + ' Rubis. ' + Object.values(PLANETS || {}).filter(p => p.rebellionActive).length + ' planeta(s) estão em rebelião.'
+        };
+        if (topicId === 'past') {
+            const history = Array.isArray(diamond.personalHistory) ? diamond.personalHistory : [];
+            return 'Há uma lembrança registrada em minha história: ' + String(diamond.originStory || history[0] || 'uma experiência pessoal registrada') + '.';
+        }
+        const factual = themes[topicId] || themes.empire;
+        const pool = (PERSONALITY_RESPONSES[diamond.personalityId] || PERSONALITY_RESPONSES.technocrat).converse;
+        const lead = pool[Math.floor(Math.random() * pool.length)];
+        return lead + ' ' + factual;
+    }
+    function getAvailableReprimandReasons(diamond) {
+        const reasons = [];
+        const planet = getGovernedPlanet(diamond);
+        if (planet && Number(planet.dissent || 0) >= 10) reasons.push({ id: 'dissent', label: 'Dissidência elevada em ' + planet.shortName + ' (' + Math.round(planet.dissent) + '%)' });
+        if (planet?.rebellionActive) reasons.push({ id: 'rebellion', label: 'Rebelião ativa em ' + planet.shortName });
+        const pending = (state.diamondGovernance?.decisions || []).filter(item => item.diamondId === diamond.id && item.status === 'pending');
+        if (pending.length) reasons.push({ id: 'pending', label: 'Proposta administrativa ainda não resolvida (' + pending.length + ')' });
+        if (diamond.courtProductionEnabled === false) reasons.push({ id: 'production', label: 'Programa de produção da corte suspenso' });
+        reasons.push({ id: 'conduct', label: 'Conduta incompatível com o cargo' });
+        return reasons;
+    }
+    function buildDiamondReport(diamond) {
+        const court = getDiamondCourtReport().find(item => item.id === courtOwnerKey(diamond));
+        const planet = getGovernedPlanet(diamond);
+        const assignments = [];
+        Object.entries(state.structureAssignments || {}).forEach(([structure, jobs]) => {
+            Object.entries(jobs || {}).forEach(([type, qty]) => {
+                if (Number(qty) > 0) assignments.push(structure + ': ' + type + ' ' + Number(qty));
+            });
+        });
+        const jobs = (state.constructionQueue || []).filter(job => job && job.active && (!planet || (job.planetId || 'homeworld') === planet.id));
+        if (!jobs.length && state.construction?.active && (!planet || (state.construction.planetId || 'homeworld') === planet.id)) jobs.push(state.construction);
+        const pending = (state.diamondGovernance?.decisions || []).filter(item => item.diamondId === diamond.id && item.status === 'pending');
+        const chamber = (state.diamondChambers || []).find(item => item.ownerId === diamond.id);
+        const fleet = (state.shipFleet || []).filter(ship => ship.ownerId === diamond.id);
+        const lines = [
+            'Corte: ' + (court?.total || 0) + ' Gems' + (court?.byType ? ' (' + Object.entries(court.byType).filter(([,n]) => Number(n) > 0).map(([type,n]) => type + ' ' + n).join(', ') + ')' : ''),
+            'Essência pessoal: ' + Math.floor(Number(diamond.essence) || 0),
+            'Produção: ' + (diamond.courtProductionEnabled === false ? 'suspensa' : 'ativa') + ' · foco: ' + (FOUNDING_GEM_DATA[diamond.courtProductionType]?.label || diamond.courtProductionType || 'automático'),
+            'Cargo: ' + (diamond.governance?.office || 'sem cargo') + ' · autoridade: ' + (diamond.governance?.authority || 'supervisionada'),
+            'Governança: ' + (planet ? planet.shortName + ' · dissidência ' + Math.round(Number(planet.dissent) || 0) + '% · rebelião ' + (planet.rebellionActive ? 'ativa' : 'inativa') : 'nenhuma colônia designada'),
+            'Equipes atualmente designadas (contagem por casta, não por indivíduo): ' + (assignments.join('; ') || 'nenhuma atribuição registrada'),
+            'Construções ativas: ' + (jobs.map(job => (job.name || job.id || 'Obra') + ' ' + Math.floor(Number(job.progress) || 0) + '%').join('; ') || 'nenhuma obra ativa identificada'),
+            'Propostas aguardando decisão: ' + (pending.map(item => item.title).join('; ') || 'nenhuma'),
+            'Naves sob sua propriedade: ' + (fleet.map(ship => ship.name || ship.type).join(', ') || 'nenhuma'),
+            'Câmara de essência: ' + (chamber ? (chamber.active ? 'banho em andamento (' + Math.floor(chamber.progress || 0) + '%)' : chamber.cooldown > 0 ? 'recuperação (' + Math.ceil(chamber.cooldown) + 's)' : 'disponível') : 'sem câmara própria')
+        ];
+        return lines;
+    }
+    function requestDiamondReport(diamondId) {
+        const social = ensureSocialData();
+        const diamond = getDiamond(diamondId);
+        if (!diamond) return;
+        if (social.queue.some(item => item.diamondId === diamondId)) {
+            setStatusTicker(diamond.name + ' está ocupada. Convoque-a antes de exigir o relatório.');
+            return;
+        }
+        diamond.socialReport = buildDiamondReport(diamond);
+        diamond.currentSpeech = 'Relatório atualizado. Apresentei os dados atuais da minha corte, governança e atividades registradas.';
+        social.history.unshift({ cycle: Number(state.cycleCount) || 1, diamondId, diamondName: diamond.name, actionId: 'report', actionLabel: 'Relatório exigido', response: diamond.currentSpeech, detail: diamond.socialReport.join(' · '), relationship: getRelationshipLabel(social.relations[diamondId]) });
+        social.history = social.history.slice(0, 30);
+        setStatusTicker(diamond.name + ' apresentou o relatório solicitado.');
+        renderSocialTab(document.getElementById('drawer-body'));
+    }
+    function issueDiamondOrder(diamondId, orderType, gemType) {
+        const payload = { type: orderType, gemType: gemType || null };
+        queueSocialInteraction(diamondId, 'order', payload);
+    }
+    function calculateOutcome(diamond, actionId, item) {
         const action = ACTIONS[actionId];
         const profile = diamond.personalityStats || {};
         const get = key => clamp(profile[key], 0, 100);
@@ -267,7 +505,11 @@
         }
         const responsePool = PERSONALITY_RESPONSES[diamond.personalityId] || PERSONALITY_RESPONSES.technocrat;
         const lines = responsePool[actionId] || EXTRA_DIALOGUES[actionId] || (['reprimand','duty','revoke'].includes(actionId) ? ['Compreendo a sanção, mas não esquecerei a forma como foi aplicada.', 'A autoridade foi exercida. Minha confiança, porém, foi abalada.', 'Cumprirei a determinação, embora discorde dela.'] : responsePool.converse);
-        const response = lines[Math.floor(Math.random() * lines.length)];
+        let response = lines[Math.floor(Math.random() * lines.length)];
+        if (actionId === 'topic') response = buildTopicResponse(diamond, item?.topicId);
+        if (actionId === 'reprimand' || actionId === 'duty' || actionId === 'revoke') {
+            response = 'Entendi a advertência. Motivo registrado: ' + String(item?.reasonLabel || 'conduta').trim() + '. ' + response;
+        }
         return { friendship, trust, respect, tension, response, mood, relation };
     }
 
@@ -275,7 +517,28 @@
         const diamond = getDiamond(item.diamondId);
         const relation = ensureSocialData().relations[item.diamondId];
         if (!diamond || !relation) return;
-        const result = calculateOutcome(diamond, item.actionId);
+        let result = calculateOutcome(diamond, item.actionId, item);
+        if (item.actionId === 'order') {
+            const order = item.order || {};
+            if (order.type === 'proposal') {
+                const before = (state.diamondGovernance?.decisions || []).length;
+                if (typeof window.requestDiamondGovernanceDecision === 'function') window.requestDiamondGovernanceDecision(diamond.id);
+                const after = (state.diamondGovernance?.decisions || []).length;
+                result.response = after > before ? 'A proposta administrativa foi preparada e aguarda a aprovação da Suprema.' : (diamond.currentSpeech || 'Não encontrei uma medida viável com as condições atuais.');
+                result.respect += 1;
+            } else if (order.type === 'production') {
+                const type = getProductionData(order.gemType) ? order.gemType : defaultProductionType(diamond);
+                diamond.courtProductionType = type;
+                diamond.courtProductionEnabled = true;
+                result.response = 'Ordem recebida. Minha corte priorizará ' + (FOUNDING_GEM_DATA[type]?.label || type) + ', condicionada à essência e aos minerais disponíveis.';
+            } else if (order.type === 'pause') {
+                diamond.courtProductionEnabled = false;
+                result.response = 'Suspenderei temporariamente a produção de Gems da minha corte.';
+            } else if (order.type === 'resume') {
+                diamond.courtProductionEnabled = true;
+                result.response = 'Retomarei a produção independente assim que houver essência e minerais suficientes.';
+            }
+        }
         relation.friendship = clamp(relation.friendship + result.friendship);
         relation.trust = clamp(relation.trust + result.trust);
         relation.respect = clamp(relation.respect + result.respect);
@@ -285,11 +548,15 @@
         if (item.actionId === 'duty') diamond.loyalty = clamp(Number(diamond.loyalty || 0) - 1.5);
         if (item.actionId === 'revoke') diamond.loyalty = clamp(Number(diamond.loyalty || 0) - 2.5);
         diamond.currentSpeech = result.response;
+        if (item.reasonLabel) {
+            result.response = result.response;
+            diamond.lastReprimandReason = item.reasonLabel;
+        }
         setSocialMood(diamond, result.mood);
         const action = ACTIONS[item.actionId];
         const event = {
             cycle: Number(state.cycleCount) || 1, diamondId: diamond.id, diamondName: diamond.name,
-            actionId: item.actionId, actionLabel: action.label, response: result.response,
+            actionId: item.actionId, actionLabel: action.label, response: result.response, detail: item.reasonLabel || item.topicLabel || (item.order?.type || ''),
             relationship: getRelationshipLabel(relation)
         };
         state.diamondSocial.history.unshift(event);
@@ -309,11 +576,22 @@
         renderSocialTab(document.getElementById('drawer-body'));
     }
 
-    function queueSocialInteraction(diamondId, actionId) {
+    function queueSocialInteraction(diamondId, actionId, payload) {
         const social = ensureSocialData();
         const diamond = getDiamond(diamondId);
         const action = ACTIONS[actionId];
         if (!diamond || !action) return;
+        if (actionId === 'topic') {
+            const topic = getAvailableTopics(diamond).find(item => item.id === payload);
+            if (!topic) { setStatusTicker('Este assunto não está disponível no contexto atual.'); return; }
+            payload = { topicId: topic.id, topicLabel: topic.label };
+        }
+        if (['reprimand','duty','revoke'].includes(actionId)) {
+            const config = payload && typeof payload === 'object' ? payload : { reasonId: payload };
+            const reason = getAvailableReprimandReasons(diamond).find(item => item.id === config.reasonId) || getAvailableReprimandReasons(diamond)[0];
+            const custom = String(config.customReason || '').trim().slice(0, 140);
+            payload = { reasonId: reason.id, reasonLabel: custom || reason.label };
+        }
         if (social.queue.some(item => item.diamondId === diamondId)) {
             if (typeof window.setStatusTicker === 'function') setStatusTicker(diamond.name + ' já está ocupada. Convoque-a para interromper a atividade.');
             return;
@@ -324,7 +602,10 @@
         }
         social.queue.push({
             id: 'social_' + Date.now() + '_' + Math.floor(Math.random() * 100000),
-            diamondId, actionId, duration: action.duration, progress: 0
+            diamondId, actionId, duration: action.duration, progress: 0,
+            ...(actionId === 'topic' ? { topicId: payload.topicId, topicLabel: payload.topicLabel } : {}),
+            ...(actionId === 'order' ? { order: payload } : {}),
+            ...(['reprimand','duty','revoke'].includes(actionId) ? { reasonId: payload.reasonId, reasonLabel: payload.reasonLabel } : {})
         });
         if (typeof window.setStatusTicker === 'function') setStatusTicker(action.label + ' adicionada à fila para ' + diamond.name + '.');
         renderSocialTab(document.getElementById('drawer-body'));
@@ -417,9 +698,9 @@
                 '<span class="social-gem" style="--gem-color:' + escapeSocial(diamond.colorHex || '#c4b5fd') + '">◇</span><span class="social-person-meta"><b>' + escapeSocial(diamond.name) + '</b><small>' + escapeSocial(diamond.personalityName || 'Personalidade em formação') + '</small></span><span class="social-person-mood">' + escapeSocial(currentMood.icon) + '</span></button>';
         }).join('');
         const metric = (label, key, color) => '<div class="social-metric"><div><span>' + label + '</span><b>' + Math.round(relation[key]) + '%</b></div><div class="social-meter"><i style="width:' + relation[key] + '%;--metric-color:' + color + '"></i></div></div>';
-        const actionGroups = ['Social', 'Afeto', 'Apoio', 'Conversa profunda', 'Assuntos', 'Disciplina'];
+        const actionGroups = ['Social', 'Afeto', 'Apoio', 'Conversa profunda'];
         const actionButtons = actionGroups.map(category => {
-            const buttons = Object.entries(ACTIONS).filter(([, action]) => action.category === category).map(([id, action]) => {
+            const buttons = Object.entries(ACTIONS).filter(([id, action]) => action.category === category && !['past','ambition','culture','colony','secrets'].includes(id) && !['reprimand','duty','revoke'].includes(id)).map(([id, action]) => {
                 const comfortLocked = id === 'comfort' && relation.tension < 5 && Number(selected.loyalty || 0) >= 80 && mood.type !== 'tense';
                 const diamondBusy = queue.some(item => item.diamondId === selected.id);
                 const disabled = queue.length >= 3 || comfortLocked || diamondBusy;
@@ -428,6 +709,25 @@
             }).join('');
             return buttons ? '<section class="social-action-group"><h4>' + category + '</h4>' + buttons + '</section>' : '';
         }).join('');
+
+        const topics = getAvailableTopics(selected);
+        const topicHtml = topics.map(topic => '<button class="social-action" type="button" onclick="queueSocialInteraction(\\'' + escapeSocial(selected.id) + '\\',\\'topic\\',\\'' + topic.id + '\\')" ' + (queue.some(item => item.diamondId === selected.id) || queue.length >= 3 ? 'disabled' : '') + '><span class="social-action-icon">' + topic.icon + '</span><span><b>' + escapeSocial(topic.label) + '</b><small>Resposta baseada nos dados atuais do Império e da corte</small></span></button>').join('');
+        const reasons = getAvailableReprimandReasons(selected);
+        const reasonOptions = reasons.map(reason => '<option value="' + reason.id + '">' + escapeSocial(reason.label) + '</option>').join('');
+        const productionOptions = typeof FOUNDING_GEM_DATA !== 'undefined' ? Object.entries(FOUNDING_GEM_DATA).filter(([type, data]) => !data.stored && data.mineral).map(([type, data]) => '<option value="' + type + '" ' + (selected.courtProductionType === type ? 'selected' : '') + '>' + escapeSocial(data.label) + '</option>').join('') : '<option value="quartz">Quartzo</option>';
+        const busy = queue.some(item => item.diamondId === selected.id);
+        const canPropose = !!getGovernedPlanet(selected);
+        const reportHtml = Array.isArray(selected.socialReport) ? '<div class="card"><div class="card-header"><span class="card-title">Relatório solicitado</span><span class="badge">Dados atuais</span></div>' + selected.socialReport.map(line => '<p class="social-muted">' + escapeSocial(line) + '</p>').join('') + '</div>' : '';
+        const disciplineHtml = '<div class="card"><div class="card-header"><span class="card-title">Disciplina e sanções</span></div><label class="stat-label" for="social-reprimand-reason">Motivo da repreensão</label><select id="social-reprimand-reason">' + reasonOptions + '</select><input id="social-custom-reason" type="text" maxlength="140" placeholder="Detalhe opcional do motivo" /><div class="grid-2">' +
+            '<button class="btn btn-pink" type="button" onclick="queueSocialInteraction(\\'' + escapeSocial(selected.id) + '\\',\\'reprimand\\',{reasonId:document.getElementById(\\'social-reprimand-reason\\').value,customReason:document.getElementById(\\'social-custom-reason\\').value})" ' + (busy || queue.length >= 3 ? 'disabled' : '') + '>Repreender</button>' +
+            '<button class="btn btn-pink" type="button" onclick="queueSocialInteraction(\\'' + escapeSocial(selected.id) + '\\',\\'duty\\',{reasonId:document.getElementById(\\'social-reprimand-reason\\').value,customReason:document.getElementById(\\'social-custom-reason\\').value})" ' + (busy || queue.length >= 3 ? 'disabled' : '') + '>Serviço disciplinar</button></div>' +
+            '<button class="btn btn-pink" type="button" onclick="queueSocialInteraction(\\'' + escapeSocial(selected.id) + '\\',\\'revoke\\',{reasonId:document.getElementById(\\'social-reprimand-reason\\').value,customReason:document.getElementById(\\'social-custom-reason\\').value})" ' + (busy || queue.length >= 3 ? 'disabled' : '') + '>Retirar privilégios</button></div>';
+        const orderHtml = '<div class="card"><div class="card-header"><span class="card-title">Ordens da Suprema</span><span class="badge">Autoridade imperial</span></div>' +
+            '<button class="social-action" type="button" onclick="requestDiamondReport(\\'' + escapeSocial(selected.id) + '\\')" ' + (busy ? 'disabled' : '') + '><span class="social-action-icon">▤</span><span><b>Exigir relatório</b><small>Atividades, governança, equipes, recursos e corte</small></span></button>' +
+            '<button class="social-action" type="button" onclick="issueDiamondOrder(\\'' + escapeSocial(selected.id) + '\\',\\'proposal\\')" ' + (busy || queue.length >= 3 || !canPropose ? 'disabled' : '') + '><span class="social-action-icon">⚖</span><span><b>Apresentar plano administrativo</b><small>' + (canPropose ? 'Preparar uma proposta real para sua colônia governada' : 'Disponível quando houver uma colônia sob sua governança') + '</small></span></button>' +
+            '<label class="stat-label" for="social-production-type">Casta que sua corte deve produzir</label><select id="social-production-type">' + productionOptions + '</select>' +
+            '<button class="social-action" type="button" onclick="issueDiamondOrder(\\'' + escapeSocial(selected.id) + '\\',\\'production\\',document.getElementById(\\'social-production-type\\').value)" ' + (busy || queue.length >= 3 ? 'disabled' : '') + '><span class="social-action-icon">✥</span><span><b>Ordenar foco de produção</b><small>Consome essência pessoal e minerais para gerar Gems em sua corte</small></span></button>' +
+            '<button class="btn" type="button" onclick="issueDiamondOrder(\\'' + escapeSocial(selected.id) + '\\',\\'' + (selected.courtProductionEnabled === false ? 'resume' : 'pause') + '\\')" ' + (busy || queue.length >= 3 ? 'disabled' : '') + '>' + (selected.courtProductionEnabled === false ? 'Retomar produção autônoma' : 'Suspender produção autônoma') + '</button></div>';
         const active = queue.length ? queue[0] : null;
         const activeDiamond = active ? getDiamond(active.diamondId) : null;
         const queueHtml = queue.length ? queue.map((item, index) => {
@@ -450,6 +750,7 @@
             '<div class="social-speech">“' + escapeSocial(selected.currentSpeech || 'Aguardo um momento para conversar.') + '”</div></div>' +
             '<div class="card"><div class="card-header"><span class="card-title title-font">Autoridade da Suprema</span></div><p class="social-muted">A convocação interrompe qualquer atividade desta Diamante. Personalidades disciplinadas aceitam melhor a ordem; outras podem ressentir-se.</p><button class="social-action" type="button" onclick="summonDiamond(\'' + escapeSocial(selected.id) + '\')"><span class="social-action-icon">♛</span><span><b>Exigir presença imediata</b><small>Interromper trabalho e convocá-la à Corte</small></span></button></div>' +
             '<div class="card"><div class="card-header"><span class="card-title title-font">Interações disponíveis</span><span class="badge">' + queue.length + '/3 na fila</span></div><div class="social-actions">' + actionButtons + '</div></div>' +
+            disciplineHtml + orderHtml + reportHtml +
             '<div class="card"><div class="card-header"><span class="card-title title-font">Fila de convivência</span></div>' + (active ? '<div class="social-muted">Em andamento: ' + escapeSocial(activeDiamond?.name || 'Diamante') + ' · ' + ACTIONS[active.actionId].label + '</div>' : '') + queueHtml + '</div>' +
             '<div class="card"><div class="card-header"><span class="card-title title-font">Memórias recentes</span></div>' + history + '</div>';
     }
@@ -460,5 +761,11 @@
     window.queueSocialInteraction = queueSocialInteraction;
     window.removeSocialInteraction = removeSocialInteraction;
     window.summonDiamond = summonDiamond;
+    window.getDiamondCourtReport = getDiamondCourtReport;
+    window.recordDiamondCourtGem = recordDiamondCourtGem;
+    window.requestDiamondReport = requestDiamondReport;
+    window.setDiamondCourtProduction = setDiamondCourtProduction;
+    window.issueDiamondOrder = issueDiamondOrder;
+    window.updateMatriarchCourtProduction = updateMatriarchCourtProduction;
     window.updateDiamondSocial = updateDiamondSocial;
 })();
