@@ -38,7 +38,22 @@
             label: 'Consolar', icon: '❀', category: 'Apoio', duration: 7,
             description: 'Acolher a Diamante quando está sob pressão.',
             friendship: 3, trust: 3, respect: 0, tension: -4, mood: 'soothed'
-        }
+        },
+        past: { label: 'Falar sobre o passado', icon: '⌛', category: 'Assuntos', duration: 6, description: 'Perguntar sobre sua origem e experiências anteriores.', friendship: 2, trust: 3, respect: 1, tension: 0, mood: 'thoughtful' },
+        ambition: { label: 'Discutir ambições', icon: '✦', category: 'Assuntos', duration: 6, description: 'Conhecer os objetivos pessoais dela para o Império.', friendship: 2, trust: 2, respect: 2, tension: 0, mood: 'inspired' },
+        culture: { label: 'Conversar sobre cultura', icon: '♫', category: 'Assuntos', duration: 5, description: 'Falar sobre arte, costumes e a identidade Gem.', friendship: 3, trust: 1, respect: 1, tension: 0, mood: 'content' },
+        colony: { label: 'Discutir as colônias', icon: '◎', category: 'Assuntos', duration: 7, description: 'Ouvir a visão dela sobre os mundos sob domínio imperial.', friendship: 1, trust: 2, respect: 3, tension: 1, mood: 'thoughtful' },
+        secrets: { label: 'Compartilhar um segredo', icon: '☾', category: 'Assuntos', duration: 8, description: 'Compartilhar algo reservado para testar a confiança.', friendship: 1, trust: 5, respect: 1, tension: 0, mood: 'pleased' },
+        reprimand: { label: 'Repreender', icon: '⚑', category: 'Disciplina', duration: 5, description: 'Advertir formalmente por uma conduta ou falha.', friendship: -3, trust: -2, respect: 1, tension: 5, mood: 'tense' },
+        duty: { label: 'Impor serviço disciplinar', icon: '▤', category: 'Disciplina', duration: 8, description: 'Determinar uma tarefa adicional como sanção.', friendship: -5, trust: -4, respect: -1, tension: 9, mood: 'tense' },
+        revoke: { label: 'Retirar privilégios', icon: '⌁', category: 'Disciplina', duration: 6, description: 'Suspender privilégios cortesãos temporariamente.', friendship: -7, trust: -6, respect: -3, tension: 12, mood: 'tense' }
+    };
+    const EXTRA_DIALOGUES = {
+        past: ['Minha origem ainda influencia minhas escolhas.', 'Há lembranças que raramente compartilho na Corte.', 'Nem tudo que vivi aparece nos registros oficiais.'],
+        ambition: ['Quero deixar uma marca que sobreviva a esta era.', 'Tenho objetivos que vão além do cargo que ocupo.', 'Espero que o Império se torne algo digno de ser lembrado.'],
+        culture: ['A cultura revela o que uma civilização valoriza.', 'Precisamos preservar nossas expressões, não apenas nossos recursos.', 'Há beleza em descobrir costumes de outros mundos.'],
+        colony: ['Cada colônia precisa de uma identidade própria.', 'A distância não deveria significar abandono.', 'O governo dos mundos exige mais do que ordens enviadas de Homeworld.'],
+        secrets: ['Vou considerar este gesto antes de decidir o que revelar.', 'Poucas pessoas recebem esse nível de confiança.', 'Espero que suas palavras permaneçam entre nós.']
     };
 
     const PERSONALITY_RESPONSES = {
@@ -225,7 +240,16 @@
         let tension = action.tension;
         let mood = action.mood;
 
-        if (actionId === 'converse') friendship += get('sociability') * 0.025;
+        if (actionId === 'converse' || actionId === 'culture') friendship += get('sociability') * 0.025;
+        if (actionId === 'past' || actionId === 'secrets') trust += get('empathy') * 0.025;
+        if (actionId === 'ambition') respect += get('ambition') * 0.025;
+        if (actionId === 'colony') respect += get('discipline') * 0.02;
+        if (['reprimand', 'duty', 'revoke'].includes(actionId)) {
+            tension += (100 - get('discipline')) * 0.035 + get('ambition') * 0.015;
+            if (get('discipline') >= 75) respect += 2;
+            if (get('empathy') >= 75) trust -= 2;
+            mood = 'tense';
+        }
         if (actionId === 'praise') friendship += (get('sociability') + get('empathy')) * 0.012;
         if (actionId === 'listen' || actionId === 'comfort') {
             trust += get('empathy') * 0.035;
@@ -242,7 +266,7 @@
             else { tension += 3; respect += get('discipline') * 0.015; mood = 'tense'; }
         }
         const responsePool = PERSONALITY_RESPONSES[diamond.personalityId] || PERSONALITY_RESPONSES.technocrat;
-        const lines = responsePool[actionId] || responsePool.converse;
+        const lines = responsePool[actionId] || EXTRA_DIALOGUES[actionId] || (['reprimand','duty','revoke'].includes(actionId) ? ['Compreendo a sanção, mas não esquecerei a forma como foi aplicada.', 'A autoridade foi exercida. Minha confiança, porém, foi abalada.', 'Cumprirei a determinação, embora discorde dela.'] : responsePool.converse);
         const response = lines[Math.floor(Math.random() * lines.length)];
         return { friendship, trust, respect, tension, response, mood, relation };
     }
@@ -257,7 +281,9 @@
         relation.respect = clamp(relation.respect + result.respect);
         relation.tension = clamp(relation.tension + result.tension);
         relation.interactions++;
-        diamond.loyalty = clamp(Number(diamond.loyalty || 0) + Math.max(0, result.friendship + result.trust) * 0.035);
+        diamond.loyalty = clamp(Number(diamond.loyalty || 0) + (result.friendship + result.trust) * 0.035);
+        if (item.actionId === 'duty') diamond.loyalty = clamp(Number(diamond.loyalty || 0) - 1.5);
+        if (item.actionId === 'revoke') diamond.loyalty = clamp(Number(diamond.loyalty || 0) - 2.5);
         diamond.currentSpeech = result.response;
         setSocialMood(diamond, result.mood);
         const action = ACTIONS[item.actionId];
@@ -288,6 +314,10 @@
         const diamond = getDiamond(diamondId);
         const action = ACTIONS[actionId];
         if (!diamond || !action) return;
+        if (social.queue.some(item => item.diamondId === diamondId)) {
+            if (typeof window.setStatusTicker === 'function') setStatusTicker(diamond.name + ' já está ocupada. Convoque-a para interromper a atividade.');
+            return;
+        }
         if (social.queue.length >= 3) {
             if (typeof window.setStatusTicker === 'function') setStatusTicker('A fila de interações está cheia. Aguarde uma ação terminar.');
             return;
@@ -297,6 +327,32 @@
             diamondId, actionId, duration: action.duration, progress: 0
         });
         if (typeof window.setStatusTicker === 'function') setStatusTicker(action.label + ' adicionada à fila para ' + diamond.name + '.');
+        renderSocialTab(document.getElementById('drawer-body'));
+    }
+
+    function summonDiamond(diamondId) {
+        const social = ensureSocialData();
+        const diamond = getDiamond(diamondId);
+        if (!diamond) return;
+        const interrupted = social.queue.filter(item => item.diamondId === diamondId);
+        if (interrupted.length) {
+            social.queue = social.queue.filter(item => item.diamondId !== diamondId);
+            const stats = diamond.personalityStats || {};
+            const discipline = clamp(stats.discipline, 0, 100);
+            const ambition = clamp(stats.ambition, 0, 100);
+            const relation = social.relations[diamondId];
+            relation.tension = clamp(relation.tension + 2 + (100 - discipline) * 0.045 + ambition * 0.025);
+            relation.trust = clamp(relation.trust - (discipline < 35 ? 3 : 1));
+            relation.respect = clamp(relation.respect + (discipline >= 70 ? 1 : -1));
+            diamond.loyalty = clamp(Number(diamond.loyalty || 0) - (discipline < 35 ? 1.5 : 0.4));
+            diamond.currentSpeech = discipline >= 75 ? 'Recebi sua convocação, Suprema. Interrompi minhas obrigações e estou à disposição.' : 'Fui obrigada a interromper meu trabalho. Espero que este chamado seja necessário.';
+            setSocialMood(diamond, discipline < 35 ? 'tense' : 'thoughtful');
+            social.history.unshift({ cycle: Number(state.cycleCount) || 1, diamondId, diamondName: diamond.name, actionId: 'summon', actionLabel: 'Convocação imperial', response: diamond.currentSpeech, relationship: getRelationshipLabel(relation) });
+        } else {
+            diamond.currentSpeech = 'Atendi à convocação da Suprema.';
+        }
+        social.selectedDiamondId = diamondId;
+        if (typeof window.setStatusTicker === 'function') setStatusTicker(diamond.name + ' foi convocada à presença da Suprema.');
         renderSocialTab(document.getElementById('drawer-body'));
     }
 
@@ -361,12 +417,13 @@
                 '<span class="social-gem" style="--gem-color:' + escapeSocial(diamond.colorHex || '#c4b5fd') + '">◇</span><span class="social-person-meta"><b>' + escapeSocial(diamond.name) + '</b><small>' + escapeSocial(diamond.personalityName || 'Personalidade em formação') + '</small></span><span class="social-person-mood">' + escapeSocial(currentMood.icon) + '</span></button>';
         }).join('');
         const metric = (label, key, color) => '<div class="social-metric"><div><span>' + label + '</span><b>' + Math.round(relation[key]) + '%</b></div><div class="social-meter"><i style="width:' + relation[key] + '%;--metric-color:' + color + '"></i></div></div>';
-        const actionGroups = ['Social', 'Afeto', 'Apoio', 'Conversa profunda'];
+        const actionGroups = ['Social', 'Afeto', 'Apoio', 'Conversa profunda', 'Assuntos', 'Disciplina'];
         const actionButtons = actionGroups.map(category => {
             const buttons = Object.entries(ACTIONS).filter(([, action]) => action.category === category).map(([id, action]) => {
                 const comfortLocked = id === 'comfort' && relation.tension < 5 && Number(selected.loyalty || 0) >= 80 && mood.type !== 'tense';
-                const disabled = queue.length >= 3 || comfortLocked;
-                const description = comfortLocked ? 'Disponível quando ela demonstrar tensão ou precisar de apoio.' : action.description;
+                const diamondBusy = queue.some(item => item.diamondId === selected.id);
+                const disabled = queue.length >= 3 || comfortLocked || diamondBusy;
+                const description = diamondBusy ? 'Diamante ocupada; convoque-a para interromper a ação.' : (comfortLocked ? 'Disponível quando ela demonstrar tensão ou precisar de apoio.' : action.description);
                 return '<button class="social-action" type="button" onclick="queueSocialInteraction(\'' + selected.id + '\',\'' + id + '\')"' + (disabled ? ' disabled' : '') + '><span class="social-action-icon">' + action.icon + '</span><span><b>' + action.label + '</b><small>' + description + '</small></span><em>' + action.duration + 's</em></button>';
             }).join('');
             return buttons ? '<section class="social-action-group"><h4>' + category + '</h4>' + buttons + '</section>' : '';
@@ -391,6 +448,7 @@
             '<div class="card social-profile"><div class="social-profile-head"><span class="social-gem social-gem-large" style="--gem-color:' + escapeSocial(selected.colorHex || '#c4b5fd') + '">◇</span><div><h3>' + escapeSocial(selected.name) + '</h3><p>' + escapeSocial(selected.personalityName || 'Personalidade em formação') + ' · ' + escapeSocial(bond) + '</p><small>' + escapeSocial(mood.icon + ' ' + mood.label) + (mood.remaining > 0 ? ' · ' + Math.ceil(mood.remaining) + 's' : '') + '</small></div></div>' +
             '<div class="social-metrics">' + metric('Amizade', 'friendship', '#f0abfc') + metric('Confiança', 'trust', '#7dd3fc') + metric('Respeito', 'respect', '#fcd34d') + metric('Tensão', 'tension', '#fb7185') + '</div>' +
             '<div class="social-speech">“' + escapeSocial(selected.currentSpeech || 'Aguardo um momento para conversar.') + '”</div></div>' +
+            '<div class="card"><div class="card-header"><span class="card-title title-font">Autoridade da Suprema</span></div><p class="social-muted">A convocação interrompe qualquer atividade desta Diamante. Personalidades disciplinadas aceitam melhor a ordem; outras podem ressentir-se.</p><button class="social-action" type="button" onclick="summonDiamond(\'' + escapeSocial(selected.id) + '\')"><span class="social-action-icon">♛</span><span><b>Exigir presença imediata</b><small>Interromper trabalho e convocá-la à Corte</small></span></button></div>' +
             '<div class="card"><div class="card-header"><span class="card-title title-font">Interações disponíveis</span><span class="badge">' + queue.length + '/3 na fila</span></div><div class="social-actions">' + actionButtons + '</div></div>' +
             '<div class="card"><div class="card-header"><span class="card-title title-font">Fila de convivência</span></div>' + (active ? '<div class="social-muted">Em andamento: ' + escapeSocial(activeDiamond?.name || 'Diamante') + ' · ' + ACTIONS[active.actionId].label + '</div>' : '') + queueHtml + '</div>' +
             '<div class="card"><div class="card-header"><span class="card-title title-font">Memórias recentes</span></div>' + history + '</div>';
@@ -401,5 +459,6 @@
     window.selectSocialDiamond = selectSocialDiamond;
     window.queueSocialInteraction = queueSocialInteraction;
     window.removeSocialInteraction = removeSocialInteraction;
+    window.summonDiamond = summonDiamond;
     window.updateDiamondSocial = updateDiamondSocial;
 })();
