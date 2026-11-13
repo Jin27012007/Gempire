@@ -545,6 +545,18 @@
         .diamond-chat-compose textarea { min-height:72px; max-height:150px; resize:vertical; }
         .diamond-chat-hint { color:var(--text-muted); font-size:10px; line-height:1.45; }
         .diamond-chat-status { min-height:14px; color:#7dd3fc; font-size:10px; line-height:1.4; }
+        .governance-traits{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0}
+        .governance-trait{min-width:0;padding:7px 8px;border:1px solid rgba(148,163,184,.16);border-radius:8px;background:rgba(15,23,42,.48)}
+        .governance-trait>div:first-child{display:flex;justify-content:space-between;gap:6px;font-size:10px;color:#cbd5e1}
+        .governance-trait b{color:#e9d5ff}
+        .governance-meter{height:5px;margin-top:5px;border-radius:99px;background:rgba(71,85,105,.55);overflow:hidden}
+        .governance-meter i{display:block;height:100%;border-radius:99px;background:linear-gradient(90deg,#8b5cf6,#f0abfc)}
+        .governance-muted{display:block;color:var(--text-muted);font-size:10px;line-height:1.4;margin:4px 0 8px}
+        .governance-effect{display:block;color:#a7f3d0;font-size:10px;line-height:1.4;margin:5px 0 8px}
+        .governance-personality{padding:8px 10px;border-left:2px solid #c084fc;background:rgba(124,58,237,.08);border-radius:0 8px 8px 0;margin:7px 0}
+        .governance-speech{font-size:11px;line-height:1.5;color:#e9d5ff;border-top:1px solid rgba(192,132,252,.2);margin-top:10px;padding-top:9px;font-style:italic}
+        .governance-decision{margin-top:8px}
+        @media(max-width:600px){.governance-traits{gap:6px}.governance-trait{padding:6px}}
     </style>
 </head>
 <body>
@@ -619,6 +631,7 @@
                     <button id="tab-guide" class="btn" onclick="switchDrawerTab('guide')">📖 Guia de Gems</button>
                     <button id="tab-population" class="btn" onclick="switchDrawerTab('population')">👥 Relatório populacional</button>
                     <button id="tab-quarters" class="btn" onclick="switchDrawerTab('quarters')">💬 Quartos</button>
+                    <button id="tab-governance" class="btn" onclick="switchDrawerTab('governance')">🏛 Governo</button>
                 </div>
                 <button class="btn" onclick="toggleDrawer()" title="Fechar Painel">✕</button>
             </div>
@@ -2011,7 +2024,7 @@
         }
 
         function syncDrawerTabButtons() {
-            ['context', 'chronicle', 'dynasty', 'structures', 'guide', 'population', 'quarters'].forEach(t => {
+            ['context', 'chronicle', 'dynasty', 'structures', 'guide', 'population', 'quarters', 'governance'].forEach(t => {
                 const btn = document.getElementById('tab-' + t);
                 if (btn) btn.classList.toggle('active', state.drawerTab === t);
             });
@@ -2106,6 +2119,7 @@
             if (state.drawerTab === 'chronicle') { renderChronicleTab(body); return; }
             if (state.drawerTab === 'dynasty') { renderDynastyTab(body); return; }
             if (state.drawerTab === 'quarters') { renderDiamondQuartersTab(body); return; }
+            if (state.drawerTab === 'governance') { renderGovernanceTab(body); return; }
             // O painel de fundação pertence exclusivamente à Era Primitiva.
             // Depois da primeira Gem, o Contexto volta a refletir a tela ativa
             // (Trono, Mapa Estelar ou Globo 360°), sem recriar a coleta manual.
@@ -4271,6 +4285,7 @@ ${hasAristocrats ? `
 
         function updateWorld(deltaMs) {
             const dt = Math.min(0.05, Math.max(0, deltaMs / 1000));
+            if (typeof updateDiamondGovernance === 'function') updateDiamondGovernance(dt);
             const elapsedMs = dt * 1000;
             if (state.founding) {
                 state.founding.essenceCooldown = Math.max(0, (Number(state.founding.essenceCooldown) || 0) - dt);
@@ -6629,6 +6644,7 @@ function drawColony(time){
             initializeGame();
         }
     </script>
+    <script src="diamond-governance.js"></script>
     <script src="diamond-chat.js"></script>
 </body>
 </html>
