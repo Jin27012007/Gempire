@@ -1139,6 +1139,264 @@
         }
         Object.values(PLANETS).forEach(applyPlanetEnvironmentDefaults);
 
+        // --- SUPERFÍCIE PLANETÁRIA PROCEDURAL 360° ---
+        // Geografia, bioma e relevo são independentes. A semente fica no save,
+        // portanto cada mundo mantém seus continentes após fechar/reabrir o jogo.
+        const PLANET_SURFACE_DEFAULTS = {
+            homeworld:     { topology:'superterrestrial', biome:'rocky',    landCoverage:.96, waterKind:'none',  featureCount:2 },
+            ignis_prime:   { topology:'fragmented',       biome:'volcanic', landCoverage:.53, waterKind:'lava',  featureCount:10 },
+            thalassa_9:    { topology:'archipelago',      biome:'oceanic',  landCoverage:.19, waterKind:'water', featureCount:22 },
+            caelum_gelidus:{ topology:'polar',            biome:'icy',      landCoverage:.57, waterKind:'ice',   featureCount:4 },
+            terra_veritas: { topology:'continental',      biome:'organic',  landCoverage:.43, waterKind:'water', featureCount:4 }
+        };
+        const PLANET_SURFACE_PALETTES = {
+            rocky: {
+                base:'#736786', baseLight:'#a18aaa', baseDeep:'#554968',
+                land:['#b89bb4','#9e83a7','#d1acc0','#887697'],
+                coast:'#f0c9d8', detail:'#695778', accent:'#e8b9cb', fluid:'#3d668b'
+            },
+            oceanic: {
+                base:'#168ead', baseLight:'#56cbd0', baseDeep:'#075b83',
+                land:['#70c9c7','#9be1d5','#48aebd','#d0e6c2'],
+                coast:'#dcfff1', detail:'#237f9c', accent:'#f1d6a4', fluid:'#e7ffff'
+            },
+            icy: {
+                base:'#4d93ca', baseLight:'#bce9ff', baseDeep:'#35639b',
+                land:['#e9f7ff','#c5e8fb','#a7d7f2','#f8fcff'],
+                coast:'#ffffff', detail:'#6baad9', accent:'#d7f5ff', fluid:'#9adcf5'
+            },
+            volcanic: {
+                base:'#472e55', baseLight:'#76506a', baseDeep:'#291e3d',
+                land:['#70445e','#8b5067','#593750','#a35a60'],
+                coast:'#f5a04b', detail:'#321f3d', accent:'#ffb33e', fluid:'#ff692f'
+            },
+            organic: {
+                base:'#258c9b', baseLight:'#59c8bb', baseDeep:'#176574',
+                land:['#70c978','#91db83','#4fae78','#b5e58e'],
+                coast:'#d7f5bd', detail:'#347d69', accent:'#f1a6d2', fluid:'#e9ffff'
+            }
+        };
+        const PLANET_SURFACE_CACHE = new Map();
+        const PLANET_TOPOLOGY_LABELS = {
+            continental:'Continental', archipelago:'Arquipélago', oceanic:'Oceânico',
+            terrestrial:'Terrestre', polar:'Polar', fragmented:'Fragmentado',
+            superterrestrial:'Superterrestre'
+        };
+        function surfaceHash(text){
+            let h=2166136261;
+            for(let i=0;i<String(text).length;i++){h^=String(text).charCodeAt(i);h=Math.imul(h,16777619);}
+            return h>>>0;
+        }
+        function surfaceRandom(seed){
+            let value=seed>>>0;
+            return function(){value+=0x6D2B79F5;let t=value;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return ((t^(t>>>14))>>>0)/4294967296;};
+        }
+        function ensurePlanetSurfaceProfile(planet){
+            if(!planet)return null;
+            const defaults=PLANET_SURFACE_DEFAULTS[planet.id]||null;
+            if(!planet.surfaceProfile||planet.surfaceProfile.version!==1){
+                const seed=surfaceHash('gempire-surface:'+planet.id);
+                if(defaults){
+                    planet.surfaceProfile={version:1,seed,...defaults};
+                }else{
+                    const random=surfaceRandom(seed);
+                    const topologies=['continental','archipelago','oceanic','terrestrial','polar','fragmented','superterrestrial'];
+                    const topology=topologies[Math.floor(random()*topologies.length)];
+                    const coverages={continental:.43,archipelago:.22,oceanic:.12,terrestrial:.76,polar:.55,fragmented:.48,superterrestrial:.9};
+                    const biome=/vulc|ignis/i.test(planet.biomeTag||'')?'volcanic':/gla|gel|ice/i.test(planet.biomeTag||'')?'icy':/org|bio|vida/i.test(planet.biomeTag||'')?'organic':planet.hasOcean?'oceanic':'rocky';
+                    planet.surfaceProfile={version:1,seed,topology,biome,landCoverage:coverages[topology],waterKind:biome==='volcanic'?'lava':biome==='icy'?'ice':planet.hasOcean?'water':'none',featureCount:4};
+                }
+            }
+            const profile=planet.surfaceProfile;
+            if(!Number.isFinite(profile.seed))profile.seed=surfaceHash('gempire-surface:'+planet.id);
+            if(!PLANET_SURFACE_PALETTES[profile.biome])profile.biome='rocky';
+            if(!PLANET_TOPOLOGY_LABELS[profile.topology])profile.topology='continental';
+            profile.landCoverage=Math.max(.04,Math.min(.98,Number(profile.landCoverage)||.45));
+            if(!profile.waterKind)profile.waterKind=planet.hasOcean?'water':'none';
+            return profile;
+        }
+        Object.values(PLANETS).forEach(ensurePlanetSurfaceProfile);
+
+        function generatePlanetSurfaceMap(planet){
+            const profile=ensurePlanetSurfaceProfile(planet);
+            const cacheKey=[planet.id,profile.seed,profile.topology,profile.biome,profile.landCoverage].join(':');
+            if(PLANET_SURFACE_CACHE.has(cacheKey))return PLANET_SURFACE_CACHE.get(cacheKey);
+            const nx=72,ny=36,random=surfaceRandom(profile.seed),features=[];
+            const count=Math.max(1,Math.floor(profile.featureCount||4));
+            for(let i=0;i<count;i++){
+                let lat;
+                if(profile.topology==='polar'){
+                    const pole=i%2===0?1:-1;
+                    lat=pole*(.78+random()*.62);
+                }else{
+                    lat=(random()-.5)*Math.PI*.82;
+                }
+                const lon=(random()*2-1)*Math.PI;
+                let radius;
+                if(profile.topology==='archipelago'||profile.topology==='oceanic')radius=.20+random()*.28;
+                else if(profile.topology==='fragmented')radius=.42+random()*.42;
+                else if(profile.topology==='superterrestrial')radius=1.55+random()*.60;
+                else if(profile.topology==='terrestrial')radius=.94+random()*.42;
+                else if(profile.topology==='polar')radius=.82+random()*.35;
+                else radius=.78+random()*.38;
+                features.push({lon,lat,radius});
+            }
+            if(profile.topology==='polar'&&features.length<2)features.push({lon:0,lat:-1.35,radius:1.1});
+            const cells=[];
+            for(let y=0;y<ny;y++){
+                const lat0=-Math.PI/2+y/ny*Math.PI,lat1=-Math.PI/2+(y+1)/ny*Math.PI,lat=(lat0+lat1)*.5;
+                for(let x=0;x<nx;x++){
+                    const lon0=-Math.PI+x/nx*Math.PI*2,lon1=-Math.PI+(x+1)/nx*Math.PI*2,lon=(lon0+lon1)*.5;
+                    let score=-99;
+                    for(const feature of features){
+                        const dot=Math.sin(lat)*Math.sin(feature.lat)+Math.cos(lat)*Math.cos(feature.lat)*Math.cos(lon-feature.lon);
+                        const distance=Math.acos(Math.max(-1,Math.min(1,dot)));
+                        score=Math.max(score,feature.radius-distance);
+                    }
+                    const warp=Math.sin(lon*3.1+profile.seed*.00001)*Math.cos(lat*4.7-profile.seed*.00002)*.13+
+                        Math.sin(lon*7.3+lat*5.1+profile.seed*.00003)*.055+
+                        Math.cos(lon*11.1-lat*8.2)*.025;
+                    score+=warp;
+                    cells.push({x,y,lon0,lon1,lat0,lat1,lon,lat,score,area:Math.max(.001,Math.cos(lat))});
+                }
+            }
+            const sorted=cells.slice().sort((a,b)=>b.score-a.score);
+            const totalArea=sorted.reduce((sum,cell)=>sum+cell.area,0);
+            const target=totalArea*profile.landCoverage;
+            let accumulated=0;
+            const mask=new Array(nx*ny).fill(false);
+            for(const cell of sorted){
+                if(accumulated<target){mask[cell.y*nx+cell.x]=true;accumulated+=cell.area;}
+            }
+            const variations=cells.map((cell,index)=>Math.floor(surfaceRandom((profile.seed+index*7919)>>>0)()*4));
+            const map={nx,ny,cells,land:mask,variations,profile,features};
+            PLANET_SURFACE_CACHE.set(cacheKey,map);
+            return map;
+        }
+        function projectSurfacePoint(lon,lat,rotation){
+            const relative=lon-rotation,cosLat=Math.cos(lat);
+            return {x:cosLat*Math.sin(relative),y:Math.sin(lat)*.82,z:cosLat*Math.cos(relative)};
+        }
+        function clipSurfacePolygon(points){
+            const output=[];
+            for(let i=0;i<points.length;i++){
+                const a=points[i],b=points[(i+1)%points.length],aIn=a.z>=0,bIn=b.z>=0;
+                if(aIn)output.push(a);
+                if(aIn!==bIn){
+                    const t=a.z/(a.z-b.z);
+                    output.push({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,z:0});
+                }
+            }
+            return output;
+        }
+        function drawSurfaceSegment(a,b,color,width){
+            if(a.z<0&&b.z<0)return;
+            let p1=a,p2=b;
+            if(a.z<0||b.z<0){
+                const t=a.z/(a.z-b.z),cross={x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,z:0};
+                if(a.z<0)p1=cross;else p2=cross;
+            }
+            ctx.beginPath();ctx.moveTo(p1.x,p1.y);ctx.lineTo(p2.x,p2.y);
+            ctx.strokeStyle=color;ctx.lineWidth=width;ctx.lineCap='round';ctx.stroke();
+        }
+        function drawProceduralPlanetSurface(planet,camera,time,stage){
+            const map=generatePlanetSurfaceMap(planet),profile=map.profile,palette=PLANET_SURFACE_PALETTES[profile.biome];
+            const {nx,ny,land,variations}=map,rotation=Number(camera.rotation)||0;
+            const pointsCache=new Array((nx+1)*(ny+1));
+            const pointAt=(x,y)=>{
+                const key=y*(nx+1)+x;
+                if(!pointsCache[key]){
+                    const lon=-Math.PI+x/nx*Math.PI*2,lat=-Math.PI/2+y/ny*Math.PI;
+                    pointsCache[key]=projectSurfacePoint(lon,lat,rotation);
+                }
+                return pointsCache[key];
+            };
+            for(let y=0;y<ny;y++){
+                for(let x=0;x<nx;x++){
+                    const index=y*nx+x;
+                    if(!land[index])continue;
+                    const polygon=clipSurfacePolygon([
+                        pointAt(x,y),pointAt(x+1,y),pointAt(x+1,y+1),pointAt(x,y+1)
+                    ]);
+                    if(polygon.length<3)continue;
+                    ctx.beginPath();ctx.moveTo(polygon[0].x,polygon[0].y);
+                    for(let i=1;i<polygon.length;i++)ctx.lineTo(polygon[i].x,polygon[i].y);
+                    ctx.closePath();
+                    ctx.fillStyle=palette.land[variations[index]%palette.land.length];ctx.fill();
+                    const south=y>0?land[(y-1)*nx+x]:false;
+                    const east=land[y*nx+((x+1)%nx)];
+                    const north=y<ny-1?land[(y+1)*nx+x]:false;
+                    const west=land[y*nx+((x+nx-1)%nx)];
+                    const corners=[pointAt(x,y),pointAt(x+1,y),pointAt(x+1,y+1),pointAt(x,y+1)];
+                    if(!south)drawSurfaceSegment(corners[0],corners[1],palette.coast,.006);
+                    if(!east)drawSurfaceSegment(corners[1],corners[2],palette.coast,.006);
+                    if(!north)drawSurfaceSegment(corners[2],corners[3],palette.coast,.006);
+                    if(!west)drawSurfaceSegment(corners[3],corners[0],palette.coast,.006);
+                    const center=projectSurfacePoint(map.cells[index].lon,map.cells[index].lat,rotation);
+                    if(center.z<=.08)continue;
+                    const h=surfaceRandom((profile.seed+index*104729)>>>0)();
+                    if(profile.biome==='organic'&&h>.91){
+                        const r=.010;
+                        ctx.fillStyle=palette.accent;
+                        for(let k=0;k<4;k++){const a=k*Math.PI/2;ctx.beginPath();ctx.arc(center.x+Math.cos(a)*r*.72,center.y+Math.sin(a)*r*.72,r*.48,0,Math.PI*2);ctx.fill();}
+                        ctx.fillStyle='#fff1c9';ctx.beginPath();ctx.arc(center.x,center.y,r*.34,0,Math.PI*2);ctx.fill();
+                        ctx.strokeStyle='#3c966d';ctx.lineWidth=.004;ctx.beginPath();ctx.moveTo(center.x,center.y+r*.5);ctx.lineTo(center.x-r*.5,center.y+r);ctx.stroke();
+                    }else if(profile.biome==='icy'&&h>.94){
+                        const r=.014;ctx.beginPath();ctx.moveTo(center.x,center.y-r);ctx.lineTo(center.x+r*.55,center.y);ctx.lineTo(center.x,center.y+r);ctx.lineTo(center.x-r*.55,center.y);ctx.closePath();ctx.fillStyle=palette.accent;ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=.003;ctx.stroke();
+                    }else if(profile.biome==='volcanic'&&h>.93){
+                        const r=.018;ctx.beginPath();ctx.moveTo(center.x-r,center.y-r*.25);ctx.lineTo(center.x-r*.25,center.y);ctx.lineTo(center.x+r*.1,center.y-r*.3);ctx.lineTo(center.x+r,center.y+r*.25);ctx.strokeStyle='#ff7a35';ctx.lineWidth=.009;ctx.stroke();ctx.strokeStyle='#ffd16a';ctx.lineWidth=.003;ctx.stroke();
+                    }else if(profile.biome==='rocky'&&h>.94){
+                        const r=.018;ctx.beginPath();ctx.moveTo(center.x-r,center.y+r*.35);ctx.lineTo(center.x-r*.25,center.y-r*.6);ctx.lineTo(center.x+r,center.y+r*.2);ctx.closePath();ctx.fillStyle=palette.detail;ctx.fill();ctx.strokeStyle='#e6c2d2';ctx.lineWidth=.003;ctx.stroke();
+                    }else if(profile.biome==='oceanic'&&h>.94){
+                        ctx.fillStyle=palette.accent;ctx.beginPath();ctx.arc(center.x,center.y,.008,0,Math.PI*2);ctx.fill();
+                    }
+                    if(stage>=2&&(profile.biome==='rocky'||profile.biome==='volcanic')&&h>.84){
+                        const r=.025;ctx.beginPath();ctx.moveTo(center.x-r,center.y-r*.2);ctx.lineTo(center.x-r*.2,center.y+r*.15);ctx.lineTo(center.x+r*.1,center.y-r*.35);ctx.lineTo(center.x+r,center.y+r*.3);
+                        ctx.strokeStyle=profile.biome==='volcanic'?'#ff813c':'rgba(54,37,70,.85)';ctx.lineWidth=profile.biome==='volcanic'?.006:.004;ctx.stroke();
+                    }
+                }
+            }
+            // Pequenos reflexos de água nas regiões oceânicas visíveis.
+            if(profile.waterKind==='water'||profile.waterKind==='ice'){
+                ctx.strokeStyle=palette.fluid;ctx.lineWidth=.004;ctx.globalAlpha=.42;
+                for(let y=2;y<ny-2;y+=4){
+                    for(let x=1;x<nx;x+=5){
+                        const index=y*nx+x;if(land[index])continue;
+                        const h=surfaceRandom((profile.seed+index*3571)>>>0)();
+                        if(h<.73)continue;
+                        const center=projectSurfacePoint(map.cells[index].lon,map.cells[index].lat,rotation);
+                        if(center.z<.28)continue;
+                        const r=.018;ctx.beginPath();ctx.moveTo(center.x-r,center.y);ctx.quadraticCurveTo(center.x,center.y-r*.5,center.x+r,center.y);ctx.stroke();
+                        ctx.beginPath();ctx.moveTo(center.x-r*.55,center.y+r*.018);ctx.lineTo(center.x+r*.55,center.y+r*.018);ctx.stroke();
+                    }
+                }
+                ctx.globalAlpha=1;
+            }
+            // A lava é desenhada como canais finos nas zonas baixas do mundo ígneo.
+            if(profile.waterKind==='lava'){
+                ctx.globalAlpha=.82;ctx.strokeStyle='#ff7338';ctx.lineWidth=.012;ctx.lineCap='round';
+                for(let i=0;i<12;i++){
+                    const x=((i*17+3)%nx),y=((i*11+5)%(ny-4))+2,index=y*nx+x;
+                    if(!land[index])continue;
+                    const center=projectSurfacePoint(map.cells[index].lon,map.cells[index].lat,rotation);
+                    if(center.z<.18)continue;
+                    ctx.beginPath();ctx.moveTo(center.x-.035,center.y-.012);ctx.lineTo(center.x-.008,center.y+.003);ctx.lineTo(center.x+.018,center.y-.009);ctx.lineTo(center.x+.038,center.y+.014);ctx.stroke();
+                    ctx.strokeStyle='#ffd16a';ctx.lineWidth=.0035;ctx.stroke();
+                    ctx.strokeStyle='#ff7338';ctx.lineWidth=.012;
+                }
+                ctx.globalAlpha=1;
+            }
+        }
+        function getPlanetSurfacePalette(planet){
+            const profile=ensurePlanetSurfaceProfile(planet);
+            return PLANET_SURFACE_PALETTES[profile.biome]||PLANET_SURFACE_PALETTES.rocky;
+        }
+        function getPlanetSurfaceDescription(planet){
+            const profile=ensurePlanetSurfaceProfile(planet);
+            return (PLANET_TOPOLOGY_LABELS[profile.topology]||'Continental')+' · '+Math.round(profile.landCoverage*100)+'% terra';
+        }
+
+
 
         const state = {
             currentScreen: 'throne', // 'throne' | 'starmap' | 'colony'
@@ -5184,7 +5442,7 @@ ${hasAristocrats ? `
         function drawPlanetCombinedInfoPanel(planet,stats,x,y){
             const expanded=state.planetInfoExpanded!==false,w=Math.min(286,canvasWidth-24),header=30;
             const resources=[['quartz','Quartzo','#c084fc'],['silicate','Silicatos','#34d399'],['corundum','Coríndon','#38bdf8'],['metallic','Metálicos','#facc15'],['nacre','Nácar','#f8fafc'],['garnet','Granada','#fb7185'],['olivine','Olivina','#86efac'],['lapisrock','Lápis-lazúli','#818cf8'],['pyroxene','Piroxênio','#f59e0b'],['beryllium','Berílio','#67e8f9'],['topaz','Topázio','#fbbf24']];
-            const h=expanded?header+71+resources.length*13:header;
+            const h=expanded?header+84+resources.length*13:header;
             planetInfoToggleTarget={x,y,w,h:header};
             const total=resources.reduce((sum,[key])=>sum+Math.max(0,Number(planet.resourcesByType?.[key])||0),0);
             const max=Math.max(1,...resources.map(([key])=>Math.max(0,Number(planet.resourcesByType?.[key])||0)));
@@ -5198,10 +5456,11 @@ ${hasAristocrats ? `
                 ctx.fillText('Estágio '+stats.stage+'/4  ·  '+Math.floor(stats.remainingResources).toLocaleString('pt-BR')+' recursos restantes',x+10,y+48);
                 ctx.fillText('Temperatura: '+Number(planet.temperatureC??8).toLocaleString('pt-BR')+' °C  ·  Pressão: '+Number(planet.atmosphericPressureAtm??1).toLocaleString('pt-BR')+' atm',x+10,y+61);
                 ctx.fillText('Luas naturais: '+(Array.isArray(planet.moons)?planet.moons.length:0),x+10,y+74);
-                ctx.font='bold 9px Segoe UI';ctx.fillStyle='#7dd3fc';ctx.fillText('RESERVAS MINERAIS',x+10,y+91);
+                ctx.fillStyle='#e9d5ff';ctx.fillText('Geografia: '+getPlanetSurfaceDescription(planet),x+10,y+87);
+                ctx.font='bold 9px Segoe UI';ctx.fillStyle='#7dd3fc';ctx.fillText('RESERVAS MINERAIS',x+10,y+104);
                 ctx.textAlign='right';ctx.fillStyle='#f8fafc';ctx.fillText(Math.floor(total).toLocaleString('pt-BR'),x+w-10,y+91);
                 resources.forEach(([key,label,color],i)=>{
-                    const amount=Math.max(0,Number(planet.resourcesByType?.[key])||0),yy=y+97+i*13;
+                    const amount=Math.max(0,Number(planet.resourcesByType?.[key])||0),yy=y+110+i*13;
                     ctx.textAlign='left';ctx.font='9px Segoe UI';ctx.fillStyle='#cbd5e1';ctx.fillText(label,x+10,yy+8);
                     const bx=x+94,bw=w-145;ctx.fillStyle='rgba(15,23,42,.9)';ctx.fillRect(bx,yy+2,bw,6);
                     ctx.fillStyle=color;ctx.fillRect(bx,yy+2,bw*amount/max,6);
@@ -5295,7 +5554,7 @@ function drawColony(time){
             const planet=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld,{cx,cy}=getVisibleCenter(canvasWidth,canvasHeight);
             const isMobile=window.matchMedia('(max-width: 600px)').matches;
             const radius=Math.max(70,Math.min(canvasWidth*(isMobile?0.255:0.245),canvasHeight*(isMobile?0.265:0.29),225)*state.planetCamera.zoom);
-            const cam=state.planetCamera,stats=getPlanetVisualStats(planet),stage=stats.stage,palette=planet.colors;
+            const cam=state.planetCamera,stats=getPlanetVisualStats(planet),stage=stats.stage,palette=planet.colors,surfacePalette=getPlanetSurfacePalette(planet);
             const lightX=cx-radius*.36,lightY=cy-radius*.42;
 
             // Atmosfera e detritos que passam atrás do planeta.
@@ -5305,71 +5564,13 @@ function drawColony(time){
 
             // Esfera com iluminação direcional e terminador.
             const surface=ctx.createRadialGradient(lightX,lightY,radius*.04,cx+radius*.12,cy+radius*.12,radius*1.12);
-            surface.addColorStop(0,palette.secondary);surface.addColorStop(.42,palette.primary);surface.addColorStop(.78,palette.continent);surface.addColorStop(1,palette.mantle);
+            surface.addColorStop(0,surfacePalette.baseLight);surface.addColorStop(.42,surfacePalette.base);surface.addColorStop(.78,surfacePalette.baseDeep);surface.addColorStop(1,palette.mantle||surfacePalette.baseDeep);
             ctx.save();ctx.shadowColor=palette.atmosphere||'rgba(125,211,252,.25)';ctx.shadowBlur=stage>=2?34:24;ctx.fillStyle=surface;ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
-            ctx.save();ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.clip();ctx.translate(cx,cy);ctx.transform(Math.cos(cam.rotation),Math.sin(cam.rotation)*.10,-Math.sin(cam.rotation)*.18,1,0,0);ctx.scale(radius,radius);
+            ctx.save();ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.clip();ctx.translate(cx,cy);ctx.scale(radius,radius);
 
-            // Continentes e placas rochosas curvas.
-            const landmasses=[
-              [[-.92,-.22],[-.78,-.48],[-.52,-.57],[-.35,-.43],[-.3,-.21],[-.48,-.05],[-.61,.12],[-.83,.06]],
-              [[-.24,-.8],[.04,-.88],[.27,-.72],[.3,-.52],[.13,-.39],[-.12,-.49],[-.31,-.62]],
-              [[.3,-.37],[.58,-.54],[.83,-.43],[.91,-.18],[.72,-.02],[.52,-.11],[.34,-.2]],
-              [[-.78,.31],[-.55,.16],[-.32,.24],[-.25,.48],[-.42,.7],[-.68,.67],[-.87,.48]],
-              [[-.12,.08],[.1,-.05],[.3,.08],[.42,.32],[.25,.53],[.05,.57],[-.15,.37]],
-              [[.48,.25],[.73,.14],[.89,.31],[.81,.59],[.58,.75],[.39,.55]]
-            ];
-            ctx.globalAlpha=.36;ctx.fillStyle=palette.continent;
-            landmasses.forEach((points,index)=>{ctx.beginPath();ctx.moveTo(points[0][0],points[0][1]);for(let i=1;i<points.length;i++)ctx.quadraticCurveTo(points[i-1][0],points[i-1][1],points[i][0],points[i][1]);ctx.closePath();ctx.fill();ctx.strokeStyle=index%2===0?'rgba(255,255,255,.16)':'rgba(15,23,42,.25)';ctx.lineWidth=.008;ctx.stroke();});
-            ctx.globalAlpha=1;
+            // Geografia esférica procedural: continentes, ilhas, mares e bioma acompanham a rotação.
+            drawProceduralPlanetSurface(planet,cam,time,stage);
 
-            // Relevo e crateras com bordas de luz.
-            for(let i=0;i<7;i++){const a=i*2.17+cam.rotation*.14,px=Math.cos(a)*(.24+(i%3)*.14),py=Math.sin(a)*(.2+(i%2)*.22),cr=.035+(i%3)*.012;ctx.fillStyle='rgba(15,23,42,.24)';ctx.beginPath();ctx.ellipse(px,py,cr*1.45,cr,a*.4,0,Math.PI*2);ctx.fill();ctx.strokeStyle='rgba(255,255,255,.18)';ctx.lineWidth=.006;ctx.beginPath();ctx.ellipse(px-cr*.13,py-cr*.12,cr*1.25,cr*.75,a*.4,Math.PI*1.05,Math.PI*1.9);ctx.stroke();}
-
-            // Fraturas tectônicas: poucos sulcos ramificados, todos contidos na crosta.
-            // A quantidade e a largura aumentam com a deterioração do planeta.
-            const fracturePaths=[
-                [[-.96,-.16],[-.78,-.23],[-.62,-.15],[-.48,-.20],[-.31,-.05],[-.16,-.09],[.02,.08],[.19,.12],[.34,.29],[.52,.26],[.69,.40]],
-                [[-.48,-.20],[-.43,-.38],[-.29,-.51],[-.31,-.68],[-.18,-.83]],
-                [[-.16,-.09],[-.05,-.28],[.10,-.37],[.19,-.55],[.16,-.77]],
-                [[.34,.29],[.28,.46],[.39,.60],[.35,.78]],
-                [[.19,.12],[.38,.02],[.53,-.09],[.70,-.06],[.88,-.20]],
-                [[-.31,-.05],[-.43,.13],[-.42,.34],[-.57,.48],[-.54,.68]],
-                [[-.42,.34],[-.22,.38],[-.06,.53],[.08,.72]]
-            ];
-            const visibleFractures=[0,1,3,5,7][stage]||0;
-            const fractureWidth=stage===1?.010:stage===2?.014:stage===3?.019:.025;
-            for(let i=0;i<visibleFractures;i++){
-                const points=fracturePaths[i];
-                ctx.beginPath();ctx.moveTo(points[0][0],points[0][1]);
-                for(let j=1;j<points.length;j++)ctx.lineTo(points[j][0],points[j][1]);
-                ctx.lineCap='round';ctx.lineJoin='round';
-                ctx.strokeStyle='rgba(7,8,12,.86)';ctx.lineWidth=fractureWidth*1.45;ctx.stroke();
-                ctx.beginPath();ctx.moveTo(points[0][0]-.004,points[0][1]-.004);
-                for(let j=1;j<points.length;j++)ctx.lineTo(points[j][0]-.004,points[j][1]-.004);
-                ctx.strokeStyle=stage>=3?'rgba(199,164,119,.30)':'rgba(217,190,151,.42)';
-                ctx.lineWidth=stage>=3?.0035:.003;ctx.stroke();
-                ctx.beginPath();ctx.moveTo(points[0][0]+.003,points[0][1]+.003);
-                for(let j=1;j<points.length;j++)ctx.lineTo(points[j][0]+.003,points[j][1]+.003);
-                ctx.strokeStyle='rgba(1,3,8,.34)';ctx.lineWidth=fractureWidth*.42;ctx.stroke();
-            }
-            // Áreas colapsadas surgem junto aos encontros das fissuras, sem objetos espetados para fora.
-            if(stage>=3){
-                const collapseSpots=stage===3?[[-.16,-.09,.035,.022],[.34,.29,.045,.026]]:[[-.16,-.09,.052,.034],[.34,.29,.060,.038],[-.42,.34,.042,.028],[.19,.12,.035,.024]];
-                for(const [x,y,rx,ry] of collapseSpots){
-                    ctx.beginPath();ctx.ellipse(x,y,rx,ry,-.45,0,Math.PI*2);
-                    ctx.fillStyle='rgba(7,8,13,.52)';ctx.fill();
-                    ctx.beginPath();ctx.ellipse(x-rx*.2,y-ry*.25,rx*.72,ry*.58,-.45,Math.PI*1.05,Math.PI*1.9);
-                    ctx.strokeStyle='rgba(214,184,143,.24)';ctx.lineWidth=.004;ctx.stroke();
-                }
-            }
-            if(stage>=4){
-                // Pequenas áreas de erosão junto à borda dão a impressão de crosta cedendo.
-                const wornRim=[[-.82,-.28],[-.72,.59],[.46,-.78],[.80,.16]];
-                for(const [x,y] of wornRim){
-                    ctx.beginPath();ctx.ellipse(x,y,.060,.024,Math.atan2(y,x),0,Math.PI*2);
-                    ctx.fillStyle='rgba(7,8,13,.32)';ctx.fill();
-                }
-            }
             if(cam.xrayMode){const core=ctx.createRadialGradient(0,0,.04,0,0,.8);core.addColorStop(0,'rgba(255,255,255,.12)');core.addColorStop(.3,'rgba(56,189,248,.04)');core.addColorStop(1,'rgba(56,189,248,0)');ctx.fillStyle=core;ctx.beginPath();ctx.arc(0,0,.82,0,Math.PI*2);ctx.fill();}
             ctx.restore();
 
@@ -6326,6 +6527,7 @@ function drawColony(time){
                     for (const key of Object.keys(PLANETS[id])) delete PLANETS[id][key];
                     Object.assign(PLANETS[id], data.planets[id]);
                     applyPlanetEnvironmentDefaults(PLANETS[id]);
+                    ensurePlanetSurfaceProfile(PLANETS[id]);
                     const pools=PLANETS[id].resourcesByType=PLANETS[id].resourcesByType||{};
                     if(!Object.prototype.hasOwnProperty.call(pools,'pyroxene')){const n=Math.floor((Number(PLANETS[id].resourceTotal)||0)*.05);pools.pyroxene=n;pools.silicate=Math.max(0,(Number(pools.silicate)||0)-n);}
                     if(!Object.prototype.hasOwnProperty.call(pools,'beryllium')){const n=Math.floor((Number(PLANETS[id].resourceTotal)||0)*.01);pools.beryllium=n;pools.metallic=Math.max(0,(Number(pools.metallic)||0)-n);}
