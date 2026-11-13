@@ -1392,8 +1392,9 @@
             return PLANET_SURFACE_PALETTES[profile.biome]||PLANET_SURFACE_PALETTES.rocky;
         }
         function getPlanetSurfaceDescription(planet){
-            const profile=ensurePlanetSurfaceProfile(planet);
-            return (PLANET_TOPOLOGY_LABELS[profile.topology]||'Continental')+' · '+Math.round(profile.landCoverage*100)+'% terra';
+            const profile=ensurePlanetSurfaceProfile(planet),land=Math.round(profile.landCoverage*100),fluid=100-land;
+            const fluidLabel=profile.waterKind==='water'?'oceano':profile.waterKind==='ice'?'gelo':profile.waterKind==='lava'?'magma':null;
+            return (PLANET_TOPOLOGY_LABELS[profile.topology]||'Continental')+' · '+(fluidLabel?land+'% terra / '+fluid+'% '+fluidLabel:land+'% crosta');
         }
 
 
@@ -5060,10 +5061,11 @@ ${hasAristocrats ? `
         }
 
         function drawPlanetDisc(x, y, radius, planet, selected = false) {
+            const surfacePalette=getPlanetSurfacePalette(planet);
             const grad = ctx.createRadialGradient(x - radius * 0.35, y - radius * 0.4, radius * 0.08, x, y, radius);
-            grad.addColorStop(0, planet.colors.secondary);
-            grad.addColorStop(0.48, planet.colors.primary);
-            grad.addColorStop(1, planet.colors.mantle);
+            grad.addColorStop(0, surfacePalette.baseLight);
+            grad.addColorStop(0.48, surfacePalette.base);
+            grad.addColorStop(1, surfacePalette.baseDeep);
             ctx.save();
             ctx.shadowColor = planet.colors.atmosphere;
             ctx.shadowBlur = selected ? 24 : 12;
@@ -5076,8 +5078,8 @@ ${hasAristocrats ? `
             ctx.beginPath();
             ctx.arc(x, y, radius, 0, Math.PI * 2);
             ctx.clip();
-            ctx.fillStyle = planet.colors.continent;
-            ctx.globalAlpha = 0.36;
+            ctx.fillStyle = surfacePalette.land[0];
+            ctx.globalAlpha = 0.68;
             for (let i = 0; i < 4; i++) {
                 const a = i * 1.9 + (planet.orbitAngle || 0) * 0.1;
                 ctx.beginPath();
