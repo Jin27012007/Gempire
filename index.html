@@ -6235,7 +6235,9 @@ function drawColony(time){
             if(!data||batch.completed)return;
             const quantity=Math.max(1,Math.min(60,Number(batch.quantity)||1));
             const planet=PLANETS[state.activeColonyPlanetId||'homeworld'];
-            if(typeof window.recordDiamondCourtGem==='function')window.recordDiamondCourtGem('first',batch.type,quantity);
+            const governor=String(planet.governor||'');
+            const courtOwner=governor.startsWith('matriarch_')?governor:'first';
+            if(typeof window.recordDiamondCourtGem==='function')window.recordDiamondCourtGem(courtOwner,batch.type,quantity);
             if(!Object.prototype.hasOwnProperty.call(state.census,batch.type))state.census[batch.type]=0;
             state.census[batch.type]+=quantity;
             state.founding.gemsCreatedCount=(Number(state.founding.gemsCreatedCount)||0)+quantity;
@@ -6243,11 +6245,11 @@ function drawColony(time){
             for(let i=0;i<quantity;i++){
                 if(batch.type==='pearl'){
                     if(!Array.isArray(state.founding.reefPearlInventory))state.founding.reefPearlInventory=[];
-                    state.founding.reefPearlInventory.push({ownerId:'first',planetId:state.activeColonyPlanetId||'homeworld',originOcean:!!planet.hasOcean,source:'reef',quality:'A'});
+                    state.founding.reefPearlInventory.push({ownerId:courtOwner,planetId:state.activeColonyPlanetId||'homeworld',originOcean:!!planet.hasOcean,source:'reef',quality:'A'});
                 }else{
                     const variant=batch.type==='quartz'?getQuartzVariantForPlanet(planet,i):batch.type==='ruby'?'ruby':null;
                     if(variant&&state.founding.quartzVariantCounts)state.founding.quartzVariantCounts[variant]=(Number(state.founding.quartzVariantCounts[variant])||0)+1;
-                    planet.walkingGems.push({ownerId:'first',caste:batch.type,variant:variant,color:data.color,grade:'A',isOrbiting:batch.type==='lapis',bubbleText:'✨ Recém-emergida',angle:Math.random()*Math.PI*2,dir:1,speed:0.0005,bobPhase:0});
+                    planet.walkingGems.push({ownerId:courtOwner,caste:batch.type,variant:variant,color:data.color,grade:'A',isOrbiting:batch.type==='lapis',bubbleText:'✨ Recém-emergida',angle:Math.random()*Math.PI*2,dir:1,speed:0.0005,bobPhase:0});
                 }
             }
             if(!Array.isArray(state.founding.productionReports))state.founding.productionReports=[];
