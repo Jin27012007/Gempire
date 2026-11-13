@@ -207,7 +207,14 @@
                 ledger[type] = Math.max(0, Number(ledger[type]) || 0) + 1;
                 observed[type] = (Number(observed[type]) || 0) + 1;
             };
-            Object.values(PLANETS || {}).forEach(planet => (planet.walkingGems || []).forEach(countGem));
+            Object.values(PLANETS || {}).forEach(planet => {
+                const governor = String(planet.governor || '');
+                const inferredOwner = governor.startsWith('matriarch_') && getDiamond(governor.slice('matriarch_'.length)) ? governor : 'first';
+                (planet.walkingGems || []).forEach(gem => {
+                    if (gem && !gem.ownerId) gem.ownerId = inferredOwner;
+                    countGem(gem);
+                });
+            });
             (state.gemTransfers || []).forEach(trip => countGem(trip.gem));
             const pearlInventory = state.founding?.reefPearlInventory || [];
             pearlInventory.forEach(pearl => {
