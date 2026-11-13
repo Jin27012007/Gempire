@@ -643,7 +643,7 @@
             const config = payload && typeof payload === 'object' ? payload : { reasonId: payload };
             const reason = getAvailableReprimandReasons(diamond).find(item => item.id === config.reasonId) || getAvailableReprimandReasons(diamond)[0];
             const custom = String(config.customReason || '').trim().slice(0, 140);
-            payload = { reasonId: reason.id, reasonLabel: custom || reason.label };
+            payload = { reasonId: reason.id, reasonLabel: custom ? reason.label + ': ' + custom : reason.label };
         }
         if (social.queue.some(item => item.diamondId === diamondId)) {
             if (typeof window.setStatusTicker === 'function') setStatusTicker(diamond.name + ' já está ocupada. Convoque-a para interromper a atividade.');
