@@ -45,7 +45,7 @@
     };
 
     function ensureGovernanceData() {
-        if (!window.state || !window.PLANETS) return null;
+        if (typeof state === 'undefined' || typeof PLANETS === 'undefined') return null;
         if (!state.diamondGovernance || typeof state.diamondGovernance !== 'object') {
             state.diamondGovernance = { decisions: [], sequence: 0, autoAccumulator: 0, imperialPriority: 'balanced' };
         }
@@ -216,7 +216,8 @@
         if (!options.length) return null;
         options.sort((a, b) => b.score - a.score);
         const selected = options[0];
-        const profileQuotes = (window.DIAMOND_PERSONALITY_POOL || []).find(item => item.id === diamond.personalityId)?.quotes || [];
+        const profilePool = typeof DIAMOND_PERSONALITY_POOL !== 'undefined' ? DIAMOND_PERSONALITY_POOL : [];
+        const profileQuotes = profilePool.find(item => item.id === diamond.personalityId)?.quotes || [];
         if (profileQuotes.length) diamond.currentSpeech = profileQuotes[(Number(diamond.governance.lastDecisionCycle) + state.cycleCount) % profileQuotes.length];
         state.diamondGovernance.sequence++;
         const id = 'gov_' + state.diamondGovernance.sequence + '_' + String(diamond.id).replace(/[^a-zA-Z0-9_-]/g, '');
