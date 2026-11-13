@@ -176,7 +176,7 @@
                 risk: 'routine', planetId: planet.id
             });
         }
-        if (Number(state.minerals || 0) >= 25) {
+        if (Number(state.minerals || 0) >= 25 && Number(planet.governanceResearchBonus || 0) < 0.20) {
             add('research', personalityScore(diamond, 'research') * 0.54 + personalityScore(diamond, 'discipline') * 0.14 +
                 (diamond.governance.office === 'science' ? 42 : 0), {
                 title: 'Financiar pesquisa em ' + planet.shortName,
@@ -203,7 +203,7 @@
                 Number(state.essence.white || 0) >= Number(cost.white || 0);
         });
         if (target) {
-            add('expansion', personalityScore(diamond, 'ambition') * 0.44 + personalityScore(diamond, 'curiosity') * 0.12 +
+            add('expansion', personalityScore(diamond, 'ambition') * 0.44 +
                 (diamond.governance.office === 'expansion' ? 52 : 0), {
                 title: 'Propor colonização de ' + target.shortName,
                 detail: 'Incorporar um novo mundo ao Império e estabelecer uma administração sob responsabilidade desta Diamante.',
@@ -269,6 +269,18 @@
             updateGovernanceUI('A proposta não pode ser executada: a colônia ou os recursos mudaram desde sua apresentação.');
             return false;
         }
+        if (decision.type === 'stabilize' && Number(planet.dissent || 0) < 6) {
+            updateGovernanceUI('A proposta de estabilização perdeu o motivo: a dissidência já está controlada.');
+            return false;
+        }
+        if (decision.type === 'research' && Number(planet.governanceResearchBonus || 0) >= 0.20) {
+            updateGovernanceUI('A colônia já atingiu o limite de bônus científico.');
+            return false;
+        }
+        if (decision.type === 'industry' && Number(planet.governanceIndustryLevel || 0) >= 3) {
+            updateGovernanceUI('A colônia já atingiu o limite de ampliação industrial.');
+            return false;
+        }
         const expansionTarget = decision.type === 'expansion' ? PLANETS[decision.targetPlanetId] : null;
         if (decision.type === 'expansion' && (!expansionTarget || expansionTarget.colonized)) {
             updateGovernanceUI('A colonização não foi executada: o mundo de destino já não está disponível.');
@@ -282,13 +294,16 @@
 
         if (decision.type === 'stabilize') {
             planet.dissent = Math.max(0, Number(planet.dissent || 0) - 18);
-            state.order = Math.min(100, Number(state.order || 0) + 1.5);
+            state.order = Math.max(0, Math.min(100, Number(state.order || 0) + 1.5));
         } else if (decision.type === 'research') {
             state.tech += 15;
             planet.governanceResearchBonus = Math.min(0.20, Number(planet.governanceResearchBonus || 0) + 0.04);
         } else if (decision.type === 'industry') {
             planet.governanceIndustryLevel = Math.min(3, Number(planet.governanceIndustryLevel || 0) + 1);
         } else if (decision.type === 'expansion') {
+            Object.values(PLANETS).forEach(item => {
+                if (item.governor === 'matriarch_' + diamond.id) item.governor = 'none';
+            });
             expansionTarget.colonized = true;
             expansionTarget.governor = 'matriarch_' + diamond.id;
             expansionTarget.walkingGems = Array.isArray(expansionTarget.walkingGems) ? expansionTarget.walkingGems : [];
