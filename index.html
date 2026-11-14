@@ -661,7 +661,7 @@
             <header class="governance-screen-header">
                 <div class="governance-screen-title">
                     <h2>🏛 Governo Imperial</h2>
-                    <p>Conselho, produção de Gems e comando militar em uma única central administrativa.</p>
+                    <p>Conselho, produção de Gems, comando militar e arquitetura imperial em uma única central administrativa.</p>
                 </div>
                 <nav class="governance-screen-tabs" aria-label="Seções do Governo Imperial">
                     <button id="governance-section-council" class="btn active" onclick="switchGovernanceSection('council')">🏛 Conselho</button>
@@ -2335,7 +2335,7 @@
             if (section === 'hessonite' && !(window.isHessoniteCommandActive && window.isHessoniteCommandActive())) section = 'council';
             if (section === 'morganite' && Number(state.census.morganite||0)<1) section = 'council';
             state.governanceSection = section;
-            ['council', 'demantoid', 'hessonite'].forEach(key => {
+            ['council', 'demantoid', 'hessonite', 'morganite'].forEach(key => {
                 const button = document.getElementById('governance-section-' + key);
                 if (!button) return;
                 button.classList.toggle('hidden', key === 'demantoid' && !isInjectorManagerActive());
@@ -7088,7 +7088,7 @@ function drawColony(time){
         function isValidSaveData(data) {
             if (!data || data.version !== SAVE_VERSION || !data.state || !data.planets) return false;
             if (!data.state.essence || !data.state.firstDiamond || !data.state.planetCamera) return false;
-            if (!['throne', 'starmap', 'colony'].includes(data.state.currentScreen)) return false;
+            if (!['throne', 'starmap', 'colony', 'governance'].includes(data.state.currentScreen)) return false;
             return Object.keys(PLANETS).every(id => {
                 const p = data.planets[id];
                 return p && Array.isArray(p.veins) && Array.isArray(p.walkingGems);
