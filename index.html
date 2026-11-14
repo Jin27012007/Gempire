@@ -2075,6 +2075,7 @@
         function switchScreen(screenId) {
             if (!['throne', 'governance', 'starmap', 'colony'].includes(screenId)) screenId = 'throne';
             state.currentScreen = screenId;
+            if(screenId==='starmap'&&!state.starMapView)state.starMapView='galaxy';
             ['throne', 'governance', 'starmap', 'colony'].forEach(s => {
                 const btn = document.getElementById('nav-' + s);
                 if (btn) btn.classList.toggle('active', s === screenId);
