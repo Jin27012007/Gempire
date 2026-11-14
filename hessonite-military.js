@@ -240,7 +240,7 @@
             '<b>Batalhão #' + String(Number(battalion.number) || 1).padStart(3, '0') + '</b>' +
             '<span class="badge">' + getMissionLabel(battalion.mission) + '</span></div>' +
             '<div class="grid-2"><div>Soldados designados: <b>' + currentSoldiers + '</b></div>' +
-            '<div>Esquadrões: <b>' + squadCount + '</b></div></div>' +
+            '<div>Esquadrões: <b>' + squadCount + ' (#01–#' + String(squadCount).padStart(2, '0') + ')</b></div></div>' +
             '<small style="color:' + (overload ? '#fbbf24' : '#94a3b8') + '">' +
             (overload ? 'Comando insuficiente: ' + effective + '/' + currentSoldiers + ' mobilizados. Ajuste a força ou amplie os generais.' :
                 'Força ativa: ' + effective + ' Quartzos · até 20 soldados por esquadrão.') + '</small>' +
@@ -334,6 +334,7 @@
             '<div class="stat-box"><span class="stat-label">Capacidade de comando</span><b>' + commandCapacity.toLocaleString('pt-BR') + ' soldados</b></div>' +
             '<div class="stat-box"><span class="stat-label">Mobilizáveis</span><b>' + commandable.toLocaleString('pt-BR') + '</b></div>' +
             '<div class="stat-box"><span class="stat-label">Em reserva</span><b>' + reserve.toLocaleString('pt-BR') + '</b></div>' +
+            '<div class="stat-box"><span class="stat-label">Rubis de guarda</span><b>' + Number(state.census.ruby || 0).toLocaleString('pt-BR') + '</b></div>' +
             '<div class="stat-box"><span class="stat-label">Exércitos ativos</span><b>' + armies.length + '</b></div>' +
             '<div class="stat-box"><span class="stat-label">Batalhões / esquadrões</span><b>' + battalionCount + ' / ' + squads + '</b></div>' +
             '<div class="stat-box"><span class="stat-label">Na extração · planeta selecionado</span><b>' + extraction + '</b></div>' +
@@ -351,7 +352,7 @@
             '<label class="stat-label" for="hessonite-new-soldiers">Soldados no batalhão</label>' +
             '<input id="hessonite-new-soldiers" type="number" min="1" max="' + BATTALION_SIZE + '" step="1" value="' + (canCreate ? creationDefault : 1) + '"' + (!canCreate ? ' disabled' : '') + '>' +
             '<button class="btn btn-emerald btn-block" type="button" onclick="createHessoniteBattalion()"' + (!canCreate ? ' disabled' : '') + '>Formar novo batalhão · ' + available + ' disponíveis</button>' +
-            '<small style="color:var(--text-muted)">A extração só opera em planetas com Extrator Mineral operacional e Peridoto operador. A patrulha reduz gradualmente a dissidência do planeta de destino.</small></div>' +
+            '<small style="color:var(--text-muted)">A extração só opera em planetas com Extrator Mineral operacional e Peridoto operador, e é processada na colônia ativa. A patrulha reduz gradualmente a dissidência do planeta de destino. O efetivo dos batalhões usa Quartzos; Rubis continuam na guarda pessoal, fora desta divisão.</small></div>' +
             (armyCards || '<div class="card"><b>Nenhum exército formado</b><p class="structure-desc">Crie um batalhão para mobilizar os primeiros Quartzos.</p></div>') +
             '<div class="card"><div class="card-header"><span class="card-title">Regras de comando</span></div>' +
             '<div class="stat-box">Hessonita: 100 soldados de capacidade por unidade.</div>' +
