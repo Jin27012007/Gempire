@@ -918,7 +918,7 @@
 
         const GEM_HIERARCHY = [
             {tier:'S',name:'Autoridade Diamante',entries:[['firstDiamond','Diamante Matriarca','Jogadora e autoridade máxima do Império.'],['matriarchs','Diamantes subordinadas','Possuem consciência própria e autonomia para governar suas Gems e colônias; decisões imperiais de grande escala são encaminhadas à Matriarca.']]},
-            {tier:'A',name:'Aristocratas',entries:[['sapphire','Safiras','5% de chance de previsão por Safira a cada cinco minutos; as chances aumentam com a quantidade.'],['jade','Jades','Feitas de piroxênio refinado; dedicadas a bailes e eventos sociais futuros.'],['morganite','Morganitas','Berílio refinado em mundos acima de 100 °C; supervisionam automaticamente obras e Bismutos.'],['aquamarine','Águas-marinhas','Berílio refinado em mundos oceânicos ou abaixo de 0 °C; comandam a logística das Lápis.'],['emerald','Esmeraldas','Berílio refinado entre 1 °C e 99 °C; ampliam o comando das Hessonitas.'],['lapis','Lápis-Lazúlis','Duas Lápis em um planeta com grande reserva de água podem criar terra firme e aplainar terrenos montanhosos.']]},
+            {tier:'A',name:'Aristocratas',entries:[['sapphire','Safiras','5% de chance de previsão por Safira a cada cinco minutos; as chances aumentam com a quantidade.'],['jade','Jades','Feitas de piroxênio refinado; dedicadas a bailes e eventos sociais futuros.'],['morganite','Morganitas','Berílio refinado em mundos acima de 100 °C; supervisionam automaticamente obras e Bismutos.'],['aquamarine','Águas-marinhas','Berílio refinado; a primeira pode ser formada em Homeworld para iniciar a Diretoria. Depois, exigem mundos oceânicos ou abaixo de 0 °C e comandam a preparação planetária.'],['emerald','Esmeraldas','Berílio refinado entre 1 °C e 99 °C; ampliam o comando das Hessonitas.'],['lapis','Lápis-Lazúlis','Manipulam água e formam massas terrestres. Trabalham em equipes próprias de Rank S, A, B ou C, conforme a escala de terraformação.']]},
             {tier:'B',name:'Generais e especialistas',entries:[['pyrope','Piropo','General de exércitos e operações em larga escala.'],['hessonite','Hessonita','Mobilização de tropas, coordenação de ataques e formação de exércitos.'],['demantoid','Demantoide','Supervisão científica; define a produção dos Injetores e coordena Peridotos.']]},
             {tier:'C',name:'Operárias',entries:[['agate','Ágata','Quartzo refinado; comanda até 20 soldados Quartzo.'],['nephrite','Nefrita','Piroxênio comum; piloto de naves com velocidade dobrada e única piloto de naves de guerra.'],['peridot','Peridoto','Equipe técnica dos jardins de infância, análise de terreno e operação de estruturas tecnológicas.'],['obsidian','Obsidianas','Operárias geocinéticas que manipulam o calor e aquecem mundos congelados.'],['snowflake_obsidian','Obsidianas Floco de Neve','Operárias geocinéticas que manipulam o frio e estabilizam mundos vulcânicos.']]},
             {tier:'D',name:'Soldados',entries:[['quartz','Família Quartzo','Cornalinas, Ametistas, Jaspers, Roses, Citrinos, Rubis, Onyx, Olho de Tigre, Calcedônias e Rutilos. A variante depende das condições geológicas.'],['topaz','Topázios','Soldados raros, guardas exclusivos de palácios e comitivas de Gems importantes.']]},
@@ -1001,7 +1001,7 @@
                 biomeTag: 'Vulcânico Metálico • Alta Temperatura',
                 lore: 'Um planeta incandescente com rios de magma e crosta rica em ligas pesadas. Seus Veios Metálicos Dourados são imbatíveis para forjar Bismutos e Rubis.',
                 optimalText: 'Bismutos [Rank S] e Esquadrões Rubi',
-                badText: '⚠️ Calor natural elevado! Exige Lápis-Lazúlis ou Dissipadores Geotérmicos.',
+                badText: '⚠️ Mar de lava e calor extremo. Exige Obsidianas Floco de Neve e, depois, Lápis-Lazúlis para preparar o terreno.',
                 colonized: false,
                 unlockCost: { minerals: 180, white: 50 },
                 governor: 'none',
@@ -4323,7 +4323,10 @@ ${hasAristocrats ? `
             if(['morganite','aquamarine','emerald'].includes(candidate.id)&&Number(refined.beryllium||0)<1)return false;
             if(candidate.refinedMaterial&&Number(refined[candidate.refinedMaterial]||0)<1)return false;
             if(candidate.id==='morganite')return temperature>100;
-            if(candidate.id==='aquamarine')return temperature<0||planet.hasOcean===true;
+            if(candidate.id==='aquamarine'){
+                if(planet.id==='homeworld'&&Number(state.census?.aquamarine||0)<1)return true;
+                return temperature<0||planet.hasOcean===true;
+            }
             if(candidate.id==='emerald')return temperature>0&&temperature<100;
             if(candidate.refinedMaterial==='quartz'&&Number(refined.quartz||0)<1)return false;
             return true;
@@ -7030,7 +7033,10 @@ function drawColony(time){
             if(gem.climate==='coldFar')return coldFar;
             if(gem.climate==='notBelowZero')return temperature>=0;
             if(gem.climate==='hot')return temperature>100;
-            if(gem.climate==='coldOrOcean')return temperature<0||planet.hasOcean===true;
+            if(gem.climate==='coldOrOcean'){
+                if(gem.label==='Água-marinha'&&planet.id==='homeworld'&&Number(state.census?.aquamarine||0)<1)return true;
+                return temperature<0||planet.hasOcean===true;
+            }
             if(gem.climate==='temperate')return temperature>0&&temperature<100;
             return true;
         }
