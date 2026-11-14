@@ -545,6 +545,21 @@
         .diamond-chat-compose textarea { min-height:72px; max-height:150px; resize:vertical; }
         .diamond-chat-hint { color:var(--text-muted); font-size:10px; line-height:1.45; }
         .diamond-chat-status { min-height:14px; color:#7dd3fc; font-size:10px; line-height:1.4; }
+        .governance-screen{position:absolute;inset:0;z-index:25;display:flex;flex-direction:column;min-height:0;padding:clamp(10px,2vw,22px);background:radial-gradient(ellipse at 15% 0%,rgba(88,48,135,.24),transparent 42%),linear-gradient(145deg,rgba(5,8,20,.985),rgba(11,16,34,.985));}
+        .governance-screen.hidden{display:none}
+        .governance-screen-header{display:flex;align-items:center;justify-content:space-between;gap:12px;flex-wrap:wrap;padding-bottom:12px;border-bottom:1px solid var(--border-light)}
+        .governance-screen-title{display:flex;flex-direction:column;gap:4px}
+        .governance-screen-title h2{font:600 20px Georgia,serif;color:#f5eaff}
+        .governance-screen-title p{font-size:10px;color:var(--text-muted)}
+        .governance-screen-tabs{display:flex;gap:6px;flex-wrap:wrap}
+        .governance-screen-tabs .btn{padding:8px 12px}
+        #governance-content{flex:1;min-height:0;overflow-y:auto;display:grid;grid-template-columns:repeat(auto-fit,minmax(min(100%,350px),1fr));align-content:start;align-items:start;gap:10px;padding:12px 2px 24px}
+        #governance-content>.card{min-width:0;margin:0}
+        #governance-content>.card:first-child{grid-column:1/-1}
+        #governance-content .card{overflow-wrap:anywhere}
+        #governance-content .governance-traits{grid-template-columns:repeat(2,minmax(0,1fr))}
+        #viewport.governance-active #hud-banners{display:none}
+        @media(max-width:600px){.governance-screen{padding:8px}.governance-screen-title h2{font-size:17px}#governance-content{grid-template-columns:minmax(0,1fr);padding-top:8px}#governance-content>.card:first-child{grid-column:auto}.governance-screen-tabs{width:100%}.governance-screen-tabs .btn{flex:1;padding:8px 5px;font-size:10px}}
         .governance-traits{display:grid;grid-template-columns:repeat(2,minmax(0,1fr));gap:8px;margin:10px 0}
         .governance-trait{min-width:0;padding:7px 8px;border:1px solid rgba(148,163,184,.16);border-radius:8px;background:rgba(15,23,42,.48)}
         .governance-trait>div:first-child{display:flex;justify-content:space-between;gap:6px;font-size:10px;color:#cbd5e1}
@@ -607,8 +622,9 @@
             <span class="diamond-icon" style="background: #ffffff; width: 12px; height: 12px;"></span>
             <span id="era-badge" class="badge hide-mobile">Era 0</span>
             <button id="nav-throne" class="btn active" onclick="switchScreen('throne')">1. Trono Diamante</button>
-            <button id="nav-starmap" class="btn" onclick="switchScreen('starmap')">2. Mapa Estelar</button>
-            <button id="nav-colony" class="btn" onclick="switchScreen('colony')">3. Globo 360°</button>
+            <button id="nav-governance" class="btn" onclick="switchScreen('governance')">2. Governo Imperial</button>
+            <button id="nav-starmap" class="btn" onclick="switchScreen('starmap')">3. Mapa Estelar</button>
+            <button id="nav-colony" class="btn" onclick="switchScreen('colony')">4. Globo 360°</button>
         </div>
 
         <div class="res-group">
@@ -641,6 +657,21 @@
     <main id="viewport">
         <canvas id="gameCanvas"></canvas>
 
+        <section id="governance-screen" class="governance-screen hidden" aria-label="Governo Imperial">
+            <header class="governance-screen-header">
+                <div class="governance-screen-title">
+                    <h2>🏛 Governo Imperial</h2>
+                    <p>Conselho, produção de Gems e comando militar em uma única central administrativa.</p>
+                </div>
+                <nav class="governance-screen-tabs" aria-label="Seções do Governo Imperial">
+                    <button id="governance-section-council" class="btn active" onclick="switchGovernanceSection('council')">🏛 Conselho</button>
+                    <button id="governance-section-demantoid" class="btn hidden" onclick="switchGovernanceSection('demantoid')">🔬 Demantoide</button>
+                    <button id="governance-section-hessonite" class="btn hidden" onclick="switchGovernanceSection('hessonite')">⚔️ Hessonita</button>
+                </nav>
+            </header>
+            <div id="governance-content"></div>
+        </section>
+
         <!-- Banners discretos de status e ações autônomas das Diamantes -->
         <div id="hud-banners">
             <div class="banner-pill">
@@ -668,11 +699,7 @@
                     <button id="tab-structures" class="btn" onclick="switchDrawerTab('structures')">🏗️ Estruturas</button>
                     <button id="tab-guide" class="btn" onclick="switchDrawerTab('guide')">📖 Guia de Gems</button>
                     <button id="tab-population" class="btn" onclick="switchDrawerTab('population')">👥 Relatório populacional</button>
-                    <button id="tab-quarters" class="btn" onclick="switchDrawerTab('quarters')">💬 Quartos</button>
-                    <button id="tab-governance" class="btn" onclick="switchDrawerTab('governance')">🏛 Governo</button>
                     <button id="tab-social" class="btn" onclick="switchDrawerTab('social')">♡ Convívio</button>
-                    <button id="tab-demantoid" class="btn hidden" onclick="switchDrawerTab('demantoid')">🔬 Demantoide</button>
-                    <button id="tab-hessonite" class="btn hidden" onclick="switchDrawerTab('hessonite')">⚔️ Hessonita</button>
                 </div>
                 <button class="btn" onclick="toggleDrawer()" title="Fechar Painel">✕</button>
             </div>
@@ -1457,6 +1484,7 @@
             currentScreen: 'throne', // 'throne' | 'starmap' | 'colony'
             drawerOpen: true,
             drawerTab: 'context',    // 'context' | 'chronicle' | 'dynasty'
+            governanceSection: 'council',
             era: 0,
             cycleCount: 1,
             essence: { white: 0, yellow: 0, blue: 0, pink: 0 },
@@ -2032,16 +2060,54 @@
 
         // --- 8. CONTROLE DE TELAS, ABAS E MODAIS ---
         function switchScreen(screenId) {
+            if (!['throne', 'governance', 'starmap', 'colony'].includes(screenId)) screenId = 'throne';
             state.currentScreen = screenId;
-            ['throne', 'starmap', 'colony'].forEach(s => {
+            ['throne', 'governance', 'starmap', 'colony'].forEach(s => {
                 const btn = document.getElementById('nav-' + s);
                 if (btn) btn.classList.toggle('active', s === screenId);
             });
+            const governanceScreen = document.getElementById('governance-screen');
+            const viewport = document.getElementById('viewport');
+            const drawer = document.getElementById('right-drawer');
+            const drawerButton = document.getElementById('btn-top-drawer');
+            if (governanceScreen) governanceScreen.classList.toggle('hidden', screenId !== 'governance');
+            if (viewport) viewport.classList.toggle('governance-active', screenId === 'governance');
+            if (drawer) drawer.classList.toggle('hidden', screenId === 'governance');
+            if (drawerButton) drawerButton.classList.toggle('hidden', screenId === 'governance');
             state.drawerTab = 'context';
             syncDrawerTabButtons();
             renderBottomBar();
-            renderDrawerContent();
+            if (screenId === 'governance') renderGovernanceScreen();
+            else renderDrawerContent();
             updateHUD();
+        }
+
+        function switchGovernanceSection(section) {
+            const allowed = ['council', 'demantoid', 'hessonite'];
+            if (!allowed.includes(section)) section = 'council';
+            if (section === 'demantoid' && !isInjectorManagerActive()) section = 'council';
+            if (section === 'hessonite' && !(window.isHessoniteCommandActive && window.isHessoniteCommandActive())) section = 'council';
+            state.governanceSection = section;
+            ['council', 'demantoid', 'hessonite'].forEach(key => {
+                const button = document.getElementById('governance-section-' + key);
+                if (!button) return;
+                button.classList.toggle('hidden', key === 'demantoid' && !isInjectorManagerActive());
+                button.classList.toggle('hidden', key === 'hessonite' && !(window.isHessoniteCommandActive && window.isHessoniteCommandActive()));
+                button.classList.toggle('active', key === section);
+            });
+            const content = document.getElementById('governance-content');
+            if (!content) return;
+            if (section === 'demantoid') renderDemantoidManagementTab(content);
+            else if (section === 'hessonite') {
+                if (window.renderHessoniteMilitaryTab) window.renderHessoniteMilitaryTab(content);
+                else content.innerHTML = '<div class="card">O módulo militar ainda não foi carregado.</div>';
+            } else renderGovernanceTab(content);
+        }
+
+        function renderGovernanceScreen() {
+            const screen = document.getElementById('governance-screen');
+            if (!screen || state.currentScreen !== 'governance') return;
+            switchGovernanceSection(state.governanceSection || 'council');
         }
 
         function toggleDrawer(forceOpen) {
@@ -2076,7 +2142,8 @@
         function syncDrawerTabButtons() {
             if (!isInjectorManagerActive() && state.drawerTab === 'demantoid') state.drawerTab = 'context';
             if (!(window.isHessoniteCommandActive && window.isHessoniteCommandActive()) && state.drawerTab === 'hessonite') state.drawerTab = 'context';
-            ['context', 'chronicle', 'dynasty', 'structures', 'guide', 'population', 'quarters', 'governance', 'social', 'demantoid', 'hessonite'].forEach(t => {
+            if (['governance', 'quarters', 'demantoid', 'hessonite'].includes(state.drawerTab)) state.drawerTab = 'context';
+            ['context', 'chronicle', 'dynasty', 'structures', 'guide', 'population', 'social'].forEach(t => {
                 const btn = document.getElementById('tab-' + t);
                 if (!btn) return;
                 if (t === 'demantoid') btn.classList.toggle('hidden', !isInjectorManagerActive());
@@ -2127,6 +2194,8 @@
                     <span style="font-size:11px; color:#fde047;">🔨 Bismutos: <b>${state.census.bismuth}</b></span>
                     <span style="font-size:11px; color:#fda4af;">👑 Rank [S]: <b>${state.census.prime}</b></span>
                 `;
+            } else if (state.currentScreen === 'governance') {
+                bar.innerHTML = '';
             } else if (state.currentScreen === 'starmap') {
                 const btns = Object.values(PLANETS).map(p => `
                     <button class="btn ${state.selectedStarMapPlanetId === p.id ? 'active' : ''}" onclick="selectStarMapPlanet('${p.id}')">
@@ -2177,11 +2246,8 @@
             if (state.drawerTab === 'population') { renderPopulationReport(body); return; }
             if (state.drawerTab === 'chronicle') { renderChronicleTab(body); return; }
             if (state.drawerTab === 'dynasty') { renderDynastyTab(body); return; }
-            if (state.drawerTab === 'quarters') { renderDiamondQuartersTab(body); return; }
-            if (state.drawerTab === 'governance') { renderGovernanceTab(body); return; }
             if (state.drawerTab === 'social') { renderSocialTab(body); return; }
-            if (state.drawerTab === 'demantoid') { renderDemantoidManagementTab(body); return; }
-            if (state.drawerTab === 'hessonite') { if (window.renderHessoniteMilitaryTab) window.renderHessoniteMilitaryTab(body); return; }
+            if (state.currentScreen === 'governance') { renderGovernanceScreen(); return; }
             // O painel de fundação pertence exclusivamente à Era Primitiva.
             // Depois da primeira Gem, o Contexto volta a refletir a tela ativa
             // (Trono, Mapa Estelar ou Globo 360°), sem recriar a coleta manual.
@@ -6827,6 +6893,7 @@ function drawColony(time){
                 state.constructionQueue=Array.isArray(state.constructionQueue)?state.constructionQueue:(state.construction&&state.construction.active?[state.construction]:[]);
                 state.construction=state.constructionQueue[0]||null;
                 state.currentScreen='throne';
+                state.governanceSection = ['council','demantoid','hessonite'].includes(state.governanceSection) ? state.governanceSection : 'council';
                 state.morganiteAutoBuild = state.morganiteAutoBuild !== false;
                 state.structures.diamond_quarters=Number(state.structures.diamond_quarters)||0;
                 state.structures.lunar_base=Number(state.structures.lunar_base)||0;
