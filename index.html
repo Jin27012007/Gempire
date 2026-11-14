@@ -3251,7 +3251,8 @@
             elite:{name:'Nave da Elite',cost:{minerals:180,tech:90},speed:'FTL',capacity:6,description:'Casco losangular para a família Berílio: Hessonitas, Esmeraldas, Aquamarinas, Morganitas e outras Gems relacionadas. Canhões de energia leves.',operator:'beryl',shape:'losango'},
             war:{name:'Nave de Guerra',cost:{minerals:260,tech:120},speed:'subluz',capacity:12,description:'Disco voador blindado, com canhões de energia pesados. Operação exclusiva de Nefritas.',operator:'nephrite',shape:'disco'},
             excursion:{name:'Nave de Excursão',cost:{minerals:110,tech:50},speed:'FTL moderado',capacity:8,description:'Casco resistente em formato de mão pequena em repouso, com um canhão de baixa potência. Operada por Peridots, Quartzos, Rubis ou Pérolas.',operator:'common',shape:'hand'},
-            ruby:{name:'Nave Rubi',cost:{minerals:85,tech:35},speed:'FTL extremo',capacity:5,description:'Nave compacta permanentemente vermelha, sem armamento, feita para esquadrões de até cinco Rubis ou transporte urgente de Gems.',operator:'ruby',shape:'red'}
+            ruby:{name:'Nave Rubi',cost:{minerals:85,tech:35},speed:'FTL extremo',capacity:5,description:'Nave compacta permanentemente vermelha, sem armamento, feita para esquadrões de até cinco Rubis ou transporte urgente de Gems.',operator:'ruby',shape:'red'},
+            cargo:{name:'Nave de Carga',cost:{minerals:210,tech:100},speed:'FTL moderado',capacity:5,description:'Transporta até cinco estruturas físicas; piloto Peridot ou Nefrita. A Bismuto inicia a instalação no destino.',operator:'cargo',shape:'cargo'}
         };
         function canBuildShip(type){
             const bp=SHIP_BLUEPRINTS[type];if(!bp)return 'Projeto desconhecido.';
@@ -5987,87 +5988,15 @@ ${hasAristocrats ? `
             ctx.restore();
         }
 
-        function drawStarMap(time) {
-            const { cx, cy } = getVisibleCenter(canvasWidth, canvasHeight);
-            const isMobile = window.matchMedia('(max-width: 600px)').matches;
-            const orbitRadius = isMobile
-                ? Math.min(canvasWidth * 0.39, canvasHeight * 0.34, 270)
-                : Math.min(canvasWidth * 0.34, canvasHeight * 0.38, 280);
-
-            // A estrela é o corpo central do sistema; Homeworld nunca ocupa o foco.
-            const corona = ctx.createRadialGradient(cx, cy, 5, cx, cy, 76);
-            corona.addColorStop(0, 'rgba(255,244,214,.98)');
-            corona.addColorStop(.13, 'rgba(248,113,113,.86)');
-            corona.addColorStop(.36, 'rgba(194,65,12,.34)');
-            corona.addColorStop(1, 'rgba(127,29,29,0)');
-            ctx.fillStyle = corona;
-            ctx.beginPath();
-            ctx.arc(cx, cy, 76, 0, Math.PI * 2);
-            ctx.fill();
-
-            ctx.save();
-            ctx.shadowColor = '#fb7185';
-            ctx.shadowBlur = 26;
-            const starCore = ctx.createRadialGradient(cx - 5, cy - 5, 1, cx, cy, 19);
-            starCore.addColorStop(0, '#fff7ed');
-            starCore.addColorStop(.35, '#fdba74');
-            starCore.addColorStop(1, '#b91c1c');
-            ctx.fillStyle = starCore;
-            ctx.beginPath();
-            ctx.arc(cx, cy, 19, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.restore();
-
-            ctx.strokeStyle = 'rgba(251,146,60,.34)';
-            ctx.lineWidth = 1.5;
-            ctx.beginPath();
-            ctx.ellipse(cx, cy, 28 + Math.sin(time * .0006) * 2, 17 + Math.sin(time * .0006), -.2, 0, Math.PI * 2);
-            ctx.stroke();
-
-            ctx.textAlign = 'center';
-            ctx.fillStyle = '#fda4af';
-            ctx.font = 'bold 11px Segoe UI';
-            ctx.fillText('ESTRELA MORIBUNDA', cx, cy - 91);
-
-            // O sistema de Homeworld contém um único planeta conhecido.
-            const planet = PLANETS.homeworld;
-            starMapHitTargets = [];
-            if (planet) {
-                ctx.strokeStyle = 'rgba(203,213,225,.34)';
-                ctx.lineWidth = 1.2;
-                ctx.setLineDash([5, 7]);
-                ctx.beginPath();
-                ctx.ellipse(cx, cy, orbitRadius, orbitRadius * .66, 0, 0, Math.PI * 2);
-                ctx.stroke();
-                ctx.setLineDash([]);
-
-                const angle = (planet.orbitAngle || 1.15) + time * .000055;
-                const x = cx + Math.cos(angle) * orbitRadius;
-                const y = cy + Math.sin(angle) * orbitRadius * .66;
-                const radius = 22;
-                planet._mapX = x;
-                planet._mapY = y;
-                planet._mapRadius = radius;
-                const selected = state.selectedStarMapPlanetId === planet.id;
-                drawPlanetDisc(x, y, radius, planet, selected);
-
-                ctx.textAlign = 'center';
-                ctx.font = 'bold 12px Segoe UI';
-                ctx.fillStyle = '#f1f5f9';
-                ctx.fillText('HOMEWORLD', x, y + radius + 22);
-                ctx.font = '10px Segoe UI';
-                ctx.fillStyle = '#94a3b8';
-                ctx.fillText('PLANETA ROCOSO', x, y + radius + 36);
-                starMapHitTargets.push({ id: planet.id, x, y, radius: radius + 10 });
+        function drawStarMap(time){
+            const {cx,cy}=getVisibleCenter(canvasWidth,canvasHeight);starMapHitTargets=[];
+            if(state.starMapView!=='system'){
+                const nodes=[{id:'home_system',x:cx,y:cy-8,r:25,label:'SISTEMA HOMEWORLD',color:'#fb923c'}];
+                for(let i=0;i<7;i++){const a=i*2.3999632297+.4,d=Math.min(canvasWidth,canvasHeight)*(.22+(i%3)*.06);nodes.push({id:'unknown_'+i,x:cx+Math.cos(a)*d,y:cy+Math.sin(a)*d*.72,r:8+i%3*2,label:'ESTRELA NÃO CATALOGADA',color:'#64748b'});}
+                nodes.forEach(n=>{const g=ctx.createRadialGradient(n.x,n.y,1,n.x,n.y,n.r*3);g.addColorStop(0,n.color);g.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(n.x,n.y,n.r*3,0,Math.PI*2);ctx.fill();ctx.fillStyle=n.color;ctx.beginPath();ctx.arc(n.x,n.y,n.r,0,Math.PI*2);ctx.fill();ctx.fillStyle='#e2e8f0';ctx.font='bold 9px Segoe UI';ctx.textAlign='center';ctx.fillText(n.label,n.x,n.y+n.r+15);starMapHitTargets.push({type:'star',id:n.id,x:n.x,y:n.y,radius:n.r+12});});ctx.textAlign='center';ctx.fillStyle='#cbd5e1';ctx.font='bold 13px Georgia';ctx.fillText('MAPA GALÁCTICO',cx,28);ctx.font='10px Segoe UI';ctx.fillStyle='#94a3b8';ctx.fillText('Selecione a estrela para entrar no sistema',cx,46);return;
             }
-
-            ctx.textAlign = 'center';
-            ctx.fillStyle = '#cbd5e1';
-            ctx.font = 'bold 12px Georgia';
-            ctx.fillText('SISTEMA ESTELAR DE HOMEWORLD', cx, 28);
-            ctx.font = '10px Segoe UI';
-            ctx.fillStyle = '#94a3b8';
-            ctx.fillText('UM PLANETA · UMA ESTRELA MORIBUNDA', cx, 45);
+            const maxOrbit=Math.min(canvasWidth*.34,canvasHeight*.36,280),glow=ctx.createRadialGradient(cx,cy,5,cx,cy,85);glow.addColorStop(0,'#fff1cf');glow.addColorStop(.22,'rgba(248,113,113,.7)');glow.addColorStop(1,'rgba(127,29,29,0)');ctx.fillStyle=glow;ctx.beginPath();ctx.arc(cx,cy,85,0,Math.PI*2);ctx.fill();ctx.fillStyle='#fdba74';ctx.beginPath();ctx.arc(cx,cy,19,0,Math.PI*2);ctx.fill();
+            Object.values(PLANETS).forEach((p,i)=>{const orbit=Math.max(48,Math.min(maxOrbit,Number(p.orbitRadius)||80)),angle=(Number(p.orbitAngle)||i)+time*(Number(p.orbitSpeed)||.00005),x=cx+Math.cos(angle)*orbit,y=cy+Math.sin(angle)*orbit*.66,r=Math.max(8,Math.min(18,Number(p.sphereRadius)||18)*.72);ctx.strokeStyle='rgba(203,213,225,.22)';ctx.setLineDash([4,7]);ctx.beginPath();ctx.ellipse(cx,cy,orbit,orbit*.66,0,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);drawPlanetDisc(x,y,r,p,state.selectedStarMapPlanetId===p.id);ctx.fillStyle=p.scouted?'#e2e8f0':'#94a3b8';ctx.font='bold 9px Segoe UI';ctx.textAlign='center';ctx.fillText(p.scouted?p.shortName:'SINAL NÃO IDENTIFICADO',x,y+r+13);starMapHitTargets.push({type:'planet',id:p.id,x,y,radius:r+12});});ctx.textAlign='center';ctx.fillStyle='#cbd5e1';ctx.font='bold 12px Georgia';ctx.fillText('SISTEMA ESTELAR DE HOMEWORLD',cx,25);ctx.font='10px Segoe UI';ctx.fillStyle='#94a3b8';ctx.fillText('Selecione um planeta para reconhecimento',cx,43);
         }
 
         // --- ARQUITETURA MODULAR DE HOMEWORLD ---
@@ -7386,9 +7315,6 @@ function drawColony(time){
                 while(state.diamondChambers.length<Math.min(structureCount('essence_chamber'),owners.length)){const o=owners.find(x=>!state.diamondChambers.some(c=>c.ownerId===x.id));if(!o)break;state.diamondChambers.push({ownerId:o.id,ownerName:o.name,active:false,progress:0,cooldown:0});}
                 while(state.diamondQuartersOwners.length<Math.min(structureCount('diamond_quarters'),owners.length)){const o=owners.find(x=>!state.diamondQuartersOwners.includes(x.id));if(!o)break;state.diamondQuartersOwners.push(o.id);}
                 state.shipFleet=Array.isArray(state.shipFleet)?state.shipFleet:[];
-                state.cargoShipMissions=Array.isArray(state.cargoShipMissions)?state.cargoShipMissions:[];
-                state.spaceDiplomacyRequests=Array.isArray(state.spaceDiplomacyRequests)?state.spaceDiplomacyRequests:[];
-                state.starMapView=state.starMapView==='system'?'system':'galaxy';state.selectedStarSystemId='home_system';
                 state.cargoShipMissions=Array.isArray(state.cargoShipMissions)?state.cargoShipMissions:[];
                 state.spaceDiplomacyRequests=Array.isArray(state.spaceDiplomacyRequests)?state.spaceDiplomacyRequests:[];
                 state.starMapView=state.starMapView==='system'?'system':'galaxy';state.selectedStarSystemId='home_system';
