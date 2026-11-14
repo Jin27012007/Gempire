@@ -2173,7 +2173,9 @@
             const bar = document.getElementById('bottom-bar');
             if (!bar) return;
 
-            if (state.firstGameStarted && (!state.founding.firstGemCreated || !structureCount('injector'))) {
+            if (state.currentScreen === 'governance') {
+                bar.innerHTML = '';
+            } else if (state.firstGameStarted && (!state.founding.firstGemCreated || !structureCount('injector'))) {
                 bar.innerHTML = `
                     <span style="font-size:11px;color:#cbd5e1">Era Primitiva · Fundação de Homeworld</span>
                     <button class="btn" onclick="rotatePlanetBy(-0.4)">◀</button>
@@ -2194,8 +2196,6 @@
                     <span style="font-size:11px; color:#fde047;">🔨 Bismutos: <b>${state.census.bismuth}</b></span>
                     <span style="font-size:11px; color:#fda4af;">👑 Rank [S]: <b>${state.census.prime}</b></span>
                 `;
-            } else if (state.currentScreen === 'governance') {
-                bar.innerHTML = '';
             } else if (state.currentScreen === 'starmap') {
                 const btns = Object.values(PLANETS).map(p => `
                     <button class="btn ${state.selectedStarMapPlanetId === p.id ? 'active' : ''}" onclick="selectStarMapPlanet('${p.id}')">
