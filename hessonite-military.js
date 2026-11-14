@@ -238,7 +238,7 @@
         return '<div class="stat-box" style="display:grid;gap:7px;margin-top:7px">' +
             '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center">' +
             '<b>Batalhão #' + String(Number(battalion.number) || 1).padStart(3, '0') + '</b>' +
-            '<span class="badge">' + getMissionLabel(battalion.mission) + '</span></div>' +
+            '<span class="badge">' + (battalion.terraformEscort ? 'Escolta de terraformação' : getMissionLabel(battalion.mission)) + '</span></div>' +
             '<div class="grid-2"><div>Soldados designados: <b>' + currentSoldiers + '</b></div>' +
             '<div>Esquadrões: <b>' + squadCount + ' (#01–#' + String(squadCount).padStart(2, '0') + ')</b></div></div>' +
             '<small style="color:' + (overload ? '#fbbf24' : '#94a3b8') + '">' +
@@ -456,6 +456,64 @@
         renderBottomBar();
     }
 
+
+    function getAvailableHessoniteTerraformEscort(sourcePlanetId) {
+        if (!isHessoniteCommandActive()) return null;
+        const military = ensureHessoniteMilitaryData();
+        const effective = getEffectiveBattalionAllocations();
+        for (const item of effective) {
+            const battalion = item.battalion;
+            if (!battalion || battalion.mission !== 'patrol' || item.effectiveSoldiers <= 0 || battalion.terraformEscort) continue;
+            const army = military.armies.find(function (candidate) { return candidate && candidate.id === battalion.armyId; });
+            if (!army || army.planetId !== sourcePlanetId) continue;
+            const sameArmy = military.battalions.filter(function (candidate) { return candidate && candidate.armyId === army.id; });
+            if (sameArmy.length !== 1) continue;
+            return { battalionId: battalion.id, soldiers: item.effectiveSoldiers, planetId: army.planetId };
+        }
+        return null;
+    }
+
+    function dispatchHessoniteTerraformEscort(teamId, targetPlanetId, sourcePlanetId, battalionId) {
+        if (!isHessoniteCommandActive() || !PLANETS[targetPlanetId] || !PLANETS[sourcePlanetId]) return false;
+        const military = ensureHessoniteMilitaryData();
+        const battalion = military.battalions.find(function (item) { return item && item.id === battalionId; });
+        if (!battalion || battalion.mission !== 'patrol' || battalion.terraformEscort) return false;
+        const army = military.armies.find(function (item) { return item && item.id === battalion.armyId; });
+        if (!army || army.planetId !== sourcePlanetId) return false;
+        const sameArmy = military.battalions.filter(function (item) { return item && item.armyId === army.id; });
+        const effective = getEffectiveBattalionAllocations().find(function (item) { return item.battalion.id === battalion.id; });
+        if (sameArmy.length !== 1 || !effective || effective.effectiveSoldiers <= 0) return false;
+        battalion.terraformEscort = { teamId: teamId, originalPlanetId: army.planetId, targetPlanetId: targetPlanetId };
+        army.planetId = targetPlanetId;
+        addChronicle('Escolta Hessonita destacada', 'O Batalhão #' + String(Number(battalion.number) || 1).padStart(3, '0') + ' foi temporariamente designado para proteger uma equipe de terraformação em ' + (PLANETS[targetPlanetId].shortName || PLANETS[targetPlanetId].name) + '.', effective.effectiveSoldiers + ' soldados em escolta');
+        setStatusTicker('Uma patrulha Hessonita foi destacada para proteger a expedição geológica.');
+        return true;
+    }
+
+    function hasHessoniteTerraformEscort(teamId) {
+        const military = ensureHessoniteMilitaryData();
+        const allocations = getEffectiveBattalionAllocations();
+        return military.battalions.some(function (battalion) {
+            if (!battalion || !battalion.terraformEscort || battalion.terraformEscort.teamId !== teamId) return false;
+            return allocations.some(function (item) { return item.battalion.id === battalion.id && item.effectiveSoldiers > 0; });
+        });
+    }
+
+    function returnHessoniteTerraformEscort(teamId) {
+        const military = ensureHessoniteMilitaryData();
+        let returned = false;
+        military.battalions.forEach(function (battalion) {
+            const escort = battalion && battalion.terraformEscort;
+            if (!escort || escort.teamId !== teamId) return;
+            const army = military.armies.find(function (item) { return item && item.id === battalion.armyId; });
+            if (army && PLANETS[escort.originalPlanetId]) army.planetId = escort.originalPlanetId;
+            delete battalion.terraformEscort;
+            returned = true;
+        });
+        if (returned) setStatusTicker('A escolta Hessonita retornou à sua guarnição.');
+        return returned;
+    }
+
     window.isHessoniteCommandActive = isHessoniteCommandActive;
     window.ensureHessoniteMilitaryData = ensureHessoniteMilitaryData;
     window.getHessoniteExtractionAllocation = getHessoniteExtractionAllocation;
@@ -464,4 +522,8 @@
     window.createHessoniteBattalion = createHessoniteBattalion;
     window.saveHessoniteBattalion = saveHessoniteBattalion;
     window.disbandHessoniteBattalion = disbandHessoniteBattalion;
+    window.getAvailableHessoniteTerraformEscort = getAvailableHessoniteTerraformEscort;
+    window.dispatchHessoniteTerraformEscort = dispatchHessoniteTerraformEscort;
+    window.hasHessoniteTerraformEscort = hasHessoniteTerraformEscort;
+    window.returnHessoniteTerraformEscort = returnHessoniteTerraformEscort;
 })();
