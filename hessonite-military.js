@@ -235,6 +235,12 @@
         const squadCount = getBattalionSquads(currentSoldiers);
         const effective = Math.max(0, Number(effectiveSoldiers) || 0);
         const overload = effective < currentSoldiers;
+        const escortLocked = !!battalion.terraformEscort;
+        const escortTarget = escortLocked ? PLANETS[battalion.terraformEscort.targetPlanetId] : null;
+        const planetOptionsHtml = escortLocked
+            ? '<option value="' + escapeMilitaryHtml(battalion.terraformEscort.targetPlanetId) + '" selected>' + escapeMilitaryHtml(escortTarget && (escortTarget.shortName || escortTarget.name) || 'Planeta da expedição') + ' · escolta</option>'
+            : getPlanetOptionsHtml(army.planetId);
+        const disabledAttribute = escortLocked ? ' disabled' : '';
         return '<div class="stat-box" style="display:grid;gap:7px;margin-top:7px">' +
             '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center">' +
             '<b>Batalhão #' + String(Number(battalion.number) || 1).padStart(3, '0') + '</b>' +
@@ -245,15 +251,15 @@
             (overload ? 'Comando insuficiente: ' + effective + '/' + currentSoldiers + ' mobilizados. Ajuste a força ou amplie os generais.' :
                 'Força ativa: ' + effective + ' Quartzos · até 20 soldados por esquadrão.') + '</small>' +
             '<label class="stat-label" for="hessonite-battalion-planet-' + id + '">Planeta de operação</label>' +
-            '<select id="hessonite-battalion-planet-' + id + '">' + getPlanetOptionsHtml(army.planetId) + '</select>' +
+            '<select id="hessonite-battalion-planet-' + id + '"' + disabledAttribute + '>' + planetOptionsHtml + '</select>' +
             '<label class="stat-label" for="hessonite-battalion-mission-' + id + '">Missão do batalhão</label>' +
-            '<select id="hessonite-battalion-mission-' + id + '">' +
+            '<select id="hessonite-battalion-mission-' + id + '"' + disabledAttribute + '>' +
             '<option value="extraction"' + (battalion.mission === 'extraction' ? ' selected' : '') + '>Extração de recursos</option>' +
             '<option value="patrol"' + (battalion.mission === 'patrol' ? ' selected' : '') + '>Patrulha planetária</option></select>' +
             '<label class="stat-label" for="hessonite-battalion-soldiers-' + id + '">Quantidade de soldados (máximo ' + BATTALION_SIZE + ')</label>' +
-            '<input id="hessonite-battalion-soldiers-' + id + '" type="number" min="1" max="' + BATTALION_SIZE + '" step="1" value="' + currentSoldiers + '">' +
-            '<div class="grid-2"><button class="btn active" type="button" onclick="saveHessoniteBattalion(\'' + id + '\')">Salvar ordens</button>' +
-            '<button class="btn btn-pink" type="button" onclick="disbandHessoniteBattalion(\'' + id + '\')">Desmobilizar</button></div>' +
+            '<input id="hessonite-battalion-soldiers-' + id + '" type="number" min="1" max="' + BATTALION_SIZE + '" step="1" value="' + currentSoldiers + '"' + disabledAttribute + '>' +
+            '<div class="grid-2"><button class="btn active" type="button" onclick="saveHessoniteBattalion(\'' + id + '\')"' + disabledAttribute + '>Salvar ordens</button>' +
+            '<button class="btn btn-pink" type="button" onclick="disbandHessoniteBattalion(\'' + id + '\')"' + disabledAttribute + '>Desmobilizar</button></div>' +
             '</div>';
     }
 
@@ -398,6 +404,10 @@
         const military = ensureHessoniteMilitaryData();
         const battalion = military.battalions.find(function (item) { return item && item.id === battalionId; });
         if (!battalion) return;
+        if (battalion.terraformEscort) {
+            setStatusTicker('Este batalhão está destacado como escolta. Suas ordens ficam bloqueadas até o retorno da expedição.', true);
+            return;
+        }
         const id = escapeMilitaryHtml(battalion.id);
         const planetField = document.getElementById('hessonite-battalion-planet-' + id);
         const missionField = document.getElementById('hessonite-battalion-mission-' + id);
@@ -447,6 +457,10 @@
         const index = military.battalions.findIndex(function (item) { return item && item.id === battalionId; });
         if (index < 0) return;
         const battalion = military.battalions[index];
+        if (battalion.terraformEscort) {
+            setStatusTicker('Uma escolta não pode ser desmobilizada durante a expedição geológica. Recolha a equipe primeiro.', true);
+            return;
+        }
         military.battalions.splice(index, 1);
         pruneEmptyArmies();
         setStatusTicker('Batalhão #' + String(battalion.number).padStart(3, '0') + ' desmobilizado. Os Quartzos retornaram à reserva.');
@@ -510,7 +524,10 @@
             delete battalion.terraformEscort;
             returned = true;
         });
-        if (returned) setStatusTicker('A escolta Hessonita retornou à sua guarnição.');
+        if (returned) {
+            setStatusTicker('A escolta Hessonita retornou à sua guarnição.');
+            if (typeof renderDrawerContent === 'function') renderDrawerContent();
+        }
         return returned;
     }
 
