@@ -2919,7 +2919,7 @@
             if(managed&&count>0){
                 const raw=f.gatheredMinerals||{},refined=state.refinedResources||{},census=state.census||{},planet=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld;
                 const candidates=Object.entries(FOUNDING_GEM_DATA)
-                    .filter(([key,g])=>key!=='peridot'&&(!g.stored||structureIsOperational('reef'))&&(!g.climate||foundingGemClimateAllowed(g,planet)))
+                    .filter(([key,g])=>key!=='peridot'&&key!=='pearl'&&(!g.stored||structureIsOperational('reef'))&&(!g.climate||foundingGemClimateAllowed(g,planet)))
                     .map(([key,g])=>({key,g,available:Math.max(0,Number((g.refinedMaterial?refined:raw)[g.refinedMaterial||g.mineral])||0),population:Number(census[key]||0)}))
                     .filter(x=>x.available>=1).sort((a,b)=>a.population-b.population||b.available-a.available);
                 // Exigências direcionadas recebem prioridade, mas não cancelam a produção comum
@@ -3123,6 +3123,7 @@
             for(const batch of plan.batches){
                 const gem=FOUNDING_GEM_DATA[batch.type];
                 if(!gem)continue;
+                if(batch.type==='pearl'){waitingReasons.push('Pérolas são produzidas automaticamente pelo Recife');continue;}
                 if(gem.stored&&!structureIsOperational('reef')){waitingReasons.push(gem.label+': Recife não operacional');continue;}
                 if(gem.climate&&!foundingGemClimateAllowed(gem,planet)){waitingReasons.push(gem.label+': clima incompatível');continue;}
                 const refined=!!gem.refinedMaterial,material=gem.refinedMaterial||gem.mineral;
@@ -3604,7 +3605,7 @@
                          } else if (def.id === 'mineral_extractor') html += '<div class="founding-note">Todos os ' + Math.max(0,Number(state.census.quartz)||0) + ' Quartzos da população mineram automaticamente, sem designação manual. Cada Quartzo extrai 1 mineral a cada 10s; cada Ágata acelera até 20 deles para 5s (2×).</div>';
                         else if (def.id === 'essence_chamber') html += '<div class="founding-note">Transfere essência da reserva interna da Diamante para o estoque.</div>';
                           if(def.id==='refinery') html += '<div class="founding-note"><b>Refino automático · limite de 5% da coleta total</b><br>A Refinaria processa continuamente Quartzo, Piroxênio e Berílio assim que houver material bruto elegível e os operadores estiverem designados. Não é necessária intervenção manual.<br>Estoque bruto: Quartzo '+Number(state.founding.gatheredMinerals.quartz||0)+' · Piroxênio '+Number(state.founding.gatheredMinerals.pyroxene||0)+' · Berílio '+Number(state.founding.gatheredMinerals.beryllium||0)+'<br>Refinados: Quartzo '+Number(state.refinedResources.quartz||0)+' · Piroxênio '+Number(state.refinedResources.pyroxene||0)+' · Berílio '+Number(state.refinedResources.beryllium||0)+'</div>';
-                        if(def.id==='reef') html += '<div class="founding-note">Pérolas sem dona armazenadas: <b>'+(state.founding.reefPearlInventory||[]).length+'</b>. Use o Relatório populacional para atribuí-las.</div>';
+                        if(def.id==='reef') html += '<div class="founding-note">Pérolas armazenadas: <b>'+(state.founding.reefPearlInventory||[]).length+'</b>. Produção automática a partir de Nácar e distribuição automática às Diamantes e Aristocratas.</div>';
                         if (def.id === 'injector' && count < (def.maxCount || 1)) {
                             const nextReason = canBuildStructure(def);
                             html += '<div class="founding-note">Frota instalada: ' + count + ' / ' + def.maxCount + ' Injetores. Cada unidade possui uma programação separada.</div><button class="btn btn-block" onclick="buildStructure(\'injector\')" ' + (nextReason ? 'disabled' : '') + '>🏗️ Construir outro Injetor · ' + costText + ' · ' + def.buildTime + 's</button>';
@@ -4024,7 +4025,7 @@ ${hasAristocrats ? `
             };
             matriarch.essence=0;
             ensureDiamondKinesis(matriarch);
-            state.matriarchs.push(matriarch);state.diamondForge=null;state.era=1;
+            state.matriarchs.push(matriarch);distributeStoredPearlsAutomatically();state.diamondForge=null;state.era=1;
             const eraEl=document.getElementById('era-badge');
             if(eraEl)eraEl.textContent='Era 1 ('+(state.matriarchs.length+1)+' Diamantes)';
             addChronicle('Gênese de '+matriarch.name,'A Diamante foi formada no núcleo de '+planet.shortName+' sob '+forge.pressure+' GPa de pressão. A formação consumiu '+actualCost.toLocaleString('pt-BR')+' unidades minerais; poder relativo: '+forge.power.toFixed(1)+'x.','Nova Matriarca na Corte');
@@ -7251,7 +7252,7 @@ function drawColony(time){
 
         function applyGameSettings() {
             document.body.classList.toggle('compact-ui', gameSettings.compactUI);
-            if (state && state.planetCamera) state.planetCamera.autoRotate = gameSettings.autoRotate;
+            if (state && state.planetCamera) state.planetCamera.autoRotate = false;
         }
 
         function getSaveKey(slotId) {
