@@ -3826,7 +3826,7 @@ ${hasAristocrats ? `
         }
 
         function buildForecastHTML(evalData) {
-            const gradeColor = evalData.grade === 'S' ? '#fde047' : (evalData.grade === 'A' ? '#7dd3fc' : '#fb7185');
+            const gradeColor = evalData.grade === 'S' ? '#fde047' : (evalData.grade === 'A' ? '#7dd3fc' : evalData.grade === 'B' ? '#c4b5fd' : evalData.grade === 'C' ? '#86efac' : '#fb7185');
             const matchNote = !evalData.veinMatches
                 ? `<div style="color:#fb7185; font-size:10px;">⚠️ Veio incompatível (Requer ${evalData.recipe.veinLabel})</div>`
                 : (evalData.isOptimalPlanet
@@ -4375,10 +4375,11 @@ ${hasAristocrats ? `
             if (state.researchedTechs.harmonic_resonance) purity += 18;
             purity = Math.max(0, Math.min(100, Math.round(purity)));
 
-            const grade = purity >= 90 ? 'S' : (purity >= 75 ? 'A' : (purity >= 58 ? 'B' : 'C'));
+            const grade = purity >= 90 ? 'S' : (purity >= 75 ? 'A' : (purity >= 58 ? 'B' : (purity >= 40 ? 'C' : 'D')));
             const gradeLabel = grade === 'S' ? 'CORTE PERFEITA • RANK [S]' :
                 grade === 'A' ? 'CORTE ESTÁVEL • RANK [A]' :
-                grade === 'B' ? 'CORTE IRREGULAR • RANK [B]' : 'OFF-COLOR • RANK [C]';
+                grade === 'B' ? 'CORTE IRREGULAR • RANK [B]' :
+                grade === 'C' ? 'CORTE LIMITADA • RANK [C]' : 'OFF-COLOR • ABAIXO DO RANK [C]';
             const maturation = Math.max(1, Math.min(3, Number(state.sliders.maturation) || 2));
             let durationSec = [5, 11, 18][maturation - 1];
             if (state.firstDiamond.doctrine === 'conqueror') durationSec *= 0.75;
@@ -4394,7 +4395,7 @@ ${hasAristocrats ? `
                 recipe,
                 grade,
                 gradeLabel,
-                displayTitle: grade === 'S' ? recipe.primeTitle : recipe.offcolorTitle,
+                displayTitle: grade === 'S' ? recipe.primeTitle : grade === 'D' ? recipe.offcolorTitle : (recipe.name + ' [Rank ' + grade + ']'),
                 purity,
                 veinMatches,
                 isOptimalPlanet,
@@ -4505,13 +4506,14 @@ ${hasAristocrats ? `
             if(refinedMaterial)state.refinedResources[refinedMaterial]=Math.max(0,(Number(state.refinedResources[refinedMaterial])||0)-refinedCost);
             if(planet.resourcesRemaining<=0)planet.resourceDepleted=true;
             const isPrime = result.grade === 'S';
+            const isOffColor = result.grade === 'D';
             if(recipe.id==='pearl') state.pearlOriginPlanetId=planet.id;
             let color = recipe.color;
-            if (!isPrime) {
+            if (isOffColor) {
                 const offColors = ['#a855f7', '#64748b', '#ec4899', '#84cc16'];
                 color = offColors[Math.floor(Math.random() * offColors.length)];
                 state.census.offcolor++;
-            } else {
+            } else if (isPrime) {
                 state.census.prime++;
             }
             const censusKey = recipe.id;
@@ -4549,12 +4551,12 @@ ${hasAristocrats ? `
             if (recipe.id === 'lapis') planet.seismicHeat = Math.max(0, planet.seismicHeat - 8);
             if (recipe.id === 'pearl') state.order = Math.min(100, state.order + 2);
             addChronicle(
-                `${isPrime ? 'Emergência Rank S' : 'Emergência Off-Color'}: ${recipe.shortName}`,
+                `${isOffColor ? 'Emergência Off-Color' : 'Emergência Rank ' + result.grade}: ${recipe.shortName}`,
                 `${recipe.name} emergiu em ${planet.shortName} com pureza alquímica de ${result.purity}%.`,
-                `${result.grade} • ${isPrime ? 'Nova Gem de Corte Perfeito' : 'Nova Gem fora do padrão'}`
+                `${result.grade} • ${isOffColor ? 'Gem Off-Color' : isPrime ? 'Gem de Corte Perfeito' : 'Gem de corte regular'}`
             );
             state.thronePulseEffects.push({ radius: 18, alpha: 0.9 });
-            setStatusTicker(`${isPrime ? '💎' : '⚠️'} ${result.displayTitle} emergiu em ${planet.shortName}!`);
+            setStatusTicker(`${isOffColor ? '⚠️' : '💎'} ${result.displayTitle} emergiu em ${planet.shortName}!`);
             updateHUD();
             renderDrawerContent();
             renderBottomBar();
@@ -5069,7 +5071,7 @@ ${hasAristocrats ? `
                 if(!team||team.status!=='travelling')return;
                 const planet=PLANETS[team.targetId];if(!planet)return;
                 const prep=getAquamarinePlanetPreparation(planet);
-                if(prep.ready||prep.stage!==team.stage){team.status='completed';team.progress=100;team.reason='Outra equipe concluiu esta etapa durante o deslocamento.';returnAquamarineEscort(team);return;}
+                if(prep.ready||prep.stage!==team.stage){team.reason='Outra equipe concluiu esta etapa durante o deslocamento.';team.progress=100;team.status='completed';returnAquamarineTeamMembers(team);returnAquamarineEscort(team);return;}
                 if(team.arrived>=team.required)team.status='working';
             });
             management.teams.forEach(team=>{
@@ -5089,6 +5091,7 @@ ${hasAristocrats ? `
                             team.gemIds=team.gemIds.filter(id=>id!==victim.id);
                             state.census[team.caste]=Math.max(0,(Number(state.census[team.caste])||0)-1);
                             if(victim.grade==='S')state.census.prime=Math.max(0,(Number(state.census.prime)||0)-1);
+                            if(victim.grade==='D')state.census.offcolor=Math.max(0,(Number(state.census.offcolor)||0)-1);
                             const fatal=Math.random()<(escorted?0.08:0.28);
                             team.reason=fatal?'Uma integrante morreu durante um ataque hostil.':'Um ataque hostil forçou a suspensão temporária do trabalho.';
                             if(fatal)addChronicle('Perda em expedição geológica',AQUAMARINE_CASTE_LABELS[team.caste]+' morreu durante a preparação de '+planet.shortName+'.','Baixa confirmada');
@@ -5767,7 +5770,9 @@ ${hasAristocrats ? `
                 quartz:'Soldado de infantaria; a variante depende do solo, temperatura, material e pressão.',
                 peridot:'Equipe técnica dos jardins de infância, análise de terreno e operação de estruturas tecnológicas.',
                 bismuth:'Construção de estruturas e fabricação de componentes, sob supervisão das Morganitas.',
-                lapis:'Terraformação, controle hídrico e logística planetária.',
+                lapis:'Manipula água, reorganiza oceanos e forma massas terrestres. Participa da preparação de planetas oceânicos e de mundos que já passaram pela estabilização térmica.',
+                obsidian:'Manipula o calor planetário. Aquece mundos congelados até que se convertam em ambientes oceânicos, permitindo a etapa posterior das Lápis.',
+                snowflake_obsidian:'Manipula o frio. Resfria mundos vulcânicos, mares de lava e regiões de calor extremo antes da etapa de terraformação hídrica.',
                 sapphire:'Aristocrata vidente; cada Safira tem 5% de chance a cada cinco minutos de prever um evento possível.',
                 ruby:'Soldado abundante de guarda pessoal; atua em grupos de três ou mais e só se funde com outras Rubis.',
                 pearl:'Servente vinculada a uma dona; Pérola mineral ×1,5 e Pérola legítima de Recife ×2.',
@@ -5777,7 +5782,7 @@ ${hasAristocrats ? `
                 nephrite:'Pilota naves com velocidade dobrada e é a única casta apta a operar naves de guerra.',
                 jade:'Aristocrata social feita de piroxênio refinado; destinada a bailes e eventos futuros.',
                 morganite:'Supervisiona automaticamente as Bismutos e pode ativar a construção automática.',
-                aquamarine:'Comanda a logística das Lápis-Lazúlis e as envia automaticamente a planetas elegíveis.',
+                aquamarine:'Administra expedições de Lápis, Obsidianas e Obsidianas Floco de Neve, preparando planetas antes de qualquer colonização.',
                 emerald:'Amplia em dez vezes a capacidade de mobilização dos Generais.',
                 topaz:'Soldado raro e mais forte, reservado à guarda de palácios e comitivas importantes.'
             };
@@ -5785,7 +5790,9 @@ ${hasAristocrats ? `
                 quartz:'Infantaria. Cornalinas, Ametistas, Jaspers, Roses, Citrinos, Onyx, Olhos-de-Tigre, Calcedônias e Rutilos surgem conforme as condições geológicas.',
                 peridot:'Opera estruturas tecnológicas, jardins de infância e análise de terreno.',
                 bismuth:'Executa construções e fabricação; Morganitas podem comandar as obras automaticamente.',
-                lapis:'Duas Lápis com grande reserva hídrica podem criar terra firme e aplainar terrenos montanhosos.',
+                lapis:'Equipes por rank trabalham em duplas, trios ou quartetos para criar continentes; Rank S pode atuar sozinha. A formação do terreno consome água conforme o porte planetário.',
+                obsidian:'Aquecimento progressivo. Rank S trabalha sozinha; A exige dupla; B, trio; C, quarteto. O tamanho do planeta e a eficiência do rank controlam a duração.',
+                snowflake_obsidian:'Resfriamento progressivo e estabilização geológica. Rank S trabalha sozinha; A exige dupla; B, trio; C, quarteto. O porte do mundo aumenta o trabalho necessário.',
                 sapphire:'Chance agregada de previsão: 1 − 0,95 elevado ao número de Safiras, a cada cinco minutos.',
                 ruby:'Guarda pessoal em grupos de três ou mais; fusão restrita a Rubis.',
                 pearl:'Multiplicador sobre as ações da dona: Pérola mineral ×1,5; Pérola legítima produzida e armazenada em Recife ×2.',
@@ -5795,7 +5802,7 @@ ${hasAristocrats ? `
                 nephrite:'Dobra a velocidade das viagens interplanetárias e habilita pilotagem de naves de guerra.',
                 jade:'Sem bônus operacional ativo; sua função social será usada em sistemas futuros.',
                 morganite:'Ativa a construção automática e reduz o tempo das obras.',
-                aquamarine:'Acelera o envio automático de Lápis a mundos com oceanos ou reservas de água suficientes.',
+                aquamarine:'Define equipes por rank, acompanha temperatura e geologia, solicita escoltas Hessonitas, registra interrupções e organiza a sequência de preparação planetária.',
                 emerald:'Multiplica por dez a capacidade total de mobilização dos Generais.',
                 topaz:'Guarda de elite para palácios e comitivas, com força superior aos Quartzos comuns.'
             };
