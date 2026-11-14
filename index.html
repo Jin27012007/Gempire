@@ -1223,6 +1223,9 @@
             caelum_gelidus:{temperatureC:-80,atmosphericPressureAtm:0.55,orbitAU:2.22},
             terra_veritas:{temperatureC:8,atmosphericPressureAtm:1.1,orbitAU:2.78}
         };
+        PLANETS.homeworld.systemId='home_system';
+        ['ignis_prime','thalassa_9','caelum_gelidus','terra_veritas'].forEach((id,index)=>{PLANETS[id].systemId='unknown_'+index;});
+        for(let i=4;i<7;i++){const id='frontier_world_'+i,base=JSON.parse(JSON.stringify(PLANETS.terra_veritas)),temp=[-125,-18,42][i-4],pressure=[0.18,1.6,0.72][i-4],au=[0.72,1.34,2.45][i-4];Object.assign(base,{id,name:'Mundo de Fronteira '+(i+1),shortName:'Fronteira '+(i+1),systemId:'unknown_'+i,scouted:false,travelUnlocked:false,reconnaissance:null,colonized:false,governor:'none',redEyesBuilt:0,structures:{injector:0,mineral_extractor:0,galaxy_warp:0},remoteConstructionQueue:[],fleetVisits:[],organicLifePresent:i===5,organicLifePopulation:i===5?120000:null,hasOcean:i===5,lore:'Um planeta ainda não catalogado em um sistema estelar distante.',biomeTag:'Mundo de fronteira · dados desconhecidos',orbitRadius:82+i*17,orbitAngle:.8+i*.61,orbitSpeed:.00004,sphereRadius:25,walkingGems:[]});base.veins=(base.veins||[]).map((v,j)=>({...v,id:j,injector:null,rebelBlocked:false}));PLANETS[id]=base;PLANET_ENVIRONMENT[id]={temperatureC:temp,atmosphericPressureAtm:pressure,orbitAU:au};}
         function applyPlanetEnvironmentDefaults(planet){
             const defaults=planet&&PLANET_ENVIRONMENT[planet.id];
             if(!defaults)return;
@@ -1642,7 +1645,7 @@
             planetCamera: {
                 rotation: 0,
                 targetRotation: null,
-                autoRotate: true,
+                autoRotate: false,
                 zoom: 1.0,
                 xrayMode: false,
                 isDragging: false,
@@ -1659,7 +1662,7 @@
         let menuActive = true;
         let gameHasStarted = false;
         let autoSaveAccumulator = 0;
-        let gameSettings = { autoSave: true, autoRotate: true, compactUI: false };
+        let gameSettings = { autoSave: true, autoRotate: false, compactUI: false };
 
         // Estrelas de fundo geradas uma vez
         const starBgParticles = Array.from({ length: 130 }, () => ({
@@ -2743,15 +2746,9 @@
         // 10A. Contexto da Câmara do Trono
 
         function structureCount(id) { return Math.max(0, Number(state.structures && state.structures[id]) || 0); }
-        function redEyeCountForPlanet(planetId){
-            const planet=PLANETS[planetId];
-            if(!planet)return 0;
-            if(!Number.isFinite(Number(planet.redEyesBuilt))){
-                // Compatibilidade: estruturas antigas sem registro por mundo são atribuídas a Homeworld.
-                planet.redEyesBuilt=planetId==='homeworld'?Math.max(0,Number(state.structures?.red_eye)||0):0;
-            }
-            return Math.max(0,Math.floor(Number(planet.redEyesBuilt)||0));
-        }
+        function redEyeCountForPlanet(planetId){const planet=PLANETS[planetId];if(!planet)return 0;if(!Number.isFinite(Number(planet.redEyesBuilt)))planet.redEyesBuilt=planetId==='homeworld'?Math.max(0,Number(state.structures?.red_eye)||0):0;return Math.max(0,Math.floor(Number(planet.redEyesBuilt)||0));}
+        function getTotalRedEyeCount(){return Math.max(0,Math.floor(Number(state.structures?.red_eye)||0))+Object.entries(PLANETS).reduce((sum,[id,p])=>sum+(id==='homeworld'?0:Math.max(0,Math.floor(Number(p.redEyesBuilt)||0))),0);}
+        function getAvailableRedEyeCount(){const missions=Array.isArray(state.redEyeMissions)?state.redEyeMissions:[];return Math.max(0,getTotalRedEyeCount()-missions.filter(m=>m&&m.active).length);}
         function structureDefinition(id) { return STRUCTURE_CATALOG.find(item => item.id === id); }
         function hasStructurePrerequisites(def) { return (def.prerequisites || []).every(id => id==='red_eye'&&def.id==='royal_palace' ? redEyeCountForPlanet('homeworld')>0 : id==='galaxy_warp'&&def.id==='red_eye' ? !!PLANETS[state.activeColonyPlanetId||'homeworld']?.galaxyWarpBuilt : structureCount(id) > 0); }
         function totalAssignedWorkers(gemType) {
@@ -2770,7 +2767,7 @@
         }
         function structureIsOperational(id) {
             const def = structureDefinition(id);
-            if (!def || (id==='galaxy_warp' ? !PLANETS[state.activeColonyPlanetId]?.galaxyWarpBuilt : id==='red_eye' ? redEyeCountForPlanet(state.activeColonyPlanetId||'homeworld')<1 : structureCount(id)<1) || !hasStructurePrerequisites(def)) return false;
+            if (!def || (id==='galaxy_warp' ? !PLANETS[state.activeColonyPlanetId]?.galaxyWarpBuilt : id==='red_eye' ? getTotalRedEyeCount()<1 : structureCount(id)<1) || !hasStructurePrerequisites(def)) return false;
             if (id === 'injector' && !structureIsOperational('essence_chamber')) return false;
             if(id==='essence_chamber')return (Number(state.structureAssignments?.essence_chamber?.peridot)||0)>=structureCount('essence_chamber');
             if(['workshop','defense_tower','shield_generator'].includes(id)&&!structureIsOperational('reactor'))return false;
@@ -3242,11 +3239,12 @@
             changeActiveColonyPlanet(targetId);switchScreen('colony');
             setStatusTicker('Teletransporte instantâneo concluído para '+PLANETS[targetId].shortName+'.');
         }
-        function getSpaceDistance(originId,targetId){const a=PLANETS[originId],b=PLANETS[targetId];if(!a||!b)return 1;const au=id=>{const p=PLANETS[id],env=PLANET_ENVIRONMENT[id]||{};return Number(env.orbitAU??p.orbitAU??(Number(p.orbitRadius)||100)/100)||0;};return Math.max(.25,Math.abs(au(originId)-au(targetId)));}
+        function getSpaceDistance(originId,targetId){const a=PLANETS[originId],b=PLANETS[targetId];if(!a||!b)return 1;const au=id=>{const p=PLANETS[id],env=PLANET_ENVIRONMENT[id]||{};return Number(env.orbitAU??p.orbitAU??(Number(p.orbitRadius)||100)/100)||0;};return Math.max(.25,Math.abs(au(originId)-au(targetId))+(a.systemId!==b.systemId?12:0));}
         function getSpaceTravelSeconds(originId,targetId,factor=1){return Math.max(12,Math.ceil((30+getSpaceDistance(originId,targetId)*150)/Math.max(.25,factor)));}
-        function startRedEyeMission(targetId){if(!structureIsOperational('red_eye')){setStatusTicker('É necessário possuir um Olho Vermelho operacional em Homeworld.',true);return;}if(!PLANETS[targetId]){setStatusTicker('Selecione um planeta no sistema estelar.',true);return;}if(targetId===(state.activeColonyPlanetId||'homeworld')){setStatusTicker('O Olho Vermelho já está no planeta selecionado.',true);return;}if(state.redEyeMission?.active){setStatusTicker('Já existe uma missão do Olho Vermelho em andamento.',true);return;}const originId=state.activeColonyPlanetId||'homeworld',duration=getSpaceTravelSeconds(originId,targetId);state.redEyeMission={planetId:targetId,originId,phase:'outbound',phaseProgress:0,phaseDuration:duration,progress:0,active:true,reportDraft:null};setStatusTicker('Olho Vermelho partiu para '+PLANETS[targetId].shortName+'.');updateHUD();renderDrawerContent();}
+        function startRedEyeMission(targetId){if(!PLANETS[targetId]||PLANETS[targetId].scouted){setStatusTicker('Selecione um planeta ainda não reconhecido.',true);return;}if(getAvailableRedEyeCount()<1){setStatusTicker('Não há Olho Vermelho livre. Aguarde uma missão ou construa outra unidade.',true);return;}const originId='homeworld';state.redEyeMissions=Array.isArray(state.redEyeMissions)?state.redEyeMissions:[];state.redEyeMissions.push({id:'eye_'+Date.now()+'_'+Math.floor(Math.random()*1e5),planetId:targetId,originId,phase:'outbound',phaseProgress:0,phaseDuration:getSpaceTravelSeconds(originId,targetId),progress:0,active:true,reportDraft:null});setStatusTicker('Olho Vermelho enviado de Homeworld para '+PLANETS[targetId].shortName+'.');updateHUD();renderDrawerContent();}
+        function renameScoutedPlanet(id,name){const p=PLANETS[id],value=String(name||'').trim().slice(0,32);if(!p||!p.scouted||!value){setStatusTicker('Nome inválido ou planeta ainda não reconhecido.',true);return;}p.shortName=value;p.name=value;if(p.reconnaissance)p.reconnaissance.planetName=value;(state.redEyeReports||[]).filter(r=>r.planetId===id).forEach(r=>r.planetName=value);setStatusTicker('Planeta renomeado para '+value+'.');addChronicle('Planeta renomeado',id+' recebeu o nome '+value+'.','Catálogo atualizado');renderDrawerContent();renderBottomBar();}
         function createRedEyeReport(p){const env=PLANET_ENVIRONMENT[p.id]||{};return{id:'scan_'+Date.now(),planetId:p.id,planetName:p.shortName||p.name,distanceAU:Number(env.orbitAU??p.orbitAU??p.orbitRadius/100)||0,temperatureC:Number(env.temperatureC??p.temperatureC)||0,pressureAtm:Number(env.atmosphericPressureAtm??p.atmosphericPressureAtm)||0,composition:Object.entries(p.resourcesByType||{}).map(([type,amount])=>({type,amount:Math.floor(Number(amount)||0)})),water:!!p.hasOcean,moons:(p.moons||[]).length,organicLifePresent:p.organicLifePresent===true||(Number(p.organicLifePopulation)||0)>0,organicLifePopulation:p.organicLifePopulation??null,habitability:p.hasOcean&&Number(env.temperatureC??p.temperatureC??0)>-20&&Number(env.temperatureC??p.temperatureC??0)<55?'Potencialmente habitável':'Condições ambientais restritivas',cycle:state.cycleCount||1};}
-        function updateRedEyeMission(dt){const m=state.redEyeMission;if(!m||!m.active)return;m.phaseProgress=(Number(m.phaseProgress)||0)+Math.max(0,Number(dt)||0);m.progress=Math.min(100,m.phaseProgress/Math.max(1,Number(m.phaseDuration)||1)*100);if(m.phaseProgress<m.phaseDuration)return;if(m.phase==='outbound'){m.phase='survey';m.phaseProgress=0;m.phaseDuration=12;setStatusTicker('Olho Vermelho chegou ao planeta e iniciou a varredura.');}else if(m.phase==='survey'){m.reportDraft=createRedEyeReport(PLANETS[m.planetId]);m.phase='returning';m.phaseProgress=0;m.phaseDuration=getSpaceTravelSeconds(m.planetId,m.originId);setStatusTicker('Varredura concluída. Olho Vermelho está retornando.');}else{const p=PLANETS[m.planetId],report=m.reportDraft||createRedEyeReport(p);p.scouted=true;p.travelUnlocked=true;p.reconnaissance=report;state.redEyeReports=Array.isArray(state.redEyeReports)?state.redEyeReports:[];state.redEyeReports.unshift(report);state.redEyeReports=state.redEyeReports.slice(0,30);m.phase='completed';m.progress=100;m.active=false;setStatusTicker(report.planetName+' reconhecido. Viagens espaciais desbloqueadas.');addChronicle('Reconhecimento espacial concluído',report.planetName+' foi catalogado; viagens espaciais liberadas.','Destino reconhecido');}updateHUD();renderDrawerContent();renderBottomBar();}
+        function updateRedEyeMission(dt){const missions=Array.isArray(state.redEyeMissions)?state.redEyeMissions:[];missions.forEach(m=>{if(!m||!m.active)return;m.phaseProgress=(Number(m.phaseProgress)||0)+Math.max(0,Number(dt)||0);m.progress=Math.min(100,m.phaseProgress/Math.max(1,Number(m.phaseDuration)||1)*100);if(m.phaseProgress<m.phaseDuration)return;if(m.phase==='outbound'){m.phase='survey';m.phaseProgress=0;m.phaseDuration=12;setStatusTicker('Olho Vermelho chegou a '+PLANETS[m.planetId].shortName+' e iniciou a varredura.');}else if(m.phase==='survey'){m.reportDraft=createRedEyeReport(PLANETS[m.planetId]);m.phase='returning';m.phaseProgress=0;m.phaseDuration=getSpaceTravelSeconds(m.planetId,m.originId);setStatusTicker('Varredura concluída em '+PLANETS[m.planetId].shortName+'. Retorno iniciado.');}else{const p=PLANETS[m.planetId],report=m.reportDraft||createRedEyeReport(p);p.scouted=true;p.travelUnlocked=true;p.reconnaissance=report;state.redEyeReports=Array.isArray(state.redEyeReports)?state.redEyeReports:[];state.redEyeReports.unshift(report);state.redEyeReports=state.redEyeReports.slice(0,30);m.phase='completed';m.progress=100;m.active=false;setStatusTicker(report.planetName+' reconhecido. Viagens espaciais desbloqueadas.');addChronicle('Reconhecimento espacial concluído',report.planetName+' foi catalogado; viagens espaciais liberadas.','Destino reconhecido');}});state.redEyeMissions=missions.filter(m=>m.active||m.phase==='completed').slice(-30);updateHUD();renderDrawerContent();renderBottomBar();}
         const CARGO_STRUCTURE_IDS=['injector','galaxy_warp','mineral_extractor'];
         function getPlanetStructureCount(p,id){return Math.max(0,Math.floor(Number(p?.structures?.[id])||0));}
         function cargoManifestCost(manifest){return manifest.reduce((s,id)=>{const d=structureDefinition(id);s.minerals+=Number(d?.cost?.minerals)||0;s.tech+=Number(d?.cost?.tech)||0;return s;},{minerals:0,tech:0});}
@@ -3255,7 +3253,8 @@
         function updateCargoMissions(dt){(state.cargoShipMissions||[]).forEach(m=>{const ship=(state.shipFleet||[]).find(x=>x.id===m.shipId),p=PLANETS[m.targetId];if(!ship||!p)return;if(m.phase==='outbound'){m.progress=Math.min(100,(Number(m.progress)||0)+dt*100/Math.max(1,m.duration));ship.missionProgress=m.progress;if(m.progress>=100){p.remoteConstructionQueue=Array.isArray(p.remoteConstructionQueue)?p.remoteConstructionQueue:[];p.structures=Object.assign({injector:0,mineral_extractor:0,galaxy_warp:0},p.structures||{});m.manifest.forEach(id=>p.remoteConstructionQueue.push({id,progress:0,active:true}));p.demantoidSupervisor=!!m.demantoidEscort;p.manualProductionControl=!m.demantoidEscort;ship.status='constructing';ship.planetId=p.id;ship.manifest=[];m.phase='construction';m.progress=0;setStatusTicker('A Bismuto iniciou a instalação das estruturas em '+p.shortName+'.');}}else if(m.phase==='construction'){const job=p.remoteConstructionQueue.find(x=>x.active);if(job){const d=structureDefinition(job.id);job.progress=Math.min(100,(Number(job.progress)||0)+dt*100/(Math.max(1,Number(d?.buildTime)||20)*2.5));if(job.progress>=100){job.active=false;p.structures[job.id]=(Number(p.structures[job.id])||0)+1;if(job.id==='galaxy_warp')p.galaxyWarpBuilt=true;}}m.progress=p.remoteConstructionQueue.length?100*p.remoteConstructionQueue.filter(x=>!x.active).length/p.remoteConstructionQueue.length:100;ship.missionProgress=m.progress;if(!p.remoteConstructionQueue.some(x=>x.active)){m.phase='completed';ship.status='orbital';ship.missionProgress=100;setStatusTicker('Infraestrutura concluída em '+p.shortName+'. '+(p.demantoidSupervisor?'Demantoide supervisionando a produção.':'Comandos manuais de produção liberados.'));}}});}
         function sendFleetShip(shipId,targetId){const ship=(state.shipFleet||[]).find(x=>x.id===shipId),p=PLANETS[targetId];if(!ship||ship.type==='cargo'||ship.status!=='orbital'){setStatusTicker('Nave indisponível para viagem.',true);return;}if(!p?.travelUnlocked){setStatusTicker('O planeta ainda não foi reconhecido pelo Olho Vermelho.',true);return;}ship.status='travelling';ship.destinationPlanetId=targetId;ship.missionProgress=0;ship.missionDuration=getSpaceTravelSeconds(ship.planetId||'homeworld',targetId,ship.type==='diamond'?1.8:1);setStatusTicker(ship.name+' iniciou viagem para '+p.shortName+'.');}
         function updateFleetTravel(dt){(state.shipFleet||[]).forEach(s=>{if(s.status!=='travelling'||s.type==='cargo')return;s.missionProgress=Math.min(100,(Number(s.missionProgress)||0)+dt*100/Math.max(1,s.missionDuration||1));if(s.missionProgress>=100){const p=PLANETS[s.destinationPlanetId];if(p){p.fleetVisits=Array.isArray(p.fleetVisits)?p.fleetVisits:[];p.fleetVisits.push({shipId:s.id,name:s.name});s.planetId=p.id;}s.destinationPlanetId=null;s.status='orbital';setStatusTicker(s.name+' chegou ao destino.');}});}
-        function selectStarSystem(id){if(id!=='home_system')return;state.starMapView='system';state.selectedStarSystemId=id;state.selectedStarMapPlanetId='homeworld';renderDrawerContent();renderBottomBar();}
+        function getPlanetsInStarSystem(id){return Object.values(PLANETS).filter(p=>(p.systemId||'home_system')===id);}
+        function selectStarSystem(id){if(id!=='home_system'&&!/^unknown_[0-6]$/.test(id))return;const worlds=getPlanetsInStarSystem(id);if(!worlds.length)return;state.starMapView='system';state.selectedStarSystemId=id;state.selectedStarMapPlanetId=worlds[0].id;renderDrawerContent();renderBottomBar();}
         function returnToGalaxyMap(){state.starMapView='galaxy';renderDrawerContent();renderBottomBar();}
         function setCargoPilot(shipId,pilotType){const s=(state.shipFleet||[]).find(x=>x.id===shipId&&x.type==='cargo');if(!s||!['peridot','nephrite'].includes(pilotType))return;if(Number(state.census[pilotType]||0)<1){setStatusTicker('Não há Gem desta casta disponível para pilotar.',true);return;}s.pilotType=pilotType;renderDrawerContent();}
         function resolveSpaceDiplomacyRequest(id,accept){const r=(state.spaceDiplomacyRequests||[]).find(x=>x.id===id&&x.status==='pending');if(!r)return;if(accept){if(freeGemWorkers('demantoid')<1){setStatusTicker('Não existe Demantoide livre.',true);return;}state.census.demantoid--;const p=PLANETS[r.planetId];if(p)p.demantoidSupervisor=true;r.status='accepted';}else r.status='rejected';updateHUD();renderDrawerContent();}
@@ -6001,12 +6000,12 @@ ${hasAristocrats ? `
         function drawStarMap(time){
             const {cx,cy}=getVisibleCenter(canvasWidth,canvasHeight);starMapHitTargets=[];
             if(state.starMapView!=='system'){
-                const nodes=[{id:'home_system',x:cx,y:cy-8,r:25,label:'SISTEMA HOMEWORLD',color:'#fb923c'}];
-                for(let i=0;i<7;i++){const a=i*2.3999632297+.4,d=Math.min(canvasWidth,canvasHeight)*(.22+(i%3)*.06);nodes.push({id:'unknown_'+i,x:cx+Math.cos(a)*d,y:cy+Math.sin(a)*d*.72,r:8+i%3*2,label:'ESTRELA NÃO CATALOGADA',color:'#64748b'});}
+                const nodes=[{id:'home_system',x:cx,y:cy-8,r:25,label:'HOMEWORLD · SISTEMA SOLO',color:'#fb923c'}];
+                for(let i=0;i<7;i++){const a=i*2.3999632297+.4,d=Math.min(canvasWidth,canvasHeight)*(.22+(i%3)*.06);nodes.push({id:'unknown_'+i,x:cx+Math.cos(a)*d,y:cy+Math.sin(a)*d*.72,r:8+i%3*2,label:'SISTEMA '+(i+1),color:'#64748b'});}
                 nodes.forEach(n=>{const g=ctx.createRadialGradient(n.x,n.y,1,n.x,n.y,n.r*3);g.addColorStop(0,n.color);g.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(n.x,n.y,n.r*3,0,Math.PI*2);ctx.fill();ctx.fillStyle=n.color;ctx.beginPath();ctx.arc(n.x,n.y,n.r,0,Math.PI*2);ctx.fill();ctx.fillStyle='#e2e8f0';ctx.font='bold 9px Segoe UI';ctx.textAlign='center';ctx.fillText(n.label,n.x,n.y+n.r+15);starMapHitTargets.push({type:'star',id:n.id,x:n.x,y:n.y,radius:n.r+12});});ctx.textAlign='center';ctx.fillStyle='#cbd5e1';ctx.font='bold 13px Georgia';ctx.fillText('MAPA GALÁCTICO',cx,28);ctx.font='10px Segoe UI';ctx.fillStyle='#94a3b8';ctx.fillText('Selecione a estrela para entrar no sistema',cx,46);return;
             }
             const maxOrbit=Math.min(canvasWidth*.34,canvasHeight*.36,280),glow=ctx.createRadialGradient(cx,cy,5,cx,cy,85);glow.addColorStop(0,'#fff1cf');glow.addColorStop(.22,'rgba(248,113,113,.7)');glow.addColorStop(1,'rgba(127,29,29,0)');ctx.fillStyle=glow;ctx.beginPath();ctx.arc(cx,cy,85,0,Math.PI*2);ctx.fill();ctx.fillStyle='#fdba74';ctx.beginPath();ctx.arc(cx,cy,19,0,Math.PI*2);ctx.fill();
-            Object.values(PLANETS).forEach((p,i)=>{const orbit=Math.max(48,Math.min(maxOrbit,Number(p.orbitRadius)||80)),angle=(Number(p.orbitAngle)||i)+time*(Number(p.orbitSpeed)||.00005),x=cx+Math.cos(angle)*orbit,y=cy+Math.sin(angle)*orbit*.66,r=Math.max(8,Math.min(18,Number(p.sphereRadius)||18)*.72);ctx.strokeStyle='rgba(203,213,225,.22)';ctx.setLineDash([4,7]);ctx.beginPath();ctx.ellipse(cx,cy,orbit,orbit*.66,0,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);drawPlanetDisc(x,y,r,p,state.selectedStarMapPlanetId===p.id);ctx.fillStyle=p.scouted?'#e2e8f0':'#94a3b8';ctx.font='bold 9px Segoe UI';ctx.textAlign='center';ctx.fillText(p.scouted?p.shortName:'SINAL NÃO IDENTIFICADO',x,y+r+13);starMapHitTargets.push({type:'planet',id:p.id,x,y,radius:r+12});});ctx.textAlign='center';ctx.fillStyle='#cbd5e1';ctx.font='bold 12px Georgia';ctx.fillText('SISTEMA ESTELAR DE HOMEWORLD',cx,25);ctx.font='10px Segoe UI';ctx.fillStyle='#94a3b8';ctx.fillText('Selecione um planeta para reconhecimento',cx,43);
+            getPlanetsInStarSystem(state.selectedStarSystemId||'home_system').forEach((p,i)=>{const orbit=Math.max(48,Math.min(maxOrbit,Number(p.orbitRadius)||80)),angle=(Number(p.orbitAngle)||i)+time*(Number(p.orbitSpeed)||.00005),x=cx+Math.cos(angle)*orbit,y=cy+Math.sin(angle)*orbit*.66,r=Math.max(8,Math.min(18,Number(p.sphereRadius)||18)*.72);ctx.strokeStyle='rgba(203,213,225,.22)';ctx.setLineDash([4,7]);ctx.beginPath();ctx.ellipse(cx,cy,orbit,orbit*.66,0,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);drawPlanetDisc(x,y,r,p,state.selectedStarMapPlanetId===p.id);ctx.fillStyle=p.scouted?'#e2e8f0':'#94a3b8';ctx.font='bold 9px Segoe UI';ctx.textAlign='center';ctx.fillText(p.scouted?p.shortName:'SINAL NÃO IDENTIFICADO',x,y+r+13);starMapHitTargets.push({type:'planet',id:p.id,x,y,radius:r+12});});ctx.textAlign='center';ctx.fillStyle='#cbd5e1';ctx.font='bold 12px Georgia';ctx.fillText('SISTEMA ESTELAR DE HOMEWORLD',cx,25);ctx.font='10px Segoe UI';ctx.fillStyle='#94a3b8';ctx.fillText('Selecione um planeta para reconhecimento',cx,43);
         }
 
         // --- ARQUITETURA MODULAR DE HOMEWORLD ---
@@ -6445,7 +6444,7 @@ function drawColony(time){
                         nearestDistance = distance;
                     }
                 }
-                if (nearest) { if (nearest.type === 'star') { if (nearest.id === 'home_system') selectStarSystem('home_system'); } else selectStarMapPlanet(nearest.id); }
+                if (nearest) { if (nearest.type === 'star') selectStarSystem(nearest.id); else selectStarMapPlanet(nearest.id); }
             } else if (state.currentScreen === 'colony') {
                 if(planetInfoToggleTarget&&x>=planetInfoToggleTarget.x&&x<=planetInfoToggleTarget.x+planetInfoToggleTarget.w&&y>=planetInfoToggleTarget.y&&y<=planetInfoToggleTarget.y+planetInfoToggleTarget.h){state.planetInfoExpanded=state.planetInfoExpanded===false;return;}
                 const chartTarget=mineralChartHitTargets.find(target=>x>=target.x&&x<=target.x+target.w&&y>=target.y&&y<=target.y+target.h);
@@ -7184,7 +7183,7 @@ function drawColony(time){
                 const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
                 if (raw) {
                     const parsed = JSON.parse(raw);
-                    gameSettings = { autoSave: parsed.autoSave !== false, autoRotate: parsed.autoRotate !== false, compactUI: parsed.compactUI === true };
+                    gameSettings = { autoSave: parsed.autoSave !== false, autoRotate: parsed.autoRotate === true, compactUI: parsed.compactUI === true };
                 }
             } catch (error) { console.warn('Não foi possível ler as configurações locais:', error); }
             applyGameSettings();
