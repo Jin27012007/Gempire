@@ -3244,7 +3244,7 @@
         function startRedEyeMission(targetId){if(!PLANETS[targetId]||PLANETS[targetId].scouted){setStatusTicker('Selecione um planeta ainda não reconhecido.',true);return;}if(getAvailableRedEyeCount()<1){setStatusTicker('Não há Olho Vermelho livre. Aguarde uma missão ou construa outra unidade.',true);return;}const originId='homeworld';state.redEyeMissions=Array.isArray(state.redEyeMissions)?state.redEyeMissions:[];state.redEyeMissions.push({id:'eye_'+Date.now()+'_'+Math.floor(Math.random()*1e5),planetId:targetId,originId,phase:'outbound',phaseProgress:0,phaseDuration:getSpaceTravelSeconds(originId,targetId),progress:0,active:true,reportDraft:null});setStatusTicker('Olho Vermelho enviado de Homeworld para '+PLANETS[targetId].shortName+'.');updateHUD();renderDrawerContent();}
         function renameScoutedPlanet(id,name){const p=PLANETS[id],value=String(name||'').trim().slice(0,32);if(!p||!p.scouted||!value){setStatusTicker('Nome inválido ou planeta ainda não reconhecido.',true);return;}p.shortName=value;p.name=value;if(p.reconnaissance)p.reconnaissance.planetName=value;(state.redEyeReports||[]).filter(r=>r.planetId===id).forEach(r=>r.planetName=value);setStatusTicker('Planeta renomeado para '+value+'.');addChronicle('Planeta renomeado',id+' recebeu o nome '+value+'.','Catálogo atualizado');renderDrawerContent();renderBottomBar();}
         function createRedEyeReport(p){const env=PLANET_ENVIRONMENT[p.id]||{};return{id:'scan_'+Date.now(),planetId:p.id,planetName:p.shortName||p.name,distanceAU:Number(env.orbitAU??p.orbitAU??p.orbitRadius/100)||0,temperatureC:Number(env.temperatureC??p.temperatureC)||0,pressureAtm:Number(env.atmosphericPressureAtm??p.atmosphericPressureAtm)||0,composition:Object.entries(p.resourcesByType||{}).map(([type,amount])=>({type,amount:Math.floor(Number(amount)||0)})),water:!!p.hasOcean,moons:(p.moons||[]).length,organicLifePresent:p.organicLifePresent===true||(Number(p.organicLifePopulation)||0)>0,organicLifePopulation:p.organicLifePopulation??null,habitability:p.hasOcean&&Number(env.temperatureC??p.temperatureC??0)>-20&&Number(env.temperatureC??p.temperatureC??0)<55?'Potencialmente habitável':'Condições ambientais restritivas',cycle:state.cycleCount||1};}
-        function updateRedEyeMission(dt){const missions=Array.isArray(state.redEyeMissions)?state.redEyeMissions:[];missions.forEach(m=>{if(!m||!m.active)return;m.phaseProgress=(Number(m.phaseProgress)||0)+Math.max(0,Number(dt)||0);m.progress=Math.min(100,m.phaseProgress/Math.max(1,Number(m.phaseDuration)||1)*100);if(m.phaseProgress<m.phaseDuration)return;if(m.phase==='outbound'){m.phase='survey';m.phaseProgress=0;m.phaseDuration=12;setStatusTicker('Olho Vermelho chegou a '+PLANETS[m.planetId].shortName+' e iniciou a varredura.');}else if(m.phase==='survey'){m.reportDraft=createRedEyeReport(PLANETS[m.planetId]);m.phase='returning';m.phaseProgress=0;m.phaseDuration=getSpaceTravelSeconds(m.planetId,m.originId);setStatusTicker('Varredura concluída em '+PLANETS[m.planetId].shortName+'. Retorno iniciado.');}else{const p=PLANETS[m.planetId],report=m.reportDraft||createRedEyeReport(p);p.scouted=true;p.travelUnlocked=true;p.reconnaissance=report;state.redEyeReports=Array.isArray(state.redEyeReports)?state.redEyeReports:[];state.redEyeMissions=Array.isArray(state.redEyeMissions)?state.redEyeMissions:(state.redEyeMission?.active?[state.redEyeMission]:[]);delete state.redEyeMission;state.redEyeReports.unshift(report);state.redEyeReports=state.redEyeReports.slice(0,30);m.phase='completed';m.progress=100;m.active=false;setStatusTicker(report.planetName+' reconhecido. Viagens espaciais desbloqueadas.');addChronicle('Reconhecimento espacial concluído',report.planetName+' foi catalogado; viagens espaciais liberadas.','Destino reconhecido');}});state.redEyeMissions=missions.filter(m=>m.active||m.phase==='completed').slice(-30);updateHUD();renderDrawerContent();renderBottomBar();}
+        function updateRedEyeMission(dt){const missions=Array.isArray(state.redEyeMissions)?state.redEyeMissions:[];missions.forEach(m=>{if(!m||!m.active)return;m.phaseProgress=(Number(m.phaseProgress)||0)+Math.max(0,Number(dt)||0);m.progress=Math.min(100,m.phaseProgress/Math.max(1,Number(m.phaseDuration)||1)*100);if(m.phaseProgress<m.phaseDuration)return;if(m.phase==='outbound'){m.phase='survey';m.phaseProgress=0;m.phaseDuration=12;setStatusTicker('Olho Vermelho chegou a '+PLANETS[m.planetId].shortName+' e iniciou a varredura.');}else if(m.phase==='survey'){m.reportDraft=createRedEyeReport(PLANETS[m.planetId]);m.phase='returning';m.phaseProgress=0;m.phaseDuration=getSpaceTravelSeconds(m.planetId,m.originId);setStatusTicker('Varredura concluída em '+PLANETS[m.planetId].shortName+'. Retorno iniciado.');}else{const p=PLANETS[m.planetId],report=m.reportDraft||createRedEyeReport(p);p.scouted=true;p.travelUnlocked=true;p.reconnaissance=report;state.redEyeReports=Array.isArray(state.redEyeReports)?state.redEyeReports:[];state.redEyeReports.unshift(report);state.redEyeReports=state.redEyeReports.slice(0,30);m.phase='completed';m.progress=100;m.active=false;setStatusTicker(report.planetName+' reconhecido. Viagens espaciais desbloqueadas.');addChronicle('Reconhecimento espacial concluído',report.planetName+' foi catalogado; viagens espaciais liberadas.','Destino reconhecido');}});state.redEyeMissions=missions.filter(m=>m.active||m.phase==='completed').slice(-30);updateHUD();renderDrawerContent();renderBottomBar();}
         const CARGO_STRUCTURE_IDS=['injector','galaxy_warp','mineral_extractor'];
         function getPlanetStructureCount(p,id){return Math.max(0,Math.floor(Number(p?.structures?.[id])||0));}
         function cargoManifestCost(manifest){return manifest.reduce((s,id)=>{const d=structureDefinition(id);s.minerals+=Number(d?.cost?.minerals)||0;s.tech+=Number(d?.cost?.tech)||0;return s;},{minerals:0,tech:0});}
@@ -4475,7 +4475,7 @@ ${hasAristocrats ? `
             state.census[censusKey]++;
             if(recipe.id==='pearl'){
                 if(!Array.isArray(state.founding.reefPearlInventory))state.founding.reefPearlInventory=[];
-                state.founding.reefPearlInventory.push({ownerId:courtOwner,planetId:planet.id,originOcean:planet.hasOcean===true,quality:isPrime?'S':result.grade});
+                state.founding.reefPearlInventory.push({ownerId:courtOwner,planetId:planet.id,originOcean:planet.hasOcean===true,source:'reef',quality:isPrime?'S':result.grade,assignedTo:null});distributeStoredPearlsAutomatically();
             }
             const gem = {
                 id:'gem_'+Date.now()+'_'+Math.floor(Math.random()*1000000),
@@ -6762,6 +6762,7 @@ function drawColony(time){
         function distributeStoredPearlsAutomatically(){
             const f=state.founding||(state.founding={}),inventory=f.reefPearlInventory||(f.reefPearlInventory=[]),assigned=f.assignedPearls||(f.assignedPearls=[]);
             const targets=['firstDiamond',...(state.matriarchs||[]).map(m=>'matriarch_'+m.id),'aristocrats'];
+            assigned.forEach((a,index)=>{if(inventory[index]&&!inventory[index].assignedTo)inventory[index].assignedTo=a.targetId;});
             targets.forEach(targetId=>{if(assigned.some(a=>a.targetId===targetId))return;const pearl=inventory.find(item=>!item.assignedTo);if(!pearl)return;pearl.assignedTo=targetId;assigned.push({targetId,planetId:pearl.planetId||'homeworld',source:'reef',pearlId:pearl.id||null});});
             return assigned;
         }
@@ -7001,6 +7002,7 @@ function drawColony(time){
             if (structureIsOperational('injector')) { setStatusTicker('O Injetor está operacional. A Diamante não participa mais da criação; consulte o relatório de produção.'); return; }
             if (state.founding.creationActive || state.founding.bathActive) { setStatusTicker('A Diamante está ocupada. Aguarde a conclusão da atividade atual.'); return; }
             let type = state.founding.selectedGem;
+            if(type==='pearl'){setStatusTicker('Pérolas são produzidas automaticamente pelo Recife quando há Nácar disponível.');return;}
             const planet=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld;
             if(type==='jade'&&Number(state.refinedResources.pyroxene||0)<1)type='nephrite';
             const gem = FOUNDING_GEM_DATA[type];
@@ -7057,7 +7059,7 @@ function drawColony(time){
             for(let i=0;i<quantity;i++){
                 if(batch.type==='pearl'){
                     if(!Array.isArray(state.founding.reefPearlInventory))state.founding.reefPearlInventory=[];
-                    state.founding.reefPearlInventory.push({ownerId:courtOwner,planetId:state.activeColonyPlanetId||'homeworld',originOcean:!!planet.hasOcean,source:'reef',quality:'A'});
+                    state.founding.reefPearlInventory.push({ownerId:courtOwner,planetId:state.activeColonyPlanetId||'homeworld',originOcean:!!planet.hasOcean,source:'reef',quality:'A',assignedTo:null});distributeStoredPearlsAutomatically();
                 }else{
                     const variant=batch.type==='quartz'?getQuartzVariantForPlanet(planet,i):batch.type==='ruby'?'ruby':null;
                     if(variant&&state.founding.quartzVariantCounts)state.founding.quartzVariantCounts[variant]=(Number(state.founding.quartzVariantCounts[variant])||0)+1;
@@ -7110,7 +7112,7 @@ function drawColony(time){
             const planet=PLANETS[state.activeColonyPlanetId||'homeworld'];
             if(type==='pearl'){
                 if(!Array.isArray(state.founding.reefPearlInventory))state.founding.reefPearlInventory=[];
-                state.founding.reefPearlInventory.push({ownerId:'first',planetId:state.activeColonyPlanetId||'homeworld',originOcean:!!planet.hasOcean,source:'reef',quality:'A'});
+                state.founding.reefPearlInventory.push({ownerId:'first',planetId:state.activeColonyPlanetId||'homeworld',originOcean:!!planet.hasOcean,source:'reef',quality:'A',assignedTo:null});distributeStoredPearlsAutomatically();
             }else{
                 const variant=type==='quartz'?getQuartzVariantForPlanet(planet,0):type==='ruby'?'ruby':null;
                 if(variant&&state.founding.quartzVariantCounts)state.founding.quartzVariantCounts[variant]=(Number(state.founding.quartzVariantCounts[variant])||0)+1;
@@ -7378,6 +7380,7 @@ function drawColony(time){
                 state.spaceDiplomacyRequests=Array.isArray(state.spaceDiplomacyRequests)?state.spaceDiplomacyRequests:[];
                 state.starMapView=state.starMapView==='system'?'system':'galaxy';state.selectedStarSystemId='home_system';
                 state.redEyeReports=Array.isArray(state.redEyeReports)?state.redEyeReports:[];
+                state.redEyeMissions=Array.isArray(state.redEyeMissions)?state.redEyeMissions:(state.redEyeMission?.active?[state.redEyeMission]:[]);delete state.redEyeMission;
                 state.galaxyWarpExpeditions=Array.isArray(state.galaxyWarpExpeditions)?state.galaxyWarpExpeditions:[];
                 state.logisticsActive=state.logisticsActive!==false;
                 state.gemTransfers = Array.isArray(state.gemTransfers)?state.gemTransfers:[];
