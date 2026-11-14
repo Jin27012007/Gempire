@@ -4219,6 +4219,8 @@ ${hasAristocrats ? `
             if (state.firstDiamond.doctrine === 'lifeseeder') result.pink += 0.8;
             if (state.researchedTechs.orbital_pacification) result.order += 0.5;
 
+            const pearlOwner=governor.startsWith('matriarch_')?governor:(governor==='first'||governor==='firstDiamond'?'firstDiamond':governor==='aristocrats'?'aristocrats':null);
+            if(pearlOwner){const pearlMultiplier=getPearlMultiplierFor(pearlOwner);if(pearlMultiplier>1)Object.keys(result).forEach(key=>result[key]*=pearlMultiplier);}
             const admin = getAdminStats();
             if (admin.overload > 0) {
                 const penalty = Math.max(0.1, 1 - admin.penaltyPct / 100);
