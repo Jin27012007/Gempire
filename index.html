@@ -667,6 +667,7 @@
                     <button id="governance-section-council" class="btn active" onclick="switchGovernanceSection('council')">🏛 Conselho</button>
                     <button id="governance-section-demantoid" class="btn hidden" onclick="switchGovernanceSection('demantoid')">🔬 Demantoide</button>
                     <button id="governance-section-hessonite" class="btn hidden" onclick="switchGovernanceSection('hessonite')">⚔️ Hessonita</button>
+                    <button id="governance-section-morganite" class="btn hidden" onclick="switchGovernanceSection('morganite')">🏛 Morganita</button>
                 </nav>
             </header>
             <div id="governance-content"></div>
@@ -1485,6 +1486,7 @@
             drawerOpen: true,
             drawerTab: 'context',    // 'context' | 'chronicle' | 'dynasty'
             governanceSection: 'council',
+            morganiteArchitecture: {assignments:{},proposals:[],activeProjects:[],completed:[],nextId:1,proposalTimers:{},selectedProjects:{},uiAccumulator:0},
             era: 0,
             cycleCount: 1,
             essence: { white: 0, yellow: 0, blue: 0, pink: 0 },
@@ -2082,22 +2084,269 @@
             updateHUD();
         }
 
+        const MORGANITE_ARCHITECTURE_PROJECTS = [
+            {id:'imperial_gardens',name:'Jardins Imperiais',category:'Paisagismo de luxo',description:'Jardins ornamentais, espelhos d’água e terraços botânicos que tornam a colônia mais confortável e reduzem tensões sociais.',minerals:120,tech:20,beryllium:5,pink:5,duration:90,prestige:8,comfort:8,dissentRelief:2,orderBonus:0},
+            {id:'aristocratic_residence',name:'Residência Aristocrática',category:'Habitação de alto padrão',description:'Residência cerimonial para Gems de alta patente, com espaços privados e serviços de corte. Eleva o conforto e reduz a dissidência local.',minerals:180,tech:35,beryllium:8,pink:8,duration:120,prestige:10,comfort:14,dissentRelief:5,orderBonus:0},
+            {id:'imperial_monument',name:'Monumento Imperial',category:'Marco de autoridade',description:'Obra monumental dedicada à Diamante governante. Aumenta o prestígio planetário e reforça a Ordem Imperial.',minerals:230,tech:45,beryllium:10,pink:10,duration:160,prestige:22,comfort:3,dissentRelief:0,orderBonus:2},
+            {id:'reception_palace',name:'Palácio de Recepção',category:'Diplomacia e cerimônia',description:'Complexo luxuoso para receber Diamantes, aristocratas e delegações. Projeta poder e prestígio, além de reforçar a Ordem Imperial.',minerals:320,tech:70,beryllium:15,pink:15,duration:210,prestige:20,comfort:8,dissentRelief:3,orderBonus:2},
+            {id:'leisure_complex',name:'Complexo de Lazer',category:'Bem-estar da colônia',description:'Instalações de recreação, salões e áreas de convivência. Melhora o conforto e reduz a insatisfação ao longo do tempo.',minerals:250,tech:50,beryllium:12,pink:12,duration:170,prestige:14,comfort:18,dissentRelief:4,orderBonus:1}
+        ];
+
+        function ensureMorganiteArchitectureState() {
+            const current = state.morganiteArchitecture || (state.morganiteArchitecture = {});
+            current.assignments = current.assignments && typeof current.assignments === 'object' ? current.assignments : {};
+            current.proposals = Array.isArray(current.proposals) ? current.proposals : [];
+            current.activeProjects = Array.isArray(current.activeProjects) ? current.activeProjects : [];
+            current.completed = Array.isArray(current.completed) ? current.completed : [];
+            current.proposalTimers = current.proposalTimers && typeof current.proposalTimers === 'object' ? current.proposalTimers : {};
+            current.selectedProjects = current.selectedProjects && typeof current.selectedProjects === 'object' ? current.selectedProjects : {};
+            current.nextId = Math.max(1, Math.floor(Number(current.nextId)||1));
+            current.uiAccumulator = Math.max(0, Number(current.uiAccumulator)||0);
+            return current;
+        }
+
+        function getMorganiteProjectDefinition(projectId) {
+            return MORGANITE_ARCHITECTURE_PROJECTS.find(project => project.id === projectId) || null;
+        }
+
+        function getMorganiteAssignedCount(planetId) {
+            const architecture = ensureMorganiteArchitectureState();
+            return Math.max(0, Math.floor(Number(architecture.assignments[planetId])||0));
+        }
+
+        function getMorganiteReservedCount(planetId) {
+            const architecture = ensureMorganiteArchitectureState();
+            const active = architecture.activeProjects.filter(project => project && project.planetId === planetId).length;
+            const pending = architecture.proposals.filter(proposal => proposal && proposal.status === 'pending' && proposal.planetId === planetId).length;
+            return active + pending;
+        }
+
+        function getMorganiteFreeArchitects(planetId) {
+            return Math.max(0, getMorganiteAssignedCount(planetId) - getMorganiteReservedCount(planetId));
+        }
+
+        function getMorganiteAvailableProjects(planetId) {
+            const architecture = ensureMorganiteArchitectureState();
+            const used = new Set();
+            architecture.completed.filter(project => project && project.planetId === planetId).forEach(project => used.add(project.projectId));
+            architecture.activeProjects.filter(project => project && project.planetId === planetId).forEach(project => used.add(project.projectId));
+            architecture.proposals.filter(proposal => proposal && proposal.status === 'pending' && proposal.planetId === planetId).forEach(proposal => used.add(proposal.projectId));
+            return MORGANITE_ARCHITECTURE_PROJECTS.filter(project => !used.has(project.id));
+        }
+
+        function getMorganitePlanetStats(planetId) {
+            const architecture = ensureMorganiteArchitectureState();
+            const completed = architecture.completed.filter(project => project && project.planetId === planetId);
+            return completed.reduce((stats, record) => {
+                const definition = getMorganiteProjectDefinition(record.projectId);
+                if (!definition) return stats;
+                stats.prestige += definition.prestige;
+                stats.comfort += definition.comfort;
+                stats.projects += 1;
+                return stats;
+            }, {prestige:0,comfort:0,projects:0});
+        }
+
+        function assignMorganiteToPlanet(planetId, amount) {
+            const architecture = ensureMorganiteArchitectureState();
+            const planet = PLANETS[planetId];
+            if (!planet || !planet.colonized) { setStatusTicker('A Morganita só pode ser designada a uma colônia ativa.'); return; }
+            const delta = Math.sign(Number(amount)||0);
+            if (!delta) return;
+            const current = getMorganiteAssignedCount(planetId);
+            if (delta > 0) {
+                const totalAssigned = Object.values(architecture.assignments).reduce((sum,value)=>sum+Math.max(0,Math.floor(Number(value)||0)),0);
+                const totalMorganites = Math.max(0,Math.floor(Number(state.census.morganite)||0));
+                if (totalAssigned >= totalMorganites) { setStatusTicker('Não há Morganitas livres para essa designação.'); return; }
+                architecture.assignments[planetId] = current + 1;
+                architecture.proposalTimers[planetId] = 0;
+                setStatusTicker('Uma Morganita foi designada para a arquitetura de ' + planet.shortName + '.');
+            } else {
+                if (current <= getMorganiteReservedCount(planetId)) { setStatusTicker('Essa Morganita está vinculada a uma proposta ou obra em andamento.'); return; }
+                architecture.assignments[planetId] = current - 1;
+                if (!architecture.assignments[planetId]) delete architecture.assignments[planetId];
+                setStatusTicker('Uma Morganita foi liberada de ' + planet.shortName + '.');
+            }
+            renderMorganiteArchitectureTab(document.getElementById('governance-content'));
+        }
+
+        function setMorganiteSelectedProject(planetId, projectId) {
+            const architecture = ensureMorganiteArchitectureState();
+            if (!getMorganiteAvailableProjects(planetId).some(project=>project.id===projectId)) return;
+            architecture.selectedProjects[planetId] = projectId;
+        }
+
+        function createMorganiteProposal(planetId, requestedProjectId) {
+            const architecture = ensureMorganiteArchitectureState();
+            const planet = PLANETS[planetId];
+            if (!planet || !planet.colonized) { setStatusTicker('A Morganita precisa estar vinculada a uma colônia ativa.'); return false; }
+            if (getMorganiteFreeArchitects(planetId) < 1) { setStatusTicker('Não há Morganita livre nessa colônia para elaborar outro projeto.'); return false; }
+            const available = getMorganiteAvailableProjects(planetId);
+            if (!available.length) { setStatusTicker('Essa colônia já concluiu todos os projetos arquitetônicos disponíveis.'); return false; }
+            const project = requestedProjectId ? available.find(item=>item.id===requestedProjectId) : available[(architecture.nextId-1)%available.length];
+            if (!project) { setStatusTicker('Esse projeto já foi concluído, proposto ou está em construção nessa colônia.'); return false; }
+            const proposal = {id:architecture.nextId++,planetId,projectId:project.id,status:'pending',createdAt:Number(state.cycleCount)||1,source:requestedProjectId?'solicitado pela Diamante':'iniciativa da Morganita'};
+            architecture.proposals.unshift(proposal);
+            if (architecture.proposals.length > 60) architecture.proposals.length = 60;
+            architecture.proposalTimers[planetId] = 0;
+            addChronicle('Proposta arquitetônica recebida', 'A Morganita de ' + planet.shortName + ' apresentou o projeto ' + project.name + ' para avaliação da Diamante.', 'Aguardando aprovação imperial');
+            setStatusTicker('A Morganita de ' + planet.shortName + ' apresentou: ' + project.name + '.');
+            renderMorganiteArchitectureTab(document.getElementById('governance-content'));
+            return true;
+        }
+
+        function requestMorganiteProposal(planetId) {
+            const architecture = ensureMorganiteArchitectureState();
+            const chosen = architecture.selectedProjects[planetId] || '';
+            createMorganiteProposal(planetId, chosen || null);
+        }
+
+        function decideMorganiteProposal(proposalId, decision) {
+            const architecture = ensureMorganiteArchitectureState();
+            const proposal = architecture.proposals.find(item=>item && Number(item.id)===Number(proposalId));
+            if (!proposal || proposal.status !== 'pending') return;
+            const definition = getMorganiteProjectDefinition(proposal.projectId);
+            const planet = PLANETS[proposal.planetId];
+            if (!definition || !planet || !planet.colonized) { setStatusTicker('A colônia ou o projeto dessa proposta não está mais disponível.'); return; }
+            if (decision === 'reject') {
+                proposal.status = 'rejected';
+                proposal.decidedAt = Number(state.cycleCount)||1;
+                addChronicle('Projeto arquitetônico rejeitado', 'A Diamante recusou o projeto ' + definition.name + ' proposto para ' + planet.shortName + '.', 'Investimento não realizado');
+                setStatusTicker('Projeto rejeitado. Nenhum recurso foi consumido.');
+                renderMorganiteArchitectureTab(document.getElementById('governance-content'));
+                return;
+            }
+            if (decision !== 'approve') return;
+            if (getMorganiteAssignedCount(proposal.planetId) < getMorganiteReservedCount(proposal.planetId)) { setStatusTicker('Não há uma Morganita disponível para supervisionar a obra.'); return; }
+            if (freeGemWorkers('bismuth') < 1) { setStatusTicker('É necessária uma Bismuto livre para executar o projeto.'); return; }
+            const refinedBeryllium = Math.max(0,Number(state.refinedResources && state.refinedResources.beryllium)||0);
+            if ((Number(state.minerals)||0) < definition.minerals || (Number(state.tech)||0) < definition.tech || (Number(state.essence && state.essence.pink)||0) < definition.pink || refinedBeryllium < definition.beryllium) {
+                setStatusTicker('Recursos insuficientes. A proposta continua aguardando aprovação.');
+                return;
+            }
+            state.minerals = Math.max(0,Number(state.minerals)||0)-definition.minerals;
+            state.tech = Math.max(0,Number(state.tech)||0)-definition.tech;
+            state.essence.pink = Math.max(0,Number(state.essence && state.essence.pink)||0)-definition.pink;
+            state.refinedResources.beryllium = refinedBeryllium-definition.beryllium;
+            proposal.status = 'approved';
+            proposal.decidedAt = Number(state.cycleCount)||1;
+            architecture.activeProjects.push({id:proposal.id,proposalId:proposal.id,planetId:proposal.planetId,projectId:proposal.projectId,progress:0,duration:definition.duration,startedAt:Number(state.cycleCount)||1});
+            addChronicle('Obra arquitetônica aprovada', 'A Diamante autorizou ' + definition.name + ' em ' + planet.shortName + '. Uma Bismuto iniciou a execução sob supervisão Morganita.', 'Investimento aprovado');
+            setStatusTicker('Projeto aprovado. A Morganita iniciou a supervisão de ' + definition.name + '.');
+            updateHUD();
+            renderMorganiteArchitectureTab(document.getElementById('governance-content'));
+        }
+
+        function processMorganiteArchitecture(dt) {
+            const architecture = ensureMorganiteArchitectureState();
+            for (const planet of Object.values(PLANETS)) {
+                if (!planet || !planet.colonized) continue;
+                const stats = getMorganitePlanetStats(planet.id);
+                if (stats.comfort > 0 && Number(planet.dissent) > 0) {
+                    planet.dissent = Math.max(0,Number(planet.dissent)-Math.min(0.02,stats.comfort*0.00035)*dt);
+                }
+            }
+            const finished = [];
+            architecture.activeProjects.forEach(project => {
+                if (!project || !PLANETS[project.planetId]) return;
+                const definition = getMorganiteProjectDefinition(project.projectId);
+                if (!definition) { finished.push(project); return; }
+                project.progress = Math.min(100,(Number(project.progress)||0)+dt*100/Math.max(1,Number(project.duration)||definition.duration));
+                if (project.progress >= 100) finished.push(project);
+            });
+            finished.forEach(project => {
+                const definition = getMorganiteProjectDefinition(project.projectId);
+                const planet = PLANETS[project.planetId];
+                architecture.activeProjects = architecture.activeProjects.filter(item=>item!==project);
+                if (!definition || !planet) return;
+                architecture.completed.unshift({id:project.id,planetId:project.planetId,projectId:project.projectId,completedAt:Number(state.cycleCount)||1});
+                if (architecture.completed.length > 100) architecture.completed.length = 100;
+                planet.dissent = Math.max(0,(Number(planet.dissent)||0)-definition.dissentRelief);
+                state.order = Math.min(100,(Number(state.order)||0)+definition.orderBonus);
+                addChronicle('Projeto arquitetônico concluído', definition.name + ' foi concluído em ' + planet.shortName + ' sob supervisão Morganita.', '+' + definition.prestige + ' prestígio • +' + definition.comfort + ' conforto');
+                setStatusTicker(definition.name + ' concluído em ' + planet.shortName + '. Prestígio e conforto planetário aumentaram.');
+                updateHUD();
+            });
+            for (const planetId of Object.keys(architecture.assignments)) {
+                if (!PLANETS[planetId] || !PLANETS[planetId].colonized || getMorganiteFreeArchitects(planetId)<1) continue;
+                const hasPending = architecture.proposals.some(proposal=>proposal && proposal.status==='pending' && proposal.planetId===planetId);
+                if (hasPending) continue;
+                architecture.proposalTimers[planetId] = (Number(architecture.proposalTimers[planetId])||0)+dt;
+                if (architecture.proposalTimers[planetId] >= 120 && getMorganiteAvailableProjects(planetId).length) createMorganiteProposal(planetId,null);
+            }
+            if (state.currentScreen === 'governance' && state.governanceSection === 'morganite') {
+                architecture.uiAccumulator += dt;
+                if (architecture.uiAccumulator >= 0.8) {
+                    architecture.uiAccumulator = 0;
+                    renderMorganiteArchitectureTab(document.getElementById('governance-content'));
+                }
+            } else {
+                architecture.uiAccumulator = 0;
+            }
+        }
+
+        function renderMorganiteArchitectureTab(container) {
+            if (!container) return;
+            if (Number(state.census && state.census.morganite||0) < 1) {
+                container.innerHTML = '<div class="card"><div class="card-title">Escritório de Arquitetura</div><p class="governance-muted">A central só é desbloqueada quando o Império possui pelo menos uma Morganita.</p></div>';
+                return;
+            }
+            const architecture = ensureMorganiteArchitectureState();
+            const totalMorganites = Math.max(0,Math.floor(Number(state.census.morganite)||0));
+            const assigned = Object.values(architecture.assignments).reduce((sum,value)=>sum+Math.max(0,Math.floor(Number(value)||0)),0);
+            const activeCount = architecture.activeProjects.length;
+            const pendingCount = architecture.proposals.filter(proposal=>proposal && proposal.status==='pending').length;
+            const totalPrestige = architecture.completed.reduce((sum,record)=>sum+(getMorganiteProjectDefinition(record.projectId)?.prestige||0),0);
+            const planetCards = Object.values(PLANETS).filter(planet=>planet && planet.colonized).map(planet=>{
+                const assignedHere = getMorganiteAssignedCount(planet.id);
+                const reserved = getMorganiteReservedCount(planet.id);
+                const freeHere = getMorganiteFreeArchitects(planet.id);
+                const stats = getMorganitePlanetStats(planet.id);
+                const availableProjects = getMorganiteAvailableProjects(planet.id);
+                const chosen = availableProjects.some(project=>project.id===architecture.selectedProjects[planet.id]) ? architecture.selectedProjects[planet.id] : (availableProjects[0]?.id||'');
+                if (chosen) architecture.selectedProjects[planet.id] = chosen;
+                const options = availableProjects.map(project=>'<option value="'+project.id+'" '+(chosen===project.id?'selected':'')+'>'+project.name+'</option>').join('');
+                const pending = architecture.proposals.filter(proposal=>proposal && proposal.status==='pending' && proposal.planetId===planet.id).map(proposal=>{
+                    const definition = getMorganiteProjectDefinition(proposal.projectId);
+                    if (!definition) return '';
+                    return '<div class="stat-box" style="margin-top:7px;border-left:3px solid #f0a6c2"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>'+definition.name+'</b><span class="badge">Aguardando Diamante</span></div><small>'+definition.category+' · '+proposal.source+'</small><p class="governance-muted">'+definition.description+'</p><small class="governance-muted">Investimento: '+definition.minerals+' minerais · '+definition.tech+' tecnologia · '+definition.beryllium+' Berílio refinado · '+definition.pink+' Essência Rosa · '+definition.duration+'s de obra</small><div style="display:flex;gap:6px;margin-top:7px"><button class="btn btn-emerald" onclick="decideMorganiteProposal('+proposal.id+',&#39;approve&#39;)">Aprovar investimento</button><button class="btn" onclick="decideMorganiteProposal('+proposal.id+',&#39;reject&#39;)">Rejeitar</button></div></div>';
+                }).join('');
+                const active = architecture.activeProjects.filter(project=>project && project.planetId===planet.id).map(project=>{
+                    const definition = getMorganiteProjectDefinition(project.projectId);
+                    if (!definition) return '';
+                    const progress = Math.max(0,Math.min(100,Number(project.progress)||0));
+                    return '<div class="stat-box" style="margin-top:7px"><div style="display:flex;justify-content:space-between;gap:8px"><b>'+definition.name+'</b><b>'+Math.floor(progress)+'%</b></div><div class="governance-meter"><i style="width:'+progress+'%"></i></div><small class="governance-muted">Uma Bismuto executa; a Morganita supervisiona.</small></div>';
+                }).join('');
+                const completed = architecture.completed.filter(record=>record && record.planetId===planet.id).slice(0,4).map(record=>{
+                    const definition = getMorganiteProjectDefinition(record.projectId);
+                    return definition ? '<div class="stat-box" style="margin-top:5px"><b>'+definition.name+'</b><small class="governance-muted">+'+definition.prestige+' prestígio · +'+definition.comfort+' conforto</small></div>' : '';
+                }).join('');
+                const disabledRemove = assignedHere<=reserved;
+                return '<section class="card"><div class="card-header"><span class="card-title">'+escapeHTML(planet.shortName||planet.name)+'</span><span class="badge">'+assignedHere+' Morganita(s)</span></div><div class="grid-2"><div class="stat-box">Prestígio arquitetônico: <b>'+stats.prestige+'</b></div><div class="stat-box">Conforto: <b>'+stats.comfort+'</b></div><div class="stat-box">Dissidência atual: <b>'+Math.round(Number(planet.dissent)||0)+'/100</b></div><div class="stat-box">Arquitetas livres: <b>'+freeHere+'</b></div></div><div style="display:flex;gap:6px;margin:8px 0"><button class="btn" onclick="assignMorganiteToPlanet(&#39;'+planet.id+'&#39;,1)" '+(assigned>=totalMorganites?'disabled':'')+'>+ Designar Morganita</button><button class="btn" onclick="assignMorganiteToPlanet(&#39;'+planet.id+'&#39;,-1)" '+(disabledRemove?'disabled':'')+'>− Liberar</button></div><label style="display:block;font-size:10px;color:#cbd5e1;margin:8px 0 4px">Projeto que a Morganita deve desenvolver</label><div style="display:flex;gap:6px"><select style="flex:1;min-width:0" onchange="setMorganiteSelectedProject(&#39;'+planet.id+'&#39;,this.value)">'+(options||'<option value="">Todos os projetos concluídos</option>')+'</select><button class="btn btn-pink" onclick="requestMorganiteProposal(&#39;'+planet.id+'&#39;)" '+(freeHere<1||!availableProjects.length?'disabled':'')+'>Solicitar proposta</button></div><small class="governance-muted">A Morganita também pode apresentar propostas por iniciativa própria. Nenhuma obra de luxo começa sem aprovação da Diamante.</small>'+pending+(active?'<h4 style="margin-top:12px;color:#fbcfe8">Obras em andamento</h4>'+active:'')+(completed?'<h4 style="margin-top:12px;color:#fbcfe8">Obras concluídas</h4>'+completed:'')+'</section>';
+            }).join('');
+            const uncolonized = Object.values(PLANETS).filter(planet=>planet && !planet.colonized).map(planet=>'<span class="badge">'+escapeHTML(planet.shortName||planet.name)+' · sem colônia</span>').join(' ');
+            container.innerHTML = '<section class="card card-cyan"><div class="card-header"><span class="card-title title-font">🏛 Escritório de Arquitetura Morganita</span><span class="badge">Desbloqueado</span></div><p class="governance-muted">As Morganitas projetam obras de luxo, organizam as Bismutos e apresentam investimentos à Diamante. A aprovação imperial é obrigatória antes de qualquer obra especial.</p><div class="grid-2"><div class="stat-box">Morganitas disponíveis: <b>'+totalMorganites+'</b></div><div class="stat-box">Designadas: <b>'+assigned+'</b> · Livres: <b>'+Math.max(0,totalMorganites-assigned)+'</b></div><div class="stat-box">Propostas pendentes: <b>'+pendingCount+'</b></div><div class="stat-box">Obras em andamento: <b>'+activeCount+'</b></div><div class="stat-box">Prestígio arquitetônico acumulado: <b>'+totalPrestige+'</b></div><div class="stat-box">Ordem Imperial: <b>'+Math.round(Number(state.order)||0)+'%</b></div></div></section>'+planetCards+'<section class="card"><div class="card-title">Especialidades arquitetônicas</div>'+MORGANITE_ARCHITECTURE_PROJECTS.map(project=>'<div class="stat-box" style="margin-top:6px"><b>'+project.name+'</b><small class="governance-muted">'+project.description+'</small><small class="governance-muted">Efeito ao concluir: +'+project.prestige+' prestígio · +'+project.comfort+' conforto'+(project.dissentRelief?' · −'+project.dissentRelief+' dissidência':'')+(project.orderBonus?' · +'+project.orderBonus+' Ordem Imperial':'')+'</small></div>').join('')+'</section>'+ (uncolonized?'<section class="card"><div class="card-title">Planetas ainda sem colônia</div><div style="display:flex;gap:5px;flex-wrap:wrap">'+uncolonized+'</div><small class="governance-muted">Uma Morganita só pode ser designada depois que a colônia estiver estabelecida.</small></section>':'');
+        }
+
         function switchGovernanceSection(section) {
-            const allowed = ['council', 'demantoid', 'hessonite'];
+            const allowed = ['council', 'demantoid', 'hessonite', 'morganite'];
             if (!allowed.includes(section)) section = 'council';
             if (section === 'demantoid' && !isInjectorManagerActive()) section = 'council';
             if (section === 'hessonite' && !(window.isHessoniteCommandActive && window.isHessoniteCommandActive())) section = 'council';
+            if (section === 'morganite' && Number(state.census.morganite||0)<1) section = 'council';
             state.governanceSection = section;
             ['council', 'demantoid', 'hessonite'].forEach(key => {
                 const button = document.getElementById('governance-section-' + key);
                 if (!button) return;
                 button.classList.toggle('hidden', key === 'demantoid' && !isInjectorManagerActive());
                 button.classList.toggle('hidden', key === 'hessonite' && !(window.isHessoniteCommandActive && window.isHessoniteCommandActive()));
+                button.classList.toggle('hidden', key === 'morganite' && Number(state.census.morganite||0)<1);
                 button.classList.toggle('active', key === section);
             });
             const content = document.getElementById('governance-content');
             if (!content) return;
             if (section === 'demantoid') renderDemantoidManagementTab(content);
+            else if (section === 'morganite') renderMorganiteArchitectureTab(content);
             else if (section === 'hessonite') {
                 if (window.renderHessoniteMilitaryTab) window.renderHessoniteMilitaryTab(content);
                 else content.innerHTML = '<div class="card">O módulo militar ainda não foi carregado.</div>';
@@ -2501,7 +2750,9 @@
             const assignedToStructures = Object.values(state.structureAssignments || {}).reduce((sum, jobs) => sum + (Number(jobs && jobs[gemType]) || 0), 0);
             const queue=Array.isArray(state.constructionQueue)?state.constructionQueue:(state.construction&&state.construction.active?[state.construction]:[]);
             const assignedToConstruction=queue.filter(job=>job&&job.active&&job.builder===gemType).length;
-            return assignedToStructures + assignedToConstruction;
+            const architecture=state.morganiteArchitecture||{};
+            const architectureBuilders=gemType==='bismuth'&&Array.isArray(architecture.activeProjects)?architecture.activeProjects.length:0;
+            return assignedToStructures + assignedToConstruction + architectureBuilders;
         }
         function freeGemWorkers(gemType) { return Math.max(0, (Number(state.census && state.census[gemType]) || 0) - totalAssignedWorkers(gemType)); }
         function manualMineralGatheringCanEnd() {
@@ -3141,6 +3392,7 @@
             updateRedEyeMission(dt);
             updateGalaxyWarpExpeditions(dt);
             updateMatriarchChambers(dt);
+            processMorganiteArchitecture(dt);
             if(Number(state.census.morganite||0)>0&&state.morganiteAutoBuild&&freeGemWorkers('bismuth')>0){
                 const next=STRUCTURE_CATALOG.find(def=>structureCount(def.id)<(def.maxCount||1)&&canBuildStructure(def)==='');
                 if(next)buildStructure(next.id);
@@ -6893,8 +7145,9 @@ function drawColony(time){
                 state.constructionQueue=Array.isArray(state.constructionQueue)?state.constructionQueue:(state.construction&&state.construction.active?[state.construction]:[]);
                 state.construction=state.constructionQueue[0]||null;
                 state.currentScreen='throne';
-                state.governanceSection = ['council','demantoid','hessonite'].includes(state.governanceSection) ? state.governanceSection : 'council';
+                state.governanceSection = ['council','demantoid','hessonite','morganite'].includes(state.governanceSection) ? state.governanceSection : 'council';
                 state.morganiteAutoBuild = state.morganiteAutoBuild !== false;
+                ensureMorganiteArchitectureState();
                 state.structures.diamond_quarters=Number(state.structures.diamond_quarters)||0;
                 state.structures.lunar_base=Number(state.structures.lunar_base)||0;
                 state.logisticsMaintenanceTimer=Math.max(0,Number(state.logisticsMaintenanceTimer)||0);
