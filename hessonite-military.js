@@ -208,14 +208,7 @@
             planet.dissent = Math.max(0, (Number(planet.dissent) || 0) - dt * item.effectiveSoldiers * 0.01);
         });
 
-        military.uiAccumulator += dt;
-        if (military.uiAccumulator >= 1.5) {
-            military.uiAccumulator %= 1.5;
-            if (state.drawerOpen && state.drawerTab === 'hessonite') {
-                const body = document.getElementById('drawer-body');
-                if (body) renderHessoniteMilitaryTab(body);
-            }
-        }
+        // Não recria o painel durante a simulação: isso preserva foco e valores enquanto o jogador edita ordens.
     }
 
     function getPlanetOptionsHtml(selectedPlanetId) {
@@ -311,11 +304,17 @@
             const armySoldiers = members.reduce(function (sum, battalion) {
                 return sum + Math.max(0, Number(battalion.soldiers) || 0);
             }, 0);
+            const armyEffective = members.reduce(function (sum, battalion) {
+                return sum + (effectiveById.get(battalion.id) || 0);
+            }, 0);
+            const dissent = Math.max(0, Math.min(100, Number(planet && planet.dissent) || 0));
             return '<div class="card"><div class="card-header"><span class="card-title">Exército #' +
                 String(Number(army.number) || 1).padStart(2, '0') + ' · ' +
                 escapeMilitaryHtml(planet ? (planet.shortName || planet.name) : army.planetId) +
                 '</span><span class="badge">' + members.length + ' batalhão(ões)</span></div>' +
-                '<div class="stat-box">Força designada: <b>' + armySoldiers + ' soldados</b></div>' +
+                '<div class="grid-2"><div class="stat-box">Força designada: <b>' + armySoldiers + '</b></div>' +
+                '<div class="stat-box">Força mobilizada: <b>' + armyEffective + '</b></div></div>' +
+                '<div class="stat-box">Dissidência local: <b>' + dissent.toFixed(1) + '%</b></div>' +
                 battalionCards + '</div>';
         }).join('');
 
