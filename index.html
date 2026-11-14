@@ -5147,6 +5147,7 @@ ${hasAristocrats ? `
                     }
                 }else if(stage==='terrain'){
                     const requiredWater=2500*scale;
+                    if(planet.hasOcean===true&&planet.aquamarineWaterAccessInitialized!==true){planet.waterReserve=Math.max(Number(planet.waterReserve)||0,requiredWater*2);planet.aquamarineWaterAccessInitialized=true;}
                     if(Number(planet.waterReserve||0)<requiredWater){teams.forEach(team=>{team.status='interrupted';team.reason='Reserva hídrica insuficiente: são necessárias '+requiredWater+' unidades de água.';});return;}
                     if(!planet.aquamarineWork||planet.aquamarineWork.stage!=='terrain')planet.aquamarineWork={stage:'terrain',progress:0};
                     const duration=240*scale/Math.max(1,totalPower/4);
