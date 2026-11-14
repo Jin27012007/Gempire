@@ -672,6 +672,7 @@
                     <button id="tab-governance" class="btn" onclick="switchDrawerTab('governance')">🏛 Governo</button>
                     <button id="tab-social" class="btn" onclick="switchDrawerTab('social')">♡ Convívio</button>
                     <button id="tab-demantoid" class="btn hidden" onclick="switchDrawerTab('demantoid')">🔬 Demantoide</button>
+                    <button id="tab-hessonite" class="btn hidden" onclick="switchDrawerTab('hessonite')">⚔️ Hessonita</button>
                 </div>
                 <button class="btn" onclick="toggleDrawer()" title="Fechar Painel">✕</button>
             </div>
@@ -1468,6 +1469,7 @@
             ships: 0,
             structures: {},
             structureAssignments: {},
+            military: { initialized: false, armies: [], battalions: [], nextArmyNumber: 1, uiAccumulator: 0 },
             construction: null,
             morganiteAutoBuild: true,
             gemTransfers: [],
@@ -2057,6 +2059,10 @@
                 setStatusTicker('A aba da Demantoide exige ao menos uma Demantoide operacional.', true);
                 return;
             }
+            if (tabId === 'hessonite' && !window.isHessoniteCommandActive()) {
+                setStatusTicker('A central militar exige ao menos uma Hessonita no Império.', true);
+                return;
+            }
             state.drawerTab = tabId;
             if (!state.drawerOpen) toggleDrawer(true);
             syncDrawerTabButtons();
@@ -2069,10 +2075,12 @@
 
         function syncDrawerTabButtons() {
             if (!isInjectorManagerActive() && state.drawerTab === 'demantoid') state.drawerTab = 'context';
-            ['context', 'chronicle', 'dynasty', 'structures', 'guide', 'population', 'quarters', 'governance', 'social', 'demantoid'].forEach(t => {
+            if (!window.isHessoniteCommandActive() && state.drawerTab === 'hessonite') state.drawerTab = 'context';
+            ['context', 'chronicle', 'dynasty', 'structures', 'guide', 'population', 'quarters', 'governance', 'social', 'demantoid', 'hessonite'].forEach(t => {
                 const btn = document.getElementById('tab-' + t);
                 if (!btn) return;
                 if (t === 'demantoid') btn.classList.toggle('hidden', !isInjectorManagerActive());
+                if (t === 'hessonite') btn.classList.toggle('hidden', !window.isHessoniteCommandActive());
                 btn.classList.toggle('active', state.drawerTab === t);
             });
         }
@@ -2159,6 +2167,10 @@
         function renderDrawerContent() {
             const body = document.getElementById('drawer-body');
             if (!body) return;
+            const hessoniteTab = document.getElementById('tab-hessonite');
+            const hessoniteAvailable = window.isHessoniteCommandActive();
+            if (hessoniteTab) hessoniteTab.classList.toggle('hidden', !hessoniteAvailable);
+            if (!hessoniteAvailable && state.drawerTab === 'hessonite') state.drawerTab = 'context';
             if(document.activeElement&&/^injector-order-context-/.test(document.activeElement.id||''))return;
             if (state.drawerTab === 'structures') { renderStructuresTab(body); return; }
             if (state.drawerTab === 'guide') { renderGemGuide(body); return; }
@@ -2169,6 +2181,7 @@
             if (state.drawerTab === 'governance') { renderGovernanceTab(body); return; }
             if (state.drawerTab === 'social') { renderSocialTab(body); return; }
             if (state.drawerTab === 'demantoid') { renderDemantoidManagementTab(body); return; }
+            if (state.drawerTab === 'hessonite') { window.renderHessoniteMilitaryTab(body); return; }
             // O painel de fundação pertence exclusivamente à Era Primitiva.
             // Depois da primeira Gem, o Contexto volta a refletir a tela ativa
             // (Trono, Mapa Estelar ou Globo 360°), sem recriar a coleta manual.
@@ -3091,14 +3104,16 @@
                 state.resourceChartAccumulator=(Number(state.resourceChartAccumulator)||0)+dt;
                 if(state.resourceChartAccumulator>=1){state.resourceChartAccumulator=0;renderColonyContext(document.getElementById('drawer-body'));}
             }
-            // Todos os Quartzos mineram automaticamente assim que o Extrator é operado.
-            // Cada Ágata acelera até 20 Quartzos: 10s -> 5s (máximo 2×).
+            // A central militar divide os Quartzos entre extração e patrulha quando há Hessonitas.
+            // Sem Hessonita, o comportamento legado de extração automática é preservado.
             if(structureCount('mineral_extractor')>0){
-                const quartz=Math.max(0,Math.floor(Number(state.census.quartz)||0));
+                const planet=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld;
+                const quartz=window.getHessoniteExtractionAllocation
+                    ? Math.max(0,Math.floor(window.getHessoniteExtractionAllocation(planet.id, state.census.quartz)))
+                    : Math.max(0,Math.floor(Number(state.census.quartz)||0));
                 const jobs=state.structureAssignments&&state.structureAssignments.mineral_extractor||{};
                 const peridot=Math.max(0,Number(jobs.peridot)||0);
                 if(peridot>=1&&quartz>0){
-                    const planet=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld;
                     const agates=Math.max(0,Math.floor(Number(state.census.agate)||0));
                     const accelerated=Math.min(quartz,agates*20);
                     const regular=quartz-accelerated;
@@ -3140,6 +3155,7 @@
                     if(regular===0)state.mineralExtractorRegularAccumulator=0;
                 }
             }
+            if (window.updateHessonitePatrols) window.updateHessonitePatrols(dt);
             if (structureIsOperational('reactor')) state.energy += dt * 0.35;
         }
         function updateStructureUI() {
@@ -6795,6 +6811,9 @@ function drawColony(time){
                 state.structures.royal_palace=(Number(state.structures.royal_palace)||0)+(Number(state.structures.planetary_network)||0);delete state.structures.planetary_network;
                 delete state.structures.administration_center;delete state.structures.terraformer;
                 state.structureAssignments = state.structureAssignments || {};
+                state.military = Object.assign({ initialized: false, armies: [], battalions: [], nextArmyNumber: 1, uiAccumulator: 0 }, state.military || {});
+                state.military.armies = Array.isArray(state.military.armies) ? state.military.armies : [];
+                state.military.battalions = Array.isArray(state.military.battalions) ? state.military.battalions : [];
                 // Palácio e Galaxy Warp não consomem Gems operadoras; libera designações antigas.
                 delete state.structureAssignments.royal_palace;
                 delete state.structureAssignments.galaxy_warp;
@@ -6973,6 +6992,7 @@ function drawColony(time){
             initializeGame();
         }
     </script>
+    <script src="hessonite-military.js"></script>
     <script src="diamond-governance.js"></script>
     <script src="diamond-social.js"></script>
     <script src="diamond-chat.js"></script>
