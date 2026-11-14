@@ -4896,7 +4896,9 @@ ${hasAristocrats ? `
             return current;
         }
         function getAquamarinePlanetScale(planet){
-            const size=String(planet&&planet.resourceSize||'').toLowerCase();
+            const radius=Number(planet&&planet.sphereRadius)||0;
+            if(radius>0){if(radius<=24)return 1;if(radius<=29)return 2;return 4;}
+            const size=String(planet&&(planet.planetSize||planet.resourceSize)||'').toLowerCase();
             if(size.includes('pequen'))return 1;
             if(size.includes('méd')||size.includes('med'))return 2;
             return 4;
