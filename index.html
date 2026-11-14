@@ -2746,8 +2746,8 @@
         // 10A. Contexto da Câmara do Trono
 
         function structureCount(id) { return Math.max(0, Number(state.structures && state.structures[id]) || 0); }
-        function redEyeCountForPlanet(planetId){const planet=PLANETS[planetId];if(!planet)return 0;if(!Number.isFinite(Number(planet.redEyesBuilt)))planet.redEyesBuilt=planetId==='homeworld'?Math.max(0,Number(state.structures?.red_eye)||0):0;return Math.max(0,Math.floor(Number(planet.redEyesBuilt)||0));}
-        function getTotalRedEyeCount(){return Math.max(0,Math.floor(Number(state.structures?.red_eye)||0))+Object.entries(PLANETS).reduce((sum,[id,p])=>sum+(id==='homeworld'?0:Math.max(0,Math.floor(Number(p.redEyesBuilt)||0))),0);}
+        function redEyeCountForPlanet(planetId){const planet=PLANETS[planetId];if(!planet)return 0;if(planetId==='homeworld')return Math.max(0,Math.floor(Number(state.structures?.red_eye)||0));return Math.max(0,Math.floor(Number(planet.redEyesBuilt)||0));}
+        function getTotalRedEyeCount(){return Math.max(0,Math.floor(Number(state.structures?.red_eye)||0));}
         function getAvailableRedEyeCount(){const missions=Array.isArray(state.redEyeMissions)?state.redEyeMissions:[];return Math.max(0,getTotalRedEyeCount()-missions.filter(m=>m&&m.active).length);}
         function structureDefinition(id) { return STRUCTURE_CATALOG.find(item => item.id === id); }
         function hasStructurePrerequisites(def) { return (def.prerequisites || []).every(id => id==='red_eye'&&def.id==='royal_palace' ? redEyeCountForPlanet('homeworld')>0 : id==='galaxy_warp'&&def.id==='red_eye' ? !!PLANETS[state.activeColonyPlanetId||'homeworld']?.galaxyWarpBuilt : structureCount(id) > 0); }
@@ -2860,7 +2860,7 @@
                 state.structures[def.id] = structureCount(def.id) + 1;
                 if(def.id==='red_eye'){
                     const target=PLANETS[job.planetId||'homeworld'];
-                    if(target)target.redEyesBuilt=redEyeCountForPlanet(target.id)+1;
+                    if(target&&target.id!=='homeworld')target.redEyesBuilt=redEyeCountForPlanet(target.id)+1;
                 }
                 if(def.id==='injector') ensureInjectorOrders();
                 if(def.id==='essence_chamber'){
