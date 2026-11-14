@@ -2654,7 +2654,7 @@
             const founding = ensureDemantoidManagementData();
             const requests = founding.demantoidRequests || [];
             const options = Object.entries(FOUNDING_GEM_DATA)
-                .filter(([type]) => type !== 'peridot')
+                .filter(([type]) => type !== 'peridot' && type !== 'pearl')
                 .map(([type, gem]) => '<option value="' + escapeHTML(type) + '">' + escapeHTML(gem.label) + '</option>').join('');
             const owners = getDemantoidOwnerOptions()
                 .map(owner => '<option value="' + escapeHTML(owner.id) + '">' + escapeHTML(owner.name) + '</option>').join('');
@@ -2904,13 +2904,13 @@
             // A programação já existente é a fonte de verdade. Construir outro
             // Injetor nunca deve inferir uma nova ordem a partir do último lote.
             const orders=Array.isArray(f.injectorOrders)?f.injectorOrders:[];
-            const configured=orders.find(order=>order&&FOUNDING_GEM_DATA[order.type]&&order.type!=='peridot');
+            const configured=orders.find(order=>order&&FOUNDING_GEM_DATA[order.type]&&order.type!=='peridot'&&order.type!=='pearl');
             if(configured)return configured.type;
             const preferred=f.injectorGemType;
-            if(preferred&&preferred!=='peridot'&&FOUNDING_GEM_DATA[preferred])return preferred;
-            if(f.creationActive&&f.creationSource==='injector'&&FOUNDING_GEM_DATA[f.creationTarget]&&f.creationTarget!=='peridot')return f.creationTarget;
+            if(preferred&&preferred!=='peridot'&&preferred!=='pearl'&&FOUNDING_GEM_DATA[preferred])return preferred;
+            if(f.creationActive&&f.creationSource==='injector'&&FOUNDING_GEM_DATA[f.creationTarget]&&f.creationTarget!=='peridot'&&f.creationTarget!=='pearl')return f.creationTarget;
             const reports=Array.isArray(f.productionReports)?f.productionReports:[];
-            const latest=reports.slice().reverse().find(report=>report&&FOUNDING_GEM_DATA[report.type]&&report.type!=='peridot');
+            const latest=reports.slice().reverse().find(report=>report&&FOUNDING_GEM_DATA[report.type]&&report.type!=='peridot'&&report.type!=='pearl');
             return latest?latest.type:'quartz';
         }
         function ensureInjectorOrders(){
@@ -3048,7 +3048,7 @@
             const refinedReserved=orders.filter(order=>FOUNDING_GEM_DATA[order.type]&&FOUNDING_GEM_DATA[order.type].refinedMaterial).length;
             const rows=orders.map((order,index)=>{
                 const gem=FOUNDING_GEM_DATA[order.type]||FOUNDING_GEM_DATA.quartz,paused=isInjectorPaused(index);
-                const options=Object.entries(FOUNDING_GEM_DATA).filter(([key])=>key!=='peridot').map(([key,item])=>'<option value="'+key+'" '+(order.type===key?'selected':'')+'>'+escapeHTML(item.label)+'</option>').join('');
+                const options=Object.entries(FOUNDING_GEM_DATA).filter(([key])=>key!=='peridot'&&key!=='pearl').map(([key,item])=>'<option value="'+key+'" '+(order.type===key?'selected':'')+'>'+escapeHTML(item.label)+'</option>').join('');
                 const configuration=managed?'<small style="color:#94a3b8">Ordem automática: <b>'+escapeHTML(gem.label)+'</b></small>':
                     '<div class="grid-2"><label style="font-size:10px;color:#94a3b8">Gem<select id="injector-order-'+prefix+'-type-'+index+'" onchange="setInjectorOrderType('+index+',this.value)">'+options+'</select></label><label style="font-size:10px;color:#94a3b8">Quantidade (0–5)<input id="injector-order-'+prefix+'-qty-'+index+'" type="number" min="0" max="5" step="1" value="'+order.quantity+'" onchange="setInjectorOrderQuantity('+index+',this.value)" style="width:100%;background:#080e1c;color:#f8fafc;border:1px solid rgba(148,163,184,.35);border-radius:6px;padding:6px"></label></div>';
                 return '<div class="stat-box" style="display:grid;gap:7px"><div style="display:flex;justify-content:space-between;align-items:center"><b>Injetor #'+(index+1)+'</b><small style="color:'+(gem.refinedMaterial?'#c084fc':'#94a3b8')+'">'+(gem.refinedMaterial?'REFINADO':'BRUTO')+'</small></div>'+configuration+'<div style="display:flex;justify-content:space-between;align-items:center"><small style="color:'+(paused?'#fbbf24':'#86efac')+'">'+(paused?'PAUSADO':'ATIVO')+'</small><button class="btn btn-block" style="max-width:150px" onclick="toggleInjectorPause('+index+')">'+(paused?'▶ Retomar':'Ⅱ Pausar')+'</button></div></div>';
