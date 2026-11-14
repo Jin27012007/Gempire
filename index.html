@@ -2767,7 +2767,8 @@
         }
         function structureIsOperational(id) {
             const def = structureDefinition(id);
-            if (!def || (id==='galaxy_warp' ? !PLANETS[state.activeColonyPlanetId]?.galaxyWarpBuilt : id==='red_eye' ? getTotalRedEyeCount()<1 : structureCount(id)<1) || !hasStructurePrerequisites(def)) return false;
+            if (!def || (id==='galaxy_warp' ? !PLANETS[state.activeColonyPlanetId]?.galaxyWarpBuilt : id==='red_eye' ? getTotalRedEyeCount()<1 : structureCount(id)<1) || (id!=='red_eye'&&!hasStructurePrerequisites(def))) return false;
+            if(id==='red_eye')return getTotalRedEyeCount()>0;
             if (id === 'injector' && !structureIsOperational('essence_chamber')) return false;
             if(id==='essence_chamber')return (Number(state.structureAssignments?.essence_chamber?.peridot)||0)>=structureCount('essence_chamber');
             if(['workshop','defense_tower','shield_generator'].includes(id)&&!structureIsOperational('reactor'))return false;
@@ -3240,7 +3241,7 @@
             changeActiveColonyPlanet(targetId);switchScreen('colony');
             setStatusTicker('Teletransporte instantâneo concluído para '+PLANETS[targetId].shortName+'.');
         }
-        function getSpaceDistance(originId,targetId){const a=PLANETS[originId],b=PLANETS[targetId];if(!a||!b)return 1;const au=id=>{const p=PLANETS[id],env=PLANET_ENVIRONMENT[id]||{};return Number(env.orbitAU??p.orbitAU??(Number(p.orbitRadius)||100)/100)||0;};return Math.max(.25,Math.abs(au(originId)-au(targetId))+(a.systemId!==b.systemId?12:0));}
+        function getSpaceDistance(originId,targetId){const a=PLANETS[originId],b=PLANETS[targetId];if(!a||!b)return 1;const au=id=>{const p=PLANETS[id],env=PLANET_ENVIRONMENT[id]||{};return Number(env.orbitAU??p.orbitAU??(Number(p.orbitRadius)||100)/100)||0;};return Math.max(.25,Math.abs(au(originId)-au(targetId))+(a.systemId!==b.systemId?3:0));}
         function getSpaceTravelSeconds(originId,targetId,factor=1){return Math.max(12,Math.ceil((30+getSpaceDistance(originId,targetId)*150)/Math.max(.25,factor)));}
         function startRedEyeMission(targetId){if(!PLANETS[targetId]||PLANETS[targetId].scouted){setStatusTicker('Selecione um planeta ainda não reconhecido.',true);return;}if(getAvailableRedEyeCount()<1){setStatusTicker('Não há Olho Vermelho livre. Aguarde uma missão ou construa outra unidade.',true);return;}const originId='homeworld';state.redEyeMissions=Array.isArray(state.redEyeMissions)?state.redEyeMissions:[];state.redEyeMissions.push({id:'eye_'+Date.now()+'_'+Math.floor(Math.random()*1e5),planetId:targetId,originId,phase:'outbound',phaseProgress:0,phaseDuration:getSpaceTravelSeconds(originId,targetId),progress:0,active:true,reportDraft:null});setStatusTicker('Olho Vermelho enviado de Homeworld para '+PLANETS[targetId].shortName+'.');updateHUD();renderDrawerContent();}
         function renameScoutedPlanet(id,name){const p=PLANETS[id],value=String(name||'').trim().slice(0,32);if(!p||!p.scouted||!value){setStatusTicker('Nome inválido ou planeta ainda não reconhecido.',true);return;}p.shortName=value;p.name=value;if(p.reconnaissance)p.reconnaissance.planetName=value;(state.redEyeReports||[]).filter(r=>r.planetId===id).forEach(r=>r.planetName=value);setStatusTicker('Planeta renomeado para '+value+'.');addChronicle('Planeta renomeado',id+' recebeu o nome '+value+'.','Catálogo atualizado');renderDrawerContent();renderBottomBar();}
@@ -7205,7 +7206,6 @@ function drawColony(time){
                 panel.innerHTML = `
                     <div class="game-menu-panel-head"><h2>Configurações</h2><button class="btn" onclick="renderMenuHome()">Voltar</button></div>
                     <div class="menu-option"><div><strong>Salvamento automático</strong><small>Cria um autosave a cada 90 segundos enquanto a partida está em andamento.</small></div><input type="checkbox" aria-label="Salvamento automático" ${gameSettings.autoSave ? 'checked' : ''} onchange="updateGameSetting('autoSave', this.checked)"></div>
-                    <div class="menu-option"><div><strong>Rotação automática do globo</strong><small>Gira os planetas automaticamente na tela Globo 360°.</small></div><input type="checkbox" aria-label="Rotação automática do globo" ${gameSettings.autoRotate ? 'checked' : ''} onchange="updateGameSetting('autoRotate', this.checked)"></div>
                     <div class="menu-option"><div><strong>Interface compacta</strong><small>Reduz o tamanho de botões e indicadores para telas menores.</small></div><input type="checkbox" aria-label="Interface compacta" ${gameSettings.compactUI ? 'checked' : ''} onchange="updateGameSetting('compactUI', this.checked)"></div>
                     <p style="color:#94a3b8;font-size:10px;line-height:1.5;">As configurações são guardadas separadamente dos arquivos de progresso.</p>
                 `;
@@ -7243,7 +7243,7 @@ function drawColony(time){
         }
 
         function updateGameSetting(key, value) {
-            if (!Object.prototype.hasOwnProperty.call(gameSettings, key)) return;
+            if (!Object.prototype.hasOwnProperty.call(gameSettings, key) || key==='autoRotate') return;
             gameSettings[key] = Boolean(value);
             try { localStorage.setItem(SETTINGS_STORAGE_KEY, JSON.stringify(gameSettings)); }
             catch (error) { setGameMenuStatus('Não foi possível guardar as configurações neste navegador.', true); }
