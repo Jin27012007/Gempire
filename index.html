@@ -4932,7 +4932,7 @@ ${hasAristocrats ? `
         }
         function getAquamarineHazards(planet){
             const rebellion=!!(planet&&(planet.rebellionActive===true||Number(planet.dissent||0)>=70));
-            const organic=!!(planet&&(planet.organicLifePresent===true||Number(planet.organicLifePopulation||0)>0));
+            const organic=!!(planet&&(planet.organicLifeHostile===true||Number(planet.hostileOrganicLifePopulation||0)>0));
             return {rebellion,organic,active:rebellion||organic};
         }
         function dispatchAquamarineTeam(targetId,sourceId,caste,grade,requestEscort){
@@ -5043,7 +5043,7 @@ ${hasAristocrats ? `
             if(stage==='heat'||stage==='cool'){
                 planet.temperatureC=stage==='heat'?10:35;
                 if(stage==='cool')planet.seismicHeat=Math.min(8,Math.max(0,Number(planet.seismicHeat)||0));
-                planet.hasOcean=true;planet.waterReserve=Math.max(Number(planet.waterReserve)||0,2500*scale);
+                planet.hasOcean=true;planet.waterReserve=Math.max(Number(planet.waterReserve)||0,5000*scale);
                 planet.landmassCreated=false;planet.aquamarinePrepared=false;planet.aquamarinePreparationStage='terrain';
                 planet.aquamarineWork=null;
                 profile.topology='archipelago';profile.biome='oceanic';profile.landCoverage=0.14;profile.waterKind='water';profile.featureCount=Math.max(16,Number(profile.featureCount)||0);
