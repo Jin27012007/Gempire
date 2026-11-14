@@ -671,6 +671,7 @@
                     <button id="tab-quarters" class="btn" onclick="switchDrawerTab('quarters')">💬 Quartos</button>
                     <button id="tab-governance" class="btn" onclick="switchDrawerTab('governance')">🏛 Governo</button>
                     <button id="tab-social" class="btn" onclick="switchDrawerTab('social')">♡ Convívio</button>
+                    <button id="tab-demantoid" class="btn hidden" onclick="switchDrawerTab('demantoid')">🔬 Demantoide</button>
                 </div>
                 <button class="btn" onclick="toggleDrawer()" title="Fechar Painel">✕</button>
             </div>
@@ -2052,6 +2053,10 @@
         }
 
         function switchDrawerTab(tabId) {
+            if (tabId === 'demantoid' && !isInjectorManagerActive()) {
+                setStatusTicker('A aba da Demantoide exige ao menos uma Demantoide operacional.', true);
+                return;
+            }
             state.drawerTab = tabId;
             if (!state.drawerOpen) toggleDrawer(true);
             syncDrawerTabButtons();
@@ -2063,9 +2068,12 @@
         }
 
         function syncDrawerTabButtons() {
-            ['context', 'chronicle', 'dynasty', 'structures', 'guide', 'population', 'quarters', 'governance', 'social'].forEach(t => {
+            if (!isInjectorManagerActive() && state.drawerTab === 'demantoid') state.drawerTab = 'context';
+            ['context', 'chronicle', 'dynasty', 'structures', 'guide', 'population', 'quarters', 'governance', 'social', 'demantoid'].forEach(t => {
                 const btn = document.getElementById('tab-' + t);
-                if (btn) btn.classList.toggle('active', state.drawerTab === t);
+                if (!btn) return;
+                if (t === 'demantoid') btn.classList.toggle('hidden', !isInjectorManagerActive());
+                btn.classList.toggle('active', state.drawerTab === t);
             });
         }
 
@@ -2160,6 +2168,7 @@
             if (state.drawerTab === 'quarters') { renderDiamondQuartersTab(body); return; }
             if (state.drawerTab === 'governance') { renderGovernanceTab(body); return; }
             if (state.drawerTab === 'social') { renderSocialTab(body); return; }
+            if (state.drawerTab === 'demantoid') { renderDemantoidManagementTab(body); return; }
             // O painel de fundação pertence exclusivamente à Era Primitiva.
             // Depois da primeira Gem, o Contexto volta a refletir a tela ativa
             // (Trono, Mapa Estelar ou Globo 360°), sem recriar a coleta manual.
@@ -2170,6 +2179,207 @@
             if (state.currentScreen === 'throne') renderThroneContext(body);
             else if (state.currentScreen === 'starmap') renderStarMapContext(body);
             else renderColonyContext(body);
+        }
+
+
+        function ensureDemantoidManagementData() {
+            const founding = state.founding || (state.founding = {});
+            if (!Array.isArray(founding.demantoidRequests)) founding.demantoidRequests = [];
+            if (typeof founding.demantoidPriorityEnabled !== 'boolean') founding.demantoidPriorityEnabled = true;
+            founding.demantoidRequests.forEach(request => {
+                if (!request || typeof request !== 'object') return;
+                if (!request.id) request.id = 'demantoid_request_' + Date.now() + '_' + Math.floor(Math.random() * 1000000);
+                request.requested = Math.max(1, Math.min(500, Math.floor(Number(request.requested) || 20)));
+                request.produced = Math.max(0, Math.min(request.requested, Math.floor(Number(request.produced) || 0)));
+                if (!request.status || request.status === 'active') request.status = request.produced >= request.requested ? 'completed' : 'pending';
+                if (request.status !== 'cancelled' && request.produced >= request.requested) request.status = 'completed';
+            });
+            return founding;
+        }
+
+        function getActiveDemantoidRequest() {
+            const founding = ensureDemantoidManagementData();
+            if (founding.demantoidPriorityEnabled === false) return null;
+            return founding.demantoidRequests.find(request =>
+                request && request.status === 'pending' && Number(request.produced) < Number(request.requested)
+            ) || null;
+        }
+
+        function getDemantoidOwnerName(ownerId) {
+            if (ownerId === 'first') return state.firstDiamond?.name || 'Primeira Diamante';
+            const id = String(ownerId || '').replace(/^matriarch_/, '');
+            const target = (state.matriarchs || []).find(diamond => String(diamond.id) === id);
+            return target?.name || 'Diamante não localizada';
+        }
+
+        function getDemantoidOwnerOptions() {
+            const owners = [{ id: 'first', name: state.firstDiamond?.name || 'Primeira Diamante' }];
+            (state.matriarchs || []).forEach(diamond => {
+                owners.push({ id: 'matriarch_' + diamond.id, name: diamond.name || 'Diamante ' + diamond.id });
+            });
+            return owners;
+        }
+
+        function submitDemantoidRequest() {
+            if (!isInjectorManagerActive()) return;
+            const typeField = document.getElementById('demantoid-request-type');
+            const ownerField = document.getElementById('demantoid-request-owner');
+            const quantityField = document.getElementById('demantoid-request-quantity');
+            const type = typeField?.value || '';
+            const targetOwnerId = ownerField?.value || 'first';
+            const quantity = Math.floor(Number(quantityField?.value) || 20);
+            if (!FOUNDING_GEM_DATA[type] || type === 'peridot') {
+                setStatusTicker('Escolha uma casta válida para a exigência da Demantoide.', true);
+                return;
+            }
+            if (!getDemantoidOwnerOptions().some(owner => owner.id === targetOwnerId)) {
+                setStatusTicker('A Diamante de destino não está mais disponível.', true);
+                return;
+            }
+            if (!Number.isFinite(quantity) || quantity < 1 || quantity > 500) {
+                setStatusTicker('A quantidade deve ficar entre 1 e 500 Gems.', true);
+                return;
+            }
+            const founding = ensureDemantoidManagementData();
+            founding.demantoidRequests.push({
+                id: 'demantoid_request_' + Date.now() + '_' + Math.floor(Math.random() * 1000000),
+                type,
+                targetOwnerId,
+                requested: quantity,
+                produced: 0,
+                status: 'pending',
+                createdCycle: Number(state.cycleCount) || 1
+            });
+            setStatusTicker('Exigência registrada: +' + quantity + ' ' + FOUNDING_GEM_DATA[type].label + ' para ' + getDemantoidOwnerName(targetOwnerId) + '.');
+            ensureInjectorOrders();
+            renderDemantoidManagementTab(document.getElementById('drawer-body'));
+        }
+
+        function removeDemantoidRequest(requestId) {
+            const founding = ensureDemantoidManagementData();
+            const inProduction = (founding.creationBatches || []).some(batch => batch && batch.demandId === requestId && !batch.completed);
+            if (founding.creationActive && inProduction) {
+                setStatusTicker('Esta exigência possui um lote em andamento. Aguarde sua conclusão antes de removê-la.', true);
+                return;
+            }
+            const index = founding.demantoidRequests.findIndex(request => request && request.id === requestId);
+            if (index < 0) return;
+            founding.demantoidRequests.splice(index, 1);
+            ensureInjectorOrders();
+            renderDemantoidManagementTab(document.getElementById('drawer-body'));
+        }
+
+        function toggleDemantoidPriority() {
+            const founding = ensureDemantoidManagementData();
+            founding.demantoidPriorityEnabled = founding.demantoidPriorityEnabled === false;
+            setStatusTicker(founding.demantoidPriorityEnabled
+                ? 'A Demantoide priorizará as exigências direcionadas.'
+                : 'As exigências ficam em espera; a produção automática comum continua.');
+            ensureInjectorOrders();
+            renderDemantoidManagementTab(document.getElementById('drawer-body'));
+        }
+
+        function getDemantoidRequestBlockReason(request) {
+            const founding = ensureDemantoidManagementData();
+            const gem = FOUNDING_GEM_DATA[request?.type];
+            if (!gem) return 'Casta inválida ou removida do catálogo.';
+            if (!structureCount('injector')) return 'Nenhum Injetor foi construído.';
+            if (!structureCount('essence_chamber')) return 'Falta construir uma Câmara de Extração de Essência.';
+            if (!structureIsOperational('essence_chamber')) return 'A Câmara de Essência aguarda Peridoto operador.';
+            if (!structureIsOperational('injector')) return 'Os Injetores aguardam Peridotos operadores.';
+            if (gem.stored && !structureIsOperational('reef')) return 'Pérolas exigem um Recife operacional.';
+            const planet = PLANETS[state.activeColonyPlanetId] || PLANETS.homeworld;
+            if (gem.climate && !foundingGemClimateAllowed(gem, planet)) return 'O clima de ' + (planet.shortName || planet.name) + ' não permite produzir esta Gem.';
+            const inventory = gem.refinedMaterial ? (state.refinedResources || {}) : (founding.gatheredMinerals || {});
+            const material = gem.refinedMaterial || gem.mineral;
+            const available = Math.max(0, Number(inventory[material]) || 0);
+            if (available < 1) return 'Substrato escasso: ' + (gem.mineralName || material) + ' disponível: ' + Math.floor(available) + '.';
+            if (Number(founding.injectorEssence || 0) < 12) return 'Essência insuficiente: cada Gem consome 12 unidades.';
+            if (founding.injectorManualPauseAll) return 'A frota de Injetores está pausada manualmente.';
+            return 'Aguardando o próximo lote automático da Demantoide.';
+        }
+
+        function renderDemantoidManagementTab(container) {
+            if (!container) return;
+            if (!isInjectorManagerActive()) {
+                container.innerHTML = '<div class="card card-amber"><b>Comando da Demantoide bloqueado</b><p class="structure-desc">Esta aba só aparece quando existe ao menos uma Demantoide operacional.</p></div>';
+                return;
+            }
+            const founding = ensureDemantoidManagementData();
+            const requests = founding.demantoidRequests || [];
+            const options = Object.entries(FOUNDING_GEM_DATA)
+                .filter(([type]) => type !== 'peridot')
+                .map(([type, gem]) => '<option value="' + escapeHTML(type) + '">' + escapeHTML(gem.label) + '</option>').join('');
+            const owners = getDemantoidOwnerOptions()
+                .map(owner => '<option value="' + escapeHTML(owner.id) + '">' + escapeHTML(owner.name) + '</option>').join('');
+            const active = getActiveDemantoidRequest();
+            const injectorCount = structureCount('injector');
+            const injectorStaff = Math.max(0, Math.floor(Number(state.structureAssignments?.injector?.peridot) || 0));
+            const chamberStaff = Math.max(0, Math.floor(Number(state.structureAssignments?.essence_chamber?.peridot) || 0));
+            const essence = Math.max(0, Number(founding.injectorEssence) || 0);
+            const status = !injectorCount ? 'Sem Injetores' :
+                !structureIsOperational('essence_chamber') ? 'Câmara sem operador' :
+                !structureIsOperational('injector') ? 'Injetores sem operador' :
+                founding.injectorManualPauseAll ? 'Frota pausada' :
+                founding.creationActive && founding.creationSource === 'injector' ? 'Produção em andamento' : 'Automação ativa';
+            const pending = requests.filter(request => request && request.status === 'pending');
+            const requestRows = requests.slice().reverse().map(request => {
+                const gem = FOUNDING_GEM_DATA[request.type] || { label: request.type || 'Gem' };
+                const remaining = Math.max(0, Number(request.requested) - Number(request.produced));
+                const complete = request.status === 'completed';
+                const cancelled = request.status === 'cancelled';
+                const rowStatus = complete ? 'Concluída' : cancelled ? 'Cancelada' : remaining + ' restantes';
+                const blockReason = !complete && !cancelled ? getDemantoidRequestBlockReason(request) : '';
+                const inProduction = (founding.creationBatches || []).some(batch => batch && batch.demandId === request.id && !batch.completed);
+                return '<div class="stat-box" style="display:grid;gap:5px">' +
+                    '<div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>' + escapeHTML(gem.label) + ' × ' + Number(request.requested) + '</b><span class="badge">' + rowStatus + '</span></div>' +
+                    '<small style="color:#cbd5e1">Destino: ' + escapeHTML(getDemantoidOwnerName(request.targetOwnerId)) + ' · Produzidas: ' + Number(request.produced) + '/' + Number(request.requested) + '</small>' +
+                    '<div class="founding-progress"><div style="width:' + Math.min(100, Number(request.produced) * 100 / Math.max(1, Number(request.requested))) + '%"></div></div>' +
+                    (blockReason && !inProduction ? '<small style="color:#fbbf24">' + escapeHTML(blockReason) + '</small>' : inProduction ? '<small style="color:#86efac">Lote direcionado em produção</small>' : '') +
+                    (!complete && !cancelled ? '<button class="btn" type="button" onclick="removeDemantoidRequest(\'' + escapeHTML(request.id) + '\')"' + (inProduction ? ' disabled' : '') + '>Cancelar exigência</button>' : '') +
+                    '</div>';
+            }).join('') || '<p class="structure-desc">Nenhuma exigência cadastrada. A produção automática comum continua funcionando normalmente.</p>';
+            const reports = (founding.productionReports || []).slice(-10).reverse();
+            const totals = {};
+            (founding.productionReports || []).forEach(report => {
+                if (!report || !report.type) return;
+                totals[report.type] = (Number(totals[report.type]) || 0) + Math.max(0, Number(report.quantity) || 0);
+            });
+            const totalsHtml = Object.entries(totals).map(([type, quantity]) =>
+                '<div class="stat-box"><span class="stat-label">' + escapeHTML(FOUNDING_GEM_DATA[type]?.label || type) + '</span><b>' + quantity + ' Gems</b></div>'
+            ).join('') || '<p class="structure-desc">Ainda não existem lotes registrados pelos Injetores.</p>';
+            const reportHtml = reports.map(report =>
+                '<div class="stat-box"><b>' + escapeHTML(report.gemLabel || FOUNDING_GEM_DATA[report.type]?.label || report.type) + ' × ' + Number(report.quantity || 0) + '</b>' +
+                '<small style="display:block;color:var(--text-muted)">Injetor #' + (Number(report.injectorIndex) + 1) + ' · Ciclo ' + Number(report.cycle || 0) + ' · Destino: ' + escapeHTML(getDemantoidOwnerName(report.targetOwnerId || 'first')) + '</small>' +
+                '<small>' + escapeHTML(report.description || 'Lote concluído.') + '</small></div>'
+            ).join('') || '<p class="structure-desc">Nenhum lote concluído ainda.</p>';
+            const activeAlert = active ? getDemantoidRequestBlockReason(active) :
+                !injectorCount ? 'A frota não possui Injetores.' :
+                !structureIsOperational('essence_chamber') ? 'A Câmara de Essência não está operacional.' :
+                !structureIsOperational('injector') ? 'Faltam Peridotos para operar a frota.' :
+                essence < 12 ? 'Reserva de essência baixa: menos de 12 unidades disponíveis.' :
+                'Nenhuma escassez crítica detectada para a operação atual.';
+            container.innerHTML =
+                '<div class="card card-cyan"><div class="card-header"><span class="card-title title-font">🔬 Central de comando · Demantoide</span><span class="badge">' + Number(state.census.demantoid || 0) + ' operacional(is)</span></div>' +
+                '<p class="structure-desc">A Demantoide administra os Injetores. As exigências abaixo são opcionais e reservam produção adicional para uma Diamante escolhida, sem descontar as Gems que ela já possui.</p>' +
+                '<div class="grid-2"><div class="stat-box"><span class="stat-label">Frota de Injetores</span><b>' + injectorCount + ' instalados</b><small style="display:block;color:var(--text-muted)">' + injectorStaff + ' Peridotos alocados</small></div>' +
+                '<div class="stat-box"><span class="stat-label">Câmara de Essência</span><b>' + (structureIsOperational('essence_chamber') ? 'Operacional' : 'Inativa') + '</b><small style="display:block;color:var(--text-muted)">' + chamberStaff + ' Peridotos alocados</small></div>' +
+                '<div class="stat-box"><span class="stat-label">Essência dos Injetores</span><b>' + Math.floor(essence) + '</b><small style="display:block;color:var(--text-muted)">12 por Gem</small></div>' +
+                '<div class="stat-box"><span class="stat-label">Estado da automação</span><b>' + status + '</b><small style="display:block;color:var(--text-muted)">' + escapeHTML(founding.injectorAutomationStatus || 'Aguardando avaliação de estoques.') + '</small></div></div></div>' +
+                '<div class="card"><div class="card-header"><span class="card-title">Exigir Gems adicionais</span><span class="badge">Opcional</span></div>' +
+                '<p class="structure-desc">Cada exigência define quantas Gems novas devem ser produzidas para a dona selecionada. O padrão é 20 adicionais; a população existente não reduz essa meta.</p>' +
+                '<label class="stat-label" for="demantoid-request-type">Casta solicitada</label><select id="demantoid-request-type">' + options + '</select>' +
+                '<label class="stat-label" for="demantoid-request-owner">Diamante que receberá as Gems</label><select id="demantoid-request-owner">' + owners + '</select>' +
+                '<label class="stat-label" for="demantoid-request-quantity">Quantidade adicional</label><input id="demantoid-request-quantity" type="number" min="1" max="500" step="1" value="20" />' +
+                '<button class="btn btn-emerald btn-block" type="button" onclick="submitDemantoidRequest()">Registrar exigência de produção</button>' +
+                '<button class="btn btn-block" type="button" onclick="toggleDemantoidPriority()">' + (founding.demantoidPriorityEnabled === false ? 'Ativar prioridade das exigências' : 'Priorizar exigências: ATIVO') + '</button>' +
+                '<small style="color:var(--text-muted)">Quando a prioridade é desativada, a fila permanece guardada e a Demantoide volta à distribuição automática comum.</small></div>' +
+                '<div class="card"><div class="card-header"><span class="card-title">Fila de exigências</span><span class="badge">' + pending.length + ' pendentes</span></div>' + requestRows + '</div>' +
+                '<div class="card card-amber"><div class="card-header"><span class="card-title">Escassez e gargalos</span><span class="badge">Monitoramento</span></div><p class="structure-desc">' + escapeHTML(activeAlert) + '</p>' +
+                '<p class="structure-desc">O estoque do substrato exigido, o funcionamento do Recife para Pérolas, a Câmara, os Peridotos e a essência são avaliados antes de cada ciclo.</p></div>' +
+                '<div class="card"><div class="card-header"><span class="card-title">Produção registrada por casta</span><span class="badge">Histórico recente</span></div><div class="grid-2">' + totalsHtml + '</div></div>' +
+                '<div class="card"><div class="card-header"><span class="card-title">Últimos lotes concluídos</span><span class="badge">' + reports.length + ' registros</span></div>' + reportHtml +
+                '<button class="btn btn-block" type="button" onclick="showInjectorProductionWindow()">Abrir relatório técnico dos Injetores</button></div>';
         }
 
         // 10A. Contexto da Câmara do Trono
@@ -2355,20 +2565,36 @@
                     .filter(([key,g])=>key!=='peridot'&&(!g.stored||structureIsOperational('reef'))&&(!g.climate||foundingGemClimateAllowed(g,planet)))
                     .map(([key,g])=>({key,g,available:Math.max(0,Number((g.refinedMaterial?refined:raw)[g.refinedMaterial||g.mineral])||0),population:Number(census[key]||0)}))
                     .filter(x=>x.available>=1).sort((a,b)=>a.population-b.population||b.available-a.available);
-                // Reserva o estoque entre as unidades para não programar nove vezes o mesmo mineral.
-                for(let i=0;i<count;i++){
+                // Exigências direcionadas recebem prioridade, mas não cancelam a produção comum
+                // quando o substrato solicitado ainda não está disponível.
+                const demand=getActiveDemantoidRequest();
+                let nextInjector=0;
+                if(demand){
+                    const requestedCandidate=candidates.find(candidate=>candidate.key===demand.type);
+                    let remaining=Math.max(0,Number(demand.requested)-Number(demand.produced));
+                    while(requestedCandidate&&remaining>0&&nextInjector<count&&requestedCandidate.available>=1){
+                        const quantity=Math.min(5,remaining,Math.floor(requestedCandidate.available));
+                        if(quantity<1)break;
+                        f.injectorOrders[nextInjector]={type:demand.type,quantity,targetOwnerId:demand.targetOwnerId,demandId:demand.id};
+                        requestedCandidate.available-=quantity;
+                        remaining-=quantity;
+                        nextInjector++;
+                    }
+                }
+                // O restante da frota continua equilibrando as castas por população e estoque.
+                for(let i=nextInjector;i<count;i++){
                     const pick=candidates.find(candidate=>candidate.available>=1);
                     if(pick){
                         const quantity=Math.min(5,Math.floor(pick.available));
-                        f.injectorOrders[i]={...(f.injectorOrders[i]||{}),type:pick.key,quantity};
+                        f.injectorOrders[i]={type:pick.key,quantity,targetOwnerId:null,demandId:null};
                         pick.available-=quantity;
                     }else{
-                        f.injectorOrders[i]={...(f.injectorOrders[i]||{}),quantity:0};
+                        const previous=FOUNDING_GEM_DATA[f.injectorOrders[i]?.type]&&f.injectorOrders[i].type!=='peridot'?f.injectorOrders[i].type:'quartz';
+                        f.injectorOrders[i]={type:previous,quantity:0,targetOwnerId:null,demandId:null};
                     }
                 }
                 // A Demantoide distribui Peridotos primeiro nas Câmaras (pré-requisito
-                // da frota) e depois nos Injetores. Antes, ela só tentava operar os Injetores,
-                // deixando a Câmara sem operador e bloqueando toda a produção.
+                // da frota) e depois nos Injetores.
                 state.structureAssignments=state.structureAssignments||{};
                 state.structureAssignments.essence_chamber=state.structureAssignments.essence_chamber||{};
                 state.structureAssignments.injector=state.structureAssignments.injector||{};
@@ -2470,7 +2696,7 @@
         function getInjectorProductionPlan(){
             const orders=ensureInjectorOrders();
             const staffed=Math.max(0,Math.floor(Number(state.structureAssignments?.injector?.peridot)||0));
-            const batches=orders.map((order,index)=>({injectorIndex:index,type:order.type,quantity:order.quantity}))
+            const batches=orders.map((order,index)=>({injectorIndex:index,type:order.type,quantity:order.quantity,targetOwnerId:order.targetOwnerId||null,demandId:order.demandId||null}))
                 .filter(batch=>batch.injectorIndex<staffed&&batch.quantity>0&&!isInjectorPaused(batch.injectorIndex));
             const activeOrders=orders.filter((order,index)=>index<staffed&&order.quantity>0&&!isInjectorPaused(index));
             const refinedReserved=activeOrders.filter(order=>FOUNDING_GEM_DATA[order.type]&&FOUNDING_GEM_DATA[order.type].refinedMaterial).length;
@@ -2562,7 +2788,7 @@
             for(const [material,needed] of Object.entries(refinedCosts))refinedInventory[material]=Math.max(0,(Number(refinedInventory[material])||0)-needed);
             const essenceCost=12*totalGems;
             state.founding.injectorEssence=Math.max(0,(Number(state.founding.injectorEssence)||0)-essenceCost);
-            state.founding.creationBatches=readyBatches.map(batch=>({injectorIndex:batch.injectorIndex,type:batch.type,quantity:batch.quantity,progress:0,duration:FOUNDING_GEM_DATA[batch.type].refinedMaterial?84:42,completed:false}));
+            state.founding.creationBatches=readyBatches.map(batch=>({injectorIndex:batch.injectorIndex,type:batch.type,quantity:batch.quantity,targetOwnerId:batch.targetOwnerId||null,demandId:batch.demandId||null,progress:0,duration:FOUNDING_GEM_DATA[batch.type].refinedMaterial?84:42,completed:false}));
             state.founding.creationBatchCount=totalGems;
             state.founding.creationDuration=Math.max(...state.founding.creationBatches.map(batch=>batch.duration));
             state.founding.creationTarget=readyBatches[0].type;
@@ -4491,7 +4717,9 @@ ${hasAristocrats ? `
                 updateInjectorProgressUI();
                 if (state.firstGameStarted && state.founding) updateFoundingLiveUI();
                 if(document.getElementById('injector-production-window')&&!document.getElementById('injector-production-window').classList.contains('hidden'))updateInjectorProductionWindow();
+                syncDrawerTabButtons();
                 if(state.drawerOpen&&state.drawerTab==='population'){const populationBody=document.getElementById('drawer-body');if(populationBody)renderPopulationReport(populationBody);}
+                if(state.drawerOpen&&state.drawerTab==='demantoid'&&!(document.activeElement&&/^demantoid-request-/.test(document.activeElement.id||'')))renderDemantoidManagementTab(document.getElementById('drawer-body'));
                 updateConstructionProgressUI();
                 if(state.diamondForge&&state.drawerOpen&&state.drawerTab==='dynasty')renderDrawerContent();
             }
@@ -6236,8 +6464,16 @@ function drawColony(time){
             const quantity=Math.max(1,Math.min(60,Number(batch.quantity)||1));
             const planet=PLANETS[state.activeColonyPlanetId||'homeworld'];
             const governor=String(planet.governor||'');
-            const courtOwner=governor.startsWith('matriarch_')?governor:'first';
+            const requestedOwner=batch.targetOwnerId==='first'||(state.matriarchs||[]).some(diamond=>'matriarch_'+diamond.id===batch.targetOwnerId)?batch.targetOwnerId:null;
+            const courtOwner=requestedOwner||(governor.startsWith('matriarch_')?governor:'first');
             if(typeof window.recordDiamondCourtGem==='function')window.recordDiamondCourtGem(courtOwner,batch.type,quantity);
+            if(batch.demandId){
+                const demand=ensureDemantoidManagementData().demantoidRequests.find(request=>request&&request.id===batch.demandId);
+                if(demand&&demand.status==='pending'){
+                    demand.produced=Math.min(Number(demand.requested)||0,(Number(demand.produced)||0)+quantity);
+                    if(demand.produced>=Number(demand.requested))demand.status='completed';
+                }
+            }
             if(!Object.prototype.hasOwnProperty.call(state.census,batch.type))state.census[batch.type]=0;
             state.census[batch.type]+=quantity;
             state.founding.gemsCreatedCount=(Number(state.founding.gemsCreatedCount)||0)+quantity;
@@ -6253,7 +6489,7 @@ function drawColony(time){
                 }
             }
             if(!Array.isArray(state.founding.productionReports))state.founding.productionReports=[];
-            state.founding.productionReports.push({type:batch.type,injectorIndex:Number(batch.injectorIndex)||0,gemLabel:data.label,quantity:quantity,grade:'A',mineralName:data.mineralName,cycle:Number(state.cycleCount)||1,description:'Lote do Injetor #'+(Number(batch.injectorIndex)+1)+(state.founding.creationMode==='manual'?' programado manualmente.':' administrado automaticamente pela Demantoide.')});
+            state.founding.productionReports.push({type:batch.type,injectorIndex:Number(batch.injectorIndex)||0,gemLabel:data.label,quantity:quantity,grade:'A',mineralName:data.mineralName,cycle:Number(state.cycleCount)||1,targetOwnerId:courtOwner,demandId:batch.demandId||null,description:'Lote do Injetor #'+(Number(batch.injectorIndex)+1)+(batch.demandId?' · exigência direcionada para '+getDemantoidOwnerName(courtOwner)+'.':state.founding.creationMode==='manual'?' programado manualmente.':' administrado automaticamente pela Demantoide.')});
             if(state.founding.creationMode==='automatic')state.founding.injectorAutomationStatus='Último lote concluído: '+quantity+' '+data.label+'. A Demantoide avaliará o próximo ciclo.';
             if(state.founding.productionReports.length>20)state.founding.productionReports.splice(0,state.founding.productionReports.length-20);
             batch.completed=true;
