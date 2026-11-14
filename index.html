@@ -2568,26 +2568,30 @@
                 // Exigências direcionadas recebem prioridade, mas não cancelam a produção comum
                 // quando o substrato solicitado ainda não está disponível.
                 const demand=getActiveDemantoidRequest();
-                let nextInjector=0;
+                const refinedLimit=getRefinedInjectorLimit();
+                let refinedAssigned=0,nextInjector=0;
                 if(demand){
                     const requestedCandidate=candidates.find(candidate=>candidate.key===demand.type);
                     let remaining=Math.max(0,Number(demand.requested)-Number(demand.produced));
-                    while(requestedCandidate&&remaining>0&&nextInjector<count&&requestedCandidate.available>=1){
+                    while(requestedCandidate&&remaining>0&&nextInjector<count&&requestedCandidate.available>=1&&(!requestedCandidate.g.refinedMaterial||refinedAssigned<refinedLimit)){
                         const quantity=Math.min(5,remaining,Math.floor(requestedCandidate.available));
                         if(quantity<1)break;
                         f.injectorOrders[nextInjector]={type:demand.type,quantity,targetOwnerId:demand.targetOwnerId,demandId:demand.id};
                         requestedCandidate.available-=quantity;
                         remaining-=quantity;
+                        if(requestedCandidate.g.refinedMaterial)refinedAssigned++;
                         nextInjector++;
                     }
                 }
                 // O restante da frota continua equilibrando as castas por população e estoque.
+                // A mesma proporção de matéria refinada é respeitada também nas ordens automáticas.
                 for(let i=nextInjector;i<count;i++){
-                    const pick=candidates.find(candidate=>candidate.available>=1);
+                    const pick=candidates.find(candidate=>candidate.available>=1&&(!candidate.g.refinedMaterial||refinedAssigned<refinedLimit));
                     if(pick){
                         const quantity=Math.min(5,Math.floor(pick.available));
                         f.injectorOrders[i]={type:pick.key,quantity,targetOwnerId:null,demandId:null};
                         pick.available-=quantity;
+                        if(pick.g.refinedMaterial)refinedAssigned++;
                     }else{
                         const previous=FOUNDING_GEM_DATA[f.injectorOrders[i]?.type]&&f.injectorOrders[i].type!=='peridot'?f.injectorOrders[i].type:'quartz';
                         f.injectorOrders[i]={type:previous,quantity:0,targetOwnerId:null,demandId:null};
