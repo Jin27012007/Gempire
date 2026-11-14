@@ -2059,7 +2059,7 @@
                 setStatusTicker('A aba da Demantoide exige ao menos uma Demantoide operacional.', true);
                 return;
             }
-            if (tabId === 'hessonite' && !window.isHessoniteCommandActive()) {
+            if (tabId === 'hessonite' && !(window.isHessoniteCommandActive && window.isHessoniteCommandActive())) {
                 setStatusTicker('A central militar exige ao menos uma Hessonita no Império.', true);
                 return;
             }
@@ -2075,12 +2075,12 @@
 
         function syncDrawerTabButtons() {
             if (!isInjectorManagerActive() && state.drawerTab === 'demantoid') state.drawerTab = 'context';
-            if (!window.isHessoniteCommandActive() && state.drawerTab === 'hessonite') state.drawerTab = 'context';
+            if (!(window.isHessoniteCommandActive && window.isHessoniteCommandActive()) && state.drawerTab === 'hessonite') state.drawerTab = 'context';
             ['context', 'chronicle', 'dynasty', 'structures', 'guide', 'population', 'quarters', 'governance', 'social', 'demantoid', 'hessonite'].forEach(t => {
                 const btn = document.getElementById('tab-' + t);
                 if (!btn) return;
                 if (t === 'demantoid') btn.classList.toggle('hidden', !isInjectorManagerActive());
-                if (t === 'hessonite') btn.classList.toggle('hidden', !window.isHessoniteCommandActive());
+                if (t === 'hessonite') btn.classList.toggle('hidden', !(window.isHessoniteCommandActive && window.isHessoniteCommandActive()));
                 btn.classList.toggle('active', state.drawerTab === t);
             });
         }
@@ -2168,7 +2168,7 @@
             const body = document.getElementById('drawer-body');
             if (!body) return;
             const hessoniteTab = document.getElementById('tab-hessonite');
-            const hessoniteAvailable = window.isHessoniteCommandActive();
+            const hessoniteAvailable = !!(window.isHessoniteCommandActive && window.isHessoniteCommandActive());
             if (hessoniteTab) hessoniteTab.classList.toggle('hidden', !hessoniteAvailable);
             if (!hessoniteAvailable && state.drawerTab === 'hessonite') state.drawerTab = 'context';
             if(document.activeElement&&/^injector-order-context-/.test(document.activeElement.id||''))return;
@@ -2181,7 +2181,7 @@
             if (state.drawerTab === 'governance') { renderGovernanceTab(body); return; }
             if (state.drawerTab === 'social') { renderSocialTab(body); return; }
             if (state.drawerTab === 'demantoid') { renderDemantoidManagementTab(body); return; }
-            if (state.drawerTab === 'hessonite') { window.renderHessoniteMilitaryTab(body); return; }
+            if (state.drawerTab === 'hessonite') { if (window.renderHessoniteMilitaryTab) window.renderHessoniteMilitaryTab(body); return; }
             // O painel de fundação pertence exclusivamente à Era Primitiva.
             // Depois da primeira Gem, o Contexto volta a refletir a tela ativa
             // (Trono, Mapa Estelar ou Globo 360°), sem recriar a coleta manual.
