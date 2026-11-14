@@ -954,6 +954,7 @@
             homeworld: {
                 id: 'homeworld',
                 name: 'Homeworld Primitivo',
+                scouted:true,travelUnlocked:true,reconnaissance:null,structures:{injector:0,mineral_extractor:0,galaxy_warp:0},remoteConstructionQueue:[],fleetVisits:[],
                 shortName: 'Homeworld',
                 biomeTag: 'Planeta Rochoso • Órbita de Estrela Moribunda',
                 lore: 'O único planeta conhecido deste sistema, isolado em uma órbita distante ao redor de uma estrela moribunda. Seu ambiente é árido, sem oceanos, cidades ou vida orgânica conhecida.',
@@ -996,6 +997,7 @@
             },
             ignis_prime: {
                 id: 'ignis_prime',
+                scouted:false,travelUnlocked:false,reconnaissance:null,structures:{injector:0,mineral_extractor:0,galaxy_warp:0},remoteConstructionQueue:[],fleetVisits:[],
                 name: 'Ignis-Prime (Vulcânico Metálico)',
                 shortName: 'Ignis-Prime',
                 biomeTag: 'Vulcânico Metálico • Alta Temperatura',
@@ -1039,6 +1041,7 @@
             },
             thalassa_9: {
                 id: 'thalassa_9',
+                scouted:false,travelUnlocked:false,reconnaissance:null,structures:{injector:0,mineral_extractor:0,galaxy_warp:0},remoteConstructionQueue:[],fleetVisits:[],
                 name: 'Thalassa-9 (Oceânico Profundo)',
                 shortName: 'Thalassa-9',
                 biomeTag: 'Oceânico Profundo & Recife Nacarado',
@@ -1083,6 +1086,7 @@
             },
             caelum_gelidus: {
                 id: 'caelum_gelidus',
+                scouted:false,travelUnlocked:false,reconnaissance:null,structures:{injector:0,mineral_extractor:0,galaxy_warp:0},remoteConstructionQueue:[],fleetVisits:[],
                 name: 'Caelum-Gelidus (Gigante Glacial)',
                 shortName: 'Caelum-Gelidus',
                 biomeTag: 'Gigante Glacial Cristalino',
@@ -1126,6 +1130,7 @@
             },
             terra_veritas: {
                 id: 'terra_veritas',
+                scouted:false,travelUnlocked:false,reconnaissance:null,structures:{injector:0,mineral_extractor:0,galaxy_warp:0},remoteConstructionQueue:[],fleetVisits:[],
                 name: 'Terra-Veritas (Orgânico Fértil)',
                 shortName: 'Terra-Veritas',
                 biomeTag: 'Biosfera Orgânica • Alta Essência Vital',
@@ -1487,6 +1492,7 @@
 
         const state = {
             currentScreen: 'throne', // 'throne' | 'starmap' | 'colony'
+            starMapView:'galaxy', selectedStarSystemId:'home_system', cargoShipMissions:[], spaceDiplomacyRequests:[],
             drawerOpen: true,
             drawerTab: 'context',    // 'context' | 'chronicle' | 'dynasty'
             governanceSection: 'council',
@@ -3398,6 +3404,8 @@
             processAutomaticRefinery();
             updateLogisticsCenter(dt);
             updateRedEyeMission(dt);
+            updateCargoMissions(dt);
+            updateFleetTravel(dt);
             updateGalaxyWarpExpeditions(dt);
             updateMatriarchChambers(dt);
             processMorganiteArchitecture(dt);
@@ -4604,6 +4612,7 @@ ${hasAristocrats ? `
         function executeStarMapPrimaryAction() {
             const planet = PLANETS[state.selectedStarMapPlanetId];
             if (!planet) return;
+            if (!planet.travelUnlocked) { setStatusTicker('O Olho Vermelho precisa retornar com o reconhecimento antes de viajar ou colonizar.', true); return; }
             if (planet.colonized) {
                 state.activeColonyPlanetId = planet.id;
                 state.selectedVeinIndex = 0;
@@ -6598,7 +6607,7 @@ function drawColony(time){
                         nearestDistance = distance;
                     }
                 }
-                if (nearest) selectStarMapPlanet(nearest.id);
+                if (nearest) { if (nearest.type === 'star') { if (nearest.id === 'home_system') selectStarSystem('home_system'); } else selectStarMapPlanet(nearest.id); }
             } else if (state.currentScreen === 'colony') {
                 if(planetInfoToggleTarget&&x>=planetInfoToggleTarget.x&&x<=planetInfoToggleTarget.x+planetInfoToggleTarget.w&&y>=planetInfoToggleTarget.y&&y<=planetInfoToggleTarget.y+planetInfoToggleTarget.h){state.planetInfoExpanded=state.planetInfoExpanded===false;return;}
                 const chartTarget=mineralChartHitTargets.find(target=>x>=target.x&&x<=target.x+target.w&&y>=target.y&&y<=target.y+target.h);
@@ -7478,6 +7487,12 @@ function drawColony(time){
                 while(state.diamondChambers.length<Math.min(structureCount('essence_chamber'),owners.length)){const o=owners.find(x=>!state.diamondChambers.some(c=>c.ownerId===x.id));if(!o)break;state.diamondChambers.push({ownerId:o.id,ownerName:o.name,active:false,progress:0,cooldown:0});}
                 while(state.diamondQuartersOwners.length<Math.min(structureCount('diamond_quarters'),owners.length)){const o=owners.find(x=>!state.diamondQuartersOwners.includes(x.id));if(!o)break;state.diamondQuartersOwners.push(o.id);}
                 state.shipFleet=Array.isArray(state.shipFleet)?state.shipFleet:[];
+                state.cargoShipMissions=Array.isArray(state.cargoShipMissions)?state.cargoShipMissions:[];
+                state.spaceDiplomacyRequests=Array.isArray(state.spaceDiplomacyRequests)?state.spaceDiplomacyRequests:[];
+                state.starMapView=state.starMapView==='system'?'system':'galaxy';state.selectedStarSystemId='home_system';
+                state.cargoShipMissions=Array.isArray(state.cargoShipMissions)?state.cargoShipMissions:[];
+                state.spaceDiplomacyRequests=Array.isArray(state.spaceDiplomacyRequests)?state.spaceDiplomacyRequests:[];
+                state.starMapView=state.starMapView==='system'?'system':'galaxy';state.selectedStarSystemId='home_system';
                 state.redEyeReports=Array.isArray(state.redEyeReports)?state.redEyeReports:[];
                 state.galaxyWarpExpeditions=Array.isArray(state.galaxyWarpExpeditions)?state.galaxyWarpExpeditions:[];
                 state.logisticsActive=state.logisticsActive!==false;
@@ -7549,6 +7564,7 @@ function drawColony(time){
                 }
                 // Regra canônica do cenário: saves antigos não podem restaurar luas em Homeworld.
                 // O conteúdo de luas salvo anteriormente era obsoleto e liberava indevidamente a Base Lunar.
+                Object.values(PLANETS).forEach(p=>{p.scouted=p.id==='homeworld'?true:!!(p.scouted||p.reconnaissance);p.travelUnlocked=p.id==='homeworld'?true:!!(p.travelUnlocked||p.reconnaissance);p.structures=Object.assign({injector:0,mineral_extractor:0,galaxy_warp:0},p.structures||{});p.remoteConstructionQueue=Array.isArray(p.remoteConstructionQueue)?p.remoteConstructionQueue:[];p.fleetVisits=Array.isArray(p.fleetVisits)?p.fleetVisits:[];});
                 PLANETS.homeworld.moons = [];
                 if(state.structures.galaxy_warp>0)PLANETS.homeworld.galaxyWarpBuilt=true;
                 if (!PLANETS[state.activeColonyPlanetId] || !PLANETS[state.activeColonyPlanetId].colonized) state.activeColonyPlanetId = 'homeworld';
