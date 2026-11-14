@@ -105,7 +105,7 @@
     function updateGovernanceUI(message) {
         if (message && typeof window.setStatusTicker === 'function') setStatusTicker(message);
         if (typeof window.updateHUD === 'function') updateHUD();
-        if (typeof window.renderDrawerContent === 'function' && state.drawerTab === 'governance') renderDrawerContent();
+        if (state.currentScreen === 'governance' && typeof window.renderGovernanceScreen === 'function') renderGovernanceScreen();
     }
 
     function setDiamondOffice(diamondId, office) {
@@ -396,8 +396,8 @@
             const routineLimit = authority === 'autonomous' ? 60 : 25;
             if (decision.risk === 'routine' && mineralCost <= routineLimit && canAffordDecision(decision)) {
                 executeDiamondGovernanceDecision(decision.id, true);
-            } else if (state.drawerTab === 'governance' && state.drawerOpen) {
-                renderGovernanceTab(document.getElementById('drawer-body'));
+            } else if (state.currentScreen === 'governance') {
+                renderGovernanceScreen();
                 if (typeof window.setStatusTicker === 'function') setStatusTicker(diamond.name + ' apresentou uma decisão que aguarda a autorização imperial.');
             }
             if (gov.decisions.length > 40) gov.decisions.length = 40;
