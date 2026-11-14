@@ -668,6 +668,7 @@
                     <button id="governance-section-demantoid" class="btn hidden" onclick="switchGovernanceSection('demantoid')">🔬 Demantoide</button>
                     <button id="governance-section-hessonite" class="btn hidden" onclick="switchGovernanceSection('hessonite')">⚔️ Hessonita</button>
                     <button id="governance-section-morganite" class="btn hidden" onclick="switchGovernanceSection('morganite')">🏛 Morganita</button>
+                    <button id="governance-section-aquamarine" class="btn hidden" onclick="switchGovernanceSection('aquamarine')">🌊 Água-marinha</button>
                 </nav>
             </header>
             <div id="governance-content"></div>
@@ -1490,6 +1491,7 @@
             drawerTab: 'context',    // 'context' | 'chronicle' | 'dynasty'
             governanceSection: 'council',
             morganiteArchitecture: {assignments:{},proposals:[],activeProjects:[],completed:[],nextId:1,proposalTimers:{},selectedProjects:{},uiAccumulator:0},
+            aquamarineTerraforming: {teams:[],completed:[],nextId:1,uiAccumulator:0},
             era: 0,
             cycleCount: 1,
             essence: { white: 0, yellow: 0, blue: 0, pink: 0 },
@@ -2332,24 +2334,27 @@
         }
 
         function switchGovernanceSection(section) {
-            const allowed = ['council', 'demantoid', 'hessonite', 'morganite'];
+            const allowed = ['council', 'demantoid', 'hessonite', 'morganite', 'aquamarine'];
             if (!allowed.includes(section)) section = 'council';
             if (section === 'demantoid' && !isInjectorManagerActive()) section = 'council';
             if (section === 'hessonite' && !(window.isHessoniteCommandActive && window.isHessoniteCommandActive())) section = 'council';
             if (section === 'morganite' && Number(state.census.morganite||0)<1) section = 'council';
+            if (section === 'aquamarine' && Number(state.census.aquamarine||0)<1) section = 'council';
             state.governanceSection = section;
-            ['council', 'demantoid', 'hessonite', 'morganite'].forEach(key => {
+            ['council', 'demantoid', 'hessonite', 'morganite', 'aquamarine'].forEach(key => {
                 const button = document.getElementById('governance-section-' + key);
                 if (!button) return;
                 button.classList.toggle('hidden', key === 'demantoid' && !isInjectorManagerActive());
                 button.classList.toggle('hidden', key === 'hessonite' && !(window.isHessoniteCommandActive && window.isHessoniteCommandActive()));
                 button.classList.toggle('hidden', key === 'morganite' && Number(state.census.morganite||0)<1);
+                button.classList.toggle('hidden', key === 'aquamarine' && Number(state.census.aquamarine||0)<1);
                 button.classList.toggle('active', key === section);
             });
             const content = document.getElementById('governance-content');
             if (!content) return;
             if (section === 'demantoid') renderDemantoidManagementTab(content);
             else if (section === 'morganite') renderMorganiteArchitectureTab(content);
+            else if (section === 'aquamarine') renderAquamarineTerraformingTab(content);
             else if (section === 'hessonite') {
                 if (window.renderHessoniteMilitaryTab) window.renderHessoniteMilitaryTab(content);
                 else content.innerHTML = '<div class="card">O módulo militar ainda não foi carregado.</div>';
@@ -3221,10 +3226,10 @@
                 if(!exp.active)return;
                 exp.progress=Math.min(100,(Number(exp.progress)||0)+Math.max(0,Number(dt)||0)*100/Math.max(1,Number(exp.duration)||180));
                 if(exp.progress<100)return;
-                const target=PLANETS[exp.targetId];if(target){target.galaxyWarpBuilt=true;target.colonized=true;}
+                const target=PLANETS[exp.targetId];if(target)target.galaxyWarpBuilt=true;
                 exp.active=false;
-                setStatusTicker('Galaxy Warp construído por expedição em '+(target?.shortName||exp.targetId)+'. A conexão interplanetária está disponível.');
-                addChronicle('Galaxy Warp estabelecido', 'Uma expedição concluiu a construção de um Galaxy Warp em '+(target?.shortName||exp.targetId)+'.','Rede interplanetária ampliada');
+                setStatusTicker('Galaxy Warp construído em '+(target?.shortName||exp.targetId)+'. O ponto orbital está pronto; a colonização ainda depende da preparação ambiental.');
+                addChronicle('Galaxy Warp estabelecido', 'Uma expedição concluiu a ancoragem orbital do Galaxy Warp em '+(target?.shortName||exp.targetId)+'. A presença desta estrutura não substitui a terraformação necessária à colonização.','Rede interplanetária ampliada');
                 updateHUD();renderDrawerContent();renderBottomBar();
             });
         }
@@ -3770,7 +3775,7 @@ ${hasAristocrats ? `
                     <button class="btn active" style="width:100%; padding:9px;" onclick="executeStarMapPrimaryAction()">
                         ${p.colonized
                             ? '🌍 Entrar na Órbita 360° desta Colônia'
-                            : `🚀 Colonizar Mundo (${p.unlockCost.minerals} MAT / ${p.unlockCost.white} Branca)`}
+                            : (getAquamarinePlanetPreparation(p).ready ? `🚀 Colonizar Mundo (${p.unlockCost.minerals} MAT / ${p.unlockCost.white} Branca)` : '🌐 Preparação ambiental obrigatória · Água-marinha')}
                     </button>
                 </div>
 
@@ -4520,6 +4525,7 @@ ${hasAristocrats ? `
                 state.founding.reefPearlInventory.push({ownerId:courtOwner,planetId:planet.id,originOcean:planet.hasOcean===true,quality:isPrime?'S':result.grade});
             }
             const gem = {
+                id:'gem_'+Date.now()+'_'+Math.floor(Math.random()*1000000),
                 ownerId: courtOwner,
                 caste: recipe.id,
                 variant: recipe.id==='quartz'?getQuartzVariantForPlanet(planet,Number(state.census.quartz)||0):recipe.id==='ruby'?'ruby':null,
@@ -4602,6 +4608,8 @@ ${hasAristocrats ? `
                 setStatusTicker(`🌍 Órbita 360° de ${planet.shortName} aberta.`);
                 return;
             }
+            const preparation=getAquamarinePlanetPreparation(planet);
+            if(!preparation.ready){setStatusTicker('A colonização de '+planet.shortName+' está bloqueada. A Diretoria da Água-marinha precisa concluir: '+preparation.reason,true);return;}
             if (state.minerals < planet.unlockCost.minerals || state.essence.white < planet.unlockCost.white) {
                 setStatusTicker(`⚠️ Recursos insuficientes para colonizar ${planet.shortName}.`);
                 return;
@@ -4850,49 +4858,310 @@ ${hasAristocrats ? `
             if(state.drawerOpen&&state.drawerTab==='population')renderPopulationReport(document.getElementById('drawer-body'));
         }
 
-        function updateAquamarineOrders(dt){
-            if(!state.firstGameStarted)return;
-            const count=Math.max(0,Number(state.census.aquamarine)||0);
-            if(!count)return;
-            state.founding.aquamarineDispatchTimer=(Number(state.founding.aquamarineDispatchTimer)||0)+dt;
-            const interval=Math.max(20,300/count);
-            if(state.founding.aquamarineDispatchTimer<interval)return;
-            state.founding.aquamarineDispatchTimer%=interval;
-            const candidates=Object.values(PLANETS).filter(p=>p.colonized&&(p.hasOcean===true||Number(p.waterReserve||0)>=2500));
-            for(const target of candidates){
-                if(target.walkingGems.filter(g=>g.caste==='lapis').length>=2)continue;
-                let source=null,indices=[];
-                for(const planet of Object.values(PLANETS)){
-                    const found=[];
-                    (planet.walkingGems||[]).forEach((g,index)=>{if(g.caste==='lapis')found.push(index);});
-                    if(found.length>=2){source=planet;indices=found.slice(0,2);break;}
-                }
-                if(!source)break;
-                const dispatched=indices.reverse().map(index=>source.walkingGems.splice(index,1)[0]);
-                dispatched.forEach(lapis=>{lapis.bubbleText='🧭 Enviada por Água-marinha';lapis.isOrbiting=true;target.walkingGems.push(lapis);});
-                addChronicle('Ordem de Água-marinha','Duas Lápis-Lazúlis foram enviadas para '+target.shortName+' para formar uma equipe de terraformação e logística hídrica.','Equipe aristocrática automática');
-                if(state.drawerOpen&&state.drawerTab==='population')renderPopulationReport(document.getElementById('drawer-body'));
-                break;
-            }
+        // --- Diretoria de Engenharia Planetária da Água-marinha ---
+        const AQUAMARINE_TEAM_SIZE = {S:1,A:2,B:3,C:4};
+        const AQUAMARINE_RANK_POWER = {S:5,A:2.2,B:1.4,C:1};
+        const AQUAMARINE_CASTE_LABELS = {lapis:'Lápis-Lazúli',obsidian:'Obsidiana',snowflake_obsidian:'Obsidiana Floco de Neve'};
+        function ensureAquamarineTerraformingState(){
+            const current=state.aquamarineTerraforming||(state.aquamarineTerraforming={});
+            current.teams=Array.isArray(current.teams)?current.teams:[];
+            current.completed=Array.isArray(current.completed)?current.completed:[];
+            current.nextId=Math.max(1,Math.floor(Number(current.nextId)||1));
+            current.uiAccumulator=Math.max(0,Number(current.uiAccumulator)||0);
+            current.teams.forEach(team=>{
+                if(!team||typeof team!=='object')return;
+                team.gemIds=Array.isArray(team.gemIds)?team.gemIds:[];
+                team.arrived=Math.max(0,Math.floor(Number(team.arrived)||0));
+                team.progress=Math.max(0,Math.min(100,Number(team.progress)||0));
+                team.riskAccumulator=Math.max(0,Number(team.riskAccumulator)||0);
+            });
+            Object.values(PLANETS).forEach(planet=>{
+                (planet.walkingGems||[]).forEach((gem,index)=>{
+                    if(!gem.id)gem.id='gem_'+planet.id+'_'+index+'_'+String(gem.caste||'gem');
+                    if(!gem.grade)gem.grade='A';
+                });
+            });
+            (state.gemTransfers||[]).forEach(trip=>{
+                if(trip&&trip.gem&&!trip.gem.id)trip.gem.id='gem_transit_'+String(trip.sourceId||'x')+'_'+String(trip.targetId||'y')+'_'+Math.floor(Math.random()*1000000);
+            });
+            return current;
         }
-
-        function updateLapisTerraforming(dt){
-            for(const planet of Object.values(PLANETS)){
-                if(!planet.colonized||planet.landmassCreated)continue;
-                planet.lapisTerraformAccumulator=(Number(planet.lapisTerraformAccumulator)||0)+dt;
-                if(planet.lapisTerraformAccumulator<1)continue;
-                planet.lapisTerraformAccumulator=0;
-                const lapisCount=(planet.walkingGems||[]).filter(g=>g.caste==='lapis').length;
-                const mountain=planet.mountainous===true||/montanh|montanha/i.test(String(planet.biomeTag||''));
-                if(lapisCount<2||(!planet.hasOcean&&!mountain)||Number(planet.waterReserve||0)<2500)continue;
-                planet.waterReserve-=2500;
-                planet.landmassCreated=true;
-                planet.mountainous=false;
-                planet.terraformLevel=(Number(planet.terraformLevel)||0)+1;
-                planet.seismicHeat=Math.max(0,Number(planet.seismicHeat||0)-5);
-                addChronicle('Terraformação Lápis-Lazúli','Duas Lápis utilizaram grandes reservas hídricas em '+planet.shortName+' para criar terra firme e aplainar os terrenos montanhosos.','Massa terrestre ampliada');
-                setStatusTicker('🌊 Duas Lápis concluíram uma grande obra de terraformação em '+planet.shortName+'.');
+        function getAquamarinePlanetScale(planet){
+            const size=String(planet&&planet.resourceSize||'').toLowerCase();
+            if(size.includes('pequen'))return 1;
+            if(size.includes('méd')||size.includes('med'))return 2;
+            return 4;
+        }
+        function getAquamarineRank(grade){
+            const value=String(grade||'A').toUpperCase();
+            return Object.prototype.hasOwnProperty.call(AQUAMARINE_TEAM_SIZE,value)?value:'OFF';
+        }
+        function getAquamarineRankTeamSize(grade){return AQUAMARINE_TEAM_SIZE[getAquamarineRank(grade)]||0;}
+        function getAquamarinePlanetPreparation(planet){
+            if(!planet)return {ready:false,stage:'unknown',reason:'Planeta não encontrado.'};
+            if(planet.aquamarinePrepared===true||planet.colonized)return {ready:true,stage:'ready',reason:'Ambiente estável.'};
+            if(planet.aquamarinePreparationStage==='terrain')return {ready:false,stage:'terrain',caste:'lapis',reason:'A estabilização térmica terminou; falta criar massas terrestres.'};
+            const profile=ensurePlanetSurfaceProfile(planet),temperature=Number(planet.temperatureC??8);
+            if(temperature<0||profile.biome==='icy'||profile.waterKind==='ice')
+                return {ready:false,stage:'heat',caste:'obsidian',reason:'Mundo congelado: precisa ser aquecido antes da etapa hídrica.'};
+            if(temperature>100||profile.biome==='volcanic'||profile.waterKind==='lava'||Number(planet.seismicHeat||0)>=25)
+                return {ready:false,stage:'cool',caste:'snowflake_obsidian',reason:'Mundo vulcânico: precisa ser resfriado e estabilizado antes da etapa hídrica.'};
+            if(planet.hasOcean===true&&Number(profile.landCoverage||0)<0.28)
+                return {ready:false,stage:'terrain',caste:'lapis',reason:'Mundo oceânico: precisa de massas terrestres.'};
+            return {ready:true,stage:'ready',reason:'As condições ambientais já permitem colonização.'};
+        }
+        function getAquamarineCommittedGemIds(){
+            const management=ensureAquamarineTerraformingState(),used=new Set();
+            management.teams.forEach(team=>{
+                if(!team||['completed','cancelled'].includes(team.status))return;
+                (team.gemIds||[]).forEach(id=>used.add(id));
+            });
+            (state.gemTransfers||[]).forEach(trip=>{if(trip&&trip.purpose==='aquamarine_terraform'&&trip.gem?.id)used.add(trip.gem.id);});
+            return used;
+        }
+        function getAquamarineEligibleGems(sourceId,caste,grade){
+            const source=PLANETS[sourceId],rank=getAquamarineRank(grade);
+            if(!source||!source.colonized||!AQUAMARINE_TEAM_SIZE[rank])return [];
+            const used=getAquamarineCommittedGemIds();
+            return (source.walkingGems||[]).filter(gem=>gem&&(gem.caste||gem.type)===caste&&getAquamarineRank(gem.grade)===rank&&gem.id&&!used.has(gem.id));
+        }
+        function getAquamarineHazards(planet){
+            const rebellion=!!(planet&&(planet.rebellionActive===true||Number(planet.dissent||0)>=70));
+            const organic=!!(planet&&(planet.organicLifePresent===true||Number(planet.organicLifePopulation||0)>0));
+            return {rebellion,organic,active:rebellion||organic};
+        }
+        function dispatchAquamarineTeam(targetId,sourceId,caste,grade,requestEscort){
+            if(Number(state.census?.aquamarine||0)<1){setStatusTicker('A central exige pelo menos uma Água-marinha.',true);return;}
+            const target=PLANETS[targetId],source=PLANETS[sourceId],prep=getAquamarinePlanetPreparation(target);
+            if(!target||target.colonized||prep.ready){setStatusTicker('Este planeta não precisa de uma nova equipe de preparação.',true);return;}
+            if(!source||!source.colonized||source.id===targetId){setStatusTicker('Escolha uma colônia de origem válida para a expedição.',true);return;}
+            if(prep.caste!==caste){setStatusTicker('A etapa atual exige '+(AQUAMARINE_CASTE_LABELS[prep.caste]||'uma especialização diferente')+'.',true);return;}
+            const rank=getAquamarineRank(grade),required=getAquamarineRankTeamSize(rank);
+            if(!required){setStatusTicker('Gems Off-Color ou abaixo do Rank C não podem integrar equipes geológicas.',true);return;}
+            const available=getAquamarineEligibleGems(sourceId,caste,rank);
+            if(available.length<required){setStatusTicker('Rank '+rank+' exige '+required+' '+AQUAMARINE_CASTE_LABELS[caste]+' da mesma linha e do mesmo rank. Disponíveis: '+available.length+'.',true);return;}
+            const selected=available.slice(0,required),management=ensureAquamarineTerraformingState(),id='aq_team_'+management.nextId++;
+            const team={id,targetId,sourceId,caste,grade:rank,required,gemIds:selected.map(gem=>gem.id),arrived:0,status:'travelling',stage:prep.stage,progress:0,createdCycle:Number(state.cycleCount)||1,riskAccumulator:0,escortBattalionId:null,escortRequested:!!requestEscort};
+            if(requestEscort){
+                if(!window.dispatchHessoniteTerraformEscort||!window.getAvailableHessoniteTerraformEscort){setStatusTicker('O módulo Hessonita não oferece escolta de terraformação.',true);return;}
+                const escort=window.getAvailableHessoniteTerraformEscort(sourceId);
+                if(!escort){setStatusTicker('Não há um batalhão de patrulha Hessonita livre na colônia de origem. Crie ou libere uma patrulha.',true);return;}
+                if(!window.dispatchHessoniteTerraformEscort(id,targetId,sourceId,escort.battalionId)){setStatusTicker('A Hessonita não conseguiu destacar a escolta solicitada.',true);return;}
+                team.escortBattalionId=escort.battalionId;
             }
+            selected.forEach(gem=>{
+                const index=source.walkingGems.indexOf(gem);if(index>=0)source.walkingGems.splice(index,1);
+                gem.bubbleText='🧭 Expedição de terraformação';
+                const travel=30/getFleetTravelSpeedMultiplier();
+                state.gemTransfers=Array.isArray(state.gemTransfers)?state.gemTransfers:[];
+                state.gemTransfers.push({gem,sourceId,targetId,remaining:travel,total:travel,purpose:'aquamarine_terraform',teamId:id});
+            });
+            management.teams.unshift(team);
+            addChronicle('Expedição geológica enviada',required+' '+AQUAMARINE_CASTE_LABELS[caste]+' de Rank '+rank+' partiram de '+source.shortName+' para preparar '+target.shortName+'.',requestEscort?'Escolta Hessonita destacada':'Equipe sem escolta militar');
+            setStatusTicker('Equipe de '+AQUAMARINE_CASTE_LABELS[caste]+' enviada para '+target.shortName+'.');
+            if(state.currentScreen==='governance'&&state.governanceSection==='aquamarine')renderAquamarineTerraformingTab(document.getElementById('governance-content'));
+            updateHUD();renderDrawerContent();
+        }
+        function getAquamarineTeamMembers(team){
+            const planet=PLANETS[team.targetId];if(!planet)return [];
+            const ids=new Set(team.gemIds||[]);
+            return (planet.walkingGems||[]).filter(gem=>ids.has(gem.id));
+        }
+        function hasAquamarineEscort(team){
+            return !!(team&&team.escortBattalionId&&window.hasHessoniteTerraformEscort&&window.hasHessoniteTerraformEscort(team.id));
+        }
+        function returnAquamarineEscort(team){
+            if(team&&team.escortBattalionId&&window.returnHessoniteTerraformEscort)window.returnHessoniteTerraformEscort(team.id);
+            if(team)team.escortBattalionId=null;
+        }
+        function returnAquamarineTeamMembers(team){
+            const source=PLANETS[team.sourceId],target=PLANETS[team.targetId];if(!source||!target)return;
+            const travel=30/getFleetTravelSpeedMultiplier(),ids=new Set(team.gemIds||[]);
+            const returning=[];
+            state.gemTransfers=(state.gemTransfers||[]).filter(trip=>{
+                if(!trip||trip.purpose!=='aquamarine_terraform'||trip.teamId!==team.id)return true;
+                returning.push(trip.gem);return false;
+            });
+            target.walkingGems=(target.walkingGems||[]).filter(gem=>{if(ids.has(gem.id)){returning.push(gem);return false;}return true;});
+            returning.forEach(gem=>{
+                gem.bubbleText='🛸 Retornando da terraformação';
+                state.gemTransfers.push({gem,sourceId:target.id,targetId:source.id,remaining:travel,total:travel,purpose:'aquamarine_return'});
+            });
+        }
+        function requestAquamarineEscortForTeam(teamId){
+            const team=ensureAquamarineTerraformingState().teams.find(item=>item&&item.id===teamId);
+            if(!team||team.escortBattalionId||!window.getAvailableHessoniteTerraformEscort||!window.dispatchHessoniteTerraformEscort)return;
+            const escort=window.getAvailableHessoniteTerraformEscort(team.sourceId);
+            if(!escort||!window.dispatchHessoniteTerraformEscort(team.id,team.targetId,team.sourceId,escort.battalionId)){
+                setStatusTicker('Não há patrulha Hessonita disponível para esta expedição.',true);return;
+            }
+            team.escortBattalionId=escort.battalionId;
+            setStatusTicker('Escolta Hessonita designada. A equipe pode retomar quando estiver pronta.');
+            renderAquamarineTerraformingTab(document.getElementById('governance-content'));
+        }
+        function resumeAquamarineTeam(teamId){
+            const team=ensureAquamarineTerraformingState().teams.find(item=>item&&item.id===teamId);
+            if(!team||team.status!=='interrupted')return;
+            const planet=PLANETS[team.targetId],members=getAquamarineTeamMembers(team),hazards=getAquamarineHazards(planet);
+            if(members.length<team.required){setStatusTicker('A equipe perdeu integrantes e não tem mais o efetivo mínimo. Recolha os sobreviventes e envie reforços.',true);return;}
+            if(hazards.active&&!hasAquamarineEscort(team)){setStatusTicker('A ameaça ainda está ativa. Solicite uma escolta Hessonita antes de retomar.',true);return;}
+            team.status='working';team.reason='';team.riskAccumulator=0;
+            setStatusTicker('A equipe de terraformação retomou o trabalho em '+planet.shortName+'.');
+            renderAquamarineTerraformingTab(document.getElementById('governance-content'));
+        }
+        function recallAquamarineTeam(teamId){
+            const team=ensureAquamarineTerraformingState().teams.find(item=>item&&item.id===teamId);
+            if(!team||['completed','cancelled'].includes(team.status))return;
+            const source=PLANETS[team.sourceId],target=PLANETS[team.targetId],returned=[];
+            state.gemTransfers=(state.gemTransfers||[]).filter(trip=>{
+                if(!trip||trip.purpose!=='aquamarine_terraform'||trip.teamId!==team.id)return true;
+                if(source&&trip.gem)returned.push(trip.gem);return false;
+            });
+            const ids=new Set(team.gemIds||[]);
+            if(target)target.walkingGems=(target.walkingGems||[]).filter(gem=>{if(ids.has(gem.id)){returned.push(gem);return false;}return true;});
+            if(source)returned.forEach(gem=>{gem.bubbleText='🛸 Retornou da expedição';source.walkingGems.push(gem);});
+            returnAquamarineEscort(team);team.status='cancelled';team.reason='Expedição recolhida pela administração imperial.';
+            addChronicle('Expedição de terraformação recolhida','A equipe enviada a '+(target?.shortName||team.targetId)+' foi retirada. Integrantes sobreviventes retornaram à origem.','Operação cancelada');
+            setStatusTicker('A expedição foi recolhida. Gems sobreviventes retornaram à colônia de origem.');
+            renderAquamarineTerraformingTab(document.getElementById('governance-content'));
+        }
+        function registerAquamarineTeamCompletion(team,planet){
+            team.status='completed';team.progress=100;team.completedCycle=Number(state.cycleCount)||1;
+            returnAquamarineTeamMembers(team);returnAquamarineEscort(team);
+            const record={id:team.id,targetId:team.targetId,sourceId:team.sourceId,caste:team.caste,grade:team.grade,completedCycle:team.completedCycle,stage:team.stage};
+            const management=ensureAquamarineTerraformingState();management.completed.unshift(record);
+            if(management.completed.length>80)management.completed.length=80;
+            addChronicle('Etapa de terraformação concluída',AQUAMARINE_CASTE_LABELS[team.caste]+' de Rank '+team.grade+' concluíram uma etapa de preparação em '+planet.shortName+'.',team.stage==='terrain'?'Mundo pronto para colonização':'Etapa térmica concluída; a equipe seguinte será de Lápis-Lazúli');
+        }
+        function completeAquamarinePlanetStage(planet,stage,teams){
+            const scale=getAquamarinePlanetScale(planet),profile=ensurePlanetSurfaceProfile(planet);
+            if(stage==='heat'||stage==='cool'){
+                planet.temperatureC=stage==='heat'?10:35;
+                if(stage==='cool')planet.seismicHeat=Math.min(8,Math.max(0,Number(planet.seismicHeat)||0));
+                planet.hasOcean=true;planet.waterReserve=Math.max(Number(planet.waterReserve)||0,2500*scale);
+                planet.landmassCreated=false;planet.aquamarinePrepared=false;planet.aquamarinePreparationStage='terrain';
+                planet.aquamarineWork=null;
+                profile.topology='archipelago';profile.biome='oceanic';profile.landCoverage=0.14;profile.waterKind='water';profile.featureCount=Math.max(16,Number(profile.featureCount)||0);
+                planet.biomeTag='Oceânico em preparação geológica';
+                planet.colors=Object.assign({},planet.colors||{},{primary:'#168ead',secondary:'#56cbd0',mantle:'#075b83',ocean:'#075985',continent:'#70c9c7'});
+                addChronicle('Conversão ambiental concluída',planet.shortName+' foi convertido em um mundo oceânico após a estabilização térmica.','Próxima etapa: Lápis-Lazúli');
+            }else if(stage==='terrain'){
+                const needed=2500*scale;if(Number(planet.waterReserve||0)<needed)return false;
+                planet.waterReserve=Math.max(0,Number(planet.waterReserve||0)-needed);
+                planet.landmassCreated=true;planet.mountainous=false;planet.aquamarinePrepared=true;planet.aquamarinePreparationStage='ready';planet.aquamarineWork=null;
+                planet.terraformLevel=(Number(planet.terraformLevel)||0)+1;planet.seismicHeat=Math.max(0,(Number(planet.seismicHeat)||0)-5);
+                profile.topology='continental';profile.biome=planet.organicLifePresent?'organic':'rocky';profile.landCoverage=0.46;profile.waterKind='water';profile.featureCount=Math.max(6,Number(profile.featureCount)||0);
+                planet.biomeTag='Continental · ambiente preparado para colonização';
+                planet.colors=Object.assign({},planet.colors||{},{primary:planet.organicLifePresent?'#258c9b':'#736786',secondary:planet.organicLifePresent?'#59c8bb':'#a18aaa',ocean:'#075985',continent:planet.organicLifePresent?'#70c978':'#9e83a7'});
+            }
+            PLANET_SURFACE_CACHE.clear();
+            teams.forEach(team=>registerAquamarineTeamCompletion(team,planet));
+            if(stage==='terrain'){
+                addChronicle('Mundo preparado para colonização',planet.shortName+' possui temperatura e massas terrestres adequadas. O clima modificado permanecerá estável sem equipes de manutenção.','Colonização liberada');
+                setStatusTicker('🌍 '+planet.shortName+' está preparado para receber uma colônia.');
+            }else setStatusTicker('🌡 '+planet.shortName+' foi convertido em um mundo oceânico. Agora são necessárias Lápis-Lazúlis para criar terra firme.');
+            return true;
+        }
+        function updateAquamarineTerraforming(dt){
+            if(!state.firstGameStarted||Number(state.census?.aquamarine||0)<1)return;
+            const management=ensureAquamarineTerraformingState();
+            management.teams.forEach(team=>{
+                if(!team||team.status!=='travelling')return;
+                const planet=PLANETS[team.targetId];if(!planet)return;
+                const prep=getAquamarinePlanetPreparation(planet);
+                if(prep.ready||prep.stage!==team.stage){team.status='completed';team.progress=100;team.reason='Outra equipe concluiu esta etapa durante o deslocamento.';returnAquamarineEscort(team);return;}
+                if(team.arrived>=team.required)team.status='working';
+            });
+            management.teams.forEach(team=>{
+                if(!team||team.status!=='working')return;
+                const planet=PLANETS[team.targetId],members=getAquamarineTeamMembers(team);
+                if(!planet){team.status='interrupted';team.reason='O planeta de destino não está disponível.';return;}
+                if(members.length<team.required){team.status='interrupted';team.reason='A equipe perdeu integrantes e ficou abaixo do efetivo mínimo.';return;}
+                const hazards=getAquamarineHazards(planet),escorted=hasAquamarineEscort(team);
+                if(hazards.active){
+                    team.riskAccumulator=(Number(team.riskAccumulator)||0)+dt;
+                    if(team.riskAccumulator>=15){
+                        team.riskAccumulator%=15;
+                        const risk=(hazards.rebellion?0.08:0)+(hazards.organic?0.06:0);
+                        if(Math.random()<(escorted?risk*0.22:risk)){
+                            const victim=members[Math.floor(Math.random()*members.length)],victimIndex=planet.walkingGems.indexOf(victim);
+                            if(victimIndex>=0)planet.walkingGems.splice(victimIndex,1);
+                            team.gemIds=team.gemIds.filter(id=>id!==victim.id);
+                            state.census[team.caste]=Math.max(0,(Number(state.census[team.caste])||0)-1);
+                            if(victim.grade==='S')state.census.prime=Math.max(0,(Number(state.census.prime)||0)-1);
+                            const fatal=Math.random()<(escorted?0.08:0.28);
+                            team.reason=fatal?'Uma integrante morreu durante um ataque hostil.':'Um ataque hostil forçou a suspensão temporária do trabalho.';
+                            if(fatal)addChronicle('Perda em expedição geológica',AQUAMARINE_CASTE_LABELS[team.caste]+' morreu durante a preparação de '+planet.shortName+'.','Baixa confirmada');
+                            else addChronicle('Expedição geológica interrompida','Um ataque hostil forçou a equipe em '+planet.shortName+' a suspender o trabalho.','Operação suspensa');
+                            team.status='interrupted';
+                            if(team.gemIds.length<team.required)team.reason+=' O efetivo restante não permite retomar.';
+                            setStatusTicker(team.reason+' '+planet.shortName+'.');updateHUD();
+                        }
+                    }
+                }
+            });
+            const groups=new Map();
+            management.teams.filter(team=>team&&team.status==='working').forEach(team=>{
+                const key=team.targetId+'|'+team.stage;if(!groups.has(key))groups.set(key,[]);groups.get(key).push(team);
+            });
+            groups.forEach(teams=>{
+                const planet=PLANETS[teams[0].targetId],stage=teams[0].stage;if(!planet)return;
+                const scale=getAquamarinePlanetScale(planet),totalPower=teams.reduce((sum,team)=>sum+getAquamarineTeamMembers(team).length*(AQUAMARINE_RANK_POWER[team.grade]||1),0);
+                if(stage==='heat'||stage==='cool'){
+                    const target=stage==='heat'?10:35,current=Number(planet.temperatureC)||0;
+                    if(!planet.aquamarineWork||planet.aquamarineWork.stage!==stage)planet.aquamarineWork={stage,startTemperature:current,targetTemperature:target,progress:0};
+                    const work=planet.aquamarineWork,difference=target-current,movement=Math.min(Math.abs(difference),0.04*totalPower/scale*dt);
+                    planet.temperatureC=current+Math.sign(difference)*movement;
+                    if(stage==='cool'&&Number(planet.seismicHeat)>8)planet.seismicHeat=Math.max(8,Number(planet.seismicHeat)-movement*0.45);
+                    work.progress=Math.max(0,Math.min(100,(1-Math.abs(target-Number(planet.temperatureC))/Math.max(0.1,Math.abs(work.startTemperature-target)))*100));
+                    teams.forEach(team=>team.progress=work.progress);
+                    if(Math.abs(target-Number(planet.temperatureC))<0.05){
+                        const allTeams=management.teams.filter(team=>team&&team.targetId===planet.id&&team.stage===stage&&['working','interrupted','travelling'].includes(team.status));
+                        completeAquamarinePlanetStage(planet,stage,allTeams);
+                    }
+                }else if(stage==='terrain'){
+                    const requiredWater=2500*scale;
+                    if(Number(planet.waterReserve||0)<requiredWater){teams.forEach(team=>{team.status='interrupted';team.reason='Reserva hídrica insuficiente: são necessárias '+requiredWater+' unidades de água.';});return;}
+                    if(!planet.aquamarineWork||planet.aquamarineWork.stage!=='terrain')planet.aquamarineWork={stage:'terrain',progress:0};
+                    const duration=240*scale/Math.max(1,totalPower/4);
+                    planet.aquamarineWork.progress=Math.min(100,(Number(planet.aquamarineWork.progress)||0)+dt*100/duration);
+                    teams.forEach(team=>team.progress=planet.aquamarineWork.progress);
+                    if(planet.aquamarineWork.progress>=100){
+                        const allTeams=management.teams.filter(team=>team&&team.targetId===planet.id&&team.stage===stage&&['working','interrupted','travelling'].includes(team.status));
+                        completeAquamarinePlanetStage(planet,stage,allTeams);
+                    }
+                }
+            });
+            if(state.currentScreen==='governance'&&state.governanceSection==='aquamarine'){
+                management.uiAccumulator+=dt;if(management.uiAccumulator>=0.8){management.uiAccumulator=0;renderAquamarineTerraformingTab(document.getElementById('governance-content'));}
+            }else management.uiAccumulator=0;
+        }
+        function renderAquamarineTerraformingTab(container){
+            if(!container)return;
+            if(Number(state.census?.aquamarine||0)<1){container.innerHTML='<div class="card card-amber"><b>Diretoria bloqueada</b><p class="governance-muted">A central só é desbloqueada quando o Império possui pelo menos uma Água-marinha.</p></div>';return;}
+            const management=ensureAquamarineTerraformingState(),active=management.teams.filter(team=>team&&!['completed','cancelled'].includes(team.status));
+            const prepared=Object.values(PLANETS).filter(planet=>!planet.colonized&&getAquamarinePlanetPreparation(planet).ready).length;
+            const specialistCount=['lapis','obsidian','snowflake_obsidian'].reduce((sum,key)=>sum+(Number(state.census[key])||0),0);
+            const planetCards=Object.values(PLANETS).filter(planet=>!planet.colonized).map(planet=>{
+                const prep=getAquamarinePlanetPreparation(planet),scale=getAquamarinePlanetScale(planet),sizeLabel=scale===1?'Pequeno':scale===2?'Médio':'Grande',temperature=Number(planet.temperatureC??8);
+                const phaseLabel=prep.ready?'Pronto para colonização':prep.stage==='heat'?'Aquecimento · Obsidianas':prep.stage==='cool'?'Resfriamento · Floco de Neve':'Formação de terra · Lápis-Lazúlis';
+                const sources=Object.values(PLANETS).filter(source=>source.colonized),sourceOptions=sources.map(source=>'<option value="'+source.id+'">'+escapeHTML(source.shortName||source.name)+'</option>').join('');
+                const caste=prep.caste||'lapis';
+                const gradeOptions=['S','A','B','C'].map(grade=>{
+                    const required=getAquamarineRankTeamSize(grade),best=sources.reduce((max,source)=>Math.max(max,getAquamarineEligibleGems(source.id,caste,grade).length),0);
+                    return '<option value="'+grade+'">Rank '+grade+' · exige '+required+' · maior reserva '+best+'</option>';
+                }).join('');
+                const teams=management.teams.filter(team=>team&&team.targetId===planet.id&&!['completed','cancelled'].includes(team.status));
+                const teamRows=teams.map(team=>{
+                    const members=getAquamarineTeamMembers(team).length,escort=hasAquamarineEscort(team),progress=Number(team.progress)||0,statusLabel=team.status==='travelling'?'Em trânsito':team.status==='working'?'Trabalhando':'Interrompida';
+                    const escortButton=team.status==='interrupted'&&!escort&&window.getAvailableHessoniteTerraformEscort&&window.getAvailableHessoniteTerraformEscort(team.sourceId)?'<button class="btn btn-block" onclick="requestAquamarineEscortForTeam(\''+team.id+'\')">Solicitar escolta Hessonita</button>':'';
+                    return '<div class="stat-box"><div style="display:flex;justify-content:space-between;gap:8px"><b>'+escapeHTML(AQUAMARINE_CASTE_LABELS[team.caste])+' · Rank '+team.grade+'</b><span class="badge">'+statusLabel+'</span></div><small class="governance-muted">'+members+'/'+team.required+' integrantes no planeta · '+(escort?'Escolta Hessonita ativa':'Sem escolta')+'</small><div class="founding-progress"><div style="width:'+Math.min(100,progress)+'%"></div></div><small class="governance-muted">'+(team.reason?escapeHTML(team.reason):Math.floor(progress)+'% da etapa')+'</small>'+(team.status==='interrupted'?'<button class="btn btn-block" onclick="resumeAquamarineTeam(\''+team.id+'\')">Retomar operação</button>':'')+escortButton+'<button class="btn btn-block" onclick="recallAquamarineTeam(\''+team.id+'\')">Recolher equipe</button></div>';
+                }).join('');
+                const canEscort=!!(window.isHessoniteCommandActive&&window.isHessoniteCommandActive()&&window.getAvailableHessoniteTerraformEscort&&sources.some(source=>window.getAvailableHessoniteTerraformEscort(source.id)));
+                return '<section class="card"><div class="card-header"><span class="card-title">'+escapeHTML(planet.shortName||planet.name)+'</span><span class="badge">'+phaseLabel+'</span></div><div class="grid-2"><div class="stat-box">Porte: <b>'+sizeLabel+'</b><small class="governance-muted">Trabalho planetário ×'+scale+'</small></div><div class="stat-box">Temperatura: <b>'+temperature.toFixed(1)+' °C</b><small class="governance-muted">Calor sísmico '+Math.round(Number(planet.seismicHeat)||0)+'</small></div></div><p class="governance-muted">'+escapeHTML(prep.reason)+'</p>'+(prep.ready?'<div class="stat-box">A preparação ambiental não é necessária. A colonização pode ser iniciada no Mapa Estelar.</div>':'<label class="stat-label">Colônia de origem</label><select id="aq-source-'+planet.id+'">'+sourceOptions+'</select><label class="stat-label">Rank da equipe</label><select id="aq-grade-'+planet.id+'">'+gradeOptions+'</select><label style="display:flex;gap:8px;align-items:center;margin:8px 0;color:#cbd5e1;font-size:11px"><input id="aq-escort-'+planet.id+'" type="checkbox" '+(canEscort?'':'disabled')+' /> Solicitar escolta de patrulha Hessonita</label><small class="governance-muted">'+(canEscort?'Uma patrulha livre será temporariamente destacada para proteger a expedição.':'Sem batalhão de patrulha Hessonita livre para escolta.')+'</small><button class="btn btn-emerald btn-block" onclick="dispatchAquamarineTeam(\''+planet.id+'\',document.getElementById(\'aq-source-'+planet.id+'\').value,\''+caste+'\',document.getElementById(\'aq-grade-'+planet.id+'\').value,document.getElementById(\'aq-escort-'+planet.id+'\').checked)">Enviar equipe · '+escapeHTML(AQUAMARINE_CASTE_LABELS[caste])+'</button>')+teamRows+'</section>';
+            }).join('');
+            const reports=management.completed.slice(0,8).map(record=>'<div class="stat-box"><b>'+escapeHTML(AQUAMARINE_CASTE_LABELS[record.caste]||record.caste)+' · '+escapeHTML(PLANETS[record.targetId]?.shortName||record.targetId)+'</b><small class="governance-muted">Rank '+record.grade+' · '+(record.stage==='terrain'?'Mundo preparado':'Etapa térmica concluída')+'</small></div>').join('');
+            container.innerHTML='<section class="card card-cyan"><div class="card-header"><span class="card-title title-font">🌊 Diretoria de Engenharia Planetária</span><span class="badge">Água-marinha operacional</span></div><p class="governance-muted">A Água-marinha administra expedições que manipulam água, calor e frio. Mundos congelados ou vulcânicos passam primeiro pela estabilização térmica e depois recebem equipes Lápis para formar continentes. O clima permanece estável após a conclusão.</p><div class="grid-2"><div class="stat-box">Águas-marinhas: <b>'+Math.floor(Number(state.census.aquamarine)||0)+'</b></div><div class="stat-box">Especialistas geológicos: <b>'+specialistCount+'</b></div><div class="stat-box">Expedições ativas: <b>'+active.length+'</b></div><div class="stat-box">Mundos prontos: <b>'+prepared+'</b></div></div></section>'+(planetCards||'<div class="card">Todos os mundos disponíveis já estão colonizados ou preparados.</div>')+'<section class="card"><div class="card-header"><span class="card-title">Relatório de operações concluídas</span><span class="badge">'+management.completed.length+' etapas</span></div>'+(reports||'<p class="governance-muted">Nenhuma operação concluída ainda.</p>')+'</section><section class="card"><div class="card-title">Regras das equipes</div><div class="stat-box">Rank S: 1 Gem · Rank A: 2 · Rank B: 3 · Rank C: 4. Todas devem pertencer à mesma casta e ter o mesmo rank. Abaixo de C: Off-Color, inelegível.</div><div class="stat-box">Eficiência por Gem: Rank S ×5 · A ×2,2 · B ×1,4 · C ×1. O porte planetário multiplica o trabalho exigido.</div><div class="stat-box">Planetas com rebeldes ou vida orgânica hostil podem interromper operações e causar baixas. Escoltas Hessonitas reduzem o risco.</div></section>';
         }
 
         function updateGemTransfers(dt){
@@ -4901,12 +5170,17 @@ ${hasAristocrats ? `
                 const trip=state.gemTransfers[i];trip.remaining=Math.max(0,Number(trip.remaining||0)-dt);
                 if(trip.remaining>0)continue;
                 const target=PLANETS[trip.targetId];
-                if(target&&target.colonized){
+                if(target&&(target.colonized||trip.purpose==='aquamarine_terraform')){
                     trip.gem.angle=Math.random()*Math.PI*2;
-                    trip.gem.bubbleText='🛸 Chegou de '+(PLANETS[trip.sourceId]?.shortName||'outro mundo');
+                    trip.gem.bubbleText=trip.purpose==='aquamarine_terraform'?'🌍 Trabalhando na preparação planetária':'🛸 Chegou de '+(PLANETS[trip.sourceId]?.shortName||'outro mundo');
                     target.walkingGems.push(trip.gem);
-                    addChronicle('Transferência concluída','Uma Gem chegou a '+target.shortName+'.','População realocada');
-                    setStatusTicker('🛸 '+target.shortName+' recebeu uma Gem transportada.');
+                    if(trip.purpose==='aquamarine_terraform'){
+                        const team=ensureAquamarineTerraformingState().teams.find(item=>item&&item.id===trip.teamId);
+                        if(team){team.arrived=Math.min(team.required,(Number(team.arrived)||0)+1);if(team.arrived>=team.required&&team.status==='travelling')team.status='working';}
+                    }else{
+                        addChronicle('Transferência concluída','Uma Gem chegou a '+target.shortName+'.','População realocada');
+                        setStatusTicker('🛸 '+target.shortName+' recebeu uma Gem transportada.');
+                    }
                 }
                 state.gemTransfers.splice(i,1);
             }
@@ -5000,8 +5274,7 @@ ${hasAristocrats ? `
             if (state.firstGameStarted) updateStructureSimulation(dt);
             updateGemTransfers(dt);
             updateSapphirePredictions(dt);
-            updateAquamarineOrders(dt);
-            updateLapisTerraforming(dt);
+            updateAquamarineTerraforming(dt);
             for (const planet of Object.values(PLANETS)) {
                 planet.orbitAngle = (planet.orbitAngle || 0) + (planet.orbitSpeed || 0) * elapsedMs;
                 for (const gem of planet.walkingGems) {
@@ -6545,6 +6818,7 @@ function drawColony(time){
             state.order = 100;
             state.matriarchs = [];
             state.census = {quartz:0,peridot:0,lapis:0,sapphire:0,hessonite:0,bismuth:0,ruby:0,pearl:0,prime:0,offcolor:0,pyrope:0,agate:0,nephrite:0,jade:0,morganite:0,aquamarine:0,emerald:0,topaz:0,obsidian:0,snowflake_obsidian:0};
+            state.aquamarineTerraforming={teams:[],completed:[],nextId:1,uiAccumulator:0};
             state.refinedResources={quartz:0,pyroxene:0,beryllium:0,cooled_obsidian:0};
             state.gemObjects={total:0,byOwner:{},influenceByOwner:{},history:[]};
             state.founding.reefPearlInventory=[];
@@ -6855,7 +7129,7 @@ function drawColony(time){
                 }else{
                     const variant=batch.type==='quartz'?getQuartzVariantForPlanet(planet,i):batch.type==='ruby'?'ruby':null;
                     if(variant&&state.founding.quartzVariantCounts)state.founding.quartzVariantCounts[variant]=(Number(state.founding.quartzVariantCounts[variant])||0)+1;
-                    planet.walkingGems.push({ownerId:courtOwner,caste:batch.type,variant:variant,color:data.color,grade:'A',isOrbiting:batch.type==='lapis',bubbleText:'✨ Recém-emergida',angle:Math.random()*Math.PI*2,dir:1,speed:0.0005,bobPhase:0});
+                    planet.walkingGems.push({id:'gem_'+Date.now()+'_'+Math.floor(Math.random()*1000000),ownerId:courtOwner,caste:batch.type,variant:variant,color:data.color,grade:'A',isOrbiting:batch.type==='lapis',bubbleText:'✨ Recém-emergida',angle:Math.random()*Math.PI*2,dir:1,speed:0.0005,bobPhase:0});
                 }
             }
             if(!Array.isArray(state.founding.productionReports))state.founding.productionReports=[];
@@ -6908,7 +7182,7 @@ function drawColony(time){
             }else{
                 const variant=type==='quartz'?getQuartzVariantForPlanet(planet,0):type==='ruby'?'ruby':null;
                 if(variant&&state.founding.quartzVariantCounts)state.founding.quartzVariantCounts[variant]=(Number(state.founding.quartzVariantCounts[variant])||0)+1;
-                planet.walkingGems.push({ownerId:'first',caste:type,variant:variant,color:data.color,grade:'A',isOrbiting:type==='lapis',bubbleText:'✨ Recém-emergida',angle:Math.random()*Math.PI*2,dir:1,speed:0.0005,bobPhase:0});
+                planet.walkingGems.push({id:'gem_'+Date.now()+'_'+Math.floor(Math.random()*1000000),ownerId:'first',caste:type,variant:variant,color:data.color,grade:'A',isOrbiting:type==='lapis',bubbleText:'✨ Recém-emergida',angle:Math.random()*Math.PI*2,dir:1,speed:0.0005,bobPhase:0});
             }
             addChronicle(isFirst?'A primeira Gem nasceu':'Nova Gem nasceu',state.firstDiamond.name+' formou '+data.label+' através de essência e substrato mineral. Função: '+data.role+'.',isFirst?'Primeira Gem criada':'População ampliada');
             setStatusTicker((isFirst?'A primeira Gem emergiu: ':'Nova Gem emergiu: ')+data.label+'. Ela já conhece sua função e pode ser designada a uma estrutura.');
@@ -7155,7 +7429,7 @@ function drawColony(time){
                 state.constructionQueue=Array.isArray(state.constructionQueue)?state.constructionQueue:(state.construction&&state.construction.active?[state.construction]:[]);
                 state.construction=state.constructionQueue[0]||null;
                 state.currentScreen='throne';
-                state.governanceSection = ['council','demantoid','hessonite','morganite'].includes(state.governanceSection) ? state.governanceSection : 'council';
+                state.governanceSection = ['council','demantoid','hessonite','morganite','aquamarine'].includes(state.governanceSection) ? state.governanceSection : 'council';
                 state.morganiteAutoBuild = state.morganiteAutoBuild !== false;
                 ensureMorganiteArchitectureState();
                 state.structures.diamond_quarters=Number(state.structures.diamond_quarters)||0;
@@ -7230,7 +7504,12 @@ function drawColony(time){
                     PLANETS[id].resourcesRemaining=Object.values(pools).reduce((a,b)=>a+Math.max(0,Number(b)||0),0);
                     PLANETS[id].waterReserve=Number(PLANETS[id].waterReserve)|| (PLANETS[id].hasOcean?5000:0);
                     PLANETS[id].landmassCreated=!!PLANETS[id].landmassCreated;
-                    for(const type of ['pyroxene','beryllium','topaz']) if(!PLANETS[id].veins.some(v=>v.type===type)) PLANETS[id].veins.push({id:PLANETS[id].veins.length,type,label:type==='pyroxene'?'Veio de Piroxênio':type==='beryllium'?'Nódulo de Berílio':'Bolsa de Topázio',purity:45,angle:Math.random()*Math.PI*2,depthRatio:.82,injector:null,rebelBlocked:false,_screenX:0,_screenY:0});
+                    for(const type of ['pyroxene','beryllium','topaz','obsidian']) if(!PLANETS[id].veins.some(v=>v.type===type)) PLANETS[id].veins.push({id:PLANETS[id].veins.length,type,label:type==='pyroxene'?'Veio de Piroxênio':type==='beryllium'?'Nódulo de Berílio':type==='obsidian'?'Veio de Obsidiana Vulcânica':'Bolsa de Topázio',purity:45,angle:Math.random()*Math.PI*2,depthRatio:.82,injector:null,rebelBlocked:false,_screenX:0,_screenY:0});
+                    if(!Object.prototype.hasOwnProperty.call(PLANETS[id].resourcesByType||{},'obsidian')){
+                        const seed=['homeworld','ignis_prime'].includes(id)?Math.max(40,Math.floor((Number(PLANETS[id].resourceTotal)||1000)*0.025)):0;
+                        PLANETS[id].resourcesByType.obsidian=seed;
+                        PLANETS[id].resourcesRemaining=(Number(PLANETS[id].resourcesRemaining)||0)+seed;
+                    }
                 }
                 // Regra canônica do cenário: saves antigos não podem restaurar luas em Homeworld.
                 // O conteúdo de luas salvo anteriormente era obsoleto e liberava indevidamente a Base Lunar.
@@ -7239,6 +7518,8 @@ function drawColony(time){
                 if (!PLANETS[state.activeColonyPlanetId] || !PLANETS[state.activeColonyPlanetId].colonized) state.activeColonyPlanetId = 'homeworld';
                 if (!PLANETS[state.selectedStarMapPlanetId]) state.selectedStarMapPlanetId = 'homeworld';
                 state.selectedVeinIndex = Math.max(0, Math.min(PLANETS[state.activeColonyPlanetId].veins.length - 1, Number(state.selectedVeinIndex) || 0));
+                state.aquamarineTerraforming=state.aquamarineTerraforming||{teams:[],completed:[],nextId:1,uiAccumulator:0};
+                ensureAquamarineTerraformingState();
                 applyGameSettings();
                 saveGame(slotId,true);
                 ['throne','starmap','colony'].forEach(screen=>{const button=document.getElementById('nav-'+screen);if(button)button.classList.toggle('active',screen==='throne');});
