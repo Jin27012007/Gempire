@@ -2753,7 +2753,7 @@
         function getTotalRedEyeCount(){return Math.max(0,Math.floor(Number(state.structures?.red_eye)||0));}
         function getAvailableRedEyeCount(){const missions=Array.isArray(state.redEyeMissions)?state.redEyeMissions:[];return Math.max(0,getTotalRedEyeCount()-missions.filter(m=>m&&m.active).length);}
         function structureDefinition(id) { return STRUCTURE_CATALOG.find(item => item.id === id); }
-        function hasStructurePrerequisites(def) { return (def.prerequisites || []).every(id => id==='red_eye'&&def.id==='royal_palace' ? redEyeCountForPlanet('homeworld')>0 : id==='galaxy_warp'&&def.id==='red_eye' ? !!PLANETS[state.activeColonyPlanetId||'homeworld']?.galaxyWarpBuilt : structureCount(id) > 0); }
+        function hasStructurePrerequisites(def) { const required=def.id==='lunar_base'?['reactor']:(def.prerequisites||[]);return required.every(id => id==='red_eye'&&def.id==='royal_palace' ? redEyeCountForPlanet('homeworld')>0 : id==='galaxy_warp'&&def.id==='red_eye' ? !!PLANETS[state.activeColonyPlanetId||'homeworld']?.galaxyWarpBuilt : structureCount(id) > 0); }
         function totalAssignedWorkers(gemType) {
             const assignedToStructures = Object.values(state.structureAssignments || {}).reduce((sum, jobs) => sum + (Number(jobs && jobs[gemType]) || 0), 0);
             const queue=Array.isArray(state.constructionQueue)?state.constructionQueue:(state.construction&&state.construction.active?[state.construction]:[]);
