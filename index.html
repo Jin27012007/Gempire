@@ -4733,6 +4733,8 @@ ${hasAristocrats ? `
         function setPlanetCensus(planetId,census){const planet=PLANETS[planetId];if(!planet)return;const economy=ensurePlanetEconomy(planet,false);economy.census=clonePlanetData(census||{});if(planetId===(state.activeColonyPlanetId||'homeworld'))state.census=clonePlanetData(economy.census);}
         function getEmpireCensus(){const total={};Object.values(PLANETS).filter(p=>p.colonized).forEach(planet=>Object.entries(getPlanetCensus(planet.id)).forEach(([type,count])=>total[type]=(Number(total[type])||0)+Math.max(0,Number(count)||0)));return total;}
         function getEmpirePopulationCount(type){return Number(getEmpireCensus()[type])||0;}
+        window.getPlanetEconomy=function(planetId){return ensurePlanetEconomy(PLANETS[planetId],false);};
+        window.withPlanetEconomy=function(planetId,callback){const previous=state.activeColonyPlanetId||'homeworld';if(!PLANETS[planetId]||!PLANETS[planetId].colonized||typeof callback!=='function')return undefined;if(previous!==planetId)activatePlanetEconomy(planetId,false);try{return callback();}finally{if(previous!==planetId){saveActivePlanetEconomy();activatePlanetEconomy(previous,false);}}};
         function withPlanetEconomy(planetId,callback){const previous=state.activeColonyPlanetId||'homeworld';if(!PLANETS[planetId]||!PLANETS[planetId].colonized||typeof callback!=='function')return undefined;if(previous!==planetId)activatePlanetEconomy(planetId,false);try{return callback();}finally{if(previous!==planetId){saveActivePlanetEconomy();activatePlanetEconomy(previous,false);}}}
 
         // --- 14. MAPA ESTELAR, COLÔNIAS E GOVERNANÇA ---
