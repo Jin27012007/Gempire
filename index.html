@@ -4708,7 +4708,7 @@ ${hasAristocrats ? `
             base.morganiteArchitecture={assignments:{},proposals:[],activeProjects:[],completed:[],nextId:1,proposalTimers:{},selectedProjects:{},uiAccumulator:0};return base;
         }
         function saveActivePlanetEconomy(){
-            const id=state.activeColonyPlanetId||'homeworld',planet=PLANETS[id];if(!planet)return;state.planetEconomiesVersion=1;const economy=planet.economy||(planet.economy={});
+            const id=state.activeColonyPlanetId||'homeworld',planet=PLANETS[id];if(!planet)return;const economy=planet.economy||(planet.economy={});
             PLANET_LOCAL_STATE_KEYS.forEach(key=>{if(state[key]!==undefined)economy[key]=state[key];});
             planet.structures=planet.structures||{};['injector','mineral_extractor','galaxy_warp'].forEach(key=>planet.structures[key]=Math.max(0,Number(state.structures?.[key])||0));planet.galaxyWarpBuilt=!!(planet.galaxyWarpBuilt||Number(state.structures?.galaxy_warp)>0);
         }
@@ -4727,7 +4727,8 @@ ${hasAristocrats ? `
             const migrateLegacy=!!adoptCurrent&&Number(state.planetEconomiesVersion)!==1;
             Object.values(PLANETS).forEach(planet=>{if(planet.colonized)ensurePlanetEconomy(planet,!!adoptCurrent&&planet.id==='homeworld');});
             if(migrateLegacy){
-                const home=ensurePlanetEconomy(PLANETS.homeworld,false),types=Object.keys(home.census||{});
+                const homePlanet=PLANETS.homeworld;homePlanet.economy=homePlanet.economy||{};PLANET_LOCAL_STATE_KEYS.forEach(key=>{if(state[key]!==undefined)homePlanet.economy[key]=state[key];});
+                const home=ensurePlanetEconomy(homePlanet,false),types=Object.keys(home.census||{});
                 Object.values(PLANETS).filter(planet=>planet.colonized&&planet.id!=='homeworld').forEach(planet=>{
                     const local=Object.assign({},ensurePlanetEconomy(planet,false).census||{});
                     (planet.walkingGems||[]).forEach(gem=>{const type=gem&&(gem.caste||gem.type);if(!type||!types.includes(type))return;const available=Math.max(0,Number(home.census[type])||0);if(available<1)return;home.census[type]=available-1;local[type]=(Number(local[type])||0)+1;});
@@ -7490,6 +7491,7 @@ function drawColony(time){
 
         function createSaveSnapshot() {
             if(typeof saveActivePlanetEconomy==='function')saveActivePlanetEconomy();
+            state.planetEconomiesVersion=1;
             const safeState = JSON.parse(JSON.stringify(state));
             // Petições guardam callbacks em memória; serão geradas novamente depois do carregamento.
             safeState.activePetition = null;
