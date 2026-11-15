@@ -3373,7 +3373,7 @@
             setStatusTicker(ship.name+' iniciou viagem para '+p.shortName+(passenger?' transportando uma Gem.':'.'));
             updateHUD();renderDrawerContent();
         }
-        function updateFleetTravel(dt){(state.shipFleet||[]).forEach(s=>{if(s.status!=='travelling'||s.type==='cargo')return;s.missionProgress=Math.min(100,(Number(s.missionProgress)||0)+dt*100/Math.max(1,s.missionDuration||1));if(s.missionProgress>=100){const p=PLANETS[s.destinationPlanetId];if(p){p.fleetVisits=Array.isArray(p.fleetVisits)?p.fleetVisits:[];p.fleetVisits.push({shipId:s.id,name:s.name});disembarkShipGem(s,p);s.planetId=p.id;}s.destinationPlanetId=null;s.status='orbital';if(s.type==='diamond'&&s.diamondColonyOwnerId){const ownerId=s.diamondColonyOwnerId;if(s.returningToHomeworld){s.returningToHomeworld=false;state.activeDiamondColonyOwnerId=null;state.activeColonyPlanetId='homeworld';switchScreen('throne');}else if(p&&p.lunarBaseBuilt){state.activeDiamondColonyOwnerId=ownerId;state.activeColonyPlanetId=p.id;state.selectedStarMapPlanetId=p.id;state.selectedVeinIndex=0;switchScreen('colony');setStatusTicker(getDiamondOwnerById(ownerId)?.name+' assumiu a Base Lunar de '+p.shortName+'.');}}else setStatusTicker(s.name+' chegou ao destino.');}});}
+        function updateFleetTravel(dt){(state.shipFleet||[]).forEach(s=>{if(s.status!=='travelling'||s.type==='cargo')return;s.missionProgress=Math.min(100,(Number(s.missionProgress)||0)+dt*100/Math.max(1,s.missionDuration||1));if(s.missionProgress>=100){const p=PLANETS[s.destinationPlanetId];if(p){p.fleetVisits=Array.isArray(p.fleetVisits)?p.fleetVisits:[];p.fleetVisits.push({shipId:s.id,name:s.name});disembarkShipGem(s,p);s.planetId=p.id;}s.destinationPlanetId=null;s.status='orbital';if(s.type==='diamond'&&s.diamondColonyOwnerId){const ownerId=s.diamondColonyOwnerId;if(s.returningToHomeworld){s.returningToHomeworld=false;activatePlanetEconomy('homeworld',false);activatePlanetEconomy('homeworld',false);state.activeDiamondColonyOwnerId=null;state.activeColonyPlanetId='homeworld';switchScreen('throne');}else if(p&&p.lunarBaseBuilt){activatePlanetEconomy(p.id,false);state.activeDiamondColonyOwnerId=ownerId;state.activeColonyPlanetId=p.id;state.selectedStarMapPlanetId=p.id;state.selectedVeinIndex=0;switchScreen('colony');setStatusTicker(getDiamondOwnerById(ownerId)?.name+' assumiu a Base Lunar de '+p.shortName+'.');}}else setStatusTicker(s.name+' chegou ao destino.');}});}
         function getDiamondOwnerById(ownerId){return getDiamondOwners().find(owner=>owner.id===ownerId)||null;}
         function getDiamondGovernorPlanet(ownerId){
             const governor=ownerId==='first'?'none':'matriarch_'+ownerId;
@@ -3386,14 +3386,14 @@
             if(!planet){setStatusTicker(owner.name+' ainda não governa uma colônia.',true);return;}
             if(!planet.lunarBaseBuilt){setStatusTicker('A colônia de '+owner.name+' precisa ter uma Base Lunar concluída antes da transferência da sede.',true);return;}
             if(ship.status!=='orbital'){setStatusTicker('A Nave Diamante não está disponível para viajar.',true);return;}
-            if((ship.planetId||'homeworld')===planet.id){state.activeColonyPlanetId=planet.id;state.activeDiamondColonyOwnerId=ownerId;switchScreen('colony');return;}
+            if((ship.planetId||'homeworld')===planet.id){activatePlanetEconomy(planet.id,false);state.activeColonyPlanetId=planet.id;state.activeDiamondColonyOwnerId=ownerId;switchScreen('colony');return;}
             ship.originPlanetId=ship.planetId||'homeworld';ship.status='travelling';ship.destinationPlanetId=planet.id;ship.missionProgress=0;
             ship.missionDuration=getSpaceTravelSeconds(ship.originPlanetId,planet.id,1.8);ship.diamondColonyOwnerId=ownerId;ship.returningToHomeworld=false;
             setStatusTicker(owner.name+' partiu em sua Nave Diamante para a colônia '+planet.shortName+'.');updateHUD();renderDrawerContent();
         }
         function returnDiamondToHomeworld(){
             const ownerId=state.activeDiamondColonyOwnerId,ship=getDiamondShip(ownerId);
-            if(!ownerId||!ship){state.activeDiamondColonyOwnerId=null;state.activeColonyPlanetId='homeworld';switchScreen('throne');return;}
+            if(!ownerId||!ship){activatePlanetEconomy('homeworld',false);state.activeDiamondColonyOwnerId=null;state.activeColonyPlanetId='homeworld';switchScreen('throne');return;}
             if(ship.status!=='orbital'){setStatusTicker('A Nave Diamante precisa estar em órbita para retornar.',true);return;}
             if((ship.planetId||'homeworld')!=='homeworld'){
                 ship.originPlanetId=ship.planetId;ship.status='travelling';ship.destinationPlanetId='homeworld';ship.missionProgress=0;ship.missionDuration=getSpaceTravelSeconds(ship.originPlanetId,'homeworld',1.8);ship.diamondColonyOwnerId=ownerId;ship.returningToHomeworld=true;
@@ -4769,6 +4769,7 @@ ${hasAristocrats ? `
             planet.walkingGems = [];
             addChronicle(`Colonização de ${planet.shortName}`, `${state.firstDiamond.name} estabeleceu o primeiro núcleo administrativo em ${planet.name}.`, 'Novo mundo incorporado ao Império');
             setStatusTicker(`🚀 ${planet.shortName} foi colonizado. Escolha um estrato para iniciar a produção.`);
+            saveActivePlanetEconomy();
             state.activeColonyPlanetId = planet.id;
             ensurePlanetEconomy(planet,false);
             activatePlanetEconomy(planet.id,false);
@@ -5853,12 +5854,9 @@ ${hasAristocrats ? `
         function selectSilhouettePreview(type){if(!FOUNDING_GEM_DATA[type])return;silhouettePreviewSelection=type;const body=document.getElementById('drawer-body');if(body&&state.drawerTab==='guide')renderGemGuide(body);}
 
 
-        function getAgateCommandCapacity(){return Math.max(0,Number(state.census.agate)||0)*20;}
-        function getTroopCommandCapacity(){
-            const base=Math.max(0,Number(state.census.hessonite)||0)*100+Math.max(0,Number(state.census.pyrope)||0)*1000;
-            return base*(Number(state.census.emerald||0)>0?10:1);
-        }
-        function getFleetTravelSpeedMultiplier(){return Number(state.census.nephrite||0)>0?2:1;}
+        function getAgateCommandCapacity(){const c=typeof getEmpireCensus==='function'?getEmpireCensus():state.census;return Math.max(0,Number(c.agate)||0)*20;}
+        function getTroopCommandCapacity(){const c=typeof getEmpireCensus==='function'?getEmpireCensus():state.census;const base=Math.max(0,Number(c.hessonite)||0)*100+Math.max(0,Number(c.pyrope)||0)*1000;return base*(Number(c.emerald||0)>0?10:1);}
+        function getFleetTravelSpeedMultiplier(){const c=typeof getEmpireCensus==='function'?getEmpireCensus():state.census;return Number(c.nephrite||0)>0?2:1;}
         function createGemObject(ownerId){
             const allowed=new Set(['firstDiamond','aristocrats',...state.matriarchs.map(m=>'matriarch_'+m.id)]);
             if(!allowed.has(ownerId))return;
@@ -5897,8 +5895,8 @@ ${hasAristocrats ? `
                 container.innerHTML=tabs+'<div class="card"><b>Cortes das Diamantes</b><p class="structure-desc">Distribuição política da população por corte. A distribuição territorial é exibida nos filtros de império e colônia.</p></div>'+(cards||'<div class="card">Nenhuma corte disponível.</div>');return;
             }
             const keys=['quartz','peridot','bismuth','lapis','obsidian','snowflake_obsidian','sapphire','ruby','pearl','hessonite','pyrope','agate','nephrite','jade','morganite','aquamarine','emerald','topaz'];
-            const census=state.populationSubtab==='colony'?getPlanetCensus(activeId):getEmpireCensus(),counts={};keys.forEach(k=>counts[k]=Math.max(0,Number(census[k])||0));
-            const gemTotal=Object.values(counts).reduce((a,b)=>a+b,0),diamondTotal=state.populationSubtab==='empire'?(state.matriarchs||[]).length+1:((planet.id==='homeworld'||planet.governor==='none'||String(planet.governor||'').startsWith('matriarch_'))?1:0);
+            const census=state.populationSubtab==='colony'?getPlanetCensus(activeId):getEmpireCensus(),counts={};keys.forEach(k=>counts[k]=Math.max(0,Number(census[k])||0));counts.prime=Math.max(0,Number(census.prime)||0);counts.offcolor=Math.max(0,Number(census.offcolor)||0);
+            const gemTotal=keys.reduce((sum,key)=>sum+counts[key],0),diamondTotal=state.populationSubtab==='empire'?(state.matriarchs||[]).length+1:(state.activeDiamondColonyOwnerId?1:(planet.id==='homeworld'?1:(String(planet.governor||'').startsWith('matriarch_')?1:0)));
             const total=gemTotal+diamondTotal,rankS=state.populationSubtab==='colony'?Number(getPlanetCensus(activeId).prime)||0:Object.values(PLANETS).filter(p=>p.colonized).reduce((n,p)=>n+(Number(getPlanetCensus(p.id).prime)||0),0);
             const offcolors=state.populationSubtab==='colony'?Number(getPlanetCensus(activeId).offcolor)||0:Object.values(PLANETS).filter(p=>p.colonized).reduce((n,p)=>n+(Number(getPlanetCensus(p.id).offcolor)||0),0);
             const variantSource=state.populationSubtab==='colony'?ensurePlanetEconomy(planet,false).founding.quartzVariantCounts:(PLANETS.homeworld.economy?.founding?.quartzVariantCounts||{});
