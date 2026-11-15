@@ -259,7 +259,7 @@
             Number(state.essence.white || 0) >= Number(cost.white || 0);
     }
 
-    function executeDiamondGovernanceDecision(decisionId, automatic) {
+    function executeDiamondGovernanceDecisionInPlanet(decisionId, automatic) {
         const gov = ensureGovernanceData();
         const decision = gov.decisions.find(item => item.id === decisionId && item.status === 'pending');
         if (!decision) return false;
@@ -326,6 +326,13 @@
         return true;
     }
 
+    function executeDiamondGovernanceDecision(decisionId, automatic) {
+        const gov=ensureGovernanceData(),decision=gov.decisions.find(item=>item.id===decisionId&&item.status==='pending');
+        if(!decision)return false;
+        const run=()=>executeDiamondGovernanceDecisionInPlanet(decisionId,automatic);
+        return typeof window.withPlanetEconomy==='function'?window.withPlanetEconomy(decision.planetId,run):run();
+    }
+
     function approveDiamondDecision(decisionId) {
         executeDiamondGovernanceDecision(decisionId, false);
     }
@@ -368,15 +375,17 @@
         // Especializações geram efeitos modestos e persistentes na colônia governada.
         Object.values(PLANETS).forEach(planet => {
             if (!planet.colonized) return;
+            const economy=typeof window.getPlanetEconomy==='function'?window.getPlanetEconomy(planet.id):null;
             const level = Math.max(0, Number(planet.governanceIndustryLevel) || 0);
-            if (level) state.minerals = Math.max(0, Number(state.minerals || 0) + level * 0.12 * dt);
+            if (economy&&level) economy.minerals=Math.max(0,Number(economy.minerals||0)+level*0.12*dt);
             const rulerId = String(planet.governor || '').startsWith('matriarch_')
                 ? String(planet.governor).slice('matriarch_'.length) : null;
             const ruler = rulerId ? getDiamond(rulerId) : null;
             if (!ruler) return;
             const office = ruler.governance.office;
-            if (office === 'industry') state.minerals += 0.035 * dt;
-            if (office === 'science') state.tech += 0.025 * dt;
+            if(economy&&office==='industry')economy.minerals+=0.035*dt;
+            if(economy&&office==='science')economy.tech+=0.025*dt;
+            if(economy&&planet.id===(state.activeColonyPlanetId||'homeworld')){state.minerals=economy.minerals;state.tech=economy.tech;}
             if (office === 'diplomacy') planet.dissent = Math.max(0, Number(planet.dissent || 0) - 0.025 * dt);
             if (office === 'defense') planet.dissent = Math.max(0, Number(planet.dissent || 0) - 0.012 * dt);
         });
@@ -388,13 +397,15 @@
             const authority = diamond.governance.authority;
             if (authority === 'supervised' || !getAssignedPlanet(diamond)) return;
             if (gov.decisions.some(item => item.diamondId === diamond.id && item.status === 'pending')) return;
-            const decision = buildDecision(diamond);
+            const assignedPlanet=getAssignedPlanet(diamond);
+            const decision=assignedPlanet&&typeof window.withPlanetEconomy==='function'?window.withPlanetEconomy(assignedPlanet.id,()=>buildDecision(diamond)):buildDecision(diamond);
             if (!decision) return;
             gov.decisions.unshift(decision);
             diamond.governance.lastDecisionCycle = Number(state.cycleCount) || 1;
             const mineralCost = Number(decision.cost?.minerals || 0);
             const routineLimit = authority === 'autonomous' ? 60 : 25;
-            if (decision.risk === 'routine' && mineralCost <= routineLimit && canAffordDecision(decision)) {
+            const affordable=typeof window.withPlanetEconomy==='function'?window.withPlanetEconomy(decision.planetId,()=>canAffordDecision(decision)):canAffordDecision(decision);
+            if (decision.risk === 'routine' && mineralCost <= routineLimit && affordable) {
                 executeDiamondGovernanceDecision(decision.id, true);
             } else if (state.currentScreen === 'governance') {
                 renderGovernanceScreen();
