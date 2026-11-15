@@ -3288,10 +3288,14 @@
             if(state.minerals<cost.minerals||state.tech<cost.tech)return'Recursos insuficientes: a carga automática exige '+cost.minerals+' minerais e '+cost.tech+' tecnologia.';
             return'';
         }
-        function dispatchCargoShip(shipId,targetId){
+        function dispatchCargoShip(shipId,targetId,gemId){
             const ship=(state.shipFleet||[]).find(x=>x.id===shipId),manifest=DEFAULT_CARGO_MANIFEST.slice(),crew=getCargoCrewPlan(ship);
+            if(ship?.passengerGem){setStatusTicker('Esta nave já transporta uma Gem.',true);return;}
             const reason=getCargoValidation(ship,targetId);
             if(reason){setStatusTicker(reason,true);return;}
+            const passenger=gemId?embarkGemOnShip(ship,gemId):null;
+            if(gemId&&!passenger){setStatusTicker('A Gem selecionada não está mais disponível na origem.',true);return;}
+            ship.originPlanetId=ship.planetId||'homeworld';ship.passengerGem=passenger;
             const cost=cargoManifestCost(manifest);
             state.minerals-=cost.minerals;
             state.tech-=cost.tech;
@@ -3318,9 +3322,51 @@
             updateHUD();
             renderDrawerContent();
         }
-        function updateCargoMissions(dt){(state.cargoShipMissions||[]).forEach(m=>{const ship=(state.shipFleet||[]).find(x=>x.id===m.shipId),p=PLANETS[m.targetId];if(!ship||!p)return;if(m.phase==='outbound'){m.progress=Math.min(100,(Number(m.progress)||0)+dt*100/Math.max(1,m.duration));ship.missionProgress=m.progress;if(m.progress>=100){p.remoteConstructionQueue=Array.isArray(p.remoteConstructionQueue)?p.remoteConstructionQueue:[];p.structures=Object.assign({injector:0,mineral_extractor:0,galaxy_warp:0},p.structures||{});m.manifest.forEach(id=>p.remoteConstructionQueue.push({id,progress:0,active:true}));p.demantoidSupervisor=!!m.demantoidEscort;p.manualProductionControl=!m.demantoidEscort;ship.status='constructing';ship.planetId=p.id;ship.manifest=[];m.phase='construction';m.progress=0;setStatusTicker('A Bismuto iniciou a instalação das estruturas em '+p.shortName+'.');}}else if(m.phase==='construction'){const job=p.remoteConstructionQueue.find(x=>x.active);if(job){const d=structureDefinition(job.id);job.progress=Math.min(100,(Number(job.progress)||0)+dt*100/(Math.max(1,Number(d?.buildTime)||20)*2.5));if(job.progress>=100){job.active=false;p.structures[job.id]=(Number(p.structures[job.id])||0)+1;if(job.id==='galaxy_warp')p.galaxyWarpBuilt=true;}}m.progress=p.remoteConstructionQueue.length?100*p.remoteConstructionQueue.filter(x=>!x.active).length/p.remoteConstructionQueue.length:100;ship.missionProgress=m.progress;if(!p.remoteConstructionQueue.some(x=>x.active)){m.phase='completed';ship.status='orbital';ship.missionProgress=100;setStatusTicker('Infraestrutura concluída em '+p.shortName+'. '+(p.demantoidSupervisor?'Demantoide supervisionando a produção.':'Comandos manuais de produção liberados.'));}}});}
-        function sendFleetShip(shipId,targetId){const ship=(state.shipFleet||[]).find(x=>x.id===shipId),p=PLANETS[targetId];if(!ship||ship.type==='cargo'||ship.status!=='orbital'){setStatusTicker('Nave indisponível para viagem.',true);return;}if(!p?.travelUnlocked){setStatusTicker('O planeta ainda não foi reconhecido pelo Olho Vermelho.',true);return;}ship.status='travelling';ship.destinationPlanetId=targetId;ship.missionProgress=0;ship.missionDuration=getSpaceTravelSeconds(ship.planetId||'homeworld',targetId,ship.type==='diamond'?1.8:1);setStatusTicker(ship.name+' iniciou viagem para '+p.shortName+'.');}
-        function updateFleetTravel(dt){(state.shipFleet||[]).forEach(s=>{if(s.status!=='travelling'||s.type==='cargo')return;s.missionProgress=Math.min(100,(Number(s.missionProgress)||0)+dt*100/Math.max(1,s.missionDuration||1));if(s.missionProgress>=100){const p=PLANETS[s.destinationPlanetId];if(p){p.fleetVisits=Array.isArray(p.fleetVisits)?p.fleetVisits:[];p.fleetVisits.push({shipId:s.id,name:s.name});s.planetId=p.id;}s.destinationPlanetId=null;s.status='orbital';setStatusTicker(s.name+' chegou ao destino.');}});}
+        function updateCargoMissions(dt){(state.cargoShipMissions||[]).forEach(m=>{const ship=(state.shipFleet||[]).find(x=>x.id===m.shipId),p=PLANETS[m.targetId];if(!ship||!p)return;if(m.phase==='outbound'){m.progress=Math.min(100,(Number(m.progress)||0)+dt*100/Math.max(1,m.duration));ship.missionProgress=m.progress;if(m.progress>=100){p.remoteConstructionQueue=Array.isArray(p.remoteConstructionQueue)?p.remoteConstructionQueue:[];p.structures=Object.assign({injector:0,mineral_extractor:0,galaxy_warp:0},p.structures||{});m.manifest.forEach(id=>p.remoteConstructionQueue.push({id,progress:0,active:true}));p.demantoidSupervisor=!!m.demantoidEscort;p.manualProductionControl=!m.demantoidEscort;disembarkShipGem(ship,p);ship.status='constructing';ship.planetId=p.id;ship.manifest=[];m.phase='construction';m.progress=0;setStatusTicker('A Bismuto iniciou a instalação das estruturas em '+p.shortName+'.');}}else if(m.phase==='construction'){const job=p.remoteConstructionQueue.find(x=>x.active);if(job){const d=structureDefinition(job.id);job.progress=Math.min(100,(Number(job.progress)||0)+dt*100/(Math.max(1,Number(d?.buildTime)||20)*2.5));if(job.progress>=100){job.active=false;p.structures[job.id]=(Number(p.structures[job.id])||0)+1;if(job.id==='galaxy_warp')p.galaxyWarpBuilt=true;}}m.progress=p.remoteConstructionQueue.length?100*p.remoteConstructionQueue.filter(x=>!x.active).length/p.remoteConstructionQueue.length:100;ship.missionProgress=m.progress;if(!p.remoteConstructionQueue.some(x=>x.active)){m.phase='completed';ship.status='orbital';ship.missionProgress=100;setStatusTicker('Infraestrutura concluída em '+p.shortName+'. '+(p.demantoidSupervisor?'Demantoide supervisionando a produção.':'Comandos manuais de produção liberados.'));}}});}
+        function getShipPassengerOptions(ship){
+            const source=PLANETS[ship?.planetId||'homeworld'];
+            if(!source)return '<option value="">Nenhuma Gem disponível</option>';
+            const reserved=(state.shipFleet||[]).filter(item=>item!==ship&&item.passengerGem?.id).map(item=>item.passengerGem.id);
+            const options=(source.walkingGems||[]).filter(gem=>gem&&gem.id&&!reserved.includes(gem.id));
+            return '<option value="">Viajar sem passageira</option>'+options.map(gem=>'<option value="'+escapeHTML(gem.id)+'">'+escapeHTML(GEM_RECIPES[gem.caste||gem.type]?.shortName||gem.caste||gem.type)+' · '+escapeHTML(gem.name||gem.id)+'</option>').join('');
+        }
+        function embarkGemOnShip(ship,gemId){
+            if(!gemId)return null;
+            const source=PLANETS[ship?.planetId||'homeworld'];
+            if(!source||!Array.isArray(source.walkingGems))return null;
+            const index=source.walkingGems.findIndex(gem=>gem&&String(gem.id)===String(gemId));
+            if(index<0)return null;
+            const gem=source.walkingGems.splice(index,1)[0];
+            gem.transportStatus='aboard';
+            return gem;
+        }
+        function disembarkShipGem(ship,target){
+            if(!ship?.passengerGem||!target)return false;
+            target.walkingGems=Array.isArray(target.walkingGems)?target.walkingGems:[];
+            const gem=ship.passengerGem;
+            gem.angle=Math.random()*Math.PI*2;
+            gem.transportStatus=null;
+            gem.bubbleText='🛸 Chegou de '+(PLANETS[ship.originPlanetId]?.shortName||'outro mundo');
+            target.walkingGems.push(gem);
+            ship.passengerGem=null;
+            addChronicle('Gem transportada',(GEM_RECIPES[gem.caste||gem.type]?.shortName||gem.caste||gem.type)+' chegou a '+target.shortName+'.','Desembarque concluído');
+            return true;
+        }
+        function sendFleetShip(shipId,targetId,gemId){
+            const ship=(state.shipFleet||[]).find(x=>x.id===shipId),p=PLANETS[targetId];
+            if(!ship||ship.status!=='orbital'){setStatusTicker('Nave indisponível para viagem.',true);return;}
+            if(!p?.travelUnlocked){setStatusTicker('O planeta ainda não foi reconhecido pelo Olho Vermelho.',true);return;}
+            if(ship.type==='cargo'){dispatchCargoShip(shipId,targetId,gemId);return;}
+            if(ship.passengerGem){setStatusTicker('Esta nave já transporta uma Gem.',true);return;}
+            const passenger=gemId?embarkGemOnShip(ship,gemId):null;
+            if(gemId&&!passenger){setStatusTicker('A Gem selecionada não está mais disponível na origem.',true);return;}
+            ship.originPlanetId=ship.planetId||'homeworld';ship.passengerGem=passenger;
+            ship.status='travelling';ship.destinationPlanetId=targetId;ship.missionProgress=0;
+            ship.missionDuration=getSpaceTravelSeconds(ship.planetId||'homeworld',targetId,ship.type==='diamond'?1.8:1);
+            setStatusTicker(ship.name+' iniciou viagem para '+p.shortName+(passenger?' transportando uma Gem.':'.'));
+            updateHUD();renderDrawerContent();
+        }
+        function updateFleetTravel(dt){(state.shipFleet||[]).forEach(s=>{if(s.status!=='travelling'||s.type==='cargo')return;s.missionProgress=Math.min(100,(Number(s.missionProgress)||0)+dt*100/Math.max(1,s.missionDuration||1));if(s.missionProgress>=100){const p=PLANETS[s.destinationPlanetId];if(p){p.fleetVisits=Array.isArray(p.fleetVisits)?p.fleetVisits:[];p.fleetVisits.push({shipId:s.id,name:s.name});disembarkShipGem(s,p);s.planetId=p.id;}s.destinationPlanetId=null;s.status='orbital';setStatusTicker(s.name+' chegou ao destino.');}});}
         function getPlanetsInStarSystem(id){return Object.values(PLANETS).filter(p=>(p.systemId||'home_system')===id);}
         function selectStarSystem(id){if(id!=='home_system'&&!/^unknown_[0-6]$/.test(id))return;const worlds=getPlanetsInStarSystem(id);if(!worlds.length)return;state.starMapView='system';state.selectedStarSystemId=id;state.selectedStarMapPlanetId=worlds[0].id;renderDrawerContent();renderBottomBar();}
         function returnToGalaxyMap(){state.starMapView='galaxy';renderDrawerContent();renderBottomBar();}
@@ -3802,8 +3848,8 @@ ${hasAristocrats ? `
                         if(ship.type==='cargo'){
                             const cargoCrew=getCargoCrewPlan(ship),cargoReason=getCargoValidation(ship,p.id);
                             const pilotLabel=cargoCrew.pilotType==='nephrite'?'Nefrita':cargoCrew.pilotType==='peridot'?'Peridot':'indisponível';
-                            html+='<div class="stat-box"><b>🚚 '+escapeHTML(ship.name)+'</b><div class="founding-note">Carga automática fixa: <b>3 Injetores · 1 Galaxy Warp · 1 Extrator Mineral</b> (5 estruturas).</div><div class="stat-box"><b>Tripulação priorizada</b><small style="display:block">Piloto: '+pilotLabel+'</small><small style="display:block">Peridot de apoio: '+(cargoCrew.peridotOperator?'reservada':'nenhuma livre')+'</small><small style="display:block">Bismuto construtora: '+(cargoCrew.bismuthBuilder?'disponível':'indisponível · obrigatória')+'</small><small style="display:block">Demantoide supervisora: '+(cargoCrew.demantoidEscort?'será enviada':'nenhuma livre · opcional')+'</small></div>'+(cargoReason?'<small style="display:block;color:#fca5a5;margin:7px 0">'+escapeHTML(cargoReason)+'</small>':'')+'<button class="btn btn-block" '+(cargoReason?'disabled':'')+' onclick="dispatchCargoShip(\''+ship.id+'\',\''+p.id+'\')">Enviar nave de carga</button></div>';
-                        }else html+='<div class="stat-box"><b>'+escapeHTML(ship.name)+'</b><button class="btn btn-block" onclick="sendFleetShip(\''+ship.id+'\',\''+p.id+'\')">Enviar nave</button></div>';
+                            html+='<div class="stat-box"><b>🚚 '+escapeHTML(ship.name)+'</b><label class="stat-label">Gem passageira (opcional)<select id="ship-gem-'+ship.id+'">'+getShipPassengerOptions(ship)+'</select></label><div class="founding-note">Carga automática fixa: <b>3 Injetores · 1 Galaxy Warp · 1 Extrator Mineral</b> (5 estruturas).</div><div class="stat-box"><b>Tripulação priorizada</b><small style="display:block">Piloto: '+pilotLabel+'</small><small style="display:block">Peridot de apoio: '+(cargoCrew.peridotOperator?'reservada':'nenhuma livre')+'</small><small style="display:block">Bismuto construtora: '+(cargoCrew.bismuthBuilder?'disponível':'indisponível · obrigatória')+'</small><small style="display:block">Demantoide supervisora: '+(cargoCrew.demantoidEscort?'será enviada':'nenhuma livre · opcional')+'</small></div>'+(cargoReason?'<small style="display:block;color:#fca5a5;margin:7px 0">'+escapeHTML(cargoReason)+'</small>':'')+'<button class="btn btn-block" '+(cargoReason?'disabled':'')+' onclick="dispatchCargoShip(\''+ship.id+'\',\''+p.id+'\',document.getElementById(\'ship-gem-'+ship.id+'\').value)">Enviar nave de carga</button></div>';
+                        }else html+='<div class="stat-box"><b>'+escapeHTML(ship.name)+'</b><label class="stat-label">Gem passageira (opcional)<select id="ship-gem-'+ship.id+'">'+getShipPassengerOptions(ship)+'</select></label><button class="btn btn-block" onclick="sendFleetShip(\''+ship.id+'\',\''+p.id+'\',document.getElementById(\'ship-gem-'+ship.id+'\').value)">Enviar nave</button></div>';
                     });
                 }
                 html+='</div>';
