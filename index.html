@@ -7728,7 +7728,7 @@ function drawColony(time){
                 if (!PLANETS[state.activeColonyPlanetId] || !PLANETS[state.activeColonyPlanetId].colonized) state.activeColonyPlanetId = 'homeworld';
                 initializePlanetEconomies(true);
                 const savedDiamondOwner=state.activeDiamondColonyOwnerId,savedDiamondShip=(state.shipFleet||[]).find(ship=>ship.type==='diamond'&&ship.ownerId===savedDiamondOwner);
-                if(savedDiamondOwner&&savedDiamondShip&&savedDiamondShip.status==='orbital'&&savedDiamondShip.planetId===state.activeColonyPlanetId&&PLANETS[state.activeColonyPlanetId]?.lunarBaseBuilt)state.currentScreen='colony';else state.activeDiamondColonyOwnerId=null;
+                if(savedDiamondOwner&&savedDiamondShip&&savedDiamondShip.status==='orbital'&&savedDiamondShip.planetId===state.activeColonyPlanetId&&PLANETS[state.activeColonyPlanetId]?.lunarBaseBuilt)state.currentScreen='colony';else{state.activeDiamondColonyOwnerId=null;activatePlanetEconomy('homeworld',false);state.activeColonyPlanetId='homeworld';state.currentScreen='throne';}
                 if (!PLANETS[state.selectedStarMapPlanetId]) state.selectedStarMapPlanetId = 'homeworld';
                 state.selectedVeinIndex = Math.max(0, Math.min(PLANETS[state.activeColonyPlanetId].veins.length - 1, Number(state.selectedVeinIndex) || 0));
                 state.aquamarineTerraforming=state.aquamarineTerraforming||{teams:[],completed:[],nextId:1,uiAccumulator:0};
