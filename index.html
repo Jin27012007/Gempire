@@ -7268,9 +7268,14 @@ function drawColony(time){
                 const raw = localStorage.getItem(key);
                 if (!raw) return null;
                 const data = JSON.parse(raw);
-                if (!data || data.version !== SAVE_VERSION || !data.state || !data.planets) return null;
+                // A versão é mantida para diagnóstico, mas saves anteriores não são
+                // descartados aqui: a migração acontece durante a validação/carregamento.
+                if (!data || typeof data !== 'object' || !data.state || !data.planets) return null;
                 return data;
-            } catch (error) { console.warn('Arquivo de salvamento inválido:', error); return null; }
+            } catch (error) {
+                console.warn('Não foi possível interpretar o salvamento local:', error);
+                return null;
+            }
         }
 
         function getSaveInfo(slotId) {
@@ -7290,9 +7295,16 @@ function drawColony(time){
         function saveGame(slotId = 'slot1', silent = false) {
             const key = getSaveKey(slotId);
             if (!key) return false;
-            window.GEMPIRE_ACTIVE_SAVE_SLOT = slotId;
             try {
-                localStorage.setItem(key, JSON.stringify(createSaveSnapshot()));
+                const snapshot = createSaveSnapshot();
+                const serialized = JSON.stringify(snapshot);
+                // Verifica a gravação antes de considerá-la concluída.
+                localStorage.setItem(key, serialized);
+                const verified = JSON.parse(localStorage.getItem(key) || 'null');
+                if (!verified || verified.version !== SAVE_VERSION || !verified.state || !verified.planets) {
+                    throw new Error('A verificação do salvamento falhou.');
+                }
+                window.GEMPIRE_ACTIVE_SAVE_SLOT = slotId;
                 if (!silent) {
                     setGameMenuStatus('Progresso salvo com sucesso em ' + (slotId === 'autosave' ? 'Autosave' : 'Slot ' + slotId.slice(-1)) + '.');
                     const panel = document.getElementById('game-menu-panel');
@@ -7307,13 +7319,47 @@ function drawColony(time){
         }
 
         function isValidSaveData(data) {
-            if (!data || data.version !== SAVE_VERSION || !data.state || !data.planets) return false;
+            if (!data || !data.state || !data.planets || typeof data.planets !== 'object') return false;
             if (!data.state.essence || !data.state.firstDiamond || !data.state.planetCamera) return false;
             if (!['throne', 'starmap', 'colony', 'governance'].includes(data.state.currentScreen)) return false;
-            return Object.keys(PLANETS).every(id => {
+            // Não exigir que saves antigos já contenham planetas adicionados em versões novas.
+            const savedPlanetIds = Object.keys(data.planets);
+            if (!savedPlanetIds.length || !data.planets.homeworld) return false;
+            return savedPlanetIds.every(id => {
                 const p = data.planets[id];
-                return p && Array.isArray(p.veins) && Array.isArray(p.walkingGems);
+                return p && typeof p === 'object' &&
+                    (p.veins === undefined || Array.isArray(p.veins)) &&
+                    (p.walkingGems === undefined || Array.isArray(p.walkingGems));
             });
+        }
+
+        function migrateSaveData(data) {
+            const migrated = JSON.parse(JSON.stringify(data));
+            migrated.version = SAVE_VERSION;
+            migrated.state.founding = migrated.state.founding || {
+                stage:'legacy', firstGemCreated:true, mineralSamples:{}, gatheredMinerals:{},
+                essenceOutput:0, activityCount:0, diamondEssence:0, gemsCreatedCount:0,
+                selectedGem:'quartz', creationProgress:0, creationActive:false,
+                creationTarget:null, creationSource:'manual'
+            };
+
+            // Incorpora planetas novos usando os valores-padrão atuais; preserva por
+            // completo os dados já existentes no arquivo do jogador.
+            Object.keys(PLANETS).forEach(id => {
+                const defaults = JSON.parse(JSON.stringify(PLANETS[id]));
+                const saved = migrated.planets[id];
+                if (!saved) {
+                    migrated.planets[id] = defaults;
+                    return;
+                }
+                migrated.planets[id] = Object.assign(defaults, saved);
+                migrated.planets[id].structures = Object.assign({}, defaults.structures || {}, saved.structures || {});
+                migrated.planets[id].remoteConstructionQueue = Array.isArray(saved.remoteConstructionQueue) ? saved.remoteConstructionQueue : [];
+                migrated.planets[id].fleetVisits = Array.isArray(saved.fleetVisits) ? saved.fleetVisits : [];
+                migrated.planets[id].veins = Array.isArray(saved.veins) ? saved.veins : defaults.veins;
+                migrated.planets[id].walkingGems = Array.isArray(saved.walkingGems) ? saved.walkingGems : defaults.walkingGems;
+            });
+            return migrated;
         }
 
         function loadGame(slotId) {
