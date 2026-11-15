@@ -2757,7 +2757,8 @@
             const assignedToConstruction=queue.filter(job=>job&&job.active&&job.builder===gemType).length;
             const architecture=state.morganiteArchitecture||{};
             const architectureBuilders=gemType==='bismuth'&&Array.isArray(architecture.activeProjects)?architecture.activeProjects.length:0;
-            return assignedToStructures + assignedToConstruction + architectureBuilders;
+            const cargoCrew=(state.shipFleet||[]).reduce((sum,ship)=>sum+(ship&&ship.type==='cargo'&&Array.isArray(ship.crew)?ship.crew.filter(member=>member&&member.gemType===gemType).length:0),0);
+            return assignedToStructures + assignedToConstruction + architectureBuilders + cargoCrew;
         }
         function freeGemWorkers(gemType) { return Math.max(0, (Number(state.census && state.census[gemType]) || 0) - totalAssignedWorkers(gemType)); }
         function manualMineralGatheringCanEnd() {
@@ -3248,17 +3249,82 @@
         function createRedEyeReport(p){const env=PLANET_ENVIRONMENT[p.id]||{};return{id:'scan_'+Date.now(),planetId:p.id,planetName:p.shortName||p.name,distanceAU:Number(env.orbitAU??p.orbitAU??p.orbitRadius/100)||0,temperatureC:Number(env.temperatureC??p.temperatureC)||0,pressureAtm:Number(env.atmosphericPressureAtm??p.atmosphericPressureAtm)||0,composition:Object.entries(p.resourcesByType||{}).map(([type,amount])=>({type,amount:Math.floor(Number(amount)||0)})),water:!!p.hasOcean,moons:(p.moons||[]).length,organicLifePresent:p.organicLifePresent===true||(Number(p.organicLifePopulation)||0)>0,organicLifePopulation:p.organicLifePopulation??null,habitability:p.hasOcean&&Number(env.temperatureC??p.temperatureC??0)>-20&&Number(env.temperatureC??p.temperatureC??0)<55?'Potencialmente habitável':'Condições ambientais restritivas',cycle:state.cycleCount||1};}
         function updateRedEyeMission(dt){const missions=Array.isArray(state.redEyeMissions)?state.redEyeMissions:[];missions.forEach(m=>{if(!m||!m.active)return;m.phaseProgress=(Number(m.phaseProgress)||0)+Math.max(0,Number(dt)||0);m.progress=Math.min(100,m.phaseProgress/Math.max(1,Number(m.phaseDuration)||1)*100);if(m.phaseProgress<m.phaseDuration)return;if(m.phase==='outbound'){m.phase='survey';m.phaseProgress=0;m.phaseDuration=12;setStatusTicker('Olho Vermelho chegou a '+PLANETS[m.planetId].shortName+' e iniciou a varredura.');}else if(m.phase==='survey'){m.reportDraft=createRedEyeReport(PLANETS[m.planetId]);m.phase='returning';m.phaseProgress=0;m.phaseDuration=getSpaceTravelSeconds(m.planetId,m.originId);setStatusTicker('Varredura concluída em '+PLANETS[m.planetId].shortName+'. Retorno iniciado.');}else{const p=PLANETS[m.planetId],report=m.reportDraft||createRedEyeReport(p);p.scouted=true;p.travelUnlocked=true;p.reconnaissance=report;state.redEyeReports=Array.isArray(state.redEyeReports)?state.redEyeReports:[];state.redEyeReports.unshift(report);state.redEyeReports=state.redEyeReports.slice(0,30);m.phase='completed';m.progress=100;m.active=false;setStatusTicker(report.planetName+' reconhecido. Viagens espaciais desbloqueadas.');addChronicle('Reconhecimento espacial concluído',report.planetName+' foi catalogado; viagens espaciais liberadas.','Destino reconhecido');}});state.redEyeMissions=missions.filter(m=>m.active||m.phase==='completed').slice(-30);updateHUD();renderDrawerContent();renderBottomBar();}
         const CARGO_STRUCTURE_IDS=['injector','galaxy_warp','mineral_extractor'];
+        const DEFAULT_CARGO_MANIFEST=['injector','injector','injector','galaxy_warp','mineral_extractor'];
         function getPlanetStructureCount(p,id){return Math.max(0,Math.floor(Number(p?.structures?.[id])||0));}
+        function getPlanetPendingStructureCount(p,id){return Array.isArray(p?.remoteConstructionQueue)?p.remoteConstructionQueue.filter(job=>job&&job.id===id&&(job.active||Number(job.progress||0)<100)).length:0;}
         function cargoManifestCost(manifest){return manifest.reduce((s,id)=>{const d=structureDefinition(id);s.minerals+=Number(d?.cost?.minerals)||0;s.tech+=Number(d?.cost?.tech)||0;return s;},{minerals:0,tech:0});}
-        function getCargoValidation(ship,targetId,manifest){const p=PLANETS[targetId];if(!ship||ship.type!=='cargo')return'Nave de Carga inválida.';if(!p||!p.travelUnlocked)return'O Olho Vermelho precisa reconhecer o destino.';if(ship.status!=='orbital')return'A nave não está disponível.';if(!manifest.length||manifest.length>5||manifest.some(id=>!CARGO_STRUCTURE_IDS.includes(id)))return'A carga deve conter de uma a cinco estruturas permitidas.';if(manifest.filter(id=>id==='galaxy_warp').length>1||(p.galaxyWarpBuilt&&manifest.includes('galaxy_warp')))return'Galaxy Warp é uma estrutura única por planeta.';if(manifest.filter(id=>id==='injector').length+getPlanetStructureCount(p,'injector')>12)return'Limite de Injetores do planeta excedido.';if(manifest.filter(id=>id==='mineral_extractor').length+getPlanetStructureCount(p,'mineral_extractor')>3)return'Limite de Extratores do planeta excedido.';if(Number(state.census.bismuth||0)<1)return'A expedição exige pelo menos uma Bismuto.';if(Number(state.census[ship.pilotType||'peridot']||0)<1)return'Falta a piloto Peridot ou Nefrita selecionada.';const cost=cargoManifestCost(manifest);if(state.minerals<cost.minerals||state.tech<cost.tech)return'Recursos insuficientes: carga exige '+cost.minerals+' minerais e '+cost.tech+' tecnologia.';return'';}
-        function dispatchCargoShip(shipId,targetId,manifestText){const ship=(state.shipFleet||[]).find(x=>x.id===shipId);let manifest=[];try{const quantities=typeof manifestText==='string'?JSON.parse(manifestText):manifestText;Object.entries(quantities||{}).forEach(([id,n])=>{for(let i=0;i<Math.max(0,Math.min(5,Math.floor(Number(n)||0)));i++)manifest.push(id);});}catch(e){setStatusTicker('Selecione as quantidades de estruturas antes de enviar.',true);return;}const reason=getCargoValidation(ship,targetId,manifest);if(reason){setStatusTicker(reason,true);return;}const cost=cargoManifestCost(manifest),pilot=ship.pilotType||'peridot';state.minerals-=cost.minerals;state.tech-=cost.tech;const escort=freeGemWorkers('demantoid')>0;state.census.bismuth=Math.max(0,Number(state.census.bismuth||0)-1);if(escort)state.census.demantoid=Math.max(0,Number(state.census.demantoid||0)-1);ship.status='travelling';ship.destinationPlanetId=targetId;ship.manifest=manifest.slice();ship.missionProgress=0;ship.missionDuration=getSpaceTravelSeconds(ship.planetId||'homeworld',targetId,.8);state.cargoShipMissions=Array.isArray(state.cargoShipMissions)?state.cargoShipMissions:[];state.cargoShipMissions.push({shipId:ship.id,originId:ship.planetId||'homeworld',targetId,manifest:manifest.slice(),progress:0,duration:ship.missionDuration,phase:'outbound',demantoidEscort:escort,pilot,bismuthBuilder:true});setStatusTicker('Nave de Carga partiu para '+PLANETS[targetId].shortName+'.');updateHUD();renderDrawerContent();}
+        function getCargoCrewPlan(ship){
+            const crew=Array.isArray(ship?.crew)?ship.crew:[];
+            const assignedPilot=crew.find(member=>member&&member.role==='pilot'&&['nephrite','peridot'].includes(member.gemType));
+            let pilotType=assignedPilot?.gemType||null;
+            if(!pilotType){
+                if(freeGemWorkers('nephrite')>0)pilotType='nephrite';
+                else if(freeGemWorkers('peridot')>0)pilotType='peridot';
+            }
+            const hasPeridotOperator=crew.some(member=>member&&member.role==='peridot_operator'&&member.gemType==='peridot');
+            const peridotAvailable=freeGemWorkers('peridot')-(!assignedPilot&&pilotType==='peridot'?1:0);
+            return {
+                pilotType,
+                addPilot:!assignedPilot&&!!pilotType,
+                peridotOperator:hasPeridotOperator||peridotAvailable>0,
+                addPeridotOperator:!hasPeridotOperator&&peridotAvailable>0,
+                bismuthBuilder:freeGemWorkers('bismuth')>0,
+                demantoidEscort:freeGemWorkers('demantoid')>0
+            };
+        }
+        function getCargoValidation(ship,targetId){
+            const p=PLANETS[targetId],manifest=DEFAULT_CARGO_MANIFEST,crew=getCargoCrewPlan(ship);
+            if(!ship||ship.type!=='cargo')return'Nave de Carga inválida.';
+            if(!p||!p.travelUnlocked)return'O Olho Vermelho precisa reconhecer o destino.';
+            if(ship.status!=='orbital')return'A nave não está disponível.';
+            if(Number(ship.capacity||0)<manifest.length||manifest.length>5)return'A capacidade da Nave de Carga é insuficiente para a configuração automática.';
+            const pending=(id)=>getPlanetPendingStructureCount(p,id);
+            if(p.galaxyWarpBuilt||getPlanetStructureCount(p,'galaxy_warp')>0||pending('galaxy_warp')>0)return'O destino já possui ou está construindo um Galaxy Warp.';
+            if(getPlanetStructureCount(p,'injector')+pending('injector')+3>12)return'O destino não comporta mais três Injetores; limite de 12 por planeta.';
+            if(getPlanetStructureCount(p,'mineral_extractor')+pending('mineral_extractor')+1>3)return'O destino não comporta mais um Extrator Mineral; limite de 3 por planeta.';
+            if(!crew.bismuthBuilder)return'A expedição exige uma Bismuto livre para iniciar a construção.';
+            if(!crew.pilotType)return'Não há Nefrita ou Peridot livre para pilotar a nave.';
+            const cost=cargoManifestCost(manifest);
+            if(state.minerals<cost.minerals||state.tech<cost.tech)return'Recursos insuficientes: a carga automática exige '+cost.minerals+' minerais e '+cost.tech+' tecnologia.';
+            return'';
+        }
+        function dispatchCargoShip(shipId,targetId){
+            const ship=(state.shipFleet||[]).find(x=>x.id===shipId),manifest=DEFAULT_CARGO_MANIFEST.slice(),crew=getCargoCrewPlan(ship);
+            const reason=getCargoValidation(ship,targetId);
+            if(reason){setStatusTicker(reason,true);return;}
+            const cost=cargoManifestCost(manifest);
+            state.minerals-=cost.minerals;
+            state.tech-=cost.tech;
+            ship.crew=Array.isArray(ship.crew)?ship.crew:[];
+            if(crew.addPilot)ship.crew.push({gemType:crew.pilotType,role:'pilot'});
+            if(crew.addPeridotOperator)ship.crew.push({gemType:'peridot',role:'peridot_operator'});
+            ship.pilotType=crew.pilotType;
+            const escort=crew.demantoidEscort;
+            state.census.bismuth=Math.max(0,Number(state.census.bismuth||0)-1);
+            if(escort)state.census.demantoid=Math.max(0,Number(state.census.demantoid||0)-1);
+            ship.status='travelling';
+            ship.destinationPlanetId=targetId;
+            ship.manifest=manifest.slice();
+            ship.missionProgress=0;
+            ship.missionDuration=getSpaceTravelSeconds(ship.planetId||'homeworld',targetId,.8);
+            state.cargoShipMissions=Array.isArray(state.cargoShipMissions)?state.cargoShipMissions:[];
+            state.cargoShipMissions.push({
+                shipId:ship.id,originId:ship.planetId||'homeworld',targetId,manifest:manifest.slice(),
+                progress:0,duration:ship.missionDuration,phase:'outbound',demantoidEscort:escort,
+                pilot:crew.pilotType,peridotOperator:crew.peridotOperator,bismuthBuilder:true
+            });
+            const crewText=crew.pilotType==='nephrite'?'Nefrita pilotando':'Peridot pilotando';
+            setStatusTicker('Nave de Carga partiu para '+PLANETS[targetId].shortName+' com 3 Injetores, 1 Galaxy Warp e 1 Extrator Mineral. '+crewText+(crew.peridotOperator?' e Peridot de apoio.':' e sem Peridot de apoio.')+(escort?' Demantoide designada para supervisão.':''));
+            updateHUD();
+            renderDrawerContent();
+        }
         function updateCargoMissions(dt){(state.cargoShipMissions||[]).forEach(m=>{const ship=(state.shipFleet||[]).find(x=>x.id===m.shipId),p=PLANETS[m.targetId];if(!ship||!p)return;if(m.phase==='outbound'){m.progress=Math.min(100,(Number(m.progress)||0)+dt*100/Math.max(1,m.duration));ship.missionProgress=m.progress;if(m.progress>=100){p.remoteConstructionQueue=Array.isArray(p.remoteConstructionQueue)?p.remoteConstructionQueue:[];p.structures=Object.assign({injector:0,mineral_extractor:0,galaxy_warp:0},p.structures||{});m.manifest.forEach(id=>p.remoteConstructionQueue.push({id,progress:0,active:true}));p.demantoidSupervisor=!!m.demantoidEscort;p.manualProductionControl=!m.demantoidEscort;ship.status='constructing';ship.planetId=p.id;ship.manifest=[];m.phase='construction';m.progress=0;setStatusTicker('A Bismuto iniciou a instalação das estruturas em '+p.shortName+'.');}}else if(m.phase==='construction'){const job=p.remoteConstructionQueue.find(x=>x.active);if(job){const d=structureDefinition(job.id);job.progress=Math.min(100,(Number(job.progress)||0)+dt*100/(Math.max(1,Number(d?.buildTime)||20)*2.5));if(job.progress>=100){job.active=false;p.structures[job.id]=(Number(p.structures[job.id])||0)+1;if(job.id==='galaxy_warp')p.galaxyWarpBuilt=true;}}m.progress=p.remoteConstructionQueue.length?100*p.remoteConstructionQueue.filter(x=>!x.active).length/p.remoteConstructionQueue.length:100;ship.missionProgress=m.progress;if(!p.remoteConstructionQueue.some(x=>x.active)){m.phase='completed';ship.status='orbital';ship.missionProgress=100;setStatusTicker('Infraestrutura concluída em '+p.shortName+'. '+(p.demantoidSupervisor?'Demantoide supervisionando a produção.':'Comandos manuais de produção liberados.'));}}});}
         function sendFleetShip(shipId,targetId){const ship=(state.shipFleet||[]).find(x=>x.id===shipId),p=PLANETS[targetId];if(!ship||ship.type==='cargo'||ship.status!=='orbital'){setStatusTicker('Nave indisponível para viagem.',true);return;}if(!p?.travelUnlocked){setStatusTicker('O planeta ainda não foi reconhecido pelo Olho Vermelho.',true);return;}ship.status='travelling';ship.destinationPlanetId=targetId;ship.missionProgress=0;ship.missionDuration=getSpaceTravelSeconds(ship.planetId||'homeworld',targetId,ship.type==='diamond'?1.8:1);setStatusTicker(ship.name+' iniciou viagem para '+p.shortName+'.');}
         function updateFleetTravel(dt){(state.shipFleet||[]).forEach(s=>{if(s.status!=='travelling'||s.type==='cargo')return;s.missionProgress=Math.min(100,(Number(s.missionProgress)||0)+dt*100/Math.max(1,s.missionDuration||1));if(s.missionProgress>=100){const p=PLANETS[s.destinationPlanetId];if(p){p.fleetVisits=Array.isArray(p.fleetVisits)?p.fleetVisits:[];p.fleetVisits.push({shipId:s.id,name:s.name});s.planetId=p.id;}s.destinationPlanetId=null;s.status='orbital';setStatusTicker(s.name+' chegou ao destino.');}});}
         function getPlanetsInStarSystem(id){return Object.values(PLANETS).filter(p=>(p.systemId||'home_system')===id);}
         function selectStarSystem(id){if(id!=='home_system'&&!/^unknown_[0-6]$/.test(id))return;const worlds=getPlanetsInStarSystem(id);if(!worlds.length)return;state.starMapView='system';state.selectedStarSystemId=id;state.selectedStarMapPlanetId=worlds[0].id;renderDrawerContent();renderBottomBar();}
         function returnToGalaxyMap(){state.starMapView='galaxy';renderDrawerContent();renderBottomBar();}
-        function setCargoPilot(shipId,pilotType){const s=(state.shipFleet||[]).find(x=>x.id===shipId&&x.type==='cargo');if(!s||!['peridot','nephrite'].includes(pilotType))return;if(Number(state.census[pilotType]||0)<1){setStatusTicker('Não há Gem desta casta disponível para pilotar.',true);return;}s.pilotType=pilotType;renderDrawerContent();}
+
         function resolveSpaceDiplomacyRequest(id,accept){const r=(state.spaceDiplomacyRequests||[]).find(x=>x.id===id&&x.status==='pending');if(!r)return;if(accept){if(freeGemWorkers('demantoid')<1){setStatusTicker('Não existe Demantoide livre.',true);return;}state.census.demantoid--;const p=PLANETS[r.planetId];if(p)p.demantoidSupervisor=true;r.status='accepted';}else r.status='rejected';updateHUD();renderDrawerContent();}
                 const SHIP_BLUEPRINTS={
             diamond:{name:'Nave Diamante',cost: {minerals:500,tech:250},speed:'FTL extremo',capacity:1,description:'Nave colossal, uma por Diamante, capaz de orbitar planetas e cruzar sistemas em velocidade acima da luz.',operator:'diamond',shape:'colossal'},
@@ -3286,7 +3352,7 @@
             if(!bp||reason){setStatusTicker(reason||'Projeto inválido.',true);return;}
             state.minerals-=bp.cost.minerals;state.tech-=bp.cost.tech;
             const owner=type==='diamond'?[{id:'first',name:state.firstDiamond.name},...(state.matriarchs||[]).map(m=>({id:m.id,name:m.name}))].find(o=>!(state.shipFleet||[]).some(x=>x.type==='diamond'&&x.ownerId===o.id)):null;
-            const ship={id:'ship_'+Date.now(),type,name:bp.name,ownerId:owner?.id||null,ownerName:owner?.name||null,capacity:bp.capacity,speed:bp.speed,shape:bp.shape,color:type==='ruby'?'#ef4444':null,description:bp.description,planetId:state.activeColonyPlanetId,crew:[],status:'orbital',pilotType:type==='cargo'?(Number(state.census.peridot||0)>0?'peridot':'nephrite'):null,manifest:[]};
+            const ship={id:'ship_'+Date.now(),type,name:bp.name,ownerId:owner?.id||null,ownerName:owner?.name||null,capacity:bp.capacity,speed:bp.speed,shape:bp.shape,color:type==='ruby'?'#ef4444':null,description:bp.description,planetId:state.activeColonyPlanetId,crew:[],status:'orbital',pilotType:type==='cargo'?(freeGemWorkers('nephrite')>0?'nephrite':'peridot'):null,manifest:[]};
             state.shipFleet=state.shipFleet||[];state.shipFleet.push(ship);
             state.ships=(Number(state.ships)||0)+1;
             setStatusTicker(bp.name+' concluída e adicionada à frota.');
@@ -3734,8 +3800,9 @@ ${hasAristocrats ? `
                     html+='<p class="structure-desc">'+escapeHTML(p.lore||'Planeta catalogado.')+'</p><div class="grid-2"><div class="stat-box">Temperatura <b>'+report.temperatureC+' °C</b></div><div class="stat-box">Pressão <b>'+report.pressureAtm+' atm</b></div><div class="stat-box">Distância <b>'+report.distanceAU+' UA</b></div><div class="stat-box">Luas <b>'+report.moons+'</b></div><div class="stat-box">Água <b>'+(report.water?'Detectada':'Não detectada')+'</b></div><div class="stat-box">Vida <b>'+(report.organicLifePresent?'Detectada':report.organicLifePopulation===null?'Indeterminada':'Não detectada')+'</b></div></div><div class="stat-box"><b>Materiais</b>'+(report.composition||[]).map(x=>'<small style="display:block">'+escapeHTML(x.type)+' · '+Number(x.amount).toLocaleString('pt-BR')+'</small>').join('')+'</div><div class="stat-box">Habitabilidade: <b>'+escapeHTML(report.habitability)+'</b></div><label class="stat-label">Nome do planeta</label><input id="scouted-planet-name" type="text" maxlength="32" value="'+escapeHTML(p.shortName)+'"><button class="btn btn-block" onclick="renameScoutedPlanet(\''+p.id+'\',document.getElementById(\'scouted-planet-name\').value)">Salvar nome</button><button class="btn btn-emerald btn-block" onclick="executeStarMapPrimaryAction()">'+(p.colonized?'Entrar na colônia':'Iniciar colonização')+'</button>';
                     (state.shipFleet||[]).filter(ship=>ship.status==='orbital'&&ship.planetId!==p.id).forEach(ship=>{
                         if(ship.type==='cargo'){
-                            const opts=(max)=>Array.from({length:max+1},(_,n)=>'<option value="'+n+'">'+n+'</option>').join('');
-                            html+='<div class="stat-box"><b>🚚 '+escapeHTML(ship.name)+'</b><label class="stat-label">Estruturas para transportar (máximo de 5 no total)</label><div class="grid-2"><label class="stat-label">Injetores<select id="cargo-inj-'+ship.id+'">'+opts(5)+'</select></label><label class="stat-label">Galaxy Warp<select id="cargo-warp-'+ship.id+'">'+opts(1)+'</select></label><label class="stat-label">Extratores<select id="cargo-ext-'+ship.id+'">'+opts(3)+'</select></label></div><label class="stat-label">Piloto</label><select onchange="setCargoPilot(\''+ship.id+'\',this.value)"><option value="peridot" '+(ship.pilotType==='peridot'?'selected':'')+'>Peridot</option><option value="nephrite" '+(ship.pilotType==='nephrite'?'selected':'')+'>Nefrita</option></select><button class="btn btn-block" onclick="dispatchCargoShip(\''+ship.id+'\',\''+p.id+'\',JSON.stringify({injector:+document.getElementById(\'cargo-inj-'+ship.id+'\').value,galaxy_warp:+document.getElementById(\'cargo-warp-'+ship.id+'\').value,mineral_extractor:+document.getElementById(\'cargo-ext-'+ship.id+'\').value}))">Enviar nave de carga</button></div>';
+                            const cargoCrew=getCargoCrewPlan(ship),cargoReason=getCargoValidation(ship,p.id);
+                            const pilotLabel=cargoCrew.pilotType==='nephrite'?'Nefrita':cargoCrew.pilotType==='peridot'?'Peridot':'indisponível';
+                            html+='<div class="stat-box"><b>🚚 '+escapeHTML(ship.name)+'</b><div class="founding-note">Carga automática fixa: <b>3 Injetores · 1 Galaxy Warp · 1 Extrator Mineral</b> (5 estruturas).</div><div class="stat-box"><b>Tripulação priorizada</b><small style="display:block">Piloto: '+pilotLabel+'</small><small style="display:block">Peridot de apoio: '+(cargoCrew.peridotOperator?'reservada':'nenhuma livre')+'</small><small style="display:block">Bismuto construtora: '+(cargoCrew.bismuthBuilder?'disponível':'indisponível · obrigatória')+'</small><small style="display:block">Demantoide supervisora: '+(cargoCrew.demantoidEscort?'será enviada':'nenhuma livre · opcional')+'</small></div>'+(cargoReason?'<small style="display:block;color:#fca5a5;margin:7px 0">'+escapeHTML(cargoReason)+'</small>':'')+'<button class="btn btn-block" '+(cargoReason?'disabled':'')+' onclick="dispatchCargoShip(\''+ship.id+'\',\''+p.id+'\')">Enviar nave de carga</button></div>';
                         }else html+='<div class="stat-box"><b>'+escapeHTML(ship.name)+'</b><button class="btn btn-block" onclick="sendFleetShip(\''+ship.id+'\',\''+p.id+'\')">Enviar nave</button></div>';
                     });
                 }
