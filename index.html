@@ -7363,12 +7363,27 @@ function drawColony(time){
         }
 
         function loadGame(slotId) {
-            const data = readSave(slotId);
-            if (!isValidSaveData(data)) { setGameMenuStatus('Este slot está vazio, corrompido ou usa uma versão incompatível.', true); return false; }
+            const rawData = readSave(slotId);
+            if (!isValidSaveData(rawData)) { setGameMenuStatus('Este slot está vazio ou contém dados inválidos. Nenhum dado foi apagado.', true); return false; }
+            let data;
+            try {
+                data = migrateSaveData(rawData);
+            } catch (migrationError) {
+                console.error('Falha ao migrar o salvamento:', migrationError);
+                setGameMenuStatus('Não foi possível adaptar este salvamento. O arquivo original foi preservado.', true);
+                return false;
+            }
             window.GEMPIRE_ACTIVE_SAVE_SLOT = slotId;
             try {
                 for (const key of Object.keys(state)) delete state[key];
                 Object.assign(state, data.state);
+                // Substitui os dados dos planetas mantendo as referências globais usadas pela interface.
+                Object.keys(PLANETS).forEach(id => {
+                    const savedPlanet = data.planets[id];
+                    if (!savedPlanet) return;
+                    for (const key of Object.keys(PLANETS[id])) delete PLANETS[id][key];
+                    Object.assign(PLANETS[id], savedPlanet);
+                });
                 if (!state.founding) state.founding = {stage:'legacy',firstGemCreated:true,mineralSamples:{},gatheredMinerals:{},essenceOutput:0,activityCount:0,diamondEssence:0,gemsCreatedCount:0,selectedGem:'quartz',creationProgress:0,creationActive:false,creationTarget:null,creationSource:'manual'};
                 state.founding.diamondEssence = Number(state.founding.diamondEssence) || 0;
                 state.founding.essenceCooldown = Number(state.founding.essenceCooldown) || 0;
