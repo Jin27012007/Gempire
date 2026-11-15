@@ -5372,7 +5372,7 @@ ${hasAristocrats ? `
             const dt = Math.min(0.05, Math.max(0, deltaMs / 1000));
             if (typeof updateDiamondGovernance === 'function') updateDiamondGovernance(dt);
             if (typeof updateDiamondSocial === 'function') updateDiamondSocial(dt);
-            if (typeof updateMatriarchCourtProduction === 'function') updateMatriarchCourtProduction(dt);
+            if (typeof updateMatriarchCourtProduction === 'function') Object.values(PLANETS).filter(planet=>planet&&planet.colonized).forEach(planet=>withPlanetEconomy(planet.id,()=>updateMatriarchCourtProduction(dt)));
             const elapsedMs = dt * 1000;
             if (state.founding) {
                 state.founding.essenceCooldown = Math.max(0, (Number(state.founding.essenceCooldown) || 0) - dt);
