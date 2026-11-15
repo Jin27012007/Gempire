@@ -55,13 +55,9 @@
         return military;
     }
 
-    function isHessoniteCommandActive() {
-        return Math.max(0, Number(state.census && state.census.hessonite) || 0) > 0;
-    }
-
-    function getQuartzSoldierCount() {
-        return Math.max(0, Math.floor(Number(state.census && state.census.quartz) || 0));
-    }
+    function getImperialCensus(){return typeof window.getEmpireCensus==='function'?window.getEmpireCensus():(state.census||{});}
+    function isHessoniteCommandActive() {return Math.max(0,Number(getImperialCensus().hessonite)||0)>0;}
+    function getQuartzSoldierCount() {return Math.max(0,Math.floor(Number(getImperialCensus().quartz)||0));}
 
     function getCommandCapacity() {
         return typeof getTroopCommandCapacity === 'function'
@@ -191,9 +187,56 @@
         }, 0);
     }
 
+    function ensureWarpPermissionData(){
+        if(!state.hessoniteWarpPermissions||typeof state.hessoniteWarpPermissions!=='object')state.hessoniteWarpPermissions={};
+        state.hessoniteWarpDispatchAccumulator=Math.max(0,Number(state.hessoniteWarpDispatchAccumulator)||0);
+        return state.hessoniteWarpPermissions;
+    }
+    function setHessoniteWarpPermission(targetId,enabled){
+        const target=PLANETS[targetId],permissions=ensureWarpPermissionData();
+        if(!target||!target.colonized||!target.galaxyWarpBuilt){setStatusTicker('O destino precisa ser uma colônia com Galaxy Warp concluído.',true);return;}
+        const sources=Object.values(PLANETS).filter(p=>p.colonized&&p.id!==targetId&&p.galaxyWarpBuilt);
+        if(enabled&&!sources.length){setStatusTicker('Nenhuma outra colônia possui Galaxy Warp para enviar os soldados.',true);return;}
+        permissions[targetId]=!!enabled;
+        setStatusTicker(enabled?'A Diamante autorizou o envio automático de Quartzos para '+target.shortName+'.':'Envios automáticos para '+target.shortName+' foram suspensos.');
+        renderHessoniteMilitaryTab(document.getElementById('governance-content'));
+    }
+    function getPlanetDeployedSoldiers(planetId){
+        const military=getMilitaryState();
+        return military.battalions.reduce((sum,b)=>{const army=military.armies.find(a=>a.id===b.armyId);return sum+(army&&army.planetId===planetId?Math.max(0,Math.floor(Number(b.soldiers)||0)):0);},0);
+    }
+    function processAutomaticGalaxyWarpDeployments(dt){
+        const permissions=ensureWarpPermissionData();
+        state.hessoniteWarpDispatchAccumulator+=Math.max(0,Number(dt)||0);
+        if(state.hessoniteWarpDispatchAccumulator<30)return;
+        state.hessoniteWarpDispatchAccumulator%=30;
+        if(!isHessoniteCommandActive()||typeof window.getPlanetCensus!=='function'||typeof window.setPlanetCensus!=='function')return;
+        for(const [targetId,authorized] of Object.entries(permissions)){
+            const target=PLANETS[targetId];if(!authorized||!target||!target.colonized||!target.galaxyWarpBuilt)continue;
+            for(const source of Object.values(PLANETS)){
+                if(!source.colonized||source.id===targetId||!source.galaxyWarpBuilt)continue;
+                const sourceCensus=Object.assign({},window.getPlanetCensus(source.id));
+                const sourceReserve=Math.max(0,Math.floor(Number(sourceCensus.quartz)||0)-getPlanetDeployedSoldiers(source.id));
+                const quantity=Math.min(BATTALION_SIZE,sourceReserve,getAvailableSoldierCount());
+                if(quantity<1)continue;
+                const targetCensus=Object.assign({},window.getPlanetCensus(targetId));
+                sourceCensus.quartz=Math.max(0,(Number(sourceCensus.quartz)||0)-quantity);
+                targetCensus.quartz=(Number(targetCensus.quartz)||0)+quantity;
+                window.setPlanetCensus(source.id,sourceCensus);window.setPlanetCensus(targetId,targetCensus);
+                const army=createArmyForPlanet(targetId),battalion=appendBattalion(army,quantity,'extraction');
+                addChronicle('Reforço Quartzo via Galaxy Warp',quantity+' soldados Quartzo foram transferidos de '+source.shortName+' para '+target.shortName+' por autorização da Diamante.','Batalhão #'+String(battalion.number).padStart(3,'0')+' incorporado à extração');
+                setStatusTicker('Hessonitas enviaram '+quantity+' Quartzos de '+source.shortName+' para trabalhar em '+target.shortName+'.');
+                if(state.drawerOpen&&state.drawerTab==='hessonite')renderHessoniteMilitaryTab(document.getElementById('governance-content'));
+                if(getAvailableSoldierCount()<1)break;
+            }
+        }
+    }
+
     function updateHessonitePatrols(dt) {
         const military = ensureHessoniteMilitaryData();
-        if (!military.initialized || !Number.isFinite(dt) || dt <= 0) return;
+        if (!Number.isFinite(dt) || dt <= 0) return;
+        processAutomaticGalaxyWarpDeployments(dt);
+        if (!military.initialized) return;
 
         getEffectiveBattalionAllocations().forEach(function (item) {
             const battalion = item.battalion;
@@ -272,6 +315,7 @@
 
         const military = ensureHessoniteMilitaryData();
         const quartz = getQuartzSoldierCount();
+        const imperialCensus=getImperialCensus();
         const commandCapacity = getCommandCapacity();
         const commandable = getCommandableSoldierCount();
         const deployed = getDeployedSoldierCount();
@@ -327,7 +371,7 @@
         const creationLimit = Math.min(BATTALION_SIZE, available);
         const creationDefault = Math.max(1, creationLimit);
         const canCreate = creationLimit > 0 && colonizedPlanets.length > 0;
-        const emeraldNote = Number(state.census && state.census.emerald) > 0
+        const emeraldNote = Number(imperialCensus.emerald) > 0
             ? 'Esmeralda presente: capacidade dos generais multiplicada por 10.'
             : 'Sem Esmeralda: capacidade padrão dos generais.';
         const reserve = Math.max(0, quartz - deployed);
@@ -340,13 +384,13 @@
             '<div class="stat-box"><span class="stat-label">Capacidade de comando</span><b>' + commandCapacity.toLocaleString('pt-BR') + ' soldados</b></div>' +
             '<div class="stat-box"><span class="stat-label">Mobilizáveis</span><b>' + commandable.toLocaleString('pt-BR') + '</b></div>' +
             '<div class="stat-box"><span class="stat-label">Em reserva</span><b>' + reserve.toLocaleString('pt-BR') + '</b></div>' +
-            '<div class="stat-box"><span class="stat-label">Rubis de guarda</span><b>' + Number(state.census.ruby || 0).toLocaleString('pt-BR') + '</b></div>' +
+            '<div class="stat-box"><span class="stat-label">Rubis de guarda</span><b>' + Number(imperialCensus.ruby || 0).toLocaleString('pt-BR') + '</b></div>' +
             '<div class="stat-box"><span class="stat-label">Exércitos ativos</span><b>' + armies.length + '</b></div>' +
             '<div class="stat-box"><span class="stat-label">Batalhões / esquadrões</span><b>' + battalionCount + ' / ' + squads + '</b></div>' +
             '<div class="stat-box"><span class="stat-label">Na extração · planeta selecionado</span><b>' + extraction + '</b></div>' +
             '<div class="stat-box"><span class="stat-label">Em patrulha</span><b>' + patrol + '</b></div></div>' +
-            '<small style="display:block;color:var(--text-muted)">' + Number(state.census.pyrope || 0) + ' Piropo(s) · ' +
-            Number(state.census.emerald || 0) + ' Esmeralda(s). ' + emeraldNote +
+            '<small style="display:block;color:var(--text-muted)">' + Number(imperialCensus.pyrope || 0) + ' Piropo(s) · ' +
+            Number(imperialCensus.emerald || 0) + ' Esmeralda(s). ' + emeraldNote +
             '</small><small style="display:block;color:var(--text-muted)">Ágatas podem coordenar até ' +
             Number(agateCapacity).toLocaleString('pt-BR') + ' Quartzos (' + supportedSquads + ' esquadrões de 20).</small></div>' +
             '<div class="card"><div class="card-header"><span class="card-title">Criar batalhão</span><span class="badge">Até ' + BATTALION_SIZE + ' soldados</span></div>' +
@@ -359,7 +403,14 @@
             '<input id="hessonite-new-soldiers" type="number" min="1" max="' + BATTALION_SIZE + '" step="1" value="' + (canCreate ? creationDefault : 1) + '"' + (!canCreate ? ' disabled' : '') + '>' +
             '<button class="btn btn-emerald btn-block" type="button" onclick="createHessoniteBattalion()"' + (!canCreate ? ' disabled' : '') + '>Formar novo batalhão · ' + available + ' disponíveis</button>' +
             '<small style="color:var(--text-muted)">A extração só opera em planetas com Extrator Mineral operacional e Peridoto operador, e é processada na colônia ativa. A patrulha reduz gradualmente a dissidência do planeta de destino. O efetivo dos batalhões usa Quartzos; Rubis continuam na guarda pessoal, fora desta divisão.</small></div>' +
-            (armyCards || '<div class="card"><b>Nenhum exército formado</b><p class="structure-desc">Crie um batalhão para mobilizar os primeiros Quartzos.</p></div>') +
+            const warpPermissions=ensureWarpPermissionData();
+        const warpTargets=colonizedPlanets.filter(function(p){return p.galaxyWarpBuilt;}).map(function(target){
+            const sources=colonizedPlanets.filter(function(source){return source.id!==target.id&&source.galaxyWarpBuilt;});
+            const enabled=warpPermissions[target.id]===true;
+            return '<div class="stat-box"><div style="display:flex;justify-content:space-between;gap:8px"><b>'+escapeMilitaryHtml(target.shortName||target.name)+'</b><span class="badge">'+(enabled?'Autorizado':'Bloqueado')+'</span></div><small style="color:var(--text-muted)">Origens com Galaxy Warp: '+(sources.map(p=>escapeMilitaryHtml(p.shortName||p.name)).join(', ')||'Nenhuma')+'</small><button class="btn btn-block '+(enabled?'btn-pink':'active')+'" type="button" onclick="setHessoniteWarpPermission(\''+escapeMilitaryHtml(target.id)+'\','+(!enabled)+')" '+(!sources.length&&!enabled?'disabled':'')+'>'+(enabled?'Revogar autorização da Diamante':'Autorizar Hessonitas a enviar Quartzos')+'</button></div>';
+        }).join('');
+        const warpCard='<div class="card card-cyan"><div class="card-header"><span class="card-title">🌀 Reforços automáticos via Galaxy Warp</span></div><p class="structure-desc">A Diamante decide quais colônias podem receber soldados. Com a autorização ativa, as Hessonitas enviam até 100 Quartzos por ciclo de 30 segundos a partir de outras colônias com Galaxy Warp. Os soldados passam a integrar a população e os batalhões de extração do destino.</p>'+(warpTargets||'<small style="color:var(--text-muted)">Nenhuma colônia com Galaxy Warp concluído.</small>')+'</div>';
+            warpCard+(armyCards || '<div class="card"><b>Nenhum exército formado</b><p class="structure-desc">Crie um batalhão para mobilizar os primeiros Quartzos.</p></div>') +
             '<div class="card"><div class="card-header"><span class="card-title">Regras de comando</span></div>' +
             '<div class="stat-box">Hessonita: 100 soldados de capacidade por unidade.</div>' +
             '<div class="stat-box">Piropo: 1.000 soldados de capacidade por unidade.</div>' +
@@ -532,6 +583,7 @@
     }
 
     window.isHessoniteCommandActive = isHessoniteCommandActive;
+    window.setHessoniteWarpPermission=setHessoniteWarpPermission;
     window.ensureHessoniteMilitaryData = ensureHessoniteMilitaryData;
     window.getHessoniteExtractionAllocation = getHessoniteExtractionAllocation;
     window.updateHessonitePatrols = updateHessonitePatrols;
