@@ -4722,6 +4722,7 @@ ${hasAristocrats ? `
         }
         function activatePlanetEconomy(planetId,initial){
             const target=PLANETS[planetId];if(!target||!target.colonized)return false;const currentId=state.activeColonyPlanetId||'homeworld';
+            if(!initial&&currentId===planetId){saveActivePlanetEconomy();return true;}
             if(!initial&&currentId!==planetId)saveActivePlanetEconomy();const economy=ensurePlanetEconomy(target,!!initial);
             PLANET_LOCAL_STATE_KEYS.forEach(key=>{state[key]=economy[key];});state.construction=Array.isArray(state.constructionQueue)?(state.constructionQueue[0]||null):state.construction;state.activeColonyPlanetId=planetId;return true;
         }
@@ -4730,9 +4731,9 @@ ${hasAristocrats ? `
         function setPlanetCensus(planetId,census){const planet=PLANETS[planetId];if(!planet)return;const economy=ensurePlanetEconomy(planet,false);economy.census=clonePlanetData(census||{});if(planetId===(state.activeColonyPlanetId||'homeworld'))state.census=clonePlanetData(economy.census);}
         function getEmpireCensus(){const total={};Object.values(PLANETS).filter(p=>p.colonized).forEach(planet=>Object.entries(getPlanetCensus(planet.id)).forEach(([type,count])=>total[type]=(Number(total[type])||0)+Math.max(0,Number(count)||0)));return total;}
         function getEmpirePopulationCount(type){return Number(getEmpireCensus()[type])||0;}
-        window.getPlanetEconomy=function(planetId){return ensurePlanetEconomy(PLANETS[planetId],false);};
-        window.withPlanetEconomy=function(planetId,callback){const previous=state.activeColonyPlanetId||'homeworld';if(!PLANETS[planetId]||!PLANETS[planetId].colonized||typeof callback!=='function')return undefined;if(previous!==planetId)activatePlanetEconomy(planetId,false);try{return callback();}finally{if(previous!==planetId){saveActivePlanetEconomy();activatePlanetEconomy(previous,false);}}};
-        function withPlanetEconomy(planetId,callback){const previous=state.activeColonyPlanetId||'homeworld';if(!PLANETS[planetId]||!PLANETS[planetId].colonized||typeof callback!=='function')return undefined;if(previous!==planetId)activatePlanetEconomy(planetId,false);try{return callback();}finally{if(previous!==planetId){saveActivePlanetEconomy();activatePlanetEconomy(previous,false);}}}
+        window.getPlanetEconomy=function(planetId){if(planetId===(state.activeColonyPlanetId||'homeworld'))saveActivePlanetEconomy();return ensurePlanetEconomy(PLANETS[planetId],false);};
+        window.withPlanetEconomy=function(planetId,callback){const previous=state.activeColonyPlanetId||'homeworld';if(!PLANETS[planetId]||!PLANETS[planetId].colonized||typeof callback!=='function')return undefined;const changed=previous!==planetId;if(changed)activatePlanetEconomy(planetId,false);try{return callback();}finally{saveActivePlanetEconomy();if(changed)activatePlanetEconomy(previous,false);}};
+        function withPlanetEconomy(planetId,callback){const previous=state.activeColonyPlanetId||'homeworld';if(!PLANETS[planetId]||!PLANETS[planetId].colonized||typeof callback!=='function')return undefined;const changed=previous!==planetId;if(changed)activatePlanetEconomy(planetId,false);try{return callback();}finally{saveActivePlanetEconomy();if(changed)activatePlanetEconomy(previous,false);}}
 
         // --- 14. MAPA ESTELAR, COLÔNIAS E GOVERNANÇA ---
         function selectStarMapPlanet(planetId) {
@@ -5494,7 +5495,7 @@ ${hasAristocrats ? `
 
             for (const planet of Object.values(PLANETS)) {
                 if (!planet.colonized) continue;
-                const yieldRate = calculatePlanetYield(planet),economy=ensurePlanetEconomy(planet,false);
+                const yieldRate = calculatePlanetYield(planet);if(planet.id===(state.activeColonyPlanetId||'homeworld'))saveActivePlanetEconomy();const economy=ensurePlanetEconomy(planet,false);
                 economy.tech += yieldRate.tech * dt * (1 + Math.max(0, Math.min(0.20, Number(planet.governanceResearchBonus) || 0)));
                 economy.essence.white += yieldRate.white * dt;economy.essence.yellow += yieldRate.yellow * dt;economy.essence.blue += yieldRate.blue * dt;economy.essence.pink += yieldRate.pink * dt;
                 economy.order = Math.max(0, Math.min(100, economy.order + yieldRate.order * dt));
