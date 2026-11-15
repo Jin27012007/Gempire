@@ -375,10 +375,17 @@
             ? 'Esmeralda presente: capacidade dos generais multiplicada por 10.'
             : 'Sem Esmeralda: capacidade padrão dos generais.';
         const reserve = Math.max(0, quartz - deployed);
+        const warpPermissions=ensureWarpPermissionData();
+        const warpTargets=colonizedPlanets.filter(function(p){return p.galaxyWarpBuilt;}).map(function(target){
+            const sources=colonizedPlanets.filter(function(source){return source.id!==target.id&&source.galaxyWarpBuilt;});
+            const enabled=warpPermissions[target.id]===true;
+            return '<div class="stat-box"><div style="display:flex;justify-content:space-between;gap:8px"><b>'+escapeMilitaryHtml(target.shortName||target.name)+'</b><span class="badge">'+(enabled?'Autorizado':'Bloqueado')+'</span></div><small style="color:var(--text-muted)">Origens com Galaxy Warp: '+(sources.map(p=>escapeMilitaryHtml(p.shortName||p.name)).join(', ')||'Nenhuma')+'</small><button class="btn btn-block '+(enabled?'btn-pink':'active')+'" type="button" onclick="setHessoniteWarpPermission(\\''+escapeMilitaryHtml(target.id)+'\\','+(!enabled)+')" '+(!sources.length&&!enabled?'disabled':'')+'>'+(enabled?'Revogar autorização da Diamante':'Autorizar Hessonitas a enviar Quartzos')+'</button></div>';
+        }).join('');
+        const warpCard='<div class="card card-cyan"><div class="card-header"><span class="card-title">🌀 Reforços automáticos via Galaxy Warp</span></div><p class="structure-desc">A Diamante decide quais colônias podem receber soldados. Com a autorização ativa, as Hessonitas enviam até 100 Quartzos por ciclo de 30 segundos a partir de outras colônias com Galaxy Warp. Os soldados passam a integrar a população e os batalhões de extração do destino.</p>'+(warpTargets||'<small style="color:var(--text-muted)">Nenhuma colônia com Galaxy Warp concluído.</small>')+'</div>';
 
         container.innerHTML =
             '<div class="card card-cyan"><div class="card-header"><span class="card-title title-font">⚔️ Central de comando · Hessonita</span>' +
-            '<span class="badge">' + Number(state.census.hessonite || 0) + ' Hessonita(s)</span></div>' +
+            '<span class="badge">' + Number(imperialCensus.hessonite || 0) + ' Hessonita(s) no Império</span></div>' +
             '<p class="structure-desc">A Hessonita organiza a infantaria Quartzo. Cada batalhão comporta até 100 soldados e cada esquadrão reúne até 20. Os exércitos são agrupados por planeta e recebem numeração própria.</p>' +
             '<div class="grid-2"><div class="stat-box"><span class="stat-label">Soldados existentes</span><b>' + quartz.toLocaleString('pt-BR') + ' Quartzos</b></div>' +
             '<div class="stat-box"><span class="stat-label">Capacidade de comando</span><b>' + commandCapacity.toLocaleString('pt-BR') + ' soldados</b></div>' +
@@ -402,15 +409,9 @@
             '<label class="stat-label" for="hessonite-new-soldiers">Soldados no batalhão</label>' +
             '<input id="hessonite-new-soldiers" type="number" min="1" max="' + BATTALION_SIZE + '" step="1" value="' + (canCreate ? creationDefault : 1) + '"' + (!canCreate ? ' disabled' : '') + '>' +
             '<button class="btn btn-emerald btn-block" type="button" onclick="createHessoniteBattalion()"' + (!canCreate ? ' disabled' : '') + '>Formar novo batalhão · ' + available + ' disponíveis</button>' +
-            '<small style="color:var(--text-muted)">A extração só opera em planetas com Extrator Mineral operacional e Peridoto operador, e é processada na colônia ativa. A patrulha reduz gradualmente a dissidência do planeta de destino. O efetivo dos batalhões usa Quartzos; Rubis continuam na guarda pessoal, fora desta divisão.</small></div>' +
-            const warpPermissions=ensureWarpPermissionData();
-        const warpTargets=colonizedPlanets.filter(function(p){return p.galaxyWarpBuilt;}).map(function(target){
-            const sources=colonizedPlanets.filter(function(source){return source.id!==target.id&&source.galaxyWarpBuilt;});
-            const enabled=warpPermissions[target.id]===true;
-            return '<div class="stat-box"><div style="display:flex;justify-content:space-between;gap:8px"><b>'+escapeMilitaryHtml(target.shortName||target.name)+'</b><span class="badge">'+(enabled?'Autorizado':'Bloqueado')+'</span></div><small style="color:var(--text-muted)">Origens com Galaxy Warp: '+(sources.map(p=>escapeMilitaryHtml(p.shortName||p.name)).join(', ')||'Nenhuma')+'</small><button class="btn btn-block '+(enabled?'btn-pink':'active')+'" type="button" onclick="setHessoniteWarpPermission(\''+escapeMilitaryHtml(target.id)+'\','+(!enabled)+')" '+(!sources.length&&!enabled?'disabled':'')+'>'+(enabled?'Revogar autorização da Diamante':'Autorizar Hessonitas a enviar Quartzos')+'</button></div>';
-        }).join('');
-        const warpCard='<div class="card card-cyan"><div class="card-header"><span class="card-title">🌀 Reforços automáticos via Galaxy Warp</span></div><p class="structure-desc">A Diamante decide quais colônias podem receber soldados. Com a autorização ativa, as Hessonitas enviam até 100 Quartzos por ciclo de 30 segundos a partir de outras colônias com Galaxy Warp. Os soldados passam a integrar a população e os batalhões de extração do destino.</p>'+(warpTargets||'<small style="color:var(--text-muted)">Nenhuma colônia com Galaxy Warp concluído.</small>')+'</div>';
-            warpCard+(armyCards || '<div class="card"><b>Nenhum exército formado</b><p class="structure-desc">Crie um batalhão para mobilizar os primeiros Quartzos.</p></div>') +
+            '<small style="color:var(--text-muted)">A extração exige Extrator Mineral operacional e Peridoto operador. A patrulha reduz a dissidência do planeta de destino.</small></div>' +
+            warpCard +
+            (armyCards || '<div class="card"><b>Nenhum exército formado</b><p class="structure-desc">Crie um batalhão para mobilizar os primeiros Quartzos.</p></div>') +
             '<div class="card"><div class="card-header"><span class="card-title">Regras de comando</span></div>' +
             '<div class="stat-box">Hessonita: 100 soldados de capacidade por unidade.</div>' +
             '<div class="stat-box">Piropo: 1.000 soldados de capacidade por unidade.</div>' +
