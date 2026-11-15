@@ -2078,6 +2078,7 @@
         // --- 8. CONTROLE DE TELAS, ABAS E MODAIS ---
         function switchScreen(screenId) {
             if (!['throne', 'governance', 'starmap', 'colony'].includes(screenId)) screenId = 'throne';
+            if(screenId==='throne'&&state.activeDiamondColonyOwnerId)screenId='colony';
             state.currentScreen = screenId;
             const throneNav=document.getElementById('nav-throne');if(throneNav)throneNav.textContent=state.activeDiamondColonyOwnerId?'Base Lunar':'1. Trono Diamante';
             const colonyNav=document.getElementById('nav-colony');if(colonyNav)colonyNav.textContent=state.activeDiamondColonyOwnerId?'Colônia · '+(PLANETS[state.activeColonyPlanetId]?.shortName||'Mundo'):'4. Globo 360°';
