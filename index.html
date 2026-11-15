@@ -2745,8 +2745,8 @@
         // 10A. Contexto da Câmara do Trono
 
         function structureCount(id) { return Math.max(0, Number(state.structures && state.structures[id]) || 0); }
-        function redEyeCountForPlanet(planetId){const planet=PLANETS[planetId];if(!planet)return 0;if(planetId==='homeworld')return Math.max(0,Math.floor(Number(state.structures?.red_eye)||0));return Math.max(0,Math.floor(Number(planet.redEyesBuilt)||0));}
-        function getTotalRedEyeCount(){return Math.max(0,Math.floor(Number(state.structures?.red_eye)||0));}
+        function redEyeCountForPlanet(planetId){const planet=PLANETS[planetId];if(!planet)return 0;if(planetId==='homeworld'){const count=planetId===(state.activeColonyPlanetId||'homeworld')?state.structures?.red_eye:ensurePlanetEconomy(planet,false).structures?.red_eye;return Math.max(0,Math.floor(Number(count)||0));}return Math.max(0,Math.floor(Number(planet.redEyesBuilt)||0));}
+        function getTotalRedEyeCount(){return Object.values(PLANETS).reduce((sum,planet)=>sum+redEyeCountForPlanet(planet.id),0);}
         function getAvailableRedEyeCount(){const missions=Array.isArray(state.redEyeMissions)?state.redEyeMissions:[];return Math.max(0,getTotalRedEyeCount()-missions.filter(m=>m&&m.active).length);}
         function structureDefinition(id) { return STRUCTURE_CATALOG.find(item => item.id === id); }
         function hasStructurePrerequisites(def) { const required=def.id==='lunar_base'?['reactor']:(def.prerequisites||[]);return required.every(id => id==='red_eye'&&def.id==='royal_palace' ? redEyeCountForPlanet('homeworld')>0 : id==='galaxy_warp'&&def.id==='red_eye' ? !!PLANETS[state.activeColonyPlanetId||'homeworld']?.galaxyWarpBuilt : structureCount(id) > 0); }
