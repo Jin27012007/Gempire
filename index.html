@@ -4800,6 +4800,7 @@ ${hasAristocrats ? `
             state.selectedVeinIndex = 0;
             state.planetCamera.rotation = 0;
             state.planetCamera.targetRotation = null;
+            updateHUD();
             renderDrawerContent();
             renderBottomBar();
         }
@@ -7600,7 +7601,6 @@ function drawColony(time){
                 state.constructionQueue=Array.isArray(state.constructionQueue)?state.constructionQueue:(state.construction&&state.construction.active?[state.construction]:[]);
                 state.construction=state.constructionQueue[0]||null;
                 state.currentScreen='throne';
-                state.activeDiamondColonyOwnerId=null;
                 state.governanceSection = ['council','demantoid','hessonite','morganite','aquamarine'].includes(state.governanceSection) ? state.governanceSection : 'council';
                 state.morganiteAutoBuild = state.morganiteAutoBuild !== false;
                 ensureMorganiteArchitectureState();
@@ -7695,13 +7695,15 @@ function drawColony(time){
                 if(state.structures.galaxy_warp>0)PLANETS.homeworld.galaxyWarpBuilt=true;
                 if (!PLANETS[state.activeColonyPlanetId] || !PLANETS[state.activeColonyPlanetId].colonized) state.activeColonyPlanetId = 'homeworld';
                 initializePlanetEconomies(true);
+                const savedDiamondOwner=state.activeDiamondColonyOwnerId,savedDiamondShip=(state.shipFleet||[]).find(ship=>ship.type==='diamond'&&ship.ownerId===savedDiamondOwner);
+                if(savedDiamondOwner&&savedDiamondShip&&savedDiamondShip.status==='orbital'&&savedDiamondShip.planetId===state.activeColonyPlanetId&&PLANETS[state.activeColonyPlanetId]?.lunarBaseBuilt)state.currentScreen='colony';else state.activeDiamondColonyOwnerId=null;
                 if (!PLANETS[state.selectedStarMapPlanetId]) state.selectedStarMapPlanetId = 'homeworld';
                 state.selectedVeinIndex = Math.max(0, Math.min(PLANETS[state.activeColonyPlanetId].veins.length - 1, Number(state.selectedVeinIndex) || 0));
                 state.aquamarineTerraforming=state.aquamarineTerraforming||{teams:[],completed:[],nextId:1,uiAccumulator:0};
                 ensureAquamarineTerraformingState();
                 applyGameSettings();
                 saveGame(slotId,true);
-                ['throne','starmap','colony'].forEach(screen=>{const button=document.getElementById('nav-'+screen);if(button)button.classList.toggle('active',screen==='throne');});
+                ['throne','starmap','colony'].forEach(screen=>{const button=document.getElementById('nav-'+screen);if(button)button.classList.toggle('active',screen===state.currentScreen);});
                 updateHUD(); renderBottomBar(); renderDrawerContent(); syncDrawerTabButtons(); toggleDrawer(state.drawerOpen && window.innerWidth > 600);
                 gameHasStarted = true; setGameMenuVisible(false);
                 setStatusTicker('Partida carregada. A dinastia continua de onde foi salva.');
