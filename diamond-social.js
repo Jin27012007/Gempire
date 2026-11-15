@@ -291,6 +291,8 @@
         if (!state.firstGameStarted || !Number.isFinite(dt) || dt <= 0) return;
         const data = ensureCourtData();
         (state.matriarchs || []).forEach(diamond => {
+            const planet=getGovernedPlanet(diamond)||PLANETS[diamond.consumedPlanet]||PLANETS.homeworld;
+            if(!planet||planet.id!==(state.activeColonyPlanetId||'homeworld'))return;
             if (diamond.courtProductionEnabled === false) return;
             diamond.courtProductionProgress = Math.min(60, (Number(diamond.courtProductionProgress) || 0) + dt);
             if (diamond.courtProductionProgress < 60 || (Number(state.diamondSocial?.elapsed) || 0) < (Number(diamond.courtNextAttemptAt) || 0)) return;
@@ -302,8 +304,6 @@
                 ? Number(state.refinedResources?.[refinedMaterial] || 0) >= 1
                 : Number(state.minerals || 0) >= 10;
             if (!gemData || Number(diamond.essence || 0) < 250 || !hasSubstrate) return;
-            const planet = getGovernedPlanet(diamond) || PLANETS[diamond.consumedPlanet] || PLANETS.homeworld;
-            if (!planet) return;
             diamond.essence = Math.max(0, Number(diamond.essence || 0) - 250);
             if (refinedMaterial) {
                 state.refinedResources[refinedMaterial] = Math.max(0, Number(state.refinedResources[refinedMaterial] || 0) - 1);
