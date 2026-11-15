@@ -3344,6 +3344,8 @@
             const index=source.walkingGems.findIndex(gem=>gem&&String(gem.id)===String(gemId));
             if(index<0)return null;
             const gem=source.walkingGems.splice(index,1)[0];
+            const type=gem.caste||gem.type,census=Object.assign({},getPlanetCensus(source.id));
+            if(type&&Number(census[type])>0){census[type]--;setPlanetCensus(source.id,census);gem.populationTracked=true;}else gem.populationTracked=false;
             gem.transportStatus='aboard';
             return gem;
         }
@@ -3355,6 +3357,7 @@
             gem.transportStatus=null;
             gem.bubbleText='🛸 Chegou de '+(PLANETS[ship.originPlanetId]?.shortName||'outro mundo');
             target.walkingGems.push(gem);
+            if(gem.populationTracked){const census=Object.assign({},getPlanetCensus(target.id));census[gem.caste||gem.type]=(Number(census[gem.caste||gem.type])||0)+1;setPlanetCensus(target.id,census);}
             ship.passengerGem=null;
             addChronicle('Gem transportada',(GEM_RECIPES[gem.caste||gem.type]?.shortName||gem.caste||gem.type)+' chegou a '+target.shortName+'.','Desembarque concluído');
             return true;
@@ -3373,7 +3376,7 @@
             setStatusTicker(ship.name+' iniciou viagem para '+p.shortName+(passenger?' transportando uma Gem.':'.'));
             updateHUD();renderDrawerContent();
         }
-        function updateFleetTravel(dt){(state.shipFleet||[]).forEach(s=>{if(s.status!=='travelling'||s.type==='cargo')return;s.missionProgress=Math.min(100,(Number(s.missionProgress)||0)+dt*100/Math.max(1,s.missionDuration||1));if(s.missionProgress>=100){const p=PLANETS[s.destinationPlanetId];if(p){p.fleetVisits=Array.isArray(p.fleetVisits)?p.fleetVisits:[];p.fleetVisits.push({shipId:s.id,name:s.name});disembarkShipGem(s,p);s.planetId=p.id;}s.destinationPlanetId=null;s.status='orbital';if(s.type==='diamond'&&s.diamondColonyOwnerId){const ownerId=s.diamondColonyOwnerId;if(s.returningToHomeworld){s.returningToHomeworld=false;activatePlanetEconomy('homeworld',false);activatePlanetEconomy('homeworld',false);state.activeDiamondColonyOwnerId=null;state.activeColonyPlanetId='homeworld';switchScreen('throne');}else if(p&&p.lunarBaseBuilt){activatePlanetEconomy(p.id,false);state.activeDiamondColonyOwnerId=ownerId;state.activeColonyPlanetId=p.id;state.selectedStarMapPlanetId=p.id;state.selectedVeinIndex=0;switchScreen('colony');setStatusTicker(getDiamondOwnerById(ownerId)?.name+' assumiu a Base Lunar de '+p.shortName+'.');}}else setStatusTicker(s.name+' chegou ao destino.');}});}
+        function updateFleetTravel(dt){(state.shipFleet||[]).forEach(s=>{if(s.status!=='travelling'||s.type==='cargo')return;s.missionProgress=Math.min(100,(Number(s.missionProgress)||0)+dt*100/Math.max(1,s.missionDuration||1));if(s.missionProgress>=100){const p=PLANETS[s.destinationPlanetId];if(p){p.fleetVisits=Array.isArray(p.fleetVisits)?p.fleetVisits:[];p.fleetVisits.push({shipId:s.id,name:s.name});disembarkShipGem(s,p);s.planetId=p.id;}s.destinationPlanetId=null;s.status='orbital';if(s.type==='diamond'&&s.diamondColonyOwnerId){const ownerId=s.diamondColonyOwnerId;if(s.returningToHomeworld){s.returningToHomeworld=false;activatePlanetEconomy('homeworld',false);state.activeDiamondColonyOwnerId=null;state.activeColonyPlanetId='homeworld';switchScreen('throne');}else if(p&&p.lunarBaseBuilt){activatePlanetEconomy(p.id,false);state.activeDiamondColonyOwnerId=ownerId;state.activeColonyPlanetId=p.id;state.selectedStarMapPlanetId=p.id;state.selectedVeinIndex=0;switchScreen('colony');setStatusTicker(getDiamondOwnerById(ownerId)?.name+' assumiu a Base Lunar de '+p.shortName+'.');}}else setStatusTicker(s.name+' chegou ao destino.');}});}
         function getDiamondOwnerById(ownerId){return getDiamondOwners().find(owner=>owner.id===ownerId)||null;}
         function getDiamondGovernorPlanet(ownerId){
             const governor=ownerId==='first'?'none':'matriarch_'+ownerId;
@@ -3399,7 +3402,7 @@
                 ship.originPlanetId=ship.planetId;ship.status='travelling';ship.destinationPlanetId='homeworld';ship.missionProgress=0;ship.missionDuration=getSpaceTravelSeconds(ship.originPlanetId,'homeworld',1.8);ship.diamondColonyOwnerId=ownerId;ship.returningToHomeworld=true;
                 setStatusTicker('A Nave Diamante iniciou o retorno a Homeworld.');return;
             }
-            state.activeDiamondColonyOwnerId=null;state.activeColonyPlanetId='homeworld';switchScreen('throne');
+            activatePlanetEconomy('homeworld',false);state.activeDiamondColonyOwnerId=null;state.activeColonyPlanetId='homeworld';switchScreen('throne');
         }
         function buildDiamondColonyCommandHTML(){
             return '<div class="card card-cyan"><div class="card-header"><span class="card-title title-font">🚀 Sedes das Diamantes</span></div>'+
@@ -4719,7 +4722,7 @@ ${hasAristocrats ? `
             planet.structures=planet.structures||{};['injector','mineral_extractor','galaxy_warp'].forEach(key=>planet.structures[key]=Math.max(0,Number(state.structures?.[key])||0));planet.galaxyWarpBuilt=!!(planet.galaxyWarpBuilt||Number(state.structures?.galaxy_warp)>0);
         }
         function ensurePlanetEconomy(planet,adoptCurrent){
-            if(!planet)return null;if(!planet.economy){if(adoptCurrent&&planet.id===(state.activeColonyPlanetId||'homeworld')){planet.economy={};PLANET_LOCAL_STATE_KEYS.forEach(key=>{if(state[key]!==undefined)planet.economy[key]=clonePlanetData(state[key]);});}else planet.economy=createEmptyPlanetEconomy();}
+            if(!planet)return null;if(!planet.economy){if(adoptCurrent&&planet.id==='homeworld'){planet.economy={};PLANET_LOCAL_STATE_KEYS.forEach(key=>{if(state[key]!==undefined)planet.economy[key]=clonePlanetData(state[key]);});}else planet.economy=createEmptyPlanetEconomy();}
             const defaults=createEmptyPlanetEconomy();PLANET_LOCAL_STATE_KEYS.forEach(key=>{if(planet.economy[key]===undefined)planet.economy[key]=clonePlanetData(defaults[key]);});
             if(planet.structures&&typeof planet.structures==='object'){['injector','mineral_extractor','galaxy_warp'].forEach(key=>{planet.economy.structures[key]=Math.max(Number(planet.economy.structures[key])||0,Number(planet.structures[key])||0);});}if(planet.galaxyWarpBuilt)planet.economy.structures.galaxy_warp=Math.max(1,Number(planet.economy.structures.galaxy_warp)||0);return planet.economy;
         }
@@ -4728,7 +4731,7 @@ ${hasAristocrats ? `
             if(!initial&&currentId!==planetId)saveActivePlanetEconomy();const economy=ensurePlanetEconomy(target,!!initial);
             PLANET_LOCAL_STATE_KEYS.forEach(key=>{state[key]=clonePlanetData(economy[key]);});state.construction=Array.isArray(state.constructionQueue)?(state.constructionQueue[0]||null):state.construction;state.activeColonyPlanetId=planetId;return true;
         }
-        function initializePlanetEconomies(adoptCurrent){Object.values(PLANETS).forEach(planet=>{if(planet.colonized)ensurePlanetEconomy(planet,!!adoptCurrent&&planet.id===(state.activeColonyPlanetId||'homeworld'));});const active=PLANETS[state.activeColonyPlanetId||'homeworld'];if(active&&active.colonized)activatePlanetEconomy(active.id,true);}
+        function initializePlanetEconomies(adoptCurrent){Object.values(PLANETS).forEach(planet=>{if(planet.colonized)ensurePlanetEconomy(planet,!!adoptCurrent&&planet.id==='homeworld');});const active=PLANETS[state.activeColonyPlanetId||'homeworld'];if(active&&active.colonized)activatePlanetEconomy(active.id,true);}
         function getPlanetCensus(planetId){const planet=PLANETS[planetId];if(!planet)return {};if(planetId===(state.activeColonyPlanetId||'homeworld'))saveActivePlanetEconomy();return ensurePlanetEconomy(planet,false).census||{};}
         function setPlanetCensus(planetId,census){const planet=PLANETS[planetId];if(!planet)return;const economy=ensurePlanetEconomy(planet,false);economy.census=clonePlanetData(census||{});if(planetId===(state.activeColonyPlanetId||'homeworld'))state.census=clonePlanetData(economy.census);}
         function getEmpireCensus(){const total={};Object.values(PLANETS).filter(p=>p.colonized).forEach(planet=>Object.entries(getPlanetCensus(planet.id)).forEach(([type,count])=>total[type]=(Number(total[type])||0)+Math.max(0,Number(count)||0)));return total;}
@@ -7456,6 +7459,7 @@ function drawColony(time){
         }
 
         function createSaveSnapshot() {
+            if(typeof saveActivePlanetEconomy==='function')saveActivePlanetEconomy();
             const safeState = JSON.parse(JSON.stringify(state));
             // Petições guardam callbacks em memória; serão geradas novamente depois do carregamento.
             safeState.activePetition = null;
