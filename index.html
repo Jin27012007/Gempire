@@ -4339,17 +4339,14 @@ ${hasAristocrats ? `
             const result = { min: 0, tech: 0, white: 0, yellow: 0, blue: 0, pink: 0, order: 0 };
             if (!planet || !planet.colonized) return result;
 
-            for (const gem of planet.walkingGems) {
-                switch (gem.caste) {
-                    case 'peridot': result.tech += 6; break;
-                    case 'hessonite': break;
-                    case 'bismuth': result.min += 10; break;
-                    case 'sapphire': result.tech += 8; result.white += 4; break;
-                    case 'lapis': result.blue += 5; break;
-                    case 'ruby': break;
-                    case 'pearl': result.white += 5; result.order += 2; break;
-                }
-            }
+            const localCensus=planet.id===(state.activeColonyPlanetId||'homeworld')?(state.census||{}):(ensurePlanetEconomy(planet,false).census||{});
+            result.tech += Math.max(0,Number(localCensus.peridot)||0)*6;
+            result.min += Math.max(0,Number(localCensus.bismuth)||0)*10;
+            result.tech += Math.max(0,Number(localCensus.sapphire)||0)*8;
+            result.white += Math.max(0,Number(localCensus.sapphire)||0)*4;
+            result.blue += Math.max(0,Number(localCensus.lapis)||0)*5;
+            result.white += Math.max(0,Number(localCensus.pearl)||0)*5;
+            result.order += Math.max(0,Number(localCensus.pearl)||0)*2;
 
             result.min += (planet.spiresCount || 0) * 0.35;
             if (planet.hasOrbitalRing) result.min += 15;
@@ -5465,14 +5462,15 @@ ${hasAristocrats ? `
                     gem.bobPhase = (gem.bobPhase || 0) + dt * 2;
                 }
                 if (planet.colonized) {
+                    const localCensus=planet.id===(state.activeColonyPlanetId||'homeworld')?(state.census||{}):(ensurePlanetEconomy(planet,false).census||{});
                     const cooling = 0.08 + (planet.thermalSinks || 0) * 0.22 +
-                        (planet.walkingGems.filter(g => g.caste === 'lapis').length * 0.10);
+                        (Math.max(0,Number(localCensus.lapis)||0)*0.10);
                     planet.seismicHeat = Math.max(0, planet.seismicHeat - cooling * dt);
                     if (planet.dissent > 0) {
                         let calming = 0.025;
                         if (planet.governor === 'agate') calming += 0.20;
                         if (planet.governor === 'pearl') calming += 0.25;
-                        if (planet.walkingGems.filter(g => g.caste === 'ruby').length >= 3) calming += 0.07;
+                        if (Number(localCensus.ruby||0) >= 3) calming += 0.07;
                         if (state.researchedTechs.orbital_pacification) calming += 0.12;
                         if (state.firstDiamond.doctrine === 'lifeseeder' && planet.id === 'terra_veritas') calming += 0.15;
                         planet.dissent = Math.max(0, planet.dissent - calming * dt);
@@ -5497,10 +5495,11 @@ ${hasAristocrats ? `
             for (const planet of Object.values(PLANETS)) {
                 if (!planet.colonized) continue;
                 const yieldRate = calculatePlanetYield(planet);if(planet.id===(state.activeColonyPlanetId||'homeworld'))saveActivePlanetEconomy();const economy=ensurePlanetEconomy(planet,false);
+                economy.minerals += yieldRate.min * dt;
                 economy.tech += yieldRate.tech * dt * (1 + Math.max(0, Math.min(0.20, Number(planet.governanceResearchBonus) || 0)));
                 economy.essence.white += yieldRate.white * dt;economy.essence.yellow += yieldRate.yellow * dt;economy.essence.blue += yieldRate.blue * dt;economy.essence.pink += yieldRate.pink * dt;
                 economy.order = Math.max(0, Math.min(100, economy.order + yieldRate.order * dt));
-                if(planet.id===(state.activeColonyPlanetId||'homeworld')){state.tech=economy.tech;state.essence=clonePlanetData(economy.essence);state.order=economy.order;}
+                if(planet.id===(state.activeColonyPlanetId||'homeworld')){state.minerals=economy.minerals;state.tech=economy.tech;state.essence=clonePlanetData(economy.essence);state.order=economy.order;}
             }
 
             for (const effect of state.thronePulseEffects) {
