@@ -4708,7 +4708,7 @@ ${hasAristocrats ? `
             base.morganiteArchitecture={assignments:{},proposals:[],activeProjects:[],completed:[],nextId:1,proposalTimers:{},selectedProjects:{},uiAccumulator:0};return base;
         }
         function saveActivePlanetEconomy(){
-            const id=state.activeColonyPlanetId||'homeworld',planet=PLANETS[id];if(!planet)return;const economy=planet.economy||(planet.economy={});
+            const id=state.activeColonyPlanetId||'homeworld',planet=PLANETS[id];if(!planet)return;state.planetEconomiesVersion=1;const economy=planet.economy||(planet.economy={});
             PLANET_LOCAL_STATE_KEYS.forEach(key=>{if(state[key]!==undefined)economy[key]=state[key];});
             planet.structures=planet.structures||{};['injector','mineral_extractor','galaxy_warp'].forEach(key=>planet.structures[key]=Math.max(0,Number(state.structures?.[key])||0));planet.galaxyWarpBuilt=!!(planet.galaxyWarpBuilt||Number(state.structures?.galaxy_warp)>0);
         }
@@ -4723,7 +4723,20 @@ ${hasAristocrats ? `
             if(!initial&&currentId!==planetId)saveActivePlanetEconomy();const economy=ensurePlanetEconomy(target,!!initial);
             PLANET_LOCAL_STATE_KEYS.forEach(key=>{state[key]=economy[key];});state.construction=Array.isArray(state.constructionQueue)?(state.constructionQueue[0]||null):state.construction;state.activeColonyPlanetId=planetId;return true;
         }
-        function initializePlanetEconomies(adoptCurrent){Object.values(PLANETS).forEach(planet=>{if(planet.colonized)ensurePlanetEconomy(planet,!!adoptCurrent&&planet.id==='homeworld');});const active=PLANETS[state.activeColonyPlanetId||'homeworld'];if(active&&active.colonized)activatePlanetEconomy(active.id,true);}
+        function initializePlanetEconomies(adoptCurrent){
+            const migrateLegacy=!!adoptCurrent&&Number(state.planetEconomiesVersion)!==1;
+            Object.values(PLANETS).forEach(planet=>{if(planet.colonized)ensurePlanetEconomy(planet,!!adoptCurrent&&planet.id==='homeworld');});
+            if(migrateLegacy){
+                const home=ensurePlanetEconomy(PLANETS.homeworld,false),types=Object.keys(home.census||{});
+                Object.values(PLANETS).filter(planet=>planet.colonized&&planet.id!=='homeworld').forEach(planet=>{
+                    const local=Object.assign({},ensurePlanetEconomy(planet,false).census||{});
+                    (planet.walkingGems||[]).forEach(gem=>{const type=gem&&(gem.caste||gem.type);if(!type||!types.includes(type))return;const available=Math.max(0,Number(home.census[type])||0);if(available<1)return;home.census[type]=available-1;local[type]=(Number(local[type])||0)+1;});
+                    planet.economy.census=local;
+                });
+            }
+            state.planetEconomiesVersion=1;
+            const active=PLANETS[state.activeColonyPlanetId||'homeworld'];if(active&&active.colonized)activatePlanetEconomy(active.id,true);
+        }
         function getPlanetCensus(planetId){const planet=PLANETS[planetId];if(!planet)return {};if(planetId===(state.activeColonyPlanetId||'homeworld'))saveActivePlanetEconomy();return ensurePlanetEconomy(planet,false).census||{};}
         function setPlanetCensus(planetId,census){const planet=PLANETS[planetId];if(!planet)return;const economy=ensurePlanetEconomy(planet,false);economy.census=clonePlanetData(census||{});if(planetId===(state.activeColonyPlanetId||'homeworld'))state.census=clonePlanetData(economy.census);}
         function getEmpireCensus(){const total={};Object.values(PLANETS).filter(p=>p.colonized).forEach(planet=>Object.entries(getPlanetCensus(planet.id)).forEach(([type,count])=>total[type]=(Number(total[type])||0)+Math.max(0,Number(count)||0)));return total;}
