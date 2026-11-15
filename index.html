@@ -2256,15 +2256,10 @@
             renderMorganiteArchitectureTab(document.getElementById('governance-content'));
         }
 
-        function processMorganiteArchitecture(dt) {
+        function processMorganiteArchitecture(dt,allowMorganiteUI=true) {
             const architecture = ensureMorganiteArchitectureState();
-            for (const planet of Object.values(PLANETS)) {
-                if (!planet || !planet.colonized) continue;
-                const stats = getMorganitePlanetStats(planet.id);
-                if (stats.comfort > 0 && Number(planet.dissent) > 0) {
-                    planet.dissent = Math.max(0,Number(planet.dissent)-Math.min(0.02,stats.comfort*0.00035)*dt);
-                }
-            }
+            const localPlanet=PLANETS[state.activeColonyPlanetId||'homeworld'];
+            if(localPlanet&&localPlanet.colonized){const stats=getMorganitePlanetStats(localPlanet.id);if(stats.comfort>0&&Number(localPlanet.dissent)>0)localPlanet.dissent=Math.max(0,Number(localPlanet.dissent)-Math.min(0.02,stats.comfort*0.00035)*dt);}
             const finished = [];
             architecture.activeProjects.forEach(project => {
                 if (!project || !PLANETS[project.planetId]) return;
@@ -2293,7 +2288,7 @@
                 architecture.proposalTimers[planetId] = (Number(architecture.proposalTimers[planetId])||0)+dt;
                 if (architecture.proposalTimers[planetId] >= 120 && getMorganiteAvailableProjects(planetId).length) createMorganiteProposal(planetId,null);
             }
-            if (state.currentScreen === 'governance' && state.governanceSection === 'morganite') {
+            if (allowMorganiteUI && state.currentScreen === 'governance' && state.governanceSection === 'morganite') {
                 architecture.uiAccumulator += dt;
                 if (architecture.uiAccumulator >= 0.8) {
                     architecture.uiAccumulator = 0;
@@ -3548,16 +3543,16 @@
             }
         }
 
-        function updateStructureSimulation(dt) {
+        function updateStructureSimulation(dt,mode='all',allowUI=true) {
+            if(mode!=='local'){
+                updateRedEyeMission(dt);updateCargoMissions(dt);updateFleetTravel(dt);updateGalaxyWarpExpeditions(dt);updateMatriarchChambers(dt);
+                if(window.updateHessonitePatrols)window.updateHessonitePatrols(dt);
+            }
+            if(mode==='global')return;
             processAutomaticRefinery();
             processAutomaticPearlProduction(dt);
             updateLogisticsCenter(dt);
-            updateRedEyeMission(dt);
-            updateCargoMissions(dt);
-            updateFleetTravel(dt);
-            updateGalaxyWarpExpeditions(dt);
-            updateMatriarchChambers(dt);
-            processMorganiteArchitecture(dt);
+            processMorganiteArchitecture(dt,allowUI);
             if(Number(state.census.morganite||0)>0&&state.morganiteAutoBuild&&freeGemWorkers('bismuth')>0){
                 const next=STRUCTURE_CATALOG.find(def=>structureCount(def.id)<(def.maxCount||1)&&canBuildStructure(def)==='');
                 if(next)buildStructure(next.id);
@@ -3583,7 +3578,7 @@
                 ensureInjectorOrders();
                 if(structureIsOperational('injector')&&!state.founding.creationActive)startInjectorProduction(true);
             }else if(!Array.isArray(state.founding.injectorOrders))state.founding.injectorOrders=[];
-            if(state.currentScreen==='colony'&&state.drawerOpen&&state.drawerTab==='context'){
+            if(allowUI&&state.currentScreen==='colony'&&state.drawerOpen&&state.drawerTab==='context'){
                 state.resourceChartAccumulator=(Number(state.resourceChartAccumulator)||0)+dt;
                 if(state.resourceChartAccumulator>=1){state.resourceChartAccumulator=0;renderColonyContext(document.getElementById('drawer-body'));}
             }
@@ -3638,7 +3633,6 @@
                     if(regular===0)state.mineralExtractorRegularAccumulator=0;
                 }
             }
-            if (window.updateHessonitePatrols) window.updateHessonitePatrols(dt);
             if (structureIsOperational('reactor')) state.energy += dt * 0.35;
         }
         function updateStructureUI() {
@@ -4706,7 +4700,7 @@ ${hasAristocrats ? `
         }
 
         // Economia, infraestrutura e população pertencem a cada planeta.
-        const PLANET_LOCAL_STATE_KEYS=['minerals','tech','energy','refinedMaterials','refinedResources','essence','structures','structureAssignments','construction','constructionQueue','founding','census','order','logisticsActive','logisticsMaintenanceTimer','morganiteAutoBuild','morganiteArchitecture'];
+        const PLANET_LOCAL_STATE_KEYS=['minerals','tech','energy','refinedMaterials','refinedResources','essence','structures','structureAssignments','construction','constructionQueue','founding','census','order','logisticsActive','logisticsMaintenanceTimer','morganiteAutoBuild','morganiteArchitecture','resourceChartAccumulator','mineralExtractorFastAccumulator','mineralExtractorRegularAccumulator'];
         function clonePlanetData(value){return JSON.parse(JSON.stringify(value===undefined?null:value));}
         function createEmptyPlanetEconomy(){
             const base={};PLANET_LOCAL_STATE_KEYS.forEach(key=>base[key]=clonePlanetData(state[key]));
@@ -5454,7 +5448,11 @@ ${hasAristocrats ? `
                     if(forge.progress>=100)completeDiamondForge();
                 }
             }
-            if (state.firstGameStarted) updateStructureSimulation(dt);
+            if (state.firstGameStarted) {
+                updateStructureSimulation(dt,'global',false);
+                const activePlanetId=state.activeColonyPlanetId||'homeworld';
+                Object.values(PLANETS).filter(planet=>planet&&planet.colonized).forEach(planet=>withPlanetEconomy(planet.id,()=>updateStructureSimulation(dt,'local',planet.id===activePlanetId)));
+            }
             updateGemTransfers(dt);
             updateSapphirePredictions(dt);
             updateAquamarineTerraforming(dt);
