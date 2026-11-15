@@ -1639,6 +1639,7 @@
             logisticsTargetId: 'ignis_prime',
             selectedStarMapPlanetId: 'homeworld',
             activeColonyPlanetId: 'homeworld',
+            activeDiamondColonyOwnerId: null,
             selectedVeinIndex: 0,
             thronePulseEffects: [],
             warpBeams: [],
@@ -2078,6 +2079,8 @@
         function switchScreen(screenId) {
             if (!['throne', 'governance', 'starmap', 'colony'].includes(screenId)) screenId = 'throne';
             state.currentScreen = screenId;
+            const throneNav=document.getElementById('nav-throne');if(throneNav)throneNav.textContent=state.activeDiamondColonyOwnerId?'Base Lunar':'1. Trono Diamante';
+            const colonyNav=document.getElementById('nav-colony');if(colonyNav)colonyNav.textContent=state.activeDiamondColonyOwnerId?'Colônia · '+(PLANETS[state.activeColonyPlanetId]?.shortName||'Mundo'):'4. Globo 360°';
             if(screenId==='starmap'&&!state.starMapView)state.starMapView='galaxy';
             ['throne', 'governance', 'starmap', 'colony'].forEach(s => {
                 const btn = document.getElementById('nav-' + s);
@@ -2808,6 +2811,7 @@
         function canBuildStructure(def) {
             if (!state.firstGameStarted || !state.founding || !state.founding.firstGemCreated) return 'A primeira Gem precisa nascer antes da construção.';
             if(def.id==='lunar_base'&&!(PLANETS[state.activeColonyPlanetId||'homeworld']?.moons||[]).length)return 'Indisponível: este planeta não possui uma lua natural para receber uma Base Lunar.';
+            if(def.id==='lunar_base'&&PLANETS[state.activeColonyPlanetId||'homeworld']?.lunarBaseBuilt)return 'Este planeta já possui uma Base Lunar concluída.';
             if(def.id==='galaxy_warp'){if(PLANETS[state.activeColonyPlanetId]?.galaxyWarpBuilt)return 'Este planeta já possui um Galaxy Warp.';}else if (!['diamond_quarters','red_eye'].includes(def.id) && structureCount(def.id) >= (def.maxCount || 1)) return 'Limite desta estrutura atingido.';
             if(def.id==='red_eye'){
                 const planetId=state.activeColonyPlanetId||'homeworld',queued=(state.constructionQueue||[]).filter(job=>job&&job.active&&job.id==='red_eye'&&(job.planetId||'homeworld')===planetId).length;
@@ -2816,7 +2820,8 @@
             if(def.id==='royal_palace'&&state.activeColonyPlanetId!=='homeworld')return 'O Palácio Real só pode ser construído em Homeworld.';
             if(def.id==='diamond_quarters'&&state.activeColonyPlanetId!=='homeworld')return 'Os Quartos de Diamante só podem ser construídos em Homeworld.';
             if(def.id==='diamond_quarters'&&structureCount('diamond_quarters')+(state.constructionQueue||[]).filter(job=>job&&job.active&&job.id==='diamond_quarters').length>=getDiamondOwners().length)return 'Cada Diamante já possui um Quarto construído ou em construção.';
-            const missing = (def.prerequisites || []).filter(id => id==='red_eye'&&def.id==='royal_palace' ? redEyeCountForPlanet('homeworld')<1 : id==='galaxy_warp'&&def.id==='red_eye' ? !PLANETS[state.activeColonyPlanetId||'homeworld']?.galaxyWarpBuilt : structureCount(id) < 1);
+            const requiredPrerequisites=def.id==='lunar_base'?['reactor']:(def.prerequisites||[]);
+            const missing = requiredPrerequisites.filter(id => id==='red_eye'&&def.id==='royal_palace' ? redEyeCountForPlanet('homeworld')<1 : id==='galaxy_warp'&&def.id==='red_eye' ? !PLANETS[state.activeColonyPlanetId||'homeworld']?.galaxyWarpBuilt : structureCount(id) < 1);
             if (missing.length) return 'Requer: ' + missing.map(id => structureDefinition(id).name).join(', ');
             if (state.minerals < (def.cost.minerals || 0)) return 'Minerais insuficientes.';
             if (state.tech < (def.cost.tech || 0)) return 'Tecnologia insuficiente.';
@@ -2849,7 +2854,7 @@
             state.minerals -= def.cost.minerals || 0;
             state.tech -= def.cost.tech || 0;
             if(!Array.isArray(state.constructionQueue))state.constructionQueue=state.construction&&state.construction.active?[state.construction]:[];
-            state.constructionQueue.push({id:id,...(id==='red_eye'?{planetId:state.activeColonyPlanetId||'homeworld'}:{}),progress:0,active:true,builder:'bismuth',supervisor:Number(state.census.morganite||0)>0?'morganite':null});
+            state.constructionQueue.push({id:id,...(['red_eye','lunar_base'].includes(id)?{planetId:state.activeColonyPlanetId||'homeworld'}:{}),progress:0,active:true,builder:'bismuth',supervisor:Number(state.census.morganite||0)>0?'morganite':null});
             state.construction=state.constructionQueue[0]||null;
             setStatusTicker('Construção iniciada: ' + def.name + '. '+state.constructionQueue.length+' obra(s) em andamento.');
             addChronicle('Construção iniciada', def.name + ' está sendo construída em Homeworld.', 'Infraestrutura em desenvolvimento');
@@ -2864,6 +2869,7 @@
                     const target=PLANETS[job.planetId||'homeworld'];
                     if(target&&target.id!=='homeworld')target.redEyesBuilt=redEyeCountForPlanet(target.id)+1;
                 }
+                if(def.id==='lunar_base'){const target=PLANETS[job.planetId||'homeworld'];if(target)target.lunarBaseBuilt=true;}
                 if(def.id==='injector') ensureInjectorOrders();
                 if(def.id==='essence_chamber'){
                     state.diamondChambers=state.diamondChambers||[];
@@ -3366,7 +3372,42 @@
             setStatusTicker(ship.name+' iniciou viagem para '+p.shortName+(passenger?' transportando uma Gem.':'.'));
             updateHUD();renderDrawerContent();
         }
-        function updateFleetTravel(dt){(state.shipFleet||[]).forEach(s=>{if(s.status!=='travelling'||s.type==='cargo')return;s.missionProgress=Math.min(100,(Number(s.missionProgress)||0)+dt*100/Math.max(1,s.missionDuration||1));if(s.missionProgress>=100){const p=PLANETS[s.destinationPlanetId];if(p){p.fleetVisits=Array.isArray(p.fleetVisits)?p.fleetVisits:[];p.fleetVisits.push({shipId:s.id,name:s.name});disembarkShipGem(s,p);s.planetId=p.id;}s.destinationPlanetId=null;s.status='orbital';setStatusTicker(s.name+' chegou ao destino.');}});}
+        function updateFleetTravel(dt){(state.shipFleet||[]).forEach(s=>{if(s.status!=='travelling'||s.type==='cargo')return;s.missionProgress=Math.min(100,(Number(s.missionProgress)||0)+dt*100/Math.max(1,s.missionDuration||1));if(s.missionProgress>=100){const p=PLANETS[s.destinationPlanetId];if(p){p.fleetVisits=Array.isArray(p.fleetVisits)?p.fleetVisits:[];p.fleetVisits.push({shipId:s.id,name:s.name});disembarkShipGem(s,p);s.planetId=p.id;}s.destinationPlanetId=null;s.status='orbital';if(s.type==='diamond'&&s.diamondColonyOwnerId){const ownerId=s.diamondColonyOwnerId;if(s.returningToHomeworld){s.returningToHomeworld=false;state.activeDiamondColonyOwnerId=null;state.activeColonyPlanetId='homeworld';switchScreen('throne');}else if(p&&p.lunarBaseBuilt){state.activeDiamondColonyOwnerId=ownerId;state.activeColonyPlanetId=p.id;state.selectedStarMapPlanetId=p.id;state.selectedVeinIndex=0;switchScreen('colony');setStatusTicker(getDiamondOwnerById(ownerId)?.name+' assumiu a Base Lunar de '+p.shortName+'.');}}else setStatusTicker(s.name+' chegou ao destino.');}});}
+        function getDiamondOwnerById(ownerId){return getDiamondOwners().find(owner=>owner.id===ownerId)||null;}
+        function getDiamondGovernorPlanet(ownerId){
+            const governor=ownerId==='first'?'none':'matriarch_'+ownerId;
+            return Object.values(PLANETS).find(planet=>planet.colonized&&(planet.governor||'none')===governor)||null;
+        }
+        function getDiamondShip(ownerId){return (state.shipFleet||[]).find(ship=>ship.type==='diamond'&&ship.ownerId===ownerId)||null;}
+        function dispatchDiamondToColony(ownerId){
+            const owner=getDiamondOwnerById(ownerId),ship=getDiamondShip(ownerId),planet=getDiamondGovernorPlanet(ownerId);
+            if(!owner||!ship){setStatusTicker('Esta Diamante ainda não possui sua Nave Diamante.',true);return;}
+            if(!planet){setStatusTicker(owner.name+' ainda não governa uma colônia.',true);return;}
+            if(!planet.lunarBaseBuilt){setStatusTicker('A colônia de '+owner.name+' precisa ter uma Base Lunar concluída antes da transferência da sede.',true);return;}
+            if(ship.status!=='orbital'){setStatusTicker('A Nave Diamante não está disponível para viajar.',true);return;}
+            if((ship.planetId||'homeworld')===planet.id){state.activeColonyPlanetId=planet.id;state.activeDiamondColonyOwnerId=ownerId;switchScreen('colony');return;}
+            ship.originPlanetId=ship.planetId||'homeworld';ship.status='travelling';ship.destinationPlanetId=planet.id;ship.missionProgress=0;
+            ship.missionDuration=getSpaceTravelSeconds(ship.originPlanetId,planet.id,1.8);ship.diamondColonyOwnerId=ownerId;ship.returningToHomeworld=false;
+            setStatusTicker(owner.name+' partiu em sua Nave Diamante para a colônia '+planet.shortName+'.');updateHUD();renderDrawerContent();
+        }
+        function returnDiamondToHomeworld(){
+            const ownerId=state.activeDiamondColonyOwnerId,ship=getDiamondShip(ownerId);
+            if(!ownerId||!ship){state.activeDiamondColonyOwnerId=null;state.activeColonyPlanetId='homeworld';switchScreen('throne');return;}
+            if(ship.status!=='orbital'){setStatusTicker('A Nave Diamante precisa estar em órbita para retornar.',true);return;}
+            if((ship.planetId||'homeworld')!=='homeworld'){
+                ship.originPlanetId=ship.planetId;ship.status='travelling';ship.destinationPlanetId='homeworld';ship.missionProgress=0;ship.missionDuration=getSpaceTravelSeconds(ship.originPlanetId,'homeworld',1.8);ship.diamondColonyOwnerId=ownerId;ship.returningToHomeworld=true;
+                setStatusTicker('A Nave Diamante iniciou o retorno a Homeworld.');return;
+            }
+            state.activeDiamondColonyOwnerId=null;state.activeColonyPlanetId='homeworld';switchScreen('throne');
+        }
+        function buildDiamondColonyCommandHTML(){
+            return '<div class="card card-cyan"><div class="card-header"><span class="card-title title-font">🚀 Sedes das Diamantes</span></div>'+
+                getDiamondOwners().map(owner=>{const ship=getDiamondShip(owner.id),planet=getDiamondGovernorPlanet(owner.id),ready=!!(planet&&planet.lunarBaseBuilt&&ship&&ship.status==='orbital');
+                    const status=!ship?'Sem Nave Diamante':!planet?'Sem colônia governada':!planet.lunarBaseBuilt?'Aguardando Base Lunar':ship.status==='travelling'?'Em viagem':ship.planetId===planet.id?'Na colônia':'Pronta para viajar';
+                    return '<div class="stat-box"><b>'+escapeHTML(owner.name)+'</b><small style="display:block;color:var(--text-muted)">'+escapeHTML(planet?.shortName||'Nenhuma colônia atribuída')+' · '+status+'</small>'+
+                    (ready?'<button class="btn btn-block" onclick="dispatchDiamondToColony(\''+owner.id+'\')">Viajar para a colônia governada</button>':'')+'</div>';
+                }).join('')+'</div>';
+        }
         function getPlanetsInStarSystem(id){return Object.values(PLANETS).filter(p=>(p.systemId||'home_system')===id);}
         function selectStarSystem(id){if(id!=='home_system'&&!/^unknown_[0-6]$/.test(id))return;const worlds=getPlanetsInStarSystem(id);if(!worlds.length)return;state.starMapView='system';state.selectedStarSystemId=id;state.selectedStarMapPlanetId=worlds[0].id;renderDrawerContent();renderBottomBar();}
         function returnToGalaxyMap(){state.starMapView='galaxy';renderDrawerContent();renderBottomBar();}
@@ -3881,6 +3922,8 @@ ${hasAristocrats ? `
         function renderColonyContext(container) {
             const p=PLANETS[state.activeColonyPlanetId];
             container.innerHTML=`
+                ${state.activeDiamondColonyOwnerId?'<div class="card card-cyan"><div class="card-header"><span class="card-title title-font">🌙 Base Lunar · '+escapeHTML(getDiamondOwnerById(state.activeDiamondColonyOwnerId)?.name||'Diamante')+'</span></div><div class="founding-note">Sede administrativa da Diamante nesta colônia. A administração utiliza a infraestrutura e os recursos disponíveis neste mundo.</div><button class="btn btn-block" onclick="returnDiamondToHomeworld()">Retornar a Homeworld</button></div>':''}
+                ${buildDiamondColonyCommandHTML()}
                 <div class="card"><div class="card-header"><span class="card-title title-font">🌍 ${p.shortName}</span><span class="badge">Crosta: ${p.crustHealth}%</span></div>
                 <div class="grid-2"><div class="stat-box" style="display:flex;justify-content:space-between;"><span style="color:var(--text-muted)">Calor Sísmico:</span><b style="color:${p.seismicHeat>=75?'#fb7185':'#fde047'}">${Math.round(p.seismicHeat)}%</b></div><div class="stat-box" style="display:flex;justify-content:space-between;"><span style="color:var(--text-muted)">Dissidência:</span><b style="color:${p.dissent>=70?'#fb7185':'#7dd3fc'}">${Math.round(p.dissent)}%</b></div></div></div>
                 ${buildEssenceBathCard()}
@@ -4713,6 +4756,7 @@ ${hasAristocrats ? `
             const planet = PLANETS[planetId];
             if (!planet || !planet.colonized) return;
             state.activeColonyPlanetId = planetId;
+            state.activeDiamondColonyOwnerId=null;
             state.selectedStarMapPlanetId = planetId;
             state.selectedVeinIndex = 0;
             state.planetCamera.rotation = 0;
@@ -7540,6 +7584,7 @@ function drawColony(time){
                 state.constructionQueue=Array.isArray(state.constructionQueue)?state.constructionQueue:(state.construction&&state.construction.active?[state.construction]:[]);
                 state.construction=state.constructionQueue[0]||null;
                 state.currentScreen='throne';
+                state.activeDiamondColonyOwnerId=null;
                 state.governanceSection = ['council','demantoid','hessonite','morganite','aquamarine'].includes(state.governanceSection) ? state.governanceSection : 'council';
                 state.morganiteAutoBuild = state.morganiteAutoBuild !== false;
                 ensureMorganiteArchitectureState();
