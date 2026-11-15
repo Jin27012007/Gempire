@@ -211,23 +211,38 @@
         if(state.hessoniteWarpDispatchAccumulator<30)return;
         state.hessoniteWarpDispatchAccumulator%=30;
         if(!isHessoniteCommandActive()||typeof window.getPlanetCensus!=='function'||typeof window.setPlanetCensus!=='function')return;
+        const military=ensureHessoniteMilitaryData();
         for(const [targetId,authorized] of Object.entries(permissions)){
             const target=PLANETS[targetId];if(!authorized||!target||!target.colonized||!target.galaxyWarpBuilt)continue;
+            let targetBudget=BATTALION_SIZE;
             for(const source of Object.values(PLANETS)){
+                if(targetBudget<1)break;
                 if(!source.colonized||source.id===targetId||!source.galaxyWarpBuilt)continue;
                 const sourceCensus=Object.assign({},window.getPlanetCensus(source.id));
                 const sourceReserve=Math.max(0,Math.floor(Number(sourceCensus.quartz)||0)-getPlanetDeployedSoldiers(source.id));
-                const quantity=Math.min(BATTALION_SIZE,sourceReserve,getAvailableSoldierCount());
+                let quantity=Math.min(targetBudget,BATTALION_SIZE,sourceReserve,getAvailableSoldierCount());
+                let battalionToMove=null;
+                if(quantity<1){
+                    const sourceArmies=military.armies.filter(army=>army&&army.planetId===source.id);
+                    battalionToMove=military.battalions.find(b=>b&&!b.terraformEscort&&sourceArmies.some(army=>army.id===b.armyId)&&Math.floor(Number(b.soldiers)||0)<=targetBudget&&Math.floor(Number(b.soldiers)||0)<=Number(sourceCensus.quartz||0))||null;
+                    if(battalionToMove)quantity=Math.max(0,Math.floor(Number(battalionToMove.soldiers)||0));
+                }
                 if(quantity<1)continue;
                 const targetCensus=Object.assign({},window.getPlanetCensus(targetId));
                 sourceCensus.quartz=Math.max(0,(Number(sourceCensus.quartz)||0)-quantity);
                 targetCensus.quartz=(Number(targetCensus.quartz)||0)+quantity;
                 window.setPlanetCensus(source.id,sourceCensus);window.setPlanetCensus(targetId,targetCensus);
-                const army=createArmyForPlanet(targetId),battalion=appendBattalion(army,quantity,'extraction');
+                const army=createArmyForPlanet(targetId);
+                let battalion;
+                if(battalionToMove){
+                    const oldArmy=military.armies.find(item=>item.id===battalionToMove.armyId);
+                    battalionToMove.armyId=army.id;battalionToMove.number=army.nextBattalionNumber++;battalionToMove.mission='extraction';battalionToMove.patrolProgress=0;battalion=battalionToMove;
+                    pruneEmptyArmies();
+                }else battalion=appendBattalion(army,quantity,'extraction');
+                targetBudget-=quantity;
                 addChronicle('Reforço Quartzo via Galaxy Warp',quantity+' soldados Quartzo foram transferidos de '+source.shortName+' para '+target.shortName+' por autorização da Diamante.','Batalhão #'+String(battalion.number).padStart(3,'0')+' incorporado à extração');
                 setStatusTicker('Hessonitas enviaram '+quantity+' Quartzos de '+source.shortName+' para trabalhar em '+target.shortName+'.');
                 if(state.drawerOpen&&state.drawerTab==='hessonite')renderHessoniteMilitaryTab(document.getElementById('governance-content'));
-                if(getAvailableSoldierCount()<1)break;
             }
         }
     }
