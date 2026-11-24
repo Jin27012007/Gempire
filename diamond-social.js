@@ -455,9 +455,9 @@
         const chamber = (state.diamondChambers || []).find(item => item.ownerId === diamond.id);
         const fleet = (state.shipFleet || []).filter(ship => ship.ownerId === diamond.id);
         const recentOrders = (diamond.socialOrderLog || []).slice(0, 5);
-        const essence = state.essence || {};
+        const essence = typeof essenceValue === 'function' ? essenceValue(state.essence) : Number(state.essence) || 0;
         const resources = 'Minerais ' + Math.floor(Number(state.minerals) || 0) + ' · Tecnologia ' + Math.floor(Number(state.tech) || 0) + ' · Energia ' + Math.floor(Number(state.energy) || 0) + ' · Materiais refinados ' + Math.floor(Number(state.refinedMaterials) || 0);
-        const essenceSummary = 'Branca ' + Math.floor(Number(essence.white) || 0) + ' · Amarela ' + Math.floor(Number(essence.yellow) || 0) + ' · Azul ' + Math.floor(Number(essence.blue) || 0) + ' · Rosa ' + Math.floor(Number(essence.pink) || 0);
+        const essenceSummary = 'Essência ' + Math.floor(essence);
         const colonies = Object.values(PLANETS || {}).filter(item => item.colonized).map(item => item.shortName).join(', ') || 'nenhuma';
         const localPopulation = planet ? (planet.walkingGems || []).length : 0;
         const lines = [

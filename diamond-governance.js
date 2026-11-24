@@ -166,12 +166,12 @@
         const add = (type, score, data) => options.push({ type, score: score + (priority === typePriority(type) ? 24 : 0), ...data });
         const typePriority = type => ({ industry: 'industry', research: 'science', stabilize: 'stability', expansion: 'expansion' }[type] || 'balanced');
 
-        if (!planet.rebellionActive && Number(planet.dissent || 0) >= 6 && Number(state.essence.blue || 0) >= 15) {
+        if (!planet.rebellionActive && Number(planet.dissent || 0) >= 6 && essenceValue(state.essence) >= 15) {
             add('stabilize', personalityScore(diamond, 'empathy') * 0.48 + personalityScore(diamond, 'caution') * 0.26 +
                 (diamond.governance.office === 'diplomacy' ? 36 : diamond.governance.office === 'defense' ? 18 : 0), {
                 title: 'Reduzir a tensão em ' + planet.shortName,
                 detail: 'Aplicar um programa de conciliação e contenção para reduzir a dissidência local.',
-                cost: { blue: 15 }, costLabel: '15 Essência Azul',
+                cost: { essence: 15 }, costLabel: '15 Essência',
                 effectLabel: 'Dissidência −18 pontos; Ordem Imperial +1,5.',
                 risk: 'routine', planetId: planet.id
             });
@@ -200,7 +200,7 @@
             if (candidate.colonized) return false;
             const cost = candidate.unlockCost || {};
             return Number(state.minerals || 0) >= Number(cost.minerals || 0) &&
-                Number(state.essence.white || 0) >= Number(cost.white || 0);
+                essenceValue(state.essence) >= Number(cost.white || 0);
         });
         if (target) {
             add('expansion', personalityScore(diamond, 'ambition') * 0.44 +
@@ -208,7 +208,7 @@
                 title: 'Propor colonização de ' + target.shortName,
                 detail: 'Incorporar um novo mundo ao Império e estabelecer uma administração sob responsabilidade desta Diamante.',
                 cost: { minerals: Number(target.unlockCost.minerals || 0), white: Number(target.unlockCost.white || 0) },
-                costLabel: (Number(target.unlockCost.minerals || 0)) + ' Minerais · ' + (Number(target.unlockCost.white || 0)) + ' Essência Branca',
+                costLabel: (Number(target.unlockCost.minerals || 0)) + ' Minerais · ' + (Number(target.unlockCost.white || 0)) + ' Essência',
                 effectLabel: 'Nova colônia incorporada; esta Diamante assume a governança.',
                 risk: 'strategic', planetId: planet.id, targetPlanetId: target.id
             });
@@ -251,12 +251,14 @@
         updateGovernanceUI(diamond.name + ' apresentou uma proposta: ' + decision.title + '.');
     }
 
+    // Custos antigos em cores (blue/white) e o novo campo essence somam na essência única.
+    function essenceCostOf(cost) { return ['essence', 'white', 'yellow', 'blue', 'pink'].reduce((a, k) => a + Number(cost[k] || 0), 0); }
+
     function canAffordDecision(decision) {
         const cost = decision.cost || {};
         return Number(state.minerals || 0) >= Number(cost.minerals || 0) &&
             Number(state.tech || 0) >= Number(cost.tech || 0) &&
-            Number(state.essence.blue || 0) >= Number(cost.blue || 0) &&
-            Number(state.essence.white || 0) >= Number(cost.white || 0);
+            essenceValue(state.essence) >= essenceCostOf(cost);
     }
 
     function executeDiamondGovernanceDecisionInPlanet(decisionId, automatic) {
@@ -289,8 +291,7 @@
         const cost = decision.cost || {};
         state.minerals -= Number(cost.minerals || 0);
         state.tech -= Number(cost.tech || 0);
-        state.essence.blue -= Number(cost.blue || 0);
-        state.essence.white -= Number(cost.white || 0);
+        state.essence = Math.max(0, essenceValue(state.essence) - essenceCostOf(cost));
 
         if (decision.type === 'stabilize') {
             planet.dissent = Math.max(0, Number(planet.dissent || 0) - 18);
