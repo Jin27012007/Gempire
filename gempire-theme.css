@@ -1,0 +1,309 @@
+/* =========================================================================
+ * GEMPIRE · Direção de arte da interface
+ * Camada visual carregada depois do CSS base. Paleta violeta/lilás com
+ * filetes dourados, botões em formato de gema lapidada e painéis com cantos
+ * chanfrados. A estrutura e o comportamento da interface não mudam.
+ * ========================================================================= */
+:root{
+    /* Base violeta */
+    --gx-void:#120a24;
+    --gx-deep:#1b1033;
+    --gx-panel:#241542;
+    --gx-panel-2:#2d1b52;
+    --gx-raised:#3a2468;
+    --gx-line:#6f4fb0;
+    --gx-line-soft:rgba(176,140,240,.28);
+    /* Destaques */
+    --gx-lilac:#c9a6ff;
+    --gx-lilac-bright:#e7d4ff;
+    --gx-pink:#f4a8e4;
+    --gx-gold:#f2cf86;
+    --gx-gold-deep:#b98a3e;
+    --gx-text:#f6efff;
+    --gx-muted:#b4a3d4;
+    /* Faceta padrão dos chanfros */
+    --bv:7px;
+    --cut:12px;
+
+    /* Tokens originais redirecionados para a nova paleta */
+    --bg-void:var(--gx-void);
+    --bg-panel:rgba(30,17,56,.97);
+    --bg-card:rgba(41,25,76,.92);
+    --bg-sub:rgba(22,12,42,.82);
+    --border-light:var(--gx-line-soft);
+    --border-cyan:rgba(201,166,255,.6);
+    --text-main:var(--gx-text);
+    --text-muted:var(--gx-muted);
+    --cyan:var(--gx-lilac);
+    --purple:#d6b4ff;
+}
+
+body{
+    font-family:'Exo 2','Segoe UI',system-ui,-apple-system,sans-serif;
+    background:var(--gx-void);
+    letter-spacing:.005em;
+}
+.title-font{font-family:'Exo 2','Segoe UI',sans-serif;font-weight:700;letter-spacing:.06em}
+
+/* ---------- Ícones SVG ---------- */
+.gi{
+    width:1.2em;height:1.2em;flex-shrink:0;display:inline-block;vertical-align:-.22em;
+    fill:none;stroke:currentColor;stroke-width:1.8;stroke-linecap:round;stroke-linejoin:round;overflow:visible;
+}
+.btn .gi{width:1.25em;height:1.25em;filter:drop-shadow(0 0 3px rgba(231,212,255,.35))}
+.card-title .gi,.governance-screen-title h2 .gi{color:var(--gx-gold);margin-right:.25em}
+
+/* ---------- Gema decorativa reutilizada ---------- */
+.diamond-icon{clip-path:polygon(50% 0,100% 42%,50% 100%,0 42%)}
+
+/* ---------- Barra superior ---------- */
+#top-bar{
+    height:52px;
+    background:
+        linear-gradient(180deg,rgba(58,36,104,.96),rgba(27,16,51,.98));
+    border-bottom:1px solid transparent;
+    border-image:linear-gradient(90deg,transparent,var(--gx-gold) 18%,var(--gx-lilac) 50%,var(--gx-gold) 82%,transparent) 1;
+    box-shadow:0 6px 24px rgba(8,3,20,.55);
+}
+#top-bar .nav-group>.diamond-icon{
+    width:18px!important;height:22px!important;
+    background:linear-gradient(160deg,#fff 0%,var(--gx-lilac) 45%,#7d4fd8 100%)!important;
+    filter:drop-shadow(0 0 6px rgba(201,166,255,.8));
+}
+#era-badge{
+    background:linear-gradient(180deg,var(--gx-gold),var(--gx-gold-deep));color:#2a1640;
+    clip-path:polygon(5px 0,calc(100% - 5px) 0,100% 50%,calc(100% - 5px) 100%,5px 100%,0 50%);
+    border-radius:0;padding:3px 10px;font-weight:800;
+}
+.res-pill{
+    position:relative;isolation:isolate;border:0;border-radius:0;background:none;padding:5px 16px;
+}
+.res-pill::before,.res-pill::after{
+    content:"";position:absolute;z-index:-2;inset:0;
+    clip-path:polygon(10px 0,calc(100% - 10px) 0,100% 50%,calc(100% - 10px) 100%,10px 100%,0 50%);
+    background:linear-gradient(90deg,var(--gx-gold-deep),var(--gx-lilac) 50%,var(--gx-gold-deep));
+}
+.res-pill::after{z-index:-1;inset:1px;background:linear-gradient(180deg,#2a1850,#170c2e)}
+.res-item b{font-weight:800}
+.res-item .diamond-icon{width:10px!important;height:12px!important;box-shadow:none}
+.res-label{color:var(--gx-muted);letter-spacing:.06em}
+
+/* ---------- Botões em formato de gema ---------- */
+.btn{
+    --edge:linear-gradient(180deg,#9c7ad6,#5a3d93);
+    --fill:linear-gradient(180deg,#46297c 0%,#2f1b58 55%,#25154a 100%);
+    --ink:var(--gx-text);
+    position:relative;isolation:isolate;
+    background:none!important;border:0!important;border-radius:0!important;box-shadow:none!important;
+    color:var(--ink);padding:6px 15px;font-family:inherit;font-weight:700;letter-spacing:.02em;
+    transition:transform .12s ease,filter .16s ease,color .16s ease;
+}
+.btn::before,.btn::after{
+    content:"";position:absolute;inset:0;z-index:-2;pointer-events:none;
+    clip-path:polygon(var(--bv) 0,calc(100% - var(--bv)) 0,100% 50%,calc(100% - var(--bv)) 100%,var(--bv) 100%,0 50%);
+    background:var(--edge);transition:background .16s ease;
+}
+.btn::after{
+    z-index:-1;inset:1px;
+    background:
+        linear-gradient(180deg,rgba(255,255,255,.14),rgba(255,255,255,0) 46%),
+        var(--fill);
+}
+.btn:hover:not(:disabled){
+    --edge:linear-gradient(180deg,#f1dcff,#a77ee8);
+    --fill:linear-gradient(180deg,#6a43b4 0%,#4a2c88 60%,#3a2170 100%);
+    color:#fff;filter:drop-shadow(0 0 8px rgba(201,166,255,.45));
+}
+.btn:active:not(:disabled){transform:translateY(1px);--fill:linear-gradient(180deg,#2a1752,#3d2370)}
+.btn.active{
+    --edge:linear-gradient(180deg,#fff1c8,var(--gx-gold) 45%,var(--gx-gold-deep));
+    --fill:linear-gradient(180deg,#9b6fe0 0%,#7144c2 55%,#5b33a6 100%);
+    color:#fff;filter:drop-shadow(0 0 10px rgba(242,207,134,.35));
+}
+.btn:disabled{
+    opacity:1;color:#8b7aa8;filter:saturate(.35);
+    --edge:linear-gradient(180deg,#5b4c78,#3d3254);
+    --fill:linear-gradient(180deg,#2c2440,#221b33);
+}
+.btn-pink{--edge:linear-gradient(180deg,#ffc7ef,#b0498f);--ink:#ffd9f2}
+.btn-pink:not(.active):not(:disabled){--fill:linear-gradient(180deg,#5c2662,#3b1745)}
+.btn-amber{--edge:linear-gradient(180deg,#ffe8b0,var(--gx-gold-deep));--ink:#ffe7b0}
+.btn-amber:not(.active):not(:disabled){--fill:linear-gradient(180deg,#56385e,#33204a)}
+.btn-emerald{--edge:linear-gradient(180deg,#c7ffe6,#2e9d7e);--ink:#c8ffe9}
+.btn-emerald:not(.active):not(:disabled){--fill:linear-gradient(180deg,#24505e,#1a2e48)}
+.btn-block{--bv:9px;padding:8px 16px}
+
+/* ---------- Painel lateral ---------- */
+#right-drawer{
+    background:
+        radial-gradient(ellipse at 50% 0%,rgba(140,92,220,.22),transparent 55%),
+        linear-gradient(180deg,rgba(36,21,66,.98),rgba(22,12,42,.98));
+    border-left:1px solid transparent;
+    border-image:linear-gradient(180deg,var(--gx-gold),var(--gx-line) 30%,var(--gx-line) 70%,var(--gx-gold)) 1;
+    box-shadow:-10px 0 34px rgba(5,2,14,.7);
+}
+#drawer-toggle-tab{
+    background:linear-gradient(180deg,#3a2468,#241542);
+    border-color:var(--gx-line);color:var(--gx-gold);
+    clip-path:polygon(0 10px,100% 0,100% 100%,0 calc(100% - 10px));border-radius:0;
+}
+.drawer-header{background:linear-gradient(180deg,rgba(20,10,40,.9),rgba(30,17,56,.9));border-bottom:1px solid var(--gx-line-soft);align-items:flex-start}
+.drawer-tabs{display:flex;flex-wrap:wrap;gap:5px}
+.drawer-tabs .btn{flex:0 1 auto;padding:5px 11px;font-size:10px;--bv:6px}
+#drawer-body{gap:12px}
+
+/* ---------- Cartões com cantos lapidados ---------- */
+.card{
+    --card-edge:linear-gradient(160deg,rgba(201,166,255,.75),rgba(111,79,176,.45) 40%,rgba(111,79,176,.3) 70%,rgba(242,207,134,.55));
+    position:relative;isolation:isolate;
+    background:none!important;border:0!important;border-radius:0!important;padding:12px 13px;
+}
+.card::before,.card::after{
+    content:"";position:absolute;inset:0;z-index:-2;pointer-events:none;
+    clip-path:polygon(var(--cut) 0,100% 0,100% calc(100% - var(--cut)),calc(100% - var(--cut)) 100%,0 100%,0 var(--cut));
+    background:var(--card-edge);
+}
+.card::after{
+    z-index:-1;inset:1px;
+    background:
+        radial-gradient(ellipse at 0% 0%,rgba(201,166,255,.12),transparent 50%),
+        linear-gradient(180deg,rgba(50,30,92,.96),rgba(33,19,62,.97));
+}
+.card-cyan{--card-edge:linear-gradient(160deg,rgba(231,212,255,.95),rgba(140,100,220,.5) 45%,rgba(140,100,220,.35) 70%,rgba(231,212,255,.7))}
+.card-amber{--card-edge:linear-gradient(160deg,#fff0c4,rgba(242,207,134,.55) 40%,rgba(185,138,62,.4) 70%,#f2cf86)}
+.card-header{border-bottom:1px solid transparent;border-image:linear-gradient(90deg,var(--gx-gold),rgba(201,166,255,.35) 40%,transparent) 1;padding-bottom:7px}
+.card-title{color:var(--gx-lilac-bright);letter-spacing:.08em;font-size:12px}
+.badge{
+    background:linear-gradient(180deg,rgba(201,166,255,.3),rgba(120,80,200,.25));color:var(--gx-lilac-bright);
+    border-radius:0;clip-path:polygon(4px 0,calc(100% - 4px) 0,100% 50%,calc(100% - 4px) 100%,4px 100%,0 50%);padding:2px 9px;
+}
+.stat-box{
+    background:linear-gradient(180deg,rgba(22,12,42,.85),rgba(30,17,56,.85));
+    border:1px solid rgba(176,140,240,.18);border-left:2px solid rgba(201,166,255,.55);border-radius:3px;
+}
+.founding-note{border-color:rgba(201,166,255,.28);background:rgba(90,55,160,.16);border-radius:4px;color:#e6dbf8}
+.structure-interaction{color:var(--gx-lilac-bright)}
+
+/* ---------- Formulários ---------- */
+input[type="text"],select,.founding-intro input,.founding-intro select,.diamond-chat-input{
+    background:rgba(18,10,36,.9);border:1px solid rgba(176,140,240,.35);border-radius:3px;color:#fff;
+}
+input[type="text"]:focus,select:focus,.diamond-chat-input:focus{outline:none;border-color:var(--gx-gold);box-shadow:0 0 0 2px rgba(242,207,134,.15)}
+input[type="range"]{accent-color:var(--gx-lilac)}
+
+/* ---------- Banners ---------- */
+.banner-pill{
+    background:linear-gradient(90deg,rgba(45,27,82,.94),rgba(30,17,56,.9));
+    border:1px solid rgba(201,166,255,.35);border-radius:3px;
+    clip-path:polygon(8px 0,100% 0,calc(100% - 8px) 100%,0 100%);padding:7px 18px;
+}
+.pulse-dot{
+    border-radius:0;width:9px;height:11px;background:var(--gx-gold);
+    clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%);box-shadow:none;animation:gx-pulse 2.4s ease-in-out infinite;
+}
+@keyframes gx-pulse{50%{opacity:.45}}
+
+/* ---------- Modais ---------- */
+.modal-backdrop{background:radial-gradient(ellipse at 50% 30%,rgba(70,40,120,.45),rgba(8,3,18,.88));backdrop-filter:blur(6px)}
+.modal-window{
+    position:relative;isolation:isolate;border:0;border-radius:0;background:none;box-shadow:0 30px 70px rgba(5,2,14,.75);
+    --cut:18px;
+}
+.modal-window::before,.modal-window::after{
+    content:"";position:absolute;inset:0;z-index:-2;
+    clip-path:polygon(var(--cut) 0,calc(100% - var(--cut)) 0,100% var(--cut),100% calc(100% - var(--cut)),calc(100% - var(--cut)) 100%,var(--cut) 100%,0 calc(100% - var(--cut)),0 var(--cut));
+    background:linear-gradient(160deg,var(--gx-gold),var(--gx-line) 30%,var(--gx-line) 70%,var(--gx-gold));
+}
+.modal-window::after{z-index:-1;inset:2px;background:radial-gradient(ellipse at 50% 0%,rgba(140,92,220,.25),transparent 60%),linear-gradient(180deg,#2a1850,#1a0f33)}
+
+/* ---------- Menu principal ---------- */
+.game-menu-overlay{
+    background:
+        linear-gradient(90deg,rgba(18,8,38,.92) 0%,rgba(18,8,38,.55) 45%,rgba(18,8,38,.15) 100%),
+        url('assets/backgrounds/homeworld-era0-landscape.webp') center/cover no-repeat,
+        var(--gx-void);
+    backdrop-filter:none;justify-content:flex-start;padding-left:clamp(18px,7vw,110px);
+}
+.game-menu-shell{
+    position:relative;isolation:isolate;border:0;border-radius:0;background:none;box-shadow:none;
+    width:min(520px,calc(100vw - 36px));--cut:22px;
+}
+.game-menu-shell::before,.game-menu-shell::after{
+    content:"";position:absolute;inset:0;z-index:-2;
+    clip-path:polygon(var(--cut) 0,100% 0,100% calc(100% - var(--cut)),calc(100% - var(--cut)) 100%,0 100%,0 var(--cut));
+    background:linear-gradient(160deg,var(--gx-gold),rgba(201,166,255,.5) 35%,rgba(111,79,176,.3) 70%,var(--gx-gold));
+}
+.game-menu-shell::after{z-index:-1;inset:1px;background:linear-gradient(180deg,rgba(40,22,76,.9),rgba(22,12,44,.94))}
+.game-menu-mark{
+    width:64px;height:64px;transform:none;border:0;background:none;box-shadow:none;margin-bottom:6px;
+    color:var(--gx-lilac-bright);filter:drop-shadow(0 0 14px rgba(201,166,255,.75));
+}
+.game-menu-mark span{transform:none;font-size:0}
+.game-menu-mark .gi{width:60px;height:60px;stroke-width:1.2}
+.game-menu-brand h1{
+    font:900 italic clamp(34px,6vw,54px)/1 'Exo 2','Segoe UI',sans-serif;letter-spacing:.04em;
+    background:linear-gradient(180deg,#ffffff 0%,#f0dcff 40%,#c89cff 65%,#f4a8e4 100%);
+    -webkit-background-clip:text;background-clip:text;color:transparent;
+    filter:drop-shadow(0 2px 0 #4a2a86) drop-shadow(0 0 18px rgba(201,166,255,.45));
+}
+.game-menu-brand p{color:var(--gx-gold);letter-spacing:.22em}
+.game-menu-subtitle{color:var(--gx-lilac)}
+.game-menu-content .btn{--bv:16px;min-height:46px;justify-content:flex-start;padding-left:26px;font-size:14px;gap:12px}
+.game-menu-content .btn .gi{width:20px;height:20px;color:var(--gx-gold)}
+.menu-option,.save-slot{background:rgba(30,17,56,.8);border-color:var(--gx-line-soft);border-radius:3px}
+.menu-option input{accent-color:var(--gx-gold)}
+.menu-status{color:var(--gx-muted)}
+.menu-footer{color:#8b7aa8}
+
+/* ---------- Governo Imperial ---------- */
+.governance-screen{
+    background:
+        radial-gradient(ellipse at 15% 0%,rgba(140,92,220,.28),transparent 45%),
+        radial-gradient(ellipse at 90% 100%,rgba(244,168,228,.12),transparent 45%),
+        linear-gradient(160deg,#1f1238,#140a28)!important;
+}
+.governance-screen-header{border-bottom:1px solid transparent;border-image:linear-gradient(90deg,var(--gx-gold),var(--gx-line) 40%,transparent) 1}
+.governance-screen-title h2{font:800 22px 'Exo 2','Segoe UI',sans-serif;letter-spacing:.04em;color:var(--gx-lilac-bright)}
+.governance-trait,.social-metric{background:rgba(22,12,42,.6);border-color:rgba(176,140,240,.18);border-radius:3px}
+.governance-meter,.social-meter,.founding-progress,.social-progress{background:rgba(22,12,42,.9);border-radius:0}
+.governance-meter i,.social-progress i,.founding-progress>div{background:linear-gradient(90deg,#8b5cf6,var(--gx-pink),var(--gx-gold))}
+
+/* ---------- Componentes de seleção ---------- */
+.founding-gem-option,.diamond-vitral-option,.silhouette-card,.social-person,.social-action,.diamond-chat-room{
+    background:linear-gradient(170deg,rgba(50,30,92,.85),rgba(26,15,50,.95));border-color:rgba(176,140,240,.25);border-radius:4px;
+}
+.founding-gem-option.selected,.diamond-vitral-option.selected,.silhouette-card.selected,.social-person.selected,.diamond-chat-room.active{
+    border-color:var(--gx-gold);box-shadow:0 0 0 1px rgba(242,207,134,.25),0 0 18px rgba(201,166,255,.25);
+}
+.social-action-icon{background:rgba(201,166,255,.14);color:var(--gx-gold);border-radius:0;clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}
+.social-action-icon .gi{width:16px;height:16px}
+
+/* ---------- Barras de rolagem ---------- */
+::-webkit-scrollbar-track{background:rgba(22,12,42,.6)}
+::-webkit-scrollbar-thumb{background:linear-gradient(180deg,var(--gx-lilac),#7d4fd8);border-radius:0}
+
+/* ---------- Ajustes compactos ---------- */
+body.compact-ui .btn{padding:4px 10px}
+@media(max-width:600px){
+    #top-bar{height:auto}
+    .btn{--bv:6px}
+    .game-menu-overlay{justify-content:center;padding-left:8px;background:
+        linear-gradient(180deg,rgba(18,8,38,.55),rgba(18,8,38,.9)),
+        url('assets/backgrounds/homeworld-era0-portrait.webp') center/cover no-repeat,var(--gx-void)}
+    .game-menu-content .btn{min-height:40px;font-size:12.5px}
+}
+
+/* ---------- Estaleiro: pré-visualização das naves ---------- */
+.ship-preview{display:block;width:120px;height:72px;flex-shrink:0;border:1px solid rgba(201,166,255,.25);background:rgba(18,10,36,.6);clip-path:polygon(8px 0,100% 0,100% calc(100% - 8px),calc(100% - 8px) 100%,0 100%,0 8px)}
+.ship-blueprint{display:flex;flex-direction:column;gap:5px}
+.ship-blueprint .ship-preview{width:100%;height:auto;aspect-ratio:5/3;max-height:110px}
+.ship-entry{display:flex;align-items:center;gap:10px}
+.ship-entry .ship-preview{width:72px;height:44px}
+
+/* ---------- Foco acessível ---------- */
+.btn:focus{outline:none}
+.btn:focus-visible{outline:none;filter:drop-shadow(0 0 0 #fff) drop-shadow(0 0 6px rgba(242,207,134,.9))}
+
+/* Ação principal do menu em lilás real */
+.game-menu-content .btn-emerald{--edge:linear-gradient(180deg,#fff1c8,var(--gx-gold) 45%,var(--gx-gold-deep));--fill:linear-gradient(180deg,#8d5fd8 0%,#6a3fb8 55%,#55309c 100%);--ink:#fff}
+.game-menu-content .btn-emerald:hover:not(:disabled){--fill:linear-gradient(180deg,#a678ee,#7a4bc8)}

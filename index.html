@@ -611,6 +611,10 @@
         .social-history-item b{color:#a7f3d0;font-size:9px}
         @media(max-width:600px){.social-people-list{grid-template-columns:1fr}.social-person{padding:9px}.social-actions{gap:6px}}
     </style>
+    <link rel="preconnect" href="https://fonts.googleapis.com">
+    <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin>
+    <link rel="stylesheet" href="https://fonts.googleapis.com/css2?family=Exo+2:ital,wght@0,400;0,500;0,600;0,700;0,800;0,900;1,800;1,900&display=swap">
+    <link rel="stylesheet" href="gempire-theme.css">
 </head>
 <body>
 
@@ -765,6 +769,8 @@
     </div>
 
     <script src="supabase-config.js"></script>
+    <script src="gempire-icons.js"></script>
+    <script src="gempire-planet-art.js"></script>
     <script>
         /**************************************************************************
          * ERA 0: A ALVORADA DO IMPÉRIO GEM — EDIÇÃO DINASTIA & CONSCIÊNCIA PROCEDURAL
@@ -1367,123 +1373,11 @@
             PLANET_SURFACE_CACHE.set(cacheKey,map);
             return map;
         }
-        function projectSurfacePoint(lon,lat,rotation){
-            const relative=lon-rotation,cosLat=Math.cos(lat);
-            return {x:cosLat*Math.sin(relative),y:Math.sin(lat),z:cosLat*Math.cos(relative)};
-        }
-        function clipSurfacePolygon(points){
-            const output=[];
-            for(let i=0;i<points.length;i++){
-                const a=points[i],b=points[(i+1)%points.length],aIn=a.z>=0,bIn=b.z>=0;
-                if(aIn)output.push(a);
-                if(aIn!==bIn){
-                    const t=a.z/(a.z-b.z);
-                    output.push({x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,z:0});
-                }
-            }
-            return output;
-        }
-        function drawSurfaceSegment(a,b,color,width){
-            if(a.z<0&&b.z<0)return;
-            let p1=a,p2=b;
-            if(a.z<0||b.z<0){
-                const t=a.z/(a.z-b.z),cross={x:a.x+(b.x-a.x)*t,y:a.y+(b.y-a.y)*t,z:0};
-                if(a.z<0)p1=cross;else p2=cross;
-            }
-            ctx.beginPath();ctx.moveTo(p1.x,p1.y);ctx.lineTo(p2.x,p2.y);
-            ctx.strokeStyle=color;ctx.lineWidth=width;ctx.lineCap='round';ctx.stroke();
-        }
-        function drawProceduralPlanetSurface(planet,camera,time,stage){
-            const map=generatePlanetSurfaceMap(planet),profile=map.profile,palette=PLANET_SURFACE_PALETTES[profile.biome];
-            const {nx,ny,land,variations}=map,rotation=Number(camera.rotation)||0;
-            const pointsCache=new Array((nx+1)*(ny+1));
-            const pointAt=(x,y)=>{
-                const key=y*(nx+1)+x;
-                if(!pointsCache[key]){
-                    const lon=-Math.PI+x/nx*Math.PI*2,lat=-Math.PI/2+y/ny*Math.PI;
-                    pointsCache[key]=projectSurfacePoint(lon,lat,rotation);
-                }
-                return pointsCache[key];
-            };
-            for(let y=0;y<ny;y++){
-                for(let x=0;x<nx;x++){
-                    const index=y*nx+x;
-                    if(!land[index])continue;
-                    const polygon=clipSurfacePolygon([
-                        pointAt(x,y),pointAt(x+1,y),pointAt(x+1,y+1),pointAt(x,y+1)
-                    ]);
-                    if(polygon.length<3)continue;
-                    ctx.beginPath();ctx.moveTo(polygon[0].x,polygon[0].y);
-                    for(let i=1;i<polygon.length;i++)ctx.lineTo(polygon[i].x,polygon[i].y);
-                    ctx.closePath();
-                    ctx.fillStyle=palette.land[variations[index]%palette.land.length];ctx.fill();
-                    const south=y>0?land[(y-1)*nx+x]:false;
-                    const east=land[y*nx+((x+1)%nx)];
-                    const north=y<ny-1?land[(y+1)*nx+x]:false;
-                    const west=land[y*nx+((x+nx-1)%nx)];
-                    const corners=[pointAt(x,y),pointAt(x+1,y),pointAt(x+1,y+1),pointAt(x,y+1)];
-                    if(!south)drawSurfaceSegment(corners[0],corners[1],palette.coast,.006);
-                    if(!east)drawSurfaceSegment(corners[1],corners[2],palette.coast,.006);
-                    if(!north)drawSurfaceSegment(corners[2],corners[3],palette.coast,.006);
-                    if(!west)drawSurfaceSegment(corners[3],corners[0],palette.coast,.006);
-                    const center=projectSurfacePoint(map.cells[index].lon,map.cells[index].lat,rotation);
-                    if(center.z<=.08)continue;
-                    const h=surfaceRandom((profile.seed+index*104729)>>>0)();
-                    if(profile.biome==='organic'&&h>.91){
-                        const r=.010;
-                        ctx.fillStyle=palette.accent;
-                        for(let k=0;k<4;k++){const a=k*Math.PI/2;ctx.beginPath();ctx.arc(center.x+Math.cos(a)*r*.72,center.y+Math.sin(a)*r*.72,r*.48,0,Math.PI*2);ctx.fill();}
-                        ctx.fillStyle='#fff1c9';ctx.beginPath();ctx.arc(center.x,center.y,r*.34,0,Math.PI*2);ctx.fill();
-                        ctx.strokeStyle='#3c966d';ctx.lineWidth=.004;ctx.beginPath();ctx.moveTo(center.x,center.y+r*.5);ctx.lineTo(center.x-r*.5,center.y+r);ctx.stroke();
-                    }else if(profile.biome==='icy'&&h>.94){
-                        const r=.014;ctx.beginPath();ctx.moveTo(center.x,center.y-r);ctx.lineTo(center.x+r*.55,center.y);ctx.lineTo(center.x,center.y+r);ctx.lineTo(center.x-r*.55,center.y);ctx.closePath();ctx.fillStyle=palette.accent;ctx.fill();ctx.strokeStyle='#fff';ctx.lineWidth=.003;ctx.stroke();
-                    }else if(profile.biome==='volcanic'&&h>.93){
-                        const r=.018;ctx.beginPath();ctx.moveTo(center.x-r,center.y-r*.25);ctx.lineTo(center.x-r*.25,center.y);ctx.lineTo(center.x+r*.1,center.y-r*.3);ctx.lineTo(center.x+r,center.y+r*.25);ctx.strokeStyle='#ff7a35';ctx.lineWidth=.009;ctx.stroke();ctx.strokeStyle='#ffd16a';ctx.lineWidth=.003;ctx.stroke();
-                    }else if(profile.biome==='rocky'&&h>.94){
-                        const r=.018;ctx.beginPath();ctx.moveTo(center.x-r,center.y+r*.35);ctx.lineTo(center.x-r*.25,center.y-r*.6);ctx.lineTo(center.x+r,center.y+r*.2);ctx.closePath();ctx.fillStyle=palette.detail;ctx.fill();ctx.strokeStyle='#e6c2d2';ctx.lineWidth=.003;ctx.stroke();
-                    }else if(profile.biome==='oceanic'&&h>.94){
-                        ctx.fillStyle=palette.accent;ctx.beginPath();ctx.arc(center.x,center.y,.008,0,Math.PI*2);ctx.fill();
-                    }
-                    if(stage>=2&&(profile.biome==='rocky'||profile.biome==='volcanic')&&h>.84){
-                        const r=.025;ctx.beginPath();ctx.moveTo(center.x-r,center.y-r*.2);ctx.lineTo(center.x-r*.2,center.y+r*.15);ctx.lineTo(center.x+r*.1,center.y-r*.35);ctx.lineTo(center.x+r,center.y+r*.3);
-                        ctx.strokeStyle=profile.biome==='volcanic'?'#ff813c':'rgba(54,37,70,.85)';ctx.lineWidth=profile.biome==='volcanic'?.006:.004;ctx.stroke();
-                    }
-                }
-            }
-            // Pequenos reflexos de água nas regiões oceânicas visíveis.
-            if(profile.waterKind==='water'||profile.waterKind==='ice'){
-                ctx.strokeStyle=palette.fluid;ctx.lineWidth=.004;ctx.globalAlpha=.42;
-                for(let y=2;y<ny-2;y+=4){
-                    for(let x=1;x<nx;x+=5){
-                        const index=y*nx+x;if(land[index])continue;
-                        const h=surfaceRandom((profile.seed+index*3571)>>>0)();
-                        if(h<.73)continue;
-                        const center=projectSurfacePoint(map.cells[index].lon,map.cells[index].lat,rotation);
-                        if(center.z<.28)continue;
-                        const r=.018;ctx.beginPath();ctx.moveTo(center.x-r,center.y);ctx.quadraticCurveTo(center.x,center.y-r*.5,center.x+r,center.y);ctx.stroke();
-                        ctx.beginPath();ctx.moveTo(center.x-r*.55,center.y+r*.018);ctx.lineTo(center.x+r*.55,center.y+r*.018);ctx.stroke();
-                    }
-                }
-                ctx.globalAlpha=1;
-            }
-            // A lava é desenhada como canais finos nas zonas baixas do mundo ígneo.
-            if(profile.waterKind==='lava'){
-                ctx.globalAlpha=.82;ctx.strokeStyle='#ff7338';ctx.lineWidth=.012;ctx.lineCap='round';
-                for(let i=0;i<12;i++){
-                    const x=((i*17+3)%nx),y=((i*11+5)%(ny-4))+2,index=y*nx+x;
-                    if(!land[index])continue;
-                    const center=projectSurfacePoint(map.cells[index].lon,map.cells[index].lat,rotation);
-                    if(center.z<.18)continue;
-                    ctx.beginPath();ctx.moveTo(center.x-.035,center.y-.012);ctx.lineTo(center.x-.008,center.y+.003);ctx.lineTo(center.x+.018,center.y-.009);ctx.lineTo(center.x+.038,center.y+.014);ctx.stroke();
-                    ctx.strokeStyle='#ffd16a';ctx.lineWidth=.0035;ctx.stroke();
-                    ctx.strokeStyle='#ff7338';ctx.lineWidth=.012;
-                }
-                ctx.globalAlpha=1;
-            }
-        }
-        function getPlanetSurfacePalette(planet){
-            const profile=ensurePlanetSurfaceProfile(planet);
-            return PLANET_SURFACE_PALETTES[profile.biome]||PLANET_SURFACE_PALETTES.rocky;
+        // Descritor usado pelo renderizador de planetas (gempire-planet-art.js):
+        // mesma semente, topologia e massas continentais salvas no perfil do mundo.
+        function getPlanetArtSurface(planet){
+            const map=generatePlanetSurfaceMap(planet),profile=map.profile;
+            return {id:planet.id,seed:profile.seed,topology:profile.topology,biome:profile.biome,landCoverage:profile.landCoverage,waterKind:profile.waterKind,features:map.features};
         }
         function getPlanetSurfaceDescription(planet){
             const profile=ensurePlanetSurfaceProfile(planet),land=Math.round(profile.landCoverage*100),fluid=100-land;
@@ -3737,10 +3631,10 @@
                             html+='<div class="founding-note">Olho Vermelho instalado: '+redEyeCountForPlanet(state.activeColonyPlanetId||'homeworld')+'. Suas missões e relatórios são acessados pelo Mapa Estelar.</div>';
                         } else if(def.id==='shipyard'){
                             html+='<div class="founding-note">Frota construída: '+(state.shipFleet||[]).length+' nave(s). O Estaleiro operacional já libera a fabricação das classes disponíveis; não exige pesquisa.</div>';
-                            (state.shipFleet||[]).slice().reverse().forEach(ship=>{html+='<div class="stat-box"><b>'+escapeHTML(ship.name)+'</b><small style="display:block;color:var(--text-muted)">'+(ship.ownerName?escapeHTML(ship.ownerName)+' · ':'')+escapeHTML(ship.speed)+' · Capacidade '+ship.capacity+' Gems · '+escapeHTML(PLANETS[ship.planetId]?.shortName||'Órbita desconhecida')+'</small></div>';});
+                            (state.shipFleet||[]).slice().reverse().forEach(ship=>{html+='<div class="stat-box ship-entry"><canvas class="ship-preview" data-ship="'+escapeHTML(ship.type)+'" width="120" height="72"></canvas><div><b>'+escapeHTML(ship.name)+'</b><small style="display:block;color:var(--text-muted)">'+(ship.ownerName?escapeHTML(ship.ownerName)+' · ':'')+escapeHTML(ship.speed)+' · Capacidade '+ship.capacity+' Gems · '+escapeHTML(PLANETS[ship.planetId]?.shortName||'Órbita desconhecida')+'</small></div></div>';});
                             Object.entries(SHIP_BLUEPRINTS).forEach(([type,bp])=>{
                                 const reason=canBuildShip(type);
-                                html+='<div class="stat-box"><b>'+bp.name+'</b><small style="display:block;color:var(--text-muted)">'+bp.description+'</small><small>Velocidade: '+bp.speed+' · Capacidade: '+bp.capacity+' · Custo: '+bp.cost.minerals+' minerais / '+bp.cost.tech+' tecnologia</small><button class="btn btn-block" onclick="buildShip(\''+type+'\')" '+(reason?'disabled':'')+'>Construir '+bp.name+'</button>'+(reason?'<small style="color:var(--text-muted)">'+reason+'</small>':'')+'</div>';
+                                html+='<div class="stat-box ship-blueprint"><canvas class="ship-preview" data-ship="'+type+'" width="120" height="72"></canvas><b>'+bp.name+'</b><small style="display:block;color:var(--text-muted)">'+bp.description+'</small><small>Velocidade: '+bp.speed+' · Capacidade: '+bp.capacity+' · Custo: '+bp.cost.minerals+' minerais / '+bp.cost.tech+' tecnologia</small><button class="btn btn-block" onclick="buildShip(\''+type+'\')" '+(reason?'disabled':'')+'>Construir '+bp.name+'</button>'+(reason?'<small style="color:var(--text-muted)">'+reason+'</small>':'')+'</div>';
                             });
                         } else if(def.id==='workshop'){
                             const metallic=Math.max(0,Number(state.founding.gatheredMinerals?.metallic)||0),timer=Math.max(0,Number(state.logisticsMaintenanceTimer)||0);
@@ -5585,22 +5479,9 @@ ${hasAristocrats ? `
 
         function drawBackground(time) {
             if (!ctx) return;
-            const gradient = ctx.createLinearGradient(0, 0, 0, canvasHeight);
-            gradient.addColorStop(0, '#070d20');
-            gradient.addColorStop(0.55, '#050814');
-            gradient.addColorStop(1, '#02040b');
-            ctx.fillStyle = gradient;
+            if (window.GempirePlanetArt) { GempirePlanetArt.drawSpaceBackground(ctx, canvasWidth, canvasHeight, time, starBgParticles); return; }
+            ctx.fillStyle = '#140a28';
             ctx.fillRect(0, 0, canvasWidth, canvasHeight);
-            for (let i = 0; i < starBgParticles.length; i++) {
-                const star = starBgParticles[i];
-                const pulse = 0.65 + Math.sin(time * 0.001 + i) * 0.25;
-                ctx.globalAlpha = star.a * pulse;
-                ctx.fillStyle = i % 9 === 0 ? '#7dd3fc' : '#e2e8f0';
-                ctx.beginPath();
-                ctx.arc(star.x * canvasWidth, star.y * canvasHeight, star.r, 0, Math.PI * 2);
-                ctx.fill();
-            }
-            ctx.globalAlpha = 1;
         }
 
         function drawPolygon(points, fill, stroke = null, lineWidth = 1) {
@@ -6062,9 +5943,9 @@ ${hasAristocrats ? `
             fade.addColorStop(0,'rgba(12,8,25,0)');fade.addColorStop(1,'rgba(9,7,20,.40)');
             ctx.fillStyle=fade;ctx.fillRect(0,canvasHeight*.7,canvasWidth,canvasHeight*.3);
             ctx.textAlign='center';ctx.fillStyle='rgba(255,247,255,.92)';
-            ctx.font='600 '+(isMobile?13:17)+'px Georgia';
+            ctx.font='600 '+(isMobile?13:17)+'px "Exo 2", Georgia, serif';
             ctx.fillText('HOMEWORLD · ERA 0',cx,Math.max(28,canvasHeight*.10));
-            ctx.fillStyle='rgba(239,225,248,.72)';ctx.font=(isMobile?10:12)+'px Segoe UI';
+            ctx.fillStyle='rgba(239,225,248,.72)';ctx.font=(isMobile?10:12)+'px "Exo 2", "Segoe UI", sans-serif';
             ctx.fillText('UM MUNDO AINDA NÃO TOCADO PELA COLONIZAÇÃO',cx,Math.max(45,canvasHeight*.10+19));
             ctx.restore();
         }
@@ -6077,7 +5958,7 @@ ${hasAristocrats ? `
             ctx.beginPath();ctx.moveTo(0,-h*.5);ctx.lineTo(w*.5,0);ctx.lineTo(0,h*.5);ctx.lineTo(-w*.5,0);ctx.closePath();ctx.fill();
             ctx.restore();
             ctx.save();ctx.textAlign='center';ctx.fillStyle='#fff9ff';
-            ctx.font='bold '+Math.max(9,isFounder?12:10)+'px Segoe UI';
+            ctx.font='bold '+Math.max(9,isFounder?12:10)+'px "Exo 2", "Segoe UI", sans-serif';
             ctx.shadowColor='rgba(20,10,35,.9)';ctx.shadowBlur=4;
             ctx.fillText(entity.name||'Diamante',x,y+h*.5+13);
             ctx.restore();
@@ -6090,10 +5971,10 @@ ${hasAristocrats ? `
             const founder=state.firstDiamond;
             ctx.save();
             ctx.textAlign='center';ctx.fillStyle='rgba(255,248,255,.96)';
-            ctx.font='bold '+(isMobile?16:21)+'px Georgia';
+            ctx.font='bold '+(isMobile?16:21)+'px "Exo 2", Georgia, serif';
             ctx.shadowColor='rgba(28,7,45,.8)';ctx.shadowBlur=10;
             ctx.fillText('AUTORIDADE DIAMANTE',cx,Math.max(28,canvasHeight*.09));
-            ctx.shadowBlur=0;ctx.font=(isMobile?9:11)+'px Segoe UI';
+            ctx.shadowBlur=0;ctx.font=(isMobile?9:11)+'px "Exo 2", "Segoe UI", sans-serif';
             ctx.fillStyle='rgba(248,226,255,.76)';
             ctx.fillText('HIERARQUIA IMPERIAL · HOMEWORLD',cx,Math.max(44,canvasHeight*.09+18));
             ctx.restore();
@@ -6104,7 +5985,7 @@ ${hasAristocrats ? `
             const members=state.matriarchs.slice();
             if(!members.length){
                 ctx.save();ctx.textAlign='center';ctx.fillStyle='rgba(250,238,255,.86)';
-                ctx.font=(isMobile?10:12)+'px Segoe UI';
+                ctx.font=(isMobile?10:12)+'px "Exo 2", "Segoe UI", sans-serif';
                 ctx.fillText('A próxima Diamante ocupará uma posição abaixo da Matriarca.',cx,canvasHeight*.53);
                 ctx.restore();return;
             }
@@ -6126,7 +6007,7 @@ ${hasAristocrats ? `
             }
             if(cursor<members.length){
                 ctx.save();ctx.textAlign='center';ctx.fillStyle='#f5d0fe';
-                ctx.font='bold 11px Segoe UI';ctx.fillText('+'+(members.length-cursor)+' DIAMANTES NA HIERARQUIA',cx,canvasHeight*.94);ctx.restore();
+                ctx.font='bold 11px "Exo 2", "Segoe UI", sans-serif';ctx.fillText('+'+(members.length-cursor)+' DIAMANTES NA HIERARQUIA',cx,canvasHeight*.94);ctx.restore();
             }
         }
 
@@ -6186,65 +6067,59 @@ ${hasAristocrats ? `
 
             ctx.textAlign = 'center';
             ctx.fillStyle = '#f8fafc';
-            ctx.font = 'bold 17px Georgia';
+            ctx.font = 'bold 17px "Exo 2", Georgia, serif';
             ctx.fillText(state.firstDiamond.name, cx, Math.min(canvasHeight - 65, cy + 240));
             ctx.fillStyle = '#94a3b8';
-            ctx.font = '11px Segoe UI';
+            ctx.font = '11px "Exo 2", "Segoe UI", sans-serif';
             ctx.fillText('TRONO DIAMANTE • HOMEWORLD', cx, Math.min(canvasHeight - 45, cy + 260));
         }
 
-        function drawPlanetDisc(x, y, radius, planet, selected = false) {
-            const surfacePalette=getPlanetSurfacePalette(planet);
-            const grad = ctx.createRadialGradient(x - radius * 0.35, y - radius * 0.4, radius * 0.08, x, y, radius);
-            grad.addColorStop(0, surfacePalette.baseLight);
-            grad.addColorStop(0.48, surfacePalette.base);
-            grad.addColorStop(1, surfacePalette.baseDeep);
-            ctx.save();
-            ctx.shadowColor = planet.colors.atmosphere;
-            ctx.shadowBlur = selected ? 24 : 12;
-            ctx.fillStyle = grad;
-            ctx.beginPath();
-            ctx.arc(x, y, radius, 0, Math.PI * 2);
-            ctx.fill();
-            ctx.shadowBlur = 0;
-            ctx.save();
-            ctx.beginPath();
-            ctx.arc(x, y, radius, 0, Math.PI * 2);
-            ctx.clip();
-            ctx.fillStyle = surfacePalette.land[0];
-            ctx.globalAlpha = 0.68;
-            for (let i = 0; i < 4; i++) {
-                const a = i * 1.9 + (planet.orbitAngle || 0) * 0.1;
-                ctx.beginPath();
-                ctx.ellipse(x + Math.cos(a) * radius * 0.35, y + Math.sin(a) * radius * 0.35, radius * 0.32, radius * 0.16, a, 0, Math.PI * 2);
-                ctx.fill();
+        function drawPlanetDisc(x, y, radius, planet, selected = false, time = performance.now()) {
+            const tilt=-0.28;
+            const ringBack=()=>{if(!(planet.hasRings||planet.hasOrbitalRing))return;ctx.save();ctx.strokeStyle='rgba(242,207,134,.55)';ctx.lineWidth=Math.max(1.4,radius*.12);ctx.beginPath();ctx.ellipse(x,y,radius*1.6,radius*.42,tilt,Math.PI,Math.PI*2);ctx.stroke();ctx.restore();};
+            const ringFront=()=>{if(!(planet.hasRings||planet.hasOrbitalRing))return;ctx.save();ctx.strokeStyle='rgba(242,207,134,.8)';ctx.lineWidth=Math.max(1.4,radius*.12);ctx.beginPath();ctx.ellipse(x,y,radius*1.6,radius*.42,tilt,0,Math.PI);ctx.stroke();ctx.restore();};
+            ringBack();
+            GempirePlanetArt.drawPlanet(ctx,{cx:x,cy:y,radius,surface:getPlanetArtSurface(planet),rotation:time*.00018+(planet.orbitAngle||0),time,atmosphere:planet.colors?.atmosphere,selected,maxResolution:128,deferred:true});
+            ringFront();
+            if(selected){
+                ctx.save();ctx.strokeStyle='#f2cf86';ctx.lineWidth=1.5;ctx.setLineDash([5,4]);ctx.lineDashOffset=-time*.01;
+                ctx.beginPath();ctx.arc(x,y,radius+7,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
+                const r=radius+12;ctx.fillStyle='#f2cf86';
+                [0,Math.PI/2,Math.PI,Math.PI*1.5].forEach(a=>{const px=x+Math.cos(a)*r,py=y+Math.sin(a)*r;ctx.beginPath();ctx.moveTo(px,py-4);ctx.lineTo(px+3,py);ctx.lineTo(px,py+4);ctx.lineTo(px-3,py);ctx.closePath();ctx.fill();});
+                ctx.restore();
             }
-            ctx.globalAlpha = 1;
-            ctx.restore();
-            ctx.strokeStyle = selected ? '#ffffff' : 'rgba(255,255,255,.45)';
-            ctx.lineWidth = selected ? 2 : 1;
-            ctx.beginPath();
-            ctx.arc(x, y, radius, 0, Math.PI * 2);
-            ctx.stroke();
-            if (planet.hasRings || planet.hasOrbitalRing) {
-                ctx.strokeStyle = 'rgba(226,232,240,.65)';
-                ctx.lineWidth = Math.max(1, radius * 0.08);
-                ctx.beginPath();
-                ctx.ellipse(x, y, radius * 1.55, radius * 0.38, -0.25, 0, Math.PI * 2);
-                ctx.stroke();
-            }
-            ctx.restore();
         }
 
+        function drawMapLabel(text,x,y,color='#f6efff',accent=false){
+            ctx.save();ctx.font='700 10px "Exo 2", "Segoe UI", sans-serif';ctx.textAlign='center';ctx.textBaseline='middle';
+            const w=ctx.measureText(text).width+22,h=17;
+            ctx.beginPath();ctx.moveTo(x-w/2,y);ctx.lineTo(x-w/2+6,y-h/2);ctx.lineTo(x+w/2-6,y-h/2);ctx.lineTo(x+w/2,y);ctx.lineTo(x+w/2-6,y+h/2);ctx.lineTo(x-w/2+6,y+h/2);ctx.closePath();
+            ctx.fillStyle=accent?'rgba(74,44,128,.92)':'rgba(30,17,56,.85)';ctx.fill();ctx.strokeStyle=accent?'rgba(242,207,134,.85)':'rgba(201,166,255,.45)';ctx.lineWidth=1;ctx.stroke();
+            ctx.fillStyle=color;ctx.fillText(text,x,y+.5);ctx.restore();
+        }
+        function drawMapHeading(title,subtitle,cx){
+            ctx.save();ctx.textAlign='center';ctx.fillStyle='#f2cf86';ctx.font='800 14px "Exo 2", "Segoe UI", sans-serif';ctx.fillText(title,cx,30);
+            ctx.font='500 11px "Exo 2", "Segoe UI", sans-serif';ctx.fillStyle='#b4a3d4';ctx.fillText(subtitle,cx,48);ctx.restore();
+        }
         function drawStarMap(time){
             const {cx,cy}=getVisibleCenter(canvasWidth,canvasHeight);starMapHitTargets=[];
             if(state.starMapView!=='system'){
-                const nodes=[{id:'home_system',x:cx,y:cy-8,r:25,label:'HOMEWORLD · SISTEMA SOLO',color:'#fb923c'}];
-                for(let i=0;i<7;i++){const a=i*2.3999632297+.4,d=Math.min(canvasWidth,canvasHeight)*(.22+(i%3)*.06);nodes.push({id:'unknown_'+i,x:cx+Math.cos(a)*d,y:cy+Math.sin(a)*d*.72,r:8+i%3*2,label:'SISTEMA '+(i+1),color:'#64748b'});}
-                nodes.forEach(n=>{const g=ctx.createRadialGradient(n.x,n.y,1,n.x,n.y,n.r*3);g.addColorStop(0,n.color);g.addColorStop(1,'rgba(0,0,0,0)');ctx.fillStyle=g;ctx.beginPath();ctx.arc(n.x,n.y,n.r*3,0,Math.PI*2);ctx.fill();ctx.fillStyle=n.color;ctx.beginPath();ctx.arc(n.x,n.y,n.r,0,Math.PI*2);ctx.fill();ctx.fillStyle='#e2e8f0';ctx.font='bold 9px Segoe UI';ctx.textAlign='center';ctx.fillText(n.label,n.x,n.y+n.r+15);starMapHitTargets.push({type:'star',id:n.id,x:n.x,y:n.y,radius:n.r+12});});ctx.textAlign='center';ctx.fillStyle='#cbd5e1';ctx.font='bold 13px Georgia';ctx.fillText('MAPA GALÁCTICO',cx,28);ctx.font='10px Segoe UI';ctx.fillStyle='#94a3b8';ctx.fillText('Selecione a estrela para entrar no sistema',cx,46);return;
+                const nodes=[{id:'home_system',x:cx,y:cy-8,r:16,label:'HOMEWORLD · SISTEMA SOLO',color:'#ffb37a',home:true}];
+                const tints=['#c9a6ff','#9fd8ff','#f4a8e4','#ffe0a0','#a8f0d8','#d6b4ff','#ffc2c2'];
+                for(let i=0;i<7;i++){const a=i*2.3999632297+.4,d=Math.min(canvasWidth,canvasHeight)*(.22+(i%3)*.06);nodes.push({id:'unknown_'+i,x:cx+Math.cos(a)*d,y:cy+Math.sin(a)*d*.72,r:5+i%3*1.6,label:'SISTEMA '+(i+1),color:tints[i]});}
+                // Rotas tênues ligando Homeworld aos sistemas vizinhos.
+                ctx.save();ctx.setLineDash([2,7]);ctx.lineWidth=1;
+                nodes.slice(1).forEach(n=>{ctx.strokeStyle='rgba(201,166,255,.18)';ctx.beginPath();ctx.moveTo(nodes[0].x,nodes[0].y);ctx.lineTo(n.x,n.y);ctx.stroke();});
+                ctx.restore();
+                nodes.forEach(n=>{GempirePlanetArt.drawStar(ctx,n.x,n.y,n.r,n.color,time,n.home);drawMapLabel(n.label,n.x,n.y+n.r*2.6+12,n.home?'#ffe7b0':'#e7d4ff',n.home);starMapHitTargets.push({type:'star',id:n.id,x:n.x,y:n.y,radius:Math.max(n.r*2,14)});});
+                drawMapHeading('MAPA GALÁCTICO','Selecione a estrela para entrar no sistema',cx);return;
             }
-            const maxOrbit=Math.min(canvasWidth*.34,canvasHeight*.36,280),glow=ctx.createRadialGradient(cx,cy,5,cx,cy,85);glow.addColorStop(0,'#fff1cf');glow.addColorStop(.22,'rgba(248,113,113,.7)');glow.addColorStop(1,'rgba(127,29,29,0)');ctx.fillStyle=glow;ctx.beginPath();ctx.arc(cx,cy,85,0,Math.PI*2);ctx.fill();ctx.fillStyle='#fdba74';ctx.beginPath();ctx.arc(cx,cy,19,0,Math.PI*2);ctx.fill();
-            getPlanetsInStarSystem(state.selectedStarSystemId||'home_system').forEach((p,i)=>{const orbit=Math.max(48,Math.min(maxOrbit,Number(p.orbitRadius)||80)),angle=(Number(p.orbitAngle)||i)+time*(Number(p.orbitSpeed)||.00005),x=cx+Math.cos(angle)*orbit,y=cy+Math.sin(angle)*orbit*.66,r=Math.max(8,Math.min(18,Number(p.sphereRadius)||18)*.72);ctx.strokeStyle='rgba(203,213,225,.22)';ctx.setLineDash([4,7]);ctx.beginPath();ctx.ellipse(cx,cy,orbit,orbit*.66,0,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);drawPlanetDisc(x,y,r,p,state.selectedStarMapPlanetId===p.id);ctx.fillStyle=p.scouted?'#e2e8f0':'#94a3b8';ctx.font='bold 9px Segoe UI';ctx.textAlign='center';ctx.fillText(p.scouted?p.shortName:'SINAL NÃO IDENTIFICADO',x,y+r+13);starMapHitTargets.push({type:'planet',id:p.id,x,y,radius:r+12});});ctx.textAlign='center';ctx.fillStyle='#cbd5e1';ctx.font='bold 12px Georgia';ctx.fillText(state.selectedStarSystemId==='home_system'?'SISTEMA HOMEWORLD · 1 PLANETA':'SISTEMA ESTELAR '+(Number(String(state.selectedStarSystemId||'').split('_')[1])+1),cx,25);ctx.font='10px Segoe UI';ctx.fillStyle='#94a3b8';ctx.fillText('Selecione um planeta para reconhecimento',cx,43);
+            const maxOrbit=Math.min(canvasWidth*.34,canvasHeight*.36,280);
+            const planets=getPlanetsInStarSystem(state.selectedStarSystemId||'home_system');
+            planets.forEach(p=>{const orbit=Math.max(48,Math.min(maxOrbit,Number(p.orbitRadius)||80));ctx.save();ctx.strokeStyle='rgba(201,166,255,.28)';ctx.lineWidth=1;ctx.setLineDash([3,6]);ctx.beginPath();ctx.ellipse(cx,cy,orbit,orbit*.66,0,0,Math.PI*2);ctx.stroke();ctx.restore();});
+            GempirePlanetArt.drawStar(ctx,cx,cy,20,'#ff9e6e',time,true);
+            planets.forEach((p,i)=>{const orbit=Math.max(48,Math.min(maxOrbit,Number(p.orbitRadius)||80)),angle=(Number(p.orbitAngle)||i)+time*(Number(p.orbitSpeed)||.00005),x=cx+Math.cos(angle)*orbit,y=cy+Math.sin(angle)*orbit*.66,r=Math.max(10,Math.min(22,Number(p.sphereRadius)||18)*.9);drawPlanetDisc(x,y,r,p,state.selectedStarMapPlanetId===p.id,time);drawMapLabel(p.scouted?p.shortName:'SINAL NÃO IDENTIFICADO',x,y+r+16,p.scouted?'#f6efff':'#b4a3d4',state.selectedStarMapPlanetId===p.id);starMapHitTargets.push({type:'planet',id:p.id,x,y,radius:r+12});});
+            drawMapHeading(state.selectedStarSystemId==='home_system'?'SISTEMA HOMEWORLD · 1 PLANETA':'SISTEMA ESTELAR '+(Number(String(state.selectedStarSystemId||'').split('_')[1])+1),'Selecione um planeta para reconhecimento',cx);
         }
 
         // --- ARQUITETURA MODULAR DE HOMEWORLD ---
@@ -6357,17 +6232,17 @@ ${hasAristocrats ? `
             return {color:hex,accent:shade(.84),glow:shade(.68)};
         }
         function drawFleetShips(planet,cx,cy,radius,time){
-            if(structureCount('lunar_base')>0&&(planet.moons||[]).length){const a=time*.00009,rx=radius*1.34,ry=radius*1.08,mx=cx+Math.cos(a)*rx,my=cy+Math.sin(a)*ry;ctx.save();ctx.fillStyle='#64748b';ctx.strokeStyle='#cbd5e1';ctx.beginPath();ctx.arc(mx,my,Math.max(5,radius*.045),0,Math.PI*2);ctx.fill();ctx.stroke();ctx.fillStyle='#e2e8f0';ctx.fillRect(mx-3,my-5,6,9);ctx.restore();}
+            if(structureCount('lunar_base')>0&&(planet.moons||[]).length){const a=time*.00009,rx=radius*1.34,ry=radius*1.08,mx=cx+Math.cos(a)*rx,my=cy+Math.sin(a)*ry,mr=Math.max(6,radius*.06);ctx.save();ctx.fillStyle='#8f7ab3';ctx.strokeStyle='#1b0f30';ctx.lineWidth=1.4;ctx.beginPath();ctx.arc(mx,my,mr,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.fillStyle='#c9b6e8';ctx.beginPath();ctx.arc(mx-mr*.3,my-mr*.3,mr*.45,0,Math.PI*2);ctx.fill();ctx.fillStyle='#f2cf86';ctx.beginPath();ctx.moveTo(mx,my-mr-5);ctx.lineTo(mx+3,my-mr);ctx.lineTo(mx-3,my-mr);ctx.closePath();ctx.fill();ctx.restore();}
             const fleet=(state.shipFleet||[]).filter(ship=>ship.planetId===planet.id);
             fleet.forEach((ship,index)=>{
                 const a=time*.00007+index*2.1,rx=radius*(1.34+index*.055),ry=radius*(1.04+index*.04),x=cx+Math.cos(a)*rx,y=cy+Math.sin(a)*ry;
-                ctx.save();ctx.translate(x,y);ctx.rotate(a+.6);const shipScale=ship.type==='diamond'?1.8:ship.type==='war'?1.4:ship.type==='ruby'?.62:1;ctx.scale(shipScale,shipScale);ctx.fillStyle=ship.type==='ruby'?'#ef4444':ship.color||'#cbd5e1';ctx.strokeStyle=ship.type==='ruby'?'#fecaca':'#f8fafc';ctx.lineWidth=1.2;ctx.shadowColor=ctx.fillStyle;ctx.shadowBlur=5;
-                if(ship.type==='diamond'){ctx.beginPath();ctx.moveTo(0,-15);ctx.lineTo(13,-5);ctx.lineTo(11,10);ctx.lineTo(0,16);ctx.lineTo(-11,10);ctx.lineTo(-13,-5);ctx.closePath();ctx.fill();ctx.stroke();}
-                else if(ship.type==='elite'){ctx.beginPath();ctx.moveTo(0,-12);ctx.lineTo(10,0);ctx.lineTo(0,12);ctx.lineTo(-10,0);ctx.closePath();ctx.fill();ctx.stroke();}
-                else if(ship.type==='war'){ctx.beginPath();ctx.ellipse(0,0,15,7,0,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.fillRect(-3,-11,6,22);}
-                else if(ship.type==='excursion'){ctx.beginPath();ctx.moveTo(-10,8);ctx.lineTo(-9,-2);ctx.lineTo(-4,-8);ctx.lineTo(0,-2);ctx.lineTo(4,-8);ctx.lineTo(9,-2);ctx.lineTo(10,8);ctx.closePath();ctx.fill();ctx.stroke();}
-                else{ctx.beginPath();ctx.moveTo(0,-8);ctx.lineTo(7,6);ctx.lineTo(-7,6);ctx.closePath();ctx.fill();ctx.stroke();}
-                ctx.restore();
+                // Naves atrás do planeta (metade superior da órbita) ficam ocultas pelo disco.
+                if(Math.sin(a)<0&&Math.hypot(x-cx,y-cy)<radius*1.02)return;
+                const heading=Math.atan2(Math.cos(a)*ry,-Math.sin(a)*rx)+Math.PI/2;
+                const shipScale=(ship.type==='diamond'?1.25:ship.type==='war'?1:ship.type==='ruby'?.7:.85)*Math.max(.75,Math.min(1.25,radius/200));
+                let color=ship.color||null;
+                if(ship.type==='diamond'){const owner=ship.ownerId==='first'?state.firstDiamond:(state.matriarchs||[]).find(m=>m.id===ship.ownerId);color=owner?.colorHex||owner?.color||color;}
+                GempirePlanetArt.drawShip(ctx,ship.type,{x,y,angle:heading,scale:shipScale,time,color});
             });
         }
 
@@ -6439,7 +6314,7 @@ ${hasAristocrats ? `
                     if(def.id==='red_eye'){
                         ctx.save();ctx.fillStyle='#7f1d1d';ctx.shadowColor='#ef4444';ctx.shadowBlur=12;ctx.beginPath();ctx.arc(x,y,Math.max(5,radius*.035),0,Math.PI*2);ctx.fill();ctx.fillStyle='#fca5a5';ctx.beginPath();ctx.arc(x,y,Math.max(2,radius*.014),0,Math.PI*2);ctx.fill();ctx.restore();
                     }else drawGemStructureModel(def.id,x,y,scale,structureIsOperational(def.id),time,100,rulerColors);
-                    if(count>1&&def.id!=='injector'){ctx.fillStyle=rulerColors?.accent||'#e2e8f0';ctx.font='bold '+Math.max(8,9*size)+'px Segoe UI';ctx.textAlign='center';ctx.fillText(String(count),x+22*size,y-18*size);}
+                    if(count>1&&def.id!=='injector'){ctx.fillStyle=rulerColors?.accent||'#e2e8f0';ctx.font='bold '+Math.max(8,9*size)+'px "Exo 2", "Segoe UI", sans-serif';ctx.textAlign='center';ctx.fillText(String(count),x+22*size,y-18*size);}
                 }
             });
             if(state.construction&&state.construction.active){
@@ -6481,27 +6356,35 @@ ${hasAristocrats ? `
             const w=Math.min(190,canvasWidth*.48),h=184,r=12;
             ctx.save();ctx.shadowColor='rgba(56,189,248,.16)';ctx.shadowBlur=18;ctx.fillStyle='rgba(5,10,25,.88)';ctx.strokeStyle='rgba(148,163,184,.38)';ctx.lineWidth=1;
             ctx.beginPath();ctx.moveTo(x+r,y);ctx.lineTo(x+w-r,y);ctx.quadraticCurveTo(x+w,y,x+w,y+r);ctx.lineTo(x+w,y+h-r);ctx.quadraticCurveTo(x+w,y+h,x+w-r,y+h);ctx.lineTo(x+r,y+h);ctx.quadraticCurveTo(x,y+h,x,y+h-r);ctx.lineTo(x,y+r);ctx.quadraticCurveTo(x,y,x+r,y);ctx.closePath();ctx.fill();ctx.stroke();ctx.shadowBlur=0;
-            ctx.textAlign='left';ctx.font='bold 9px Segoe UI';ctx.fillStyle='#7dd3fc';ctx.fillText('RELATÓRIO PLANETÁRIO',x+11,y+17);
-            ctx.textAlign='right';ctx.font='bold 14px Segoe UI';ctx.fillStyle='#f8fafc';ctx.fillText(stats.progress+'%',x+w-11,y+36);
-            ctx.textAlign='left';ctx.font='9px Segoe UI';ctx.fillStyle='#94a3b8';ctx.fillText('RECURSOS EXTRAÍDOS',x+11,y+35);
+            ctx.textAlign='left';ctx.font='bold 9px "Exo 2", "Segoe UI", sans-serif';ctx.fillStyle='#7dd3fc';ctx.fillText('RELATÓRIO PLANETÁRIO',x+11,y+17);
+            ctx.textAlign='right';ctx.font='bold 14px "Exo 2", "Segoe UI", sans-serif';ctx.fillStyle='#f8fafc';ctx.fillText(stats.progress+'%',x+w-11,y+36);
+            ctx.textAlign='left';ctx.font='9px "Exo 2", "Segoe UI", sans-serif';ctx.fillStyle='#94a3b8';ctx.fillText('RECURSOS EXTRAÍDOS',x+11,y+35);
             ctx.fillStyle='rgba(71,85,105,.62)';ctx.fillRect(x+11,y+44,w-22,5);ctx.fillStyle=stats.progress>=75?'#c4b5fd':stats.progress>=25?'#38bdf8':'#64748b';ctx.fillRect(x+11,y+44,(w-22)*stats.progress/100,5);
-            ctx.font='10px Segoe UI';ctx.fillStyle='#cbd5e1';ctx.textAlign='left';ctx.fillText('Gems no local',x+11,y+67);ctx.textAlign='right';ctx.font='bold 11px Segoe UI';ctx.fillStyle='#e9d5ff';ctx.fillText(String(stats.gemCount),x+w-11,y+67);
-            ctx.textAlign='left';ctx.font='10px Segoe UI';ctx.fillStyle='#cbd5e1';ctx.fillText('Vida orgânica',x+11,y+86);ctx.textAlign='right';ctx.font='bold 10px Segoe UI';ctx.fillStyle=stats.organicLifePresent?'#86efac':'#94a3b8';
+            ctx.font='10px "Exo 2", "Segoe UI", sans-serif';ctx.fillStyle='#cbd5e1';ctx.textAlign='left';ctx.fillText('Gems no local',x+11,y+67);ctx.textAlign='right';ctx.font='bold 11px "Exo 2", "Segoe UI", sans-serif';ctx.fillStyle='#e9d5ff';ctx.fillText(String(stats.gemCount),x+w-11,y+67);
+            ctx.textAlign='left';ctx.font='10px "Exo 2", "Segoe UI", sans-serif';ctx.fillStyle='#cbd5e1';ctx.fillText('Vida orgânica',x+11,y+86);ctx.textAlign='right';ctx.font='bold 10px "Exo 2", "Segoe UI", sans-serif';ctx.fillStyle=stats.organicLifePresent?'#86efac':'#94a3b8';
             const organicLabel=stats.organicLifeKnown?stats.organicLife.toLocaleString('pt-BR'):(stats.organicLifePresent?'Não censada':'Ausente');
             ctx.fillText(organicLabel,x+w-11,y+86);
             const names=['Intacto','Primeiras fissuras','Crosta fraturada','Fragmentação','Mundo estilhaçado'];
-            ctx.textAlign='left';ctx.font='bold 9px Segoe UI';ctx.fillStyle='#f8fafc';ctx.fillText('ESTÁGIO '+stats.stage+'/4',x+11,y+111);ctx.textAlign='right';ctx.font='9px Segoe UI';ctx.fillStyle='#94a3b8';ctx.fillText(names[stats.stage],x+w-11,y+111);
-            ctx.textAlign='left';ctx.font='8px Segoe UI';ctx.fillStyle='#94a3b8';ctx.fillText(Math.floor(stats.remainingResources).toLocaleString('pt-BR')+' / '+Math.floor(stats.totalResources).toLocaleString('pt-BR')+' recursos restantes',x+11,y+124);
+            ctx.textAlign='left';ctx.font='bold 9px "Exo 2", "Segoe UI", sans-serif';ctx.fillStyle='#f8fafc';ctx.fillText('ESTÁGIO '+stats.stage+'/4',x+11,y+111);ctx.textAlign='right';ctx.font='9px "Exo 2", "Segoe UI", sans-serif';ctx.fillStyle='#94a3b8';ctx.fillText(names[stats.stage],x+w-11,y+111);
+            ctx.textAlign='left';ctx.font='8px "Exo 2", "Segoe UI", sans-serif';ctx.fillStyle='#94a3b8';ctx.fillText(Math.floor(stats.remainingResources).toLocaleString('pt-BR')+' / '+Math.floor(stats.totalResources).toLocaleString('pt-BR')+' recursos restantes',x+11,y+124);
             const temperature=Number(planet.temperatureC??8),pressure=Number(planet.atmosphericPressureAtm??1),distance=Number(planet.orbitAU??(Number(planet.orbitRadius)||0)/100);
-            ctx.font='9px Segoe UI';ctx.fillStyle='#cbd5e1';ctx.textAlign='left';ctx.fillText('Temperatura',x+11,y+143);ctx.textAlign='right';ctx.font='bold 9px Segoe UI';ctx.fillStyle='#f8fafc';ctx.fillText(temperature.toLocaleString('pt-BR')+' °C',x+w-11,y+143);
-            ctx.textAlign='left';ctx.font='9px Segoe UI';ctx.fillStyle='#cbd5e1';ctx.fillText('Pressão atmosférica',x+11,y+158);ctx.textAlign='right';ctx.font='bold 9px Segoe UI';ctx.fillStyle='#f8fafc';ctx.fillText(pressure.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:2})+' atm',x+w-11,y+158);
-            ctx.textAlign='left';ctx.font='9px Segoe UI';ctx.fillStyle='#cbd5e1';ctx.fillText('Distância da estrela',x+11,y+173);ctx.textAlign='right';ctx.font='bold 9px Segoe UI';ctx.fillStyle='#f8fafc';ctx.fillText(distance.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+' UA',x+w-11,y+173);
+            ctx.font='9px "Exo 2", "Segoe UI", sans-serif';ctx.fillStyle='#cbd5e1';ctx.textAlign='left';ctx.fillText('Temperatura',x+11,y+143);ctx.textAlign='right';ctx.font='bold 9px "Exo 2", "Segoe UI", sans-serif';ctx.fillStyle='#f8fafc';ctx.fillText(temperature.toLocaleString('pt-BR')+' °C',x+w-11,y+143);
+            ctx.textAlign='left';ctx.font='9px "Exo 2", "Segoe UI", sans-serif';ctx.fillStyle='#cbd5e1';ctx.fillText('Pressão atmosférica',x+11,y+158);ctx.textAlign='right';ctx.font='bold 9px "Exo 2", "Segoe UI", sans-serif';ctx.fillStyle='#f8fafc';ctx.fillText(pressure.toLocaleString('pt-BR',{minimumFractionDigits:1,maximumFractionDigits:2})+' atm',x+w-11,y+158);
+            ctx.textAlign='left';ctx.font='9px "Exo 2", "Segoe UI", sans-serif';ctx.fillStyle='#cbd5e1';ctx.fillText('Distância da estrela',x+11,y+173);ctx.textAlign='right';ctx.font='bold 9px "Exo 2", "Segoe UI", sans-serif';ctx.fillStyle='#f8fafc';ctx.fillText(distance.toLocaleString('pt-BR',{minimumFractionDigits:2,maximumFractionDigits:2})+' UA',x+w-11,y+173);
             ctx.restore();
         }
 
 
 
         let planetInfoToggleTarget=null;
+        // Moldura lapidada usada pelos painéis desenhados no canvas.
+        function drawCanvasGemPanel(x,y,w,h,cut=10){
+            const path=()=>{ctx.beginPath();ctx.moveTo(x+cut,y);ctx.lineTo(x+w,y);ctx.lineTo(x+w,y+h-cut);ctx.lineTo(x+w-cut,y+h);ctx.lineTo(x,y+h);ctx.lineTo(x,y+cut);ctx.closePath();};
+            const bg=ctx.createLinearGradient(x,y,x,y+h);bg.addColorStop(0,'rgba(50,30,92,.94)');bg.addColorStop(1,'rgba(27,15,52,.94)');
+            ctx.save();ctx.shadowColor='rgba(8,3,20,.6)';ctx.shadowBlur=16;path();ctx.fillStyle=bg;ctx.fill();ctx.restore();
+            const edge=ctx.createLinearGradient(x,y,x+w,y+h);edge.addColorStop(0,'#f2cf86');edge.addColorStop(.35,'rgba(201,166,255,.6)');edge.addColorStop(.7,'rgba(111,79,176,.45)');edge.addColorStop(1,'#f2cf86');
+            path();ctx.lineWidth=1.2;ctx.strokeStyle=edge;ctx.stroke();
+        }
         function drawPlanetCombinedInfoPanel(planet,stats,x,y){
             const expanded=state.planetInfoExpanded!==false,w=Math.min(286,canvasWidth-24),header=30;
             const resources=[['quartz','Quartzo','#c084fc'],['silicate','Silicatos','#34d399'],['corundum','Coríndon','#38bdf8'],['metallic','Metálicos','#facc15'],['nacre','Nácar','#f8fafc'],['garnet','Granada','#fb7185'],['olivine','Olivina','#86efac'],['lapisrock','Lápis-lazúli','#818cf8'],['pyroxene','Piroxênio','#f59e0b'],['beryllium','Berílio','#67e8f9'],['obsidian','Obsidiana','#94a3b8'],['topaz','Topázio','#fbbf24']];
@@ -6509,25 +6392,24 @@ ${hasAristocrats ? `
             planetInfoToggleTarget={x,y,w,h:header};
             const total=resources.reduce((sum,[key])=>sum+Math.max(0,Number(planet.resourcesByType?.[key])||0),0);
             const max=Math.max(1,...resources.map(([key])=>Math.max(0,Number(planet.resourcesByType?.[key])||0)));
-            ctx.save();ctx.fillStyle='rgba(5,10,25,.92)';ctx.strokeStyle='rgba(56,189,248,.58)';ctx.lineWidth=1;
-            ctx.beginPath();ctx.roundRect(x,y,w,h,10);ctx.fill();ctx.stroke();
-            ctx.font='bold 10px Segoe UI';ctx.fillStyle='#7dd3fc';ctx.textAlign='left';ctx.fillText('RELATÓRIO PLANETÁRIO',x+10,y+18);
-            ctx.textAlign='right';ctx.fillStyle='#f8fafc';ctx.fillText((expanded?'−':'＋')+' '+stats.progress+'%',x+w-10,y+18);
+            ctx.save();drawCanvasGemPanel(x,y,w,h);
+            ctx.font='800 10px "Exo 2", "Segoe UI", sans-serif';ctx.fillStyle='#f2cf86';ctx.textAlign='left';ctx.fillText('RELATÓRIO PLANETÁRIO',x+14,y+19);
+            ctx.textAlign='right';ctx.fillStyle='#f6efff';ctx.fillText((expanded?'−':'＋')+' '+stats.progress+'%',x+w-12,y+19);
             if(expanded){
-                ctx.font='9px Segoe UI';ctx.textAlign='left';ctx.fillStyle='#cbd5e1';
-                ctx.fillText('Gems: '+stats.gemCount+'  ·  Vida orgânica: '+(stats.organicLifeKnown?stats.organicLife:'—'),x+10,y+35);
-                ctx.fillText('Estágio '+stats.stage+'/4  ·  '+Math.floor(stats.remainingResources).toLocaleString('pt-BR')+' recursos restantes',x+10,y+48);
-                ctx.fillText('Temperatura: '+Number(planet.temperatureC??8).toLocaleString('pt-BR')+' °C  ·  Pressão: '+Number(planet.atmosphericPressureAtm??1).toLocaleString('pt-BR')+' atm',x+10,y+61);
-                ctx.fillText('Luas naturais: '+(Array.isArray(planet.moons)?planet.moons.length:0),x+10,y+74);
-                ctx.fillStyle='#e9d5ff';ctx.fillText('Geografia: '+getPlanetSurfaceDescription(planet),x+10,y+87);
-                ctx.font='bold 9px Segoe UI';ctx.fillStyle='#7dd3fc';ctx.fillText('RESERVAS MINERAIS',x+10,y+104);
-                ctx.textAlign='right';ctx.fillStyle='#f8fafc';ctx.fillText(Math.floor(total).toLocaleString('pt-BR'),x+w-10,y+91);
+                ctx.font='9px "Exo 2", "Segoe UI", sans-serif';ctx.textAlign='left';ctx.fillStyle='#d9cdef';
+                ctx.fillText('Gems: '+stats.gemCount+'  ·  Vida orgânica: '+(stats.organicLifeKnown?stats.organicLife:'—'),x+14,y+35);
+                ctx.fillText('Estágio '+stats.stage+'/4  ·  '+Math.floor(stats.remainingResources).toLocaleString('pt-BR')+' recursos restantes',x+14,y+48);
+                ctx.fillText('Temperatura: '+Number(planet.temperatureC??8).toLocaleString('pt-BR')+' °C  ·  Pressão: '+Number(planet.atmosphericPressureAtm??1).toLocaleString('pt-BR')+' atm',x+14,y+61);
+                ctx.fillText('Luas naturais: '+(Array.isArray(planet.moons)?planet.moons.length:0),x+14,y+74);
+                ctx.fillStyle='#e9d5ff';ctx.fillText('Geografia: '+getPlanetSurfaceDescription(planet),x+14,y+87);
+                ctx.font='bold 9px "Exo 2", "Segoe UI", sans-serif';ctx.fillStyle='#f2cf86';ctx.fillText('RESERVAS MINERAIS',x+14,y+104);
+                ctx.textAlign='right';ctx.fillStyle='#f6efff';ctx.fillText(Math.floor(total).toLocaleString('pt-BR'),x+w-12,y+91);
                 resources.forEach(([key,label,color],i)=>{
                     const amount=Math.max(0,Number(planet.resourcesByType?.[key])||0),yy=y+110+i*13;
-                    ctx.textAlign='left';ctx.font='9px Segoe UI';ctx.fillStyle='#cbd5e1';ctx.fillText(label,x+10,yy+8);
-                    const bx=x+94,bw=w-145;ctx.fillStyle='rgba(15,23,42,.9)';ctx.fillRect(bx,yy+2,bw,6);
+                    ctx.textAlign='left';ctx.font='9px "Exo 2", "Segoe UI", sans-serif';ctx.fillStyle='#d9cdef';ctx.fillText(label,x+14,yy+8);
+                    const bx=x+94,bw=w-145;ctx.fillStyle='rgba(18,10,36,.9)';ctx.fillRect(bx,yy+2,bw,6);
                     ctx.fillStyle=color;ctx.fillRect(bx,yy+2,bw*amount/max,6);
-                    ctx.textAlign='right';ctx.font='bold 9px Segoe UI';ctx.fillStyle='#f1f5f9';ctx.fillText(Math.floor(amount).toLocaleString('pt-BR'),x+w-9,yy+8);
+                    ctx.textAlign='right';ctx.font='bold 9px "Exo 2", "Segoe UI", sans-serif';ctx.fillStyle='#f6efff';ctx.fillText(Math.floor(amount).toLocaleString('pt-BR'),x+w-9,yy+8);
                 });
             }
             ctx.restore();
@@ -6564,15 +6446,15 @@ ${hasAristocrats ? `
             mineralChartHitTargets=[];
             ctx.save();ctx.fillStyle='rgba(5,10,25,.9)';ctx.strokeStyle='rgba(56,189,248,.48)';ctx.lineWidth=1;
             ctx.beginPath();ctx.roundRect(x,y,w,h,10);ctx.fill();ctx.stroke();
-            ctx.font='bold 9px Segoe UI';ctx.fillStyle='#7dd3fc';ctx.textAlign='left';ctx.fillText('RESERVAS MINERAIS',x+9,y+13);
+            ctx.font='bold 9px "Exo 2", "Segoe UI", sans-serif';ctx.fillStyle='#7dd3fc';ctx.textAlign='left';ctx.fillText('RESERVAS MINERAIS',x+9,y+13);
             ctx.textAlign='right';ctx.fillStyle='#f8fafc';ctx.fillText(Math.floor(total).toLocaleString('pt-BR'),x+w-9,y+13);
             resources.forEach(([key,label,color],i)=>{
                 const amount=Math.max(0,Number(planet.resourcesByType?.[key])||0),yy=y+22+i*rowH;
-                ctx.font='9px Segoe UI';ctx.textAlign='left';ctx.fillStyle='#cbd5e1';ctx.fillText(label,x+9,yy+8);
+                ctx.font='9px "Exo 2", "Segoe UI", sans-serif';ctx.textAlign='left';ctx.fillStyle='#cbd5e1';ctx.fillText(label,x+9,yy+8);
                 const bx=x+91,bw=w-145;
                 ctx.fillStyle='rgba(15,23,42,.9)';ctx.fillRect(bx,yy+2,bw,6);
                 ctx.fillStyle=color;ctx.fillRect(bx,yy+2,bw*amount/max,6);
-                ctx.textAlign='right';ctx.font='bold 9px Segoe UI';ctx.fillStyle='#f1f5f9';ctx.fillText(Math.floor(amount).toLocaleString('pt-BR'),x+w-8,yy+8);
+                ctx.textAlign='right';ctx.font='bold 9px "Exo 2", "Segoe UI", sans-serif';ctx.fillStyle='#f1f5f9';ctx.fillText(Math.floor(amount).toLocaleString('pt-BR'),x+w-8,yy+8);
             });
             ctx.restore();
         }
@@ -6618,46 +6500,34 @@ function drawColony(time){
             const planet=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld,{cx,cy}=getVisibleCenter(canvasWidth,canvasHeight);
             const isMobile=window.matchMedia('(max-width: 600px)').matches;
             const radius=Math.max(70,Math.min(canvasWidth*(isMobile?0.255:0.245),canvasHeight*(isMobile?0.265:0.29),225)*state.planetCamera.zoom);
-            const cam=state.planetCamera,stats=getPlanetVisualStats(planet),stage=stats.stage,palette=planet.colors,surfacePalette=getPlanetSurfacePalette(planet);
-            const lightX=cx-radius*.36,lightY=cy-radius*.42;
+            const cam=state.planetCamera,stats=getPlanetVisualStats(planet),stage=stats.stage,palette=planet.colors;
 
-            // Atmosfera e detritos que passam atrás do planeta.
-            const aura=ctx.createRadialGradient(cx,cy,radius*.82,cx,cy,radius*1.35);aura.addColorStop(0,'rgba(56,189,248,0)');aura.addColorStop(.72,palette.atmosphere||'rgba(125,211,252,.14)');aura.addColorStop(1,'rgba(56,189,248,0)');
-            ctx.fillStyle=aura;ctx.beginPath();ctx.arc(cx,cy,radius*1.35,0,Math.PI*2);ctx.fill();
+            // Detritos que passam atrás do planeta.
             drawPlanetDebris(planet,cx,cy,radius,time,cam,stage,false);
 
-            // Esfera com iluminação direcional e terminador.
-            const surface=ctx.createRadialGradient(lightX,lightY,radius*.04,cx+radius*.12,cy+radius*.12,radius*1.12);
-            surface.addColorStop(0,surfacePalette.baseLight);surface.addColorStop(.42,surfacePalette.base);surface.addColorStop(.78,surfacePalette.baseDeep);surface.addColorStop(1,surfacePalette.baseDeep);
-            ctx.save();ctx.shadowColor=palette.atmosphere||'rgba(125,211,252,.25)';ctx.shadowBlur=stage>=2?34:24;ctx.fillStyle=surface;ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.fill();ctx.shadowBlur=0;
-            ctx.save();ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.clip();ctx.translate(cx,cy);ctx.scale(radius,radius);
+            // Globo procedural estilizado: continentes, relevo, bioma e nuvens acompanham a rotação.
+            GempirePlanetArt.drawPlanet(ctx,{cx,cy,radius,surface:getPlanetArtSurface(planet),rotation:cam.rotation,time,atmosphere:palette.atmosphere,selected:stage>=2});
 
-            // Geografia esférica procedural: continentes, ilhas, mares e bioma acompanham a rotação.
-            drawProceduralPlanetSurface(planet,cam,time,stage);
-
-            if(cam.xrayMode){const core=ctx.createRadialGradient(0,0,.04,0,0,.8);core.addColorStop(0,'rgba(255,255,255,.12)');core.addColorStop(.3,'rgba(56,189,248,.04)');core.addColorStop(1,'rgba(56,189,248,0)');ctx.fillStyle=core;ctx.beginPath();ctx.arc(0,0,.82,0,Math.PI*2);ctx.fill();}
-            ctx.restore();
-
-            // Sombreamento esférico aplicado por cima da textura.
-            const terminator=ctx.createRadialGradient(lightX,lightY,radius*.08,cx,cy,radius*1.12);terminator.addColorStop(0,'rgba(255,255,255,0)');terminator.addColorStop(.62,'rgba(2,6,23,.02)');terminator.addColorStop(1,'rgba(1,4,14,.72)');
-            ctx.fillStyle=terminator;ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.fill();
-            if(cam.xrayMode){ctx.save();ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.clip();ctx.translate(cx,cy);ctx.transform(Math.cos(cam.rotation),Math.sin(cam.rotation)*.10,-Math.sin(cam.rotation)*.18,1,0,0);ctx.scale(radius,radius);drawXRayMineralSeams(planet);ctx.restore();}
-            // A crosta começa a se fragmentar nas etapas avançadas, independente do Centro de Logística.
-            ctx.restore();
+            if(cam.xrayMode){
+                ctx.save();ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.clip();
+                ctx.fillStyle='rgba(18,8,40,.62)';ctx.fillRect(cx-radius,cy-radius,radius*2,radius*2);
+                const core=ctx.createRadialGradient(cx,cy,radius*.04,cx,cy,radius*.82);core.addColorStop(0,'rgba(255,255,255,.18)');core.addColorStop(.3,'rgba(201,166,255,.08)');core.addColorStop(1,'rgba(201,166,255,0)');ctx.fillStyle=core;ctx.fillRect(cx-radius,cy-radius,radius*2,radius*2);
+                ctx.translate(cx,cy);ctx.transform(Math.cos(cam.rotation),Math.sin(cam.rotation)*.10,-Math.sin(cam.rotation)*.18,1,0,0);ctx.scale(radius,radius);drawXRayMineralSeams(planet);
+                ctx.restore();
+            }
             ctx.save();
             drawHomeworldStructures(planet,cx,cy,radius,cam,time);
             drawRedEyeOrbital(planet,cx,cy,radius,time);
             drawFleetShips(planet,cx,cy,radius,time);
 
-            // O raio-X já foi desenhado uma vez, com recorte esférico, sobre a textura.
             ctx.restore();
 
             // Injetores bacteriófagos ancorados no perímetro da crosta.
             drawColonyInjectors(planet,cx,cy,radius,cam);
             // Fragmentos que passam pela frente fecham o efeito de órbita 360°.
             drawPlanetDebris(planet,cx,cy,radius,time,cam,stage,true);
-            drawPlanetCombinedInfoPanel(planet,stats,12,12);
-            ctx.textAlign='center';ctx.fillStyle='#f8fafc';ctx.font='bold 16px Georgia';ctx.fillText(planet.shortName,cx,Math.max(24,cy-radius-24));
+            drawPlanetCombinedInfoPanel(planet,stats,12,52);
+            ctx.save();ctx.textAlign='center';ctx.font='900 italic 20px "Exo 2", "Segoe UI", sans-serif';ctx.lineWidth=4;ctx.strokeStyle='rgba(27,15,48,.85)';const ty=Math.max(28,cy-radius-30);ctx.strokeText(planet.shortName,cx,ty);ctx.fillStyle='#f6efff';ctx.fillText(planet.shortName,cx,ty);ctx.restore();
         }
 
         function drawGame(time) {
