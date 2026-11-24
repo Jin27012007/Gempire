@@ -3806,7 +3806,7 @@
 
         function updateStructureSimulation(dt,mode='all',allowUI=true) {
             if(mode!=='local'){
-                updateRedEyeMission(dt);updateCargoMissions(dt);updateFleetTravel(dt);updateGalaxyWarpExpeditions(dt);updateMatriarchChambers(dt);if(window.GempireCourt)GempireCourt.update(dt);if(window.GempireOffColors)GempireOffColors.update(dt);
+                updateRedEyeMission(dt);updateCargoMissions(dt);updateFleetTravel(dt);updateGalaxyWarpExpeditions(dt);updateMatriarchChambers(dt);if(window.GempireCourt)GempireCourt.update(dt);if(window.GempireOffColors)GempireOffColors.update(dt);if(window.GempireResistance)GempireResistance.update(dt);
                 if(window.updateHessonitePatrols)window.updateHessonitePatrols(dt);
             }
             if(mode==='global')return;
@@ -4215,7 +4215,7 @@ ${hasAristocrats ? `
         }
 
         function buildInjectorActionHTML(vein) {
-            if(vein.rebelBlocked)return `<div class="stat-box" style="border-color:#fb7185;color:#fecdd3;"><div style="font-weight:700;margin-bottom:4px;">🚩 ESTRATO TOMADO POR REBELDES!</div><button class="btn btn-pink" style="width:100%;" onclick="pacifyPlanetRebellion()">⚔️ Mobilizar Guarnição (25 Amarela)</button></div>`;
+            if(vein.rebelBlocked)return `<div class="stat-box" style="border-color:#fb7185;color:#fecdd3;"><div style="font-weight:700;margin-bottom:4px;">🚩 ESTRATO TOMADO POR REBELDES!</div><button class="btn btn-pink" style="width:100%;" onclick="pacifyPlanetRebellion()">⚔️ Operação de contenção</button></div>`;
             if(!vein.injector){
                 if(freeGemWorkers('peridot')<1)return `<div class="stat-box" style="color:var(--text-muted);">${(Number(state.census.peridot)||0)>0?'Todos os Peridots estão ocupados. Libere um operador para implantar o injetor.':'É necessário criar uma Peridot antes de implantar e operar este injetor.'}</div>`;
                 return `<button class="btn active" style="width:100%;padding:9px;" onclick="startConfiguredInjection()">💚 Designar Peridot e implantar no Nodo #${vein.id+1}</button>`;
@@ -4655,6 +4655,8 @@ ${hasAristocrats ? `
                 result.blue *= penalty;
                 result.pink *= penalty;
             }
+            // Sabotagens, insurreição e mundo rebelde derrubam a produção.
+            if(window.GempireResistance){const f=GempireResistance.yieldFactor(planet);if(f!==1)['min','tech','white','yellow','blue','pink'].forEach(k=>result[k]*=f);}
             return result;
         }
 
@@ -5215,6 +5217,8 @@ ${hasAristocrats ? `
         function pacifyPlanetRebellion() {
             const planet = PLANETS[state.activeColonyPlanetId];
             if (!planet) return;
+            // A rebelião agora é uma resistência com força e fases: contenção leva tempo e pode falhar.
+            if (window.GempireResistance) { GempireResistance.contain(planet.id); return; }
             if (essenceValue(state.essence) < 25) {
                 setStatusTicker('⚠️ São necessárias 25 unidades de Essência para mobilizar a guarnição.');
                 return;
@@ -5784,7 +5788,7 @@ ${hasAristocrats ? `
                         if (state.firstDiamond.doctrine === 'lifeseeder' && planet.id === 'terra_veritas') calming += 0.15;
                         planet.dissent = Math.max(0, planet.dissent - calming * dt);
                     }
-                    if (planet.dissent >= 100 && !planet.rebellionActive) {
+                    if (!window.GempireResistance && planet.dissent >= 100 && !planet.rebellionActive) {
                         planet.rebellionActive = true;
                         const blocked = planet.veins[Math.floor(Math.random() * planet.veins.length)];
                         if (blocked) blocked.rebelBlocked = true;
@@ -8229,5 +8233,6 @@ function drawColony(time){
     <script src="diamond-chat.js"></script>
     <script src="gempire-court.js"></script>
     <script src="gempire-offcolors.js"></script>
+    <script src="gempire-resistance.js"></script>
 </body>
 </html>

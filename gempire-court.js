@@ -422,7 +422,7 @@
         m.courtStatus=m.courtStatus==='mission'?'court':m.courtStatus;
         const ok=Math.random()<x.chance,power=Number(m.diamondPower)||1.8,p=PLANETS[x.targetId];let result='';
         if(x.type==='explore'&&p){if(ok){p.scouted=true;p.travelUnlocked=true;p.reconnaissance=typeof createRedEyeReport==='function'?createRedEyeReport(p):p.reconnaissance;result='reconheceu '+p.shortName;}else result='não conseguiu mapear '+p.shortName;}
-        else if(x.type==='pacify'&&p){if(ok){p.dissent=Math.max(0,(Number(p.dissent)||0)-50);p.rebellionActive=false;result='pacificou '+p.shortName+' (−50 dissidência)';}else{p.dissent=Math.max(0,(Number(p.dissent)||0)-10);result='acalmou parcialmente '+p.shortName+' (−10 dissidência)';}}
+        else if(x.type==='pacify'&&p){if(window.GempireResistance)GempireResistance.reduce(p,ok?30:8,'Missão de '+m.name);if(ok){p.dissent=Math.max(0,(Number(p.dissent)||0)-50);if(!window.GempireResistance)p.rebellionActive=false;result='pacificou '+p.shortName+' (−50 dissidência)';}else{p.dissent=Math.max(0,(Number(p.dissent)||0)-10);result='acalmou parcialmente '+p.shortName+' (−10 dissidência)';}}
         else if(x.type==='extract'&&p){const want=Math.round(300*power*(ok?1:.4)),got=Math.min(want,Math.max(0,Number(p.resourcesRemaining)||0));p.resourcesRemaining=Math.max(0,(Number(p.resourcesRemaining)||0)-got);
             if(p.id===(state.activeColonyPlanetId||'homeworld'))state.minerals=(Number(state.minerals)||0)+got;else{const e=ensurePlanetEconomy(p,false);e.minerals=(Number(e.minerals)||0)+got;}
             p.dissent=Math.min(100,(Number(p.dissent)||0)+5);result='extraiu '+fmt(got)+' minerais de '+p.shortName;}
