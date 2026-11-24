@@ -588,6 +588,22 @@
 
     window.GempireCourt={update,render,audience,reconcile,fulfill:fulfillRequest,negotiate:negotiateRequest,refuse:refuseRequest,startMission,pickMission,openSocial,focus,appeal:resolveAppeal,setSuperior,toggleDelegation,takeBack,dispute:resolveDispute,vote:resolveVote,summary,ensure:ensureCourt,_debug:{makeRequest,startDispute,startVote}};
     window.renderDiamondCourtTab=render;
+    // Mudança de várias posições de uma vez: efeitos somados, com limite, e reação de quem foi ultrapassada.
+    function moveTo(from,to){
+        const list=matriarchs(),m=list[from];if(!m||from===to||to<0||to>=list.length)return;
+        ensureCourt();
+        const passed=from>to?list.slice(to,from):list.slice(from+1,to+1),steps=passed.length,up=to<from;
+        list.splice(from,1);list.splice(to,0,m);
+        if(up){const d=Math.min(12,3+2*steps);changeLoyalty(m,d,false);passed.forEach(o=>{changeLoyalty(o,-3,false);o.obedience=clamp(o.obedience-2);});
+            log(m.name+' foi promovida para a posição Nº '+(to+1)+', acima de '+passed.map(o=>shortName(o.name)).join(', ')+'.','+'+d+' lealdade · ultrapassadas −3 lealdade',m.colorHex);}
+        else{const d=Math.min(12,3+2*steps);changeLoyalty(m,-d,false);m.obedience=clamp(m.obedience-4);passed.forEach(o=>changeLoyalty(o,2,false));
+            log(m.name+' foi rebaixada para a posição Nº '+(to+1)+'.','−'+d+' lealdade · −4 obediência',m.colorHex);}
+        ensureCourt();
+        notify(m.name+' agora ocupa a posição Nº '+(to+1)+' da Autoridade Diamante.');
+        try{const body=document.getElementById('drawer-body');if(body&&state.drawerTab==='dynasty'&&typeof renderDynastyTab==='function')renderDynastyTab(body);}catch(e){}
+        refresh();
+    }
+    window.GempireCourt.moveTo=moveTo;
     // Promover ou rebaixar na hierarquia mexe com o orgulho de quem sobe e de quem desce.
     const baseMove=window.moveMatriarchAuthority;
     if(typeof baseMove==='function')window.moveMatriarchAuthority=function(index,direction){

@@ -355,3 +355,6 @@ input.gstep-source{position:absolute!important;width:1px!important;height:1px!im
 .court-rank-move{display:flex;gap:4px}
 .court-rank-move .btn{min-width:34px;padding:4px 8px}
 .court-focus{box-shadow:0 0 0 2px #f2cf86,0 0 24px rgba(242,207,134,.35)}
+
+/* Arrastar Diamantes no emblema do Trono sem rolar a página no toque */
+#gameCanvas{touch-action:none}

@@ -4273,6 +4273,13 @@ ${hasAristocrats ? `
         }
 
         // 10E. Sub-Aba 3: Dinastia (Criador da 1ª Diamante + Forja de Novas Diamantes)
+        // Move uma Diamante direto para outra posição (arrastar no emblema do Trono).
+        function moveMatriarchToRank(from,to){
+            const list=state.matriarchs;if(!Number.isInteger(from)||!Number.isInteger(to)||from<0||to<0||from>=list.length||to>=list.length||from===to)return;
+            if(window.GempireCourt&&GempireCourt.moveTo){GempireCourt.moveTo(from,to);return;}
+            const [member]=list.splice(from,1);list.splice(to,0,member);
+            setStatusTicker(member.name+' agora ocupa a posição Nº '+(to+1)+' da Autoridade Diamante.');
+        }
         function moveMatriarchAuthority(index,direction){
             const target=index+direction;
             if(!Number.isInteger(index)||!Number.isInteger(direction)||target<0||target>=state.matriarchs.length)return;
@@ -6410,15 +6417,20 @@ ${hasAristocrats ? `
             ctx.fillText('AUTORIDADE DIAMANTE',cx,Math.max(28,canvasHeight*.07));
             ctx.shadowBlur=0;ctx.font=(isMobile?9:11)+'px "Exo 2", "Segoe UI", sans-serif';
             ctx.fillStyle='rgba(248,226,255,.82)';
-            ctx.fillText('Topo, esquerda, direita e base: da maior à menor autoridade · toque numa Diamante para abrir a Corte',cx,Math.max(44,canvasHeight*.07+18));
+            ctx.fillText('Topo, esquerda, direita e base: da maior à menor autoridade · arraste para reorganizar · toque para abrir a Corte',cx,Math.max(44,canvasHeight*.07+18));
             ctx.restore();
             const {emblems,cells}=getAuthorityLayout(),byId=Object.fromEntries(cells.filter(c=>c.id).map(c=>[c.id,c]));
             authorityHitTargets=cells.filter(c=>c.id).map(c=>({id:c.id,x:c.x,y:c.y,hw:c.w*.5,hh:c.h*.5}));
+            authorityCells=cells.map(c=>({id:c.id,rank:c.rank,founder:c.founder,x:c.x,y:c.y,hw:c.w*.5,hh:c.h*.5}));
+            const drag=authorityDrag&&authorityDrag.active?authorityDrag:null,dropCell=drag?authorityDropCell(drag.x,drag.y):null;
             // Ligação entre emblemas: cada novo emblema pende do anterior.
             emblems.forEach((e,i)=>{if(!i)return;const parent=emblems[Math.floor((i-1)/2)]||emblems[0];ctx.save();ctx.strokeStyle='rgba(242,207,134,.4)';ctx.lineWidth=1.5;ctx.setLineDash([3,6]);ctx.beginPath();ctx.moveTo(parent.x,parent.y+parent.H);ctx.lineTo(e.x,e.y-e.H);ctx.stroke();ctx.restore();});
             // Aura de cada emblema.
             emblems.forEach(e=>{ctx.save();ctx.shadowColor='rgba(255,220,250,.55)';ctx.shadowBlur=30;ctx.fillStyle='rgba(255,240,255,.06)';ctx.beginPath();ctx.moveTo(e.x,e.y-e.H);ctx.lineTo(e.x+e.W,e.y);ctx.lineTo(e.x,e.y+e.H);ctx.lineTo(e.x-e.W,e.y);ctx.closePath();ctx.fill();ctx.restore();});
-            cells.forEach(c=>drawAuthorityCell(c,time,authorityHoverId&&authorityHoverId===c.id));
+            cells.forEach(c=>{
+                if(drag&&c.id===drag.id){ctx.save();ctx.globalAlpha=.35;drawAuthorityCell(c,time,false);ctx.restore();return;}
+                drawAuthorityCell(c,time,!drag&&authorityHoverId&&authorityHoverId===c.id);
+            });
             // Contorno do emblema por cima das células.
             emblems.forEach(e=>{ctx.save();ctx.lineWidth=2.6;ctx.lineJoin='round';ctx.strokeStyle='#e8737e';ctx.beginPath();ctx.moveTo(e.x,e.y-e.H);ctx.lineTo(e.x+e.W,e.y);ctx.lineTo(e.x,e.y+e.H);ctx.lineTo(e.x-e.W,e.y);ctx.closePath();ctx.stroke();ctx.restore();});
             // Responsabilidade delegada: fio dourado da superiora até a Diamante.
@@ -6429,6 +6441,15 @@ ${hasAristocrats ? `
                 ctx.beginPath();ctx.moveTo(sup.x,sup.y+sup.h*.22);ctx.quadraticCurveTo(mx,my,c.x,c.y-c.h*.22);ctx.stroke();
                 ctx.setLineDash([]);ctx.fillStyle='#f2cf86';ctx.beginPath();ctx.arc(c.x,c.y-c.h*.22,3,0,Math.PI*2);ctx.fill();ctx.restore();
             });
+            // Arrastar: destaca a posição de destino e desenha a Diamante seguindo o ponteiro.
+            if(drag){
+                if(dropCell){ctx.save();ctx.translate(dropCell.x,dropCell.y);ctx.shadowColor='#f2cf86';ctx.shadowBlur=24;ctx.lineWidth=4;ctx.strokeStyle='#f2cf86';ctx.beginPath();ctx.moveTo(0,-dropCell.hh);ctx.lineTo(dropCell.hw,0);ctx.lineTo(0,dropCell.hh);ctx.lineTo(-dropCell.hw,0);ctx.closePath();ctx.stroke();ctx.restore();}
+                const src=cells.find(c=>c.id===drag.id);
+                if(src){const ghost=Object.assign({},src,{x:drag.x,y:drag.y,w:src.w*.9,h:src.h*.9});ctx.save();ctx.globalAlpha=.92;drawAuthorityCell(ghost,time,true);ctx.restore();}
+                const target=dropCell?authorityDropIndex(dropCell):null,from=state.matriarchs.findIndex(m=>m.id===drag.id);
+                ctx.save();ctx.textAlign='center';ctx.font='700 12px "Exo 2", "Segoe UI", sans-serif';ctx.fillStyle='#fff7e6';ctx.shadowColor='rgba(20,8,34,.95)';ctx.shadowBlur=6;
+                ctx.fillText(target===null||target===from?'Solte sobre outra posição para mudar a autoridade':(target<from?'Promover para Nº '+(target+1):'Rebaixar para Nº '+(target+1)),cx,canvasHeight*.97);ctx.restore();
+            }
             if(!state.matriarchs.length){
                 ctx.save();ctx.textAlign='center';ctx.fillStyle='rgba(250,238,255,.86)';
                 ctx.font=(isMobile?10:12)+'px "Exo 2", "Segoe UI", sans-serif';
@@ -6436,6 +6457,10 @@ ${hasAristocrats ? `
                 ctx.restore();
             }
         }
+        let authorityCells=[],authorityDrag=null;
+        // Célula sob o ponteiro (inclui vagas; a da fundadora não aceita Matriarcas).
+        function authorityDropCell(x,y){return authorityCells.find(c=>!c.founder&&Math.abs(x-c.x)/c.hw+Math.abs(y-c.y)/c.hh<=1)||null;}
+        function authorityDropIndex(cell){const n=state.matriarchs.length;return Math.max(0,Math.min(n-1,(cell.id?cell.rank:n)-1));}
         function authorityTargetAt(x,y){return authorityHitTargets.find(t=>Math.abs(x-t.x)/t.hw+Math.abs(y-t.y)/t.hh<=1)||null;}
 
         function drawThrone(time) {
@@ -7002,6 +7027,7 @@ function drawColony(time){
             canvas.addEventListener('pointerdown', event => {
                 const rect = canvas.getBoundingClientRect();
                 lastPointerPosition = { x: event.clientX - rect.left, y: event.clientY - rect.top, startX: event.clientX, moved: false };
+                if (state.currentScreen === 'throne') {const t=authorityTargetAt(lastPointerPosition.x,lastPointerPosition.y);authorityDrag=t&&t.id!=='first'?{id:t.id,sx:lastPointerPosition.x,sy:lastPointerPosition.y,x:lastPointerPosition.x,y:lastPointerPosition.y,active:false}:null;}
                 if (state.currentScreen === 'colony') {
                     state.planetCamera.isDragging = true;
                     state.planetCamera.dragStartX = event.clientX;
@@ -7010,7 +7036,11 @@ function drawColony(time){
                 if (canvas.setPointerCapture) canvas.setPointerCapture(event.pointerId);
             });
             canvas.addEventListener('pointermove', event => {
-                if (state.currentScreen === 'throne') {const rect=canvas.getBoundingClientRect(),t=authorityTargetAt(event.clientX-rect.left,event.clientY-rect.top);authorityHoverId=t?t.id:null;canvas.style.cursor=t?'pointer':'';}
+                if (state.currentScreen === 'throne') {
+                    const rect=canvas.getBoundingClientRect(),px=event.clientX-rect.left,py=event.clientY-rect.top;
+                    if(authorityDrag&&event.buttons){authorityDrag.x=px;authorityDrag.y=py;if(!authorityDrag.active&&Math.hypot(px-authorityDrag.sx,py-authorityDrag.sy)>8){authorityDrag.active=true;}if(authorityDrag.active&&lastPointerPosition)lastPointerPosition.moved=true;canvas.style.cursor='grabbing';return;}
+                    const t=authorityTargetAt(px,py);authorityHoverId=t?t.id:null;canvas.style.cursor=t?(t.id==='first'?'pointer':'grab'):'';
+                }
                 if (!lastPointerPosition) return;
                 if (state.currentScreen === 'colony' && state.planetCamera.isDragging && event.buttons) {
                     const dx = event.clientX - state.planetCamera.dragStartX;
@@ -7021,6 +7051,15 @@ function drawColony(time){
                 }
             });
             const finishPointer = event => {
+                if (authorityDrag) {
+                    const drag=authorityDrag;authorityDrag=null;canvas.style.cursor='';
+                    if(drag.active){
+                        const rect=canvas.getBoundingClientRect(),cell=authorityDropCell(event.clientX-rect.left,event.clientY-rect.top);
+                        const from=state.matriarchs.findIndex(m=>m.id===drag.id);
+                        if(cell&&from>=0){const to=authorityDropIndex(cell);if(to!==from)moveMatriarchToRank(from,to);}
+                        lastPointerPosition=null;return;
+                    }
+                }
                 if (!lastPointerPosition) return;
                 const moved = lastPointerPosition.moved;
                 const rect = canvas.getBoundingClientRect();
@@ -7032,6 +7071,7 @@ function drawColony(time){
             };
             canvas.addEventListener('pointerup', finishPointer);
             canvas.addEventListener('pointercancel', () => {
+                authorityDrag = null;
                 state.planetCamera.isDragging = false;
                 lastPointerPosition = null;
             });
