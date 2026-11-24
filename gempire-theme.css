@@ -376,3 +376,11 @@ input.gstep-source{position:absolute!important;width:1px!important;height:1px!im
 .resist .court-row b{font-size:13px}
 .resist .court-row small{white-space:nowrap}
 .order-planet>small{font-size:11px;line-height:1.35}
+.resist-leader{margin:8px 0;padding:6px 8px;border-left:3px solid #fb7185;background:rgba(60,10,30,.35)}
+.resist-leader small{display:block;color:var(--text-muted,#b4a3d4)}
+.resist-truce{display:block;margin:4px 0;color:#6ee7b7}
+.resist-demand{padding:4px 0;border-bottom:1px solid rgba(201,166,255,.12);gap:8px}
+.resist-demand .btn{min-width:90px}
+@media (min-width:1100px){.order-colonies{grid-column:span 2}}
+.order-colonies .order-planet{display:grid;grid-template-columns:1fr;gap:4px}
+.resist-demand span{font-size:12px;line-height:1.35}

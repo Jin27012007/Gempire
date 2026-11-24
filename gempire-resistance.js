@@ -42,6 +42,9 @@
         r.strength=clamp(r.strength);r.phase=Math.max(0,Math.min(4,Math.floor(Number(r.phase)||0)));r.members=Math.max(0,Math.floor(Number(r.members)||0));
         r.sabotageTimer=Number.isFinite(r.sabotageTimer)?r.sabotageTimer:180;r.spreadTimer=Number.isFinite(r.spreadTimer)?r.spreadTimer:240;
         r.log=Array.isArray(r.log)?r.log:[];r.sabotageUntil=Number(r.sabotageUntil)||0;
+        r.memberCastes=r.memberCastes&&typeof r.memberCastes==='object'?r.memberCastes:{};
+        r.cooldowns=r.cooldowns&&typeof r.cooldowns==='object'?r.cooldowns:{};
+        r.intelUntil=Number(r.intelUntil)||0;r.truceUntil=Number(r.truceUntil)||0;r.galleryIntelUntil=Number(r.galleryIntelUntil)||0;
         return r;
     }
     function phaseFor(r){
@@ -84,11 +87,14 @@
         if(r.phase>=3)g+=.2; // insurreição se alimenta
         if(g>0)g*=mult();else g*=1/Math.max(.5,mult());
         if(dissent<15&&!rebelGovernor(p))g-=.6;
+        if(r.truceUntil>Date.now())g=Math.min(g,-.4);
         return g;
     }
     // ------------------------------------------------------------ sabotagens
     function sabotage(p){
-        const r=res(p);r.detected=true;
+        const r=res(p);
+        if(r.forewarned&&Math.random()<.7){r.forewarned=false;rlog(p,'Uma sabotagem prevista pelas Safiras foi impedida.');notify('As Safiras previram e impediram uma sabotagem em '+p.shortName+'.');return;}
+        r.forewarned=false;r.detected=true;
         const types=['production','theft','injector','recruit'];if(r.strength<40)types.splice(types.indexOf('recruit'),1);
         const type=types[Math.floor(Math.random()*types.length)],eco=economyOf(p);let text='';
         if(type==='production'){r.sabotageUntil=Date.now()+180000;text='a produção de '+p.shortName+' caiu 25% por 3 minutos';}
@@ -109,6 +115,7 @@
                 census[caste]=Math.max(0,(Number(census[caste])||0)-n);setCensus(p,census);
                 if(offKey){off[offKey]=Math.max(0,off[offKey]-n);if(!off[offKey])delete off[offKey];if(window.GempireOffColors)GempireOffColors.sync(p);}
                 for(let i=(p.walkingGems||[]).length-1,k=n;i>=0&&k>0;i--){const g=p.walkingGems[i];if(g&&(g.caste||g.type)===caste){p.walkingGems.splice(i,1);k--;}}
+                const key=caste+(offKey?'|off':'');r.memberCastes[key]=(r.memberCastes[key]||0)+n;
                 r.members+=n;text=n+' '+(FOUNDING_GEM_DATA?.[caste]?.label||caste)+(offKey?' off-color':'')+' desertaram para os rebeldes em '+p.shortName;
             }
         }
@@ -174,6 +181,135 @@
         return f;
     }
 
+    // ------------------------------------------------------------ fase 3: líderes, inteligência, ataque, negociação, anistia
+    const EPITHETS=['Rachada','Sem Facetas','Desalinhada','das Galerias','Fora do Tom','Estilhaço','Sem Corte','do Subsolo'];
+    const LEADER_TYPES={radical:{label:'Radical',desc:'Exige muito e não aceita meio-termo.'},pragmatic:{label:'Pragmática',desc:'Aceita recursos e acordos parciais.'},idealist:{label:'Idealista',desc:'Quer mudar a lei e libertar as desertoras.'}};
+    const COURT_REACTION={assault:{harsh:3,cerebral:0,grand:-1,gentle:-4},negotiate:{harsh:-3,cerebral:1,grand:1,gentle:3},amnesty:{harsh:-2,cerebral:1,grand:1,gentle:2}};
+    const TONE={militarist:'harsh',isolationist:'harsh',manipulator:'harsh',melancholic:'gentle',empathic:'gentle',naturalist:'gentle',technocrat:'cerebral',scholar:'cerebral',reformer:'cerebral',visionary:'grand',artist:'grand',hedonist:'grand'};
+    function courtReact(kind){const t=COURT_REACTION[kind];(state.matriarchs||[]).forEach(m=>{const d=t[TONE[m.personalityId]||'grand']||0;if(d)m.loyalty=clamp((Number(m.loyalty)||0)+d);});}
+    function casteName(c){return FOUNDING_GEM_DATA?.[c]?.label||c;}
+    function ensureLeader(p,r){
+        if(r.leader||r.phase<2)return r.leader;
+        const pool=Object.keys(r.memberCastes).map(k=>k.split('|')[0]),c=pool.length?pool[Math.floor(Math.random()*pool.length)]:['quartz','peridot','bismuth','lapis'][Math.floor(Math.random()*4)];
+        const off=Object.keys(r.memberCastes).some(k=>k.endsWith('|off'))||Math.random()<.4;
+        const type=Object.keys(LEADER_TYPES)[Math.floor(Math.random()*3)];
+        r.leader={name:casteName(c)+' '+EPITHETS[Math.floor(Math.random()*EPITHETS.length)],caste:c,offcolor:off,type,identified:false};
+        return r.leader;
+    }
+    function cooldownLeft(r,k){return Math.max(0,(Number(r.cooldowns[k])||0)-Date.now())/1000;}
+    function setCd(r,k,sec){r.cooldowns[k]=Date.now()+sec*1000;}
+    function deployedSoldiers(p){const m=state.military;if(!m||!Array.isArray(m.battalions))return 0;return m.battalions.reduce((a,b)=>{const army=(m.armies||[]).find(x=>x.id===b.armyId);return a+(army&&army.planetId===p.id?Math.max(0,Number(b.soldiers)||0):0);},0);}
+    function removeMembers(r,n){let left=n;Object.keys(r.memberCastes).forEach(k=>{if(left<=0)return;const take=Math.min(left,r.memberCastes[k]);r.memberCastes[k]-=take;left-=take;if(!r.memberCastes[k])delete r.memberCastes[k];});r.members=Math.max(0,r.members-n);}
+    function returnMembers(p,r,n){
+        const census=Object.assign({},censusOf(p));let left=n;const back={};
+        Object.keys(r.memberCastes).forEach(k=>{if(left<=0)return;const take=Math.min(left,r.memberCastes[k]);const [c,off]=k.split('|');census[c]=(Number(census[c])||0)+take;back[c]=(back[c]||0)+take;if(off&&p.offColors){p.offColors.groups=p.offColors.groups||{};const g=c+'|color';p.offColors.groups[g]=(p.offColors.groups[g]||0)+take;}r.memberCastes[k]-=take;if(!r.memberCastes[k])delete r.memberCastes[k];left-=take;});
+        const returned=n-left;r.members=Math.max(0,r.members-returned);setCensus(p,census);if(window.GempireOffColors)GempireOffColors.sync(p);
+        return {returned,back};
+    }
+    // Inteligência
+    function intel(planetId,kind){
+        const p=PLANETS[planetId];if(!p)return;const r=res(p);const cd=cooldownLeft(r,'intel_'+kind);if(cd>0){notify('Aguarde '+dur(cd)+'.',true);return;}
+        const census=censusOf(p);
+        if(kind==='seer'){
+            if(!(Number(census.sapphire)>0)){notify('É preciso uma Safira na colônia.',true);return;}
+            r.intelUntil=Date.now()+300000;r.forewarned=true;const L=ensureLeader(p,r);if(L)L.identified=true;setCd(r,'intel_seer',300);
+            rlog(p,'As Safiras leram o futuro: força exata revelada'+(L?', líder identificada ('+L.name+')':'')+' e a próxima sabotagem prevista.');
+        }else if(kind==='eye'){
+            if(typeof getAvailableRedEyeCount==='function'&&getAvailableRedEyeCount()<1){notify('Nenhum Olho Vermelho livre no império.',true);return;}
+            r.intelUntil=Date.now()+600000;r.galleryIntelUntil=Date.now()+600000;setCd(r,'intel_eye',600);
+            const L=ensureLeader(p,r);if(L&&Math.random()<.6)L.identified=true;
+            rlog(p,'Varredura orbital: células mapeadas por 10 minutos (+15% no ataque) e galerias contadas'+(L&&L.identified?'; líder identificada ('+L.name+')':'')+'.');
+        }else if(kind==='spy'){
+            const agent=Number(census.pearl)>0?'pearl':Number(census.quartz)>0?'quartz':null;if(!agent){notify('Não há Pérola nem Quartzo para infiltrar.',true);return;}
+            setCd(r,'intel_spy',240);
+            if(Math.random()<(agent==='pearl'?.7:.55)){r.intelUntil=Date.now()+300000;const L=ensureLeader(p,r);if(L)L.identified=true;rlog(p,'A espiã '+(agent==='pearl'?'Pérola':'Quartzo')+' se infiltrou'+(L?' e identificou a líder: '+L.name:'')+'.');}
+            else{const c=Object.assign({},census);c[agent]=Math.max(0,(Number(c[agent])||0)-1);setCensus(p,c);r.strength=clamp(r.strength+5);rlog(p,'A espiã foi descoberta e capturada (+5 força rebelde).');notify('A espiã foi descoberta em '+p.shortName+'.',true);}
+        }
+        refresh();
+    }
+    // Ataque militar: decisivo, mas brutal.
+    function assaultStats(p){
+        const r=res(p),attack=garrison(p)+deployedSoldiers(p)*1.3,defense=r.strength*5+r.members*3+(Number(p.offColors?.hidden)||0)*2;
+        const intelBonus=r.intelUntil>Date.now()?.15:0;
+        return {attack,defense,chance:clamp(.2+attack/(attack+defense+1)*.7+intelBonus,.05,.95),duration:Math.round(90+r.strength),cost:30,intel:intelBonus>0};
+    }
+    function assault(planetId){
+        const p=PLANETS[planetId];if(!p)return;const r=res(p);
+        if(r.assault||r.operation){notify('Já há uma operação militar em '+p.shortName+'.',true);return;}
+        if(r.strength<10){notify('Não há força rebelde para atacar.',true);return;}
+        const st=assaultStats(p);if(st.attack<=0){notify('Sem tropas na colônia para atacar.',true);return;}
+        if(essenceValue(state.essence)<st.cost){notify('O ataque exige '+st.cost+' de essência.',true);return;}
+        state.essence=essenceValue(state.essence)-st.cost;
+        r.assault={progress:0,duration:st.duration,chance:st.chance,intel:st.intel,attack:st.attack,defense:st.defense};
+        rlog(p,'Ataque militar iniciado ('+Math.round(st.chance*100)+'% de chance).');notify('As tropas avançam sobre os rebeldes de '+p.shortName+'.');refresh();
+    }
+    function finishAssault(p,r){
+        const a=r.assault;r.assault=null;const ok=Math.random()<a.chance;
+        const census=Object.assign({},censusOf(p));
+        const losses=Math.max(1,Math.round(a.defense*(ok?.04:.09)*(a.intel?.7:1)));const lostQ=Math.min(Number(census.quartz)||0,losses);census.quartz=Math.max(0,(Number(census.quartz)||0)-lostQ);setCensus(p,census);
+        if(ok){
+            const cut=50+(a.intel?15:0);r.strength=clamp(r.strength-cut);const killed=Math.ceil(r.members*.5);removeMembers(r,killed);
+            if(a.intel&&p.offColors)p.offColors.hidden=Math.floor((Number(p.offColors.hidden)||0)*.5);
+            p.dissent=Math.min(100,(Number(p.dissent)||0)+(a.intel?12:18));if(r.leader&&Math.random()<.5){rlog(p,'A líder '+r.leader.name+' foi capturada.');r.leader=null;}
+            rlog(p,'Ataque vitorioso: −'+cut+' de força rebelde, '+killed+' desertora(s) estilhaçada(s), '+lostQ+' Quartzo(s) perdidos.');
+            chronicle('Ataque em '+p.shortName,'As tropas imperiais esmagaram a resistência.','−'+cut+' força rebelde · '+lostQ+' baixas');notify('Ataque vitorioso em '+p.shortName+'.');
+        }else{
+            r.strength=clamp(r.strength+5);p.dissent=Math.min(100,(Number(p.dissent)||0)+5);
+            rlog(p,'Ataque repelido: '+lostQ+' Quartzo(s) perdidos, +5 de força rebelde.');chronicle('Ataque fracassado em '+p.shortName,'Os rebeldes repeliram as tropas.',lostQ+' baixas');notify('O ataque em '+p.shortName+' foi repelido.',true);
+        }
+        courtReact('assault');
+        const to=phaseFor(r);if(to!==r.phase)enterPhase(p,r,r.phase,to);applyInsurrection(p,r);refresh();
+    }
+    // Negociação com a líder identificada.
+    function buildDemands(p,r){
+        const L=r.leader,pol=policyKey(),d=[];
+        if(['recycle','purge'].includes(pol))d.push({type:'policy',label:'Abolir a '+(pol==='purge'?'lei de Expurgo':'Reciclagem')+' (decretar Toleradas ou mais branda)'});
+        if(r.members>0)d.push({type:'amnesty',label:'Anistia para as '+fmt(r.members)+' desertora(s)'});
+        d.push({type:'supplies',label:'Suprimentos para as galerias',cost:{minerals:Math.round((150+r.strength*8)/10)*10}});
+        const g=String(p.governor||'');if(g.startsWith('matriarch_'))d.push({type:'governor',label:'Afastar a governante atual'});
+        d.push({type:'halt',label:'Suspender a extração em '+p.shortName+' por 15 minutos'});
+        const n=L.type==='radical'?3:L.type==='pragmatic'?2:3;
+        // A idealista põe lei e anistia na frente; a pragmática, os suprimentos.
+        const order={idealist:['policy','amnesty','halt','governor','supplies'],pragmatic:['supplies','halt','amnesty','governor','policy'],radical:['policy','governor','amnesty','halt','supplies']}[L.type];
+        return d.sort((a,b)=>order.indexOf(a.type)-order.indexOf(b.type)).slice(0,Math.min(n,d.length)).map(x=>Object.assign(x,{granted:false}));
+    }
+    function negotiate(planetId){
+        const p=PLANETS[planetId];if(!p)return;const r=res(p);
+        if(!r.leader||!r.leader.identified){notify('Identifique a líder rebelde primeiro.',true);return;}
+        if(r.negotiation)return;const cd=cooldownLeft(r,'negotiate');if(cd>0){notify('A líder só aceita conversar de novo em '+dur(cd)+'.',true);return;}
+        r.negotiation={demands:buildDemands(p,r),remaining:300};rlog(p,r.leader.name+' apresentou suas exigências.');refresh();
+    }
+    function grantDemand(planetId,i){
+        const p=PLANETS[planetId],r=res(p),n=r.negotiation,d=n&&n.demands[i];if(!d||d.granted)return;
+        if(d.type==='supplies'){if((Number(state.minerals)||0)<d.cost.minerals){notify('Minerais insuficientes.',true);return;}state.minerals-=d.cost.minerals;}
+        else if(d.type==='policy'){if(!window.GempireOffColors)return;const before=GempireOffColors.policy();GempireOffColors.setPolicy('tolerate');if(GempireOffColors.policy()===before){notify('A lei não pode mudar agora (espera da Lei Off-Color).',true);return;}}
+        else if(d.type==='governor'){const g=String(p.governor||'');p.governor='none';const m=(state.matriarchs||[]).find(x=>'matriarch_'+x.id===g);if(m)m.loyalty=clamp((Number(m.loyalty)||0)-10);}
+        else if(d.type==='amnesty'){const back=returnMembers(p,r,r.members);rlog(p,back.returned+' desertora(s) voltaram com a anistia.');}
+        else if(d.type==='halt'){r.haltUntil=Date.now()+900000;r.haltSnapshot=Number(p.resourcesRemaining)||0;}
+        d.granted=true;refresh();
+    }
+    function closeDeal(planetId,abandon){
+        const p=PLANETS[planetId],r=res(p),n=r.negotiation;if(!n)return;r.negotiation=null;setCd(r,'negotiate',600);
+        const share=n.demands.filter(d=>d.granted).length/Math.max(1,n.demands.length),L=r.leader;
+        if(abandon||share===0||(L.type==='radical'&&share<1)){r.strength=clamp(r.strength+(abandon?10:8));L.type=L.type==='pragmatic'?'idealist':'radical';rlog(p,'A negociação fracassou. '+L.name+' se radicalizou.');notify('A negociação em '+p.shortName+' fracassou.',true);}
+        else if(share>=1){r.strength=clamp(r.strength-50);r.truceUntil=Date.now()+1200000;p.dissent=Math.max(0,(Number(p.dissent)||0)-30);L.deal=true;rlog(p,'Acordo fechado com '+L.name+': trégua de 20 minutos e −50 de força rebelde.');chronicle('Acordo em '+p.shortName,'O Império aceitou as exigências de '+L.name+'.','Trégua de 20 minutos');notify('Acordo fechado em '+p.shortName+'.');}
+        else if(share>=.5){r.strength=clamp(r.strength-25);r.truceUntil=Date.now()+600000;rlog(p,'Acordo parcial com '+L.name+': trégua de 10 minutos e −25 de força rebelde.');notify('Acordo parcial em '+p.shortName+'.');}
+        else{r.strength=clamp(r.strength-8);rlog(p,'Concessões insuficientes: '+L.name+' saiu sem acordo (−8 de força rebelde).');}
+        courtReact('negotiate');const to=phaseFor(r);if(to!==r.phase)enterPhase(p,r,r.phase,to);applyInsurrection(p,r);refresh();
+    }
+    // Anistia avulsa: desertoras podem voltar ao censo.
+    function amnestyStats(p){const r=res(p),pol=policyKey();const chance=clamp(.35+({tolerate:.15,sanctuary:.25,citizen:.35,recycle:-.1,purge:-.3}[pol]||0)+(r.truceUntil>Date.now()?.2:0)-r.phase*.05,.05,.95);return {cost:Math.max(10,r.members*8),chance};}
+    function amnesty(planetId){
+        const p=PLANETS[planetId],r=res(p);if(!r.members){notify('Não há desertoras.',true);return;}
+        const cd=cooldownLeft(r,'amnesty');if(cd>0){notify('Nova anistia em '+dur(cd)+'.',true);return;}
+        const st=amnestyStats(p);if(essenceValue(state.essence)<st.cost){notify('A anistia exige '+st.cost+' de essência.',true);return;}
+        state.essence=essenceValue(state.essence)-st.cost;setCd(r,'amnesty',480);
+        let n=0;for(let i=0;i<r.members;i++)if(Math.random()<st.chance)n++;
+        const back=returnMembers(p,r,n);r.strength=clamp(r.strength-back.returned*.8);
+        rlog(p,'Anistia: '+back.returned+' de '+(back.returned+r.members)+' desertora(s) voltaram.');notify(back.returned+' desertora(s) aceitaram a anistia em '+p.shortName+'.');
+        courtReact('amnesty');refresh();
+    }
+
     // ------------------------------------------------------------ ciclo
     let acc=0,uiAcc=0;
     function update(dt){
@@ -183,6 +319,12 @@
             Object.values(PLANETS).filter(p=>p&&p.colonized).forEach(p=>{
                 const r=res(p);
                 if(r.operation){r.operation.progress+=step*100/Math.max(1,r.operation.duration);if(r.operation.progress>=100)finishOperation(p,r);}
+                if(r.assault){r.assault.progress+=step*100/Math.max(1,r.assault.duration);if(r.assault.progress>=100)finishAssault(p,r);}
+                if(r.negotiation){r.negotiation.remaining-=step;if(r.negotiation.remaining<=0)closeDeal(p.id,true);}
+                if(r.haltUntil>Date.now()&&(Number(p.resourcesRemaining)||0)<(Number(r.haltSnapshot)||0)-50){r.haltUntil=0;r.truceUntil=0;r.strength=clamp(r.strength+25);rlog(p,'O Império quebrou a promessa de suspender a extração: +25 de força rebelde.');notify('Promessa quebrada em '+p.shortName+': os rebeldes se fortaleceram.',true);}
+                ensureLeader(p,r);if(r.leader&&r.phase>=4&&!r.leader.identified){r.leader.identified=true;rlog(p,r.leader.name+' declarou-se líder do mundo rebelde.');}
+                if(r.leader&&r.phase<=0&&r.strength<5){r.leader=null;}
+                if(r.leader&&r.leader.deal&&r.truceUntil<=Date.now())r.leader.deal=false;
                 r.strength=clamp(r.strength+growthPerMinute(p)*step/60);
                 if(rebelGovernor(p))r.strength=Math.max(r.strength,60);
                 const to=phaseFor(r);if(to!==r.phase)enterPhase(p,r,r.phase,to);
@@ -202,7 +344,7 @@
     // depois da primeira sabotagem ou com Safiras na colônia.
     function knowledge(p){
         const r=res(p),c=censusOf(p),seers=Number(c.sapphire)||0;
-        if(r.phase>=3)return {exact:true,label:PHASES[r.phase].label};
+        if(r.phase>=3||r.intelUntil>Date.now())return {exact:true,label:PHASES[r.phase].label};
         if(r.phase===2&&!r.detected&&!seers)return {exact:false,label:'Descontentamento',range:[10,55]};
         if(seers)return {exact:true,label:PHASES[r.phase].label};
         const lo=Math.max(0,Math.floor(r.strength/10)*10-10),hi=Math.min(100,lo+30);return {exact:false,label:PHASES[r.phase].label,range:[lo,hi]};
@@ -215,8 +357,34 @@
         html+='<small style="display:block;color:var(--text-muted)">'+esc(ph.desc)+(k.exact?' · tendência '+(g>0.05?'subindo':g<-0.05?'caindo':'estável'):'')+(r.members?' · '+fmt(r.members)+' desertora(s)':'')+(r.sabotageUntil>Date.now()?' · produção sabotada':'')+(k.exact?'':' · Safiras na colônia revelariam a força exata')+'</small>';
         if(r.operation)html+='<div class="stat-box">Operação de contenção<div class="founding-progress"><div style="width:'+r.operation.progress+'%"></div></div><small>Chance '+Math.round(r.operation.chance*100)+'% · faltam '+dur(r.operation.duration*(100-r.operation.progress)/100)+'</small></div>';
         else if(r.strength>=10||p.rebellionActive)html+='<button class="btn btn-pink btn-block" onclick="GempireResistance.contain(\''+p.id+'\')">Operação de contenção · '+st.cost+' essência · '+dur(st.duration)+' · '+Math.round(st.chance*100)+'%</button><small style="display:block;color:var(--text-muted)">Guarnição: '+fmt(st.garrison)+' (Quartzos, Rubis, Topázios e Ágatas; generais reforçam). A missão "Pacificar" da Corte também enfraquece a resistência.</small>';
+        html+=renderResponses(p,r);
         if(r.log.length)html+='<div class="resist-log">'+r.log.slice(0,4).map(e=>'<small>'+esc(e.text)+'</small>').join('')+'</div>';
         return html+'</div>';
     }
-    window.GempireResistance={update,contain,reduce,yieldFactor,renderPlanet,phase:p=>res(p).phase,_res:res,_sabotage:sabotage,PHASES};
+    function btn(label,on,disabled,cls){return '<button class="btn'+(cls?' '+cls:'')+'" '+(disabled?'disabled':'')+' onclick="'+on+'">'+label+'</button>';}
+    function renderResponses(p,r){
+        if(r.strength<10&&!r.members&&!r.leader)return '';
+        const id=p.id,c=censusOf(p),L=r.leader;let h='';
+        if(r.truceUntil>Date.now())h+='<small class="resist-truce">Trégua: '+dur((r.truceUntil-Date.now())/1000)+(r.haltUntil>Date.now()?' · extração suspensa (não extraia ou a trégua cai)':'')+'</small>';
+        // Líder
+        if(L)h+='<div class="resist-leader"><b>'+(L.identified?esc(L.name):'Líder desconhecida')+'</b>'+(L.identified?'<small>'+LEADER_TYPES[L.type].label+(L.offcolor?' · off-color':'')+' · '+LEADER_TYPES[L.type].desc+(L.deal?' · cumpre um acordo':'')+'</small>':'<small>Use inteligência para identificá-la e poder negociar.</small>')+'</div>';
+        // Inteligência
+        const cdS=cooldownLeft(r,'intel_seer'),cdE=cooldownLeft(r,'intel_eye'),cdP=cooldownLeft(r,'intel_spy');
+        h+='<div class="court-subtitle">Inteligência</div><div class="court-actions">'+
+            btn('Safiras videntes'+(cdS?' · '+dur(cdS):''),"GempireResistance.intel('"+id+"','seer')",!(Number(c.sapphire)>0)||cdS>0)+
+            btn('Olho Vermelho'+(cdE?' · '+dur(cdE):''),"GempireResistance.intel('"+id+"','eye')",cdE>0)+
+            btn('Infiltrar espiã'+(cdP?' · '+dur(cdP):''),"GempireResistance.intel('"+id+"','spy')",cdP>0)+'</div>'+
+            '<small style="display:block;color:var(--text-muted)">Safiras: força exata, identificam a líder e preveem a próxima sabotagem. Olho Vermelho: mapeia as células (+15% no ataque) e conta as galerias. Espiã (Pérola ou Quartzo): pode identificar a líder ou ser capturada.</small>';
+        // Ataque
+        if(r.assault)h+='<div class="stat-box">Ataque militar<div class="founding-progress"><div style="width:'+r.assault.progress+'%"></div></div><small>Chance '+Math.round(r.assault.chance*100)+'% · faltam '+dur(r.assault.duration*(100-r.assault.progress)/100)+'</small></div>';
+        else if(r.strength>=10){const a=assaultStats(p);h+='<div class="court-subtitle">Força</div>'+btn('Ataque militar · '+a.cost+' essência · '+dur(a.duration)+' · '+Math.round(a.chance*100)+'%'+(a.intel?' (com mapa)':''),"GempireResistance.assault('"+id+"')",!!r.operation,'btn-pink')+'<small style="display:block;color:var(--text-muted)">Tropas: '+fmt(a.attack)+' contra '+fmt(a.defense)+' (força, desertoras e galerias). Decisivo (−50 a −65), mas causa baixas, estilhaça desertoras e revolta a colônia. Diamantes duras aprovam; gentis reprovam.</small>';}
+        // Negociação
+        if(r.negotiation){const n=r.negotiation;h+='<div class="court-subtitle">Negociação · '+dur(n.remaining)+'</div>'+n.demands.map((d,i)=>'<div class="court-row resist-demand"><span>'+(d.granted?'✓ ':'')+esc(d.label)+(d.cost?' · '+fmt(d.cost.minerals)+' minerais':'')+'</span>'+(d.granted?'<small>Concedido</small>':btn('Conceder',"GempireResistance.grant('"+id+"',"+i+")"))+'</div>').join('')+
+            '<div class="court-actions">'+btn('Fechar acordo',"GempireResistance.deal('"+id+"')",false,'btn-emerald')+btn('Romper',"GempireResistance.deal('"+id+"',true)",false,'btn-pink')+'</div><small style="display:block;color:var(--text-muted)">Tudo concedido: trégua de 20 min e −50 de força. Metade ou mais: trégua de 10 min e −25. A Radical só aceita tudo.</small>';}
+        else if(L&&L.identified&&r.strength>=10){const cd=cooldownLeft(r,'negotiate');h+='<div class="court-subtitle">Diplomacia</div>'+btn('Negociar com '+esc(L.name)+(cd?' · '+dur(cd):''),"GempireResistance.negotiate('"+id+"')",cd>0);}
+        // Anistia
+        if(r.members>0){const a=amnestyStats(p),cd=cooldownLeft(r,'amnesty');h+='<div class="court-subtitle">Anistia</div>'+btn('Oferecer anistia · '+a.cost+' essência · ~'+Math.round(a.chance*100)+'% aceitam'+(cd?' · '+dur(cd):''),"GempireResistance.amnesty('"+id+"')",cd>0)+'<small style="display:block;color:var(--text-muted)">'+fmt(r.members)+' desertora(s): '+Object.entries(r.memberCastes).map(([k,n])=>n+' '+casteName(k.split('|')[0])+(k.endsWith('|off')?' off-color':'')).join(', ')+'. Leis brandas e tréguas aumentam a adesão.</small>';}
+        return h;
+    }
+    window.GempireResistance={update,contain,intel,assault,negotiate,grant:grantDemand,deal:closeDeal,amnesty,reduce,yieldFactor,renderPlanet,phase:p=>res(p).phase,_res:res,_sabotage:sabotage,PHASES};
 })();

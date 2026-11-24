@@ -204,6 +204,7 @@
     function hiddenEstimate(planet){
         const r=registry(planet),h=r.hidden;if(!h)return {text:'Nenhum sinal',exact:true};
         if(Object.keys(r.groups).some(k=>k==='sapphire|vision'))return {text:fmt(h)+' (visão do passado)',exact:true};
+        if(Number(planet.resistance?.galleryIntelUntil)>Date.now())return {text:fmt(h)+' (varredura orbital)',exact:true};
         const lo=Math.max(1,Math.floor(h*.6)),hi=Math.ceil(h*1.5);return {text:'entre '+fmt(lo)+' e '+fmt(hi),exact:false};
     }
     function render(container){
@@ -215,7 +216,7 @@
         html+='<section class="card"><div class="card-header"><span class="card-title">Lei Off-Color</span><span class="badge">'+(left>0?'Nova mudança em '+(typeof formatDuration==='function'?formatDuration(left):Math.ceil(left)+'s'):'Pode mudar')+'</span></div><div class="order-laws">'+
             Object.entries(POLICIES).map(([k,p])=>{const op=OPINION[k];const fav=Object.entries(op).filter(([,v])=>v>.05).map(([t])=>({harsh:'duras',gentle:'gentis',cerebral:'racionais',grand:'grandiosas'})[t]);const against=Object.entries(op).filter(([,v])=>v<-.05).map(([t])=>({harsh:'duras',gentle:'gentis',cerebral:'racionais',grand:'grandiosas'})[t]);
                 return '<div class="stat-box order-law'+(k===pol?' active':'')+'"><b>'+p.label+(k===pol?' · em vigor':'')+'</b><small style="display:block">'+p.desc+'</small><small style="display:block;color:var(--text-muted);margin-top:4px">Trabalho: '+Math.round(p.work*100)+'% · Aprovam: '+(fav.join(', ')||'ninguém')+' · Reprovam: '+(against.join(', ')||'ninguém')+'</small>'+(k===pol?'':'<button class="btn btn-block" '+(left>0?'disabled':'')+' onclick="GempireOffColors.setPolicy(\''+k+'\')">Decretar</button>')+'</div>';}).join('')+'</div></section>';
-        html+='<section class="card"><div class="card-header"><span class="card-title">Colônias</span><span class="badge">'+planets.length+'</span></div>'+planets.map(planet=>{
+        html+='<section class="card order-colonies"><div class="card-header"><span class="card-title">Colônias</span><span class="badge">'+planets.length+'</span></div>'+planets.map(planet=>{
             const r=registry(planet),groups=Object.entries(r.groups).sort((a,b)=>b[1]-a[1]),est=hiddenEstimate(planet),chance=offColorChance(planet);
             return '<div class="order-planet"><div class="court-row"><b>'+esc(planet.shortName)+'</b><span class="badge">'+Math.round(Number(planet.dissent)||0)+'% dissidência'+(planet.rebellionActive?' · rebelião':'')+'</span></div>'+
                 '<div class="grid-2"><div class="stat-box">Off-colors visíveis <b>'+fmt(visibleTotal(planet))+'</b></div><div class="stat-box">Galerias <b>'+est.text+'</b></div></div>'+
