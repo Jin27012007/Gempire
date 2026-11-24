@@ -1232,7 +1232,7 @@
         };
         PLANETS.homeworld.systemId='home_system';
         ['ignis_prime','thalassa_9','caelum_gelidus','terra_veritas'].forEach((id,index)=>{PLANETS[id].systemId='unknown_'+index;});
-        for(let i=4;i<7;i++){const id='frontier_world_'+i,base=JSON.parse(JSON.stringify(PLANETS.terra_veritas)),temp=[-125,-18,42][i-4],pressure=[0.18,1.6,0.72][i-4],au=[0.72,1.34,2.45][i-4];Object.assign(base,{id,name:'Mundo de Fronteira '+(i+1),shortName:'Fronteira '+(i+1),systemId:'unknown_'+i,scouted:false,travelUnlocked:false,reconnaissance:null,colonized:false,governor:'none',redEyesBuilt:0,structures:{injector:0,mineral_extractor:0,galaxy_warp:0},remoteConstructionQueue:[],fleetVisits:[],organicLifePresent:i===5,organicLifePopulation:i===5?120000:null,hasOcean:i===5,lore:'Um planeta ainda não catalogado em um sistema estelar distante.',biomeTag:'Mundo de fronteira · dados desconhecidos',orbitRadius:82+i*17,orbitAngle:.8+i*.61,orbitSpeed:.00004,sphereRadius:25,walkingGems:[]});base.veins=(base.veins||[]).map((v,j)=>({...v,id:j,injector:null,rebelBlocked:false}));PLANETS[id]=base;PLANET_ENVIRONMENT[id]={temperatureC:temp,atmosphericPressureAtm:pressure,orbitAU:au};}
+        // Os antigos Mundos de Fronteira 5–7 deram lugar à galáxia procedural (generateGalaxy).
         function applyPlanetEnvironmentDefaults(planet){
             const defaults=planet&&PLANET_ENVIRONMENT[planet.id];
             if(!defaults)return;
@@ -1669,17 +1669,165 @@
         const NEW_CAMPAIGN_STATE_TEMPLATE = JSON.parse(JSON.stringify(state));
         const NEW_CAMPAIGN_PLANETS_TEMPLATE = JSON.parse(JSON.stringify(PLANETS));
 
+        // --- GALÁXIA PROCEDURAL (uma semente por partida) ---
+        // Cada nova civilização recebe uma galáxia própria: quantidade e posição dos sistemas,
+        // classe e nome das estrelas, e de 1 a 5 planetas por sistema com órbita, tamanho,
+        // temperatura, pressão, bioma, oceano, vida, luas, veios e reservas coerentes entre si.
+        // Os quatro mundos escritos à mão (Ignis-Prime, Thalassa-9, Caelum-Gelidus e
+        // Terra-Veritas) continuam existindo e são posicionados em sistemas sorteados.
+        // A galáxia inteira fica no save (state.galaxy + PLANETS), então não muda ao recarregar.
+        const SPECIAL_WORLD_IDS=['ignis_prime','thalassa_9','caelum_gelidus','terra_veritas'];
+        const GALAXY_VERSION=1;
+        const STAR_CLASSES=[
+            {cls:'M',label:'Anã vermelha',color:'#ff9a7a',lum:.3,size:5,weight:30},
+            {cls:'K',label:'Anã laranja',color:'#ffc48a',lum:.6,size:6,weight:24},
+            {cls:'G',label:'Anã amarela',color:'#ffe6a8',lum:1,size:7,weight:20},
+            {cls:'F',label:'Estrela branco-amarelada',color:'#fff4dc',lum:2,size:8,weight:12},
+            {cls:'A',label:'Estrela branca',color:'#e6ecff',lum:5,size:9,weight:7},
+            {cls:'B',label:'Gigante azul',color:'#a8c8ff',lum:14,size:11,weight:4},
+            {cls:'X',label:'Estrela cristalina',color:'#e7c4ff',lum:2.5,size:9,weight:3}
+        ];
+        const GALAXY_SYLLABLES=['Ae','Bel','Cor','Dra','Eos','Fen','Gal','Hel','Ix','Ka','Lor','Myr','Nyx','Or','Pra','Quel','Ry','Sel','Tal','Ur','Vel','Xan','Yr','Zel','Ast','Cael','Mor','Sil','Ther','Vor'];
+        const GALAXY_ENDINGS=['a','ia','on','is','ar','eth','ium','ora','ys','ax','el','ine','os','ara'];
+        const ROMAN=['I','II','III','IV','V','VI','VII'];
+        const BIOME_WORLD_DATA={
+            volcanic:{tag:'Vulcânico',palette:{primary:'#ea580c',secondary:'#facc15',core:'#fef08a',mantle:'#dc2626',ocean:'#9a3412',continent:'#431407',drainedCrust:'#44403c',atmosphere:'rgba(249,115,22,.42)',cloud:'rgba(253,186,116,.2)'},
+                veins:[['metallic','Veio Metálico Magmático'],['quartz','Quartzo Ígneo'],['obsidian','Veio de Obsidiana'],['silicate','Basalto Silicatado'],['metallic','Forja Metálica'],['garnet','Granada Vulcânica'],['quartz','Quartzo Avermelhado'],['metallic','Núcleo Metálico']],
+                lore:'Um mundo incandescente de mares de magma e crosta fraturada, rico em metais pesados.',optimal:'Bismutos, Rubis e Obsidianas',bad:'⚠️ Calor extremo. Exige Obsidianas Floco de Neve e, depois, Lápis-Lazúlis para preparar o terreno.',favored:['metallic','obsidian','quartz','garnet']},
+            icy:{tag:'Glacial',palette:{primary:'#bae6fd',secondary:'#e0f2fe',core:'#f0f9ff',mantle:'#7dd3fc',ocean:'#0c4a6e',continent:'#e0f2fe',drainedCrust:'#475569',atmosphere:'rgba(186,230,253,.45)',cloud:'rgba(240,249,255,.3)'},
+                veins:[['quartz','Quartzo Glacial'],['beryllium','Nódulo de Berílio'],['corundum','Coríndon Congelado'],['silicate','Silicato Polar'],['quartz','Quartzo Leitoso'],['topaz','Bolsa de Topázio'],['corundum','Safira Bruta'],['silicate','Rocha Gelada']],
+                lore:'Um globo congelado coberto por geleiras cristalinas e oceanos aprisionados sob o gelo.',optimal:'Safiras, Águas-marinhas e Quartzos',bad:'⚠️ Mundo congelado. Exige Obsidianas para aquecer e, depois, Lápis-Lazúlis.',favored:['corundum','beryllium','quartz','topaz']},
+            oceanic:{tag:'Oceânico',palette:{primary:'#0284c7',secondary:'#38bdf8',core:'#7dd3fc',mantle:'#0369a1',ocean:'#082f49',continent:'#075985',drainedCrust:'#334155',atmosphere:'rgba(56,189,248,.48)',cloud:'rgba(186,230,253,.3)'},
+                veins:[['nacre','Recife Nacarado'],['lapisrock','Veio de Lápis-lazúli'],['olivine','Olivina Submersa'],['silicate','Silicato Marinho'],['nacre','Depósito Carbonático'],['corundum','Coríndon Abissal'],['olivine','Olivina Costeira'],['quartz','Quartzo de Plataforma']],
+                lore:'Um oceano profundo envolto em névoa, salpicado de ilhas e plataformas de recife.',optimal:'Lápis-Lazúlis, Pérolas e Peridotos',bad:'⚠️ Pouca terra firme. Exige Lápis-Lazúlis para erguer continentes.',favored:['nacre','lapisrock','olivine']},
+            organic:{tag:'Biosfera Orgânica',palette:{primary:'#16a34a',secondary:'#4ade80',core:'#bbf7d0',mantle:'#166534',ocean:'#0c4a6e',continent:'#15803d',drainedCrust:'#44403c',atmosphere:'rgba(134,239,172,.42)',cloud:'rgba(255,255,255,.3)'},
+                veins:[['olivine','Olivina Fértil'],['nacre','Sedimento Orgânico'],['pyroxene','Veio de Piroxênio'],['quartz','Quartzo de Planície'],['silicate','Silicato Verde'],['lapisrock','Lápis-lazúli Costeiro'],['olivine','Olivina Profunda'],['metallic','Minério Ferroso']],
+                lore:'Um mundo temperado com oceanos, continentes e uma biosfera orgânica nativa.',optimal:'Peridotos, Jades e Pérolas',bad:'⚠️ Possui vida orgânica nativa: a extração afeta a biosfera.',favored:['olivine','pyroxene','nacre']},
+            rocky:{tag:'Rochoso',palette:{primary:'#8b7d6b',secondary:'#b8a58c',core:'#e2cfa6',mantle:'#5b4b3d',ocean:'#292524',continent:'#78716c',drainedCrust:'#292524',atmosphere:'rgba(196,181,253,.3)',cloud:'rgba(231,229,228,.12)'},
+                veins:[['quartz','Afloramento de Quartzo'],['silicate','Rocha Silicatada'],['corundum','Nódulo de Coríndon'],['metallic','Rocha Ferrífera'],['quartz','Veio de Quartzo Denso'],['garnet','Bolsão de Granada'],['silicate','Basalto Escuro'],['metallic','Nódulo Metálico']],
+                lore:'Um mundo árido de planaltos, cânions e crosta rica em silicatos.',optimal:'Quartzos, Bismutos e Ágatas',bad:'⚠️ Sem água livre: a etapa hídrica depende das Águas-marinhas.',favored:['quartz','silicate','corundum','metallic']}
+        };
+        const MOON_COLORS=['#cbd5e1','#a5b4fc','#fb923c','#38bdf8','#e9d5ff','#94a3b8','#fde68a'];
+        function newGalaxySeed(){return ((Math.random()*0xffffffff)^Date.now())>>>0;}
+        function galaxyName(random){const n=random()<.35?1:2;let s='';for(let i=0;i<n;i++)s+=GALAXY_SYLLABLES[Math.floor(random()*GALAXY_SYLLABLES.length)];s+=GALAXY_ENDINGS[Math.floor(random()*GALAXY_ENDINGS.length)];return s.charAt(0).toUpperCase()+s.slice(1).toLowerCase();}
+        function pickWeighted(list,random){const total=list.reduce((a,x)=>a+x.weight,0);let r=random()*total;for(const x of list){r-=x.weight;if(r<=0)return x;}return list[list.length-1];}
+        function getGalaxySystems(){return Array.isArray(state.galaxy?.systems)?state.galaxy.systems:[];}
+        function getStarSystem(id){return getGalaxySystems().find(s=>s.id===id)||null;}
+        function getStarSystemName(id){if(id==='home_system')return 'Homeworld';return getStarSystem(id)?.name||'Sistema desconhecido';}
+
+        function generateProceduralPlanet(system,index,au,random){
+            const id='gen_'+system.id.replace(/^sys_/,'')+'_'+index;
+            const sizeRoll=Math.pow(random(),1.4),sphereRadius=Math.round(14+sizeRoll*24);
+            const sizeClass=sphereRadius>=31?'giant':sphereRadius>=21?'medium':'small';
+            const pressure=Math.round(Math.max(.05,(sizeClass==='small'?.4:sizeClass==='medium'?1.1:2.2)*Math.exp((random()-.5)*1.8))*100)/100;
+            // Temperatura de equilíbrio pela luminosidade da estrela e distância, mais efeito estufa.
+            const teq=278*Math.pow(system.lum,.25)/Math.sqrt(au)-273;
+            const temperatureC=Math.round(teq+18*Math.log2(1+pressure)+(random()-.5)*24);
+            let biome,hasOcean=false,organicLifePresent=false;
+            if(temperatureC>110)biome='volcanic';
+            else if(temperatureC<-25)biome='icy';
+            else{
+                hasOcean=random()<(temperatureC>-5&&temperatureC<70?.62:.3);
+                if(hasOcean&&temperatureC>0&&temperatureC<45&&pressure>.4&&random()<.38){biome='organic';organicLifePresent=true;}
+                else biome=hasOcean?'oceanic':'rocky';
+            }
+            const topologies={volcanic:['fragmented','continental','terrestrial'],icy:['polar','terrestrial','continental'],oceanic:['archipelago','oceanic','continental'],organic:['continental','archipelago','terrestrial'],rocky:['terrestrial','superterrestrial','fragmented','continental']}[biome];
+            const topology=topologies[Math.floor(random()*topologies.length)];
+            const coverages={continental:.43,archipelago:.22,oceanic:.12,terrestrial:.76,polar:.55,fragmented:.48,superterrestrial:.9};
+            const landCoverage=Math.max(.06,Math.min(.97,coverages[topology]+(random()-.5)*.14));
+            const data=BIOME_WORLD_DATA[biome],name=system.name+' '+ROMAN[index];
+            const specs=data.veins.map(([type,label])=>({type,label,purity:Math.round(40+random()*60)}));
+            [['pyroxene','Veio de Piroxênio',54],['lapisrock','Veio de Lápis-lazúli',58],['beryllium','Nódulo de Berílio',38],['topaz','Bolsa de Topázio',46]].forEach(([type,label,purity])=>{if(!specs.some(v=>v.type===type))specs.push({type,label,purity:Math.round(purity*(.7+random()*.6))});});
+            const profile={small:{size:'pequeno',min:1000,max:10000,pressure:35,forgeSeconds:180,power:1},medium:{size:'médio',min:10000,max:30000,pressure:85,forgeSeconds:95,power:1.8},giant:{size:'gigante rochoso',min:31000,max:50000,pressure:150,forgeSeconds:45,power:2.5}}[sizeClass];
+            const total=Math.floor(profile.min+random()*(profile.max-profile.min+1));
+            const weights={quartz:20,silicate:17,corundum:14,metallic:15,nacre:9,garnet:4,olivine:5,lapisrock:3,pyroxene:6,beryllium:1,obsidian:4,topaz:2};
+            data.favored.forEach(k=>weights[k]*=2.2);
+            const keys=Object.keys(weights),wsum=keys.reduce((a,k)=>a+weights[k],0),resources={};let assigned=0;
+            keys.forEach((k,i)=>{const amount=i===keys.length-1?total-assigned:Math.floor(total*weights[k]/wsum);resources[k]=amount;assigned+=amount;});
+            const moonCount=sizeClass==='small'?(random()<.3?1:0):sizeClass==='medium'?Math.floor(random()*2.4):1+Math.floor(random()*2.6);
+            const moons=Array.from({length:moonCount},(_,m)=>({dist:1.45+m*.28+random()*.1,size:7+Math.round(random()*4),speed:.0003+random()*.0006,color:MOON_COLORS[Math.floor(random()*MOON_COLORS.length)]}));
+            const tempLabel=temperatureC>110?'Alta Temperatura':temperatureC<-25?'Frio Extremo':'Clima Temperado';
+            const planet={
+                id,scouted:false,travelUnlocked:false,reconnaissance:null,structures:{injector:0,mineral_extractor:0,galaxy_warp:0},remoteConstructionQueue:[],fleetVisits:[],
+                name:name+' ('+data.tag+')',shortName:name,biomeTag:data.tag+(PLANET_TOPOLOGY_LABELS[topology]?' '+PLANET_TOPOLOGY_LABELS[topology]:'')+' • '+tempLabel,
+                hasOcean,organicLifePresent,organicLifePopulation:organicLifePresent?Math.round(10000+random()*490000):0,
+                lore:data.lore,optimalText:data.optimal,badText:data.bad,
+                colonized:false,unlockCost:{minerals:Math.round((150+system.dist*120+index*15)/10)*10,white:Math.round((40+system.dist*35+index*5)/5)*5},governor:'none',
+                crustHealth:100,coreVitality:100,seismicHeat:biome==='volcanic'?Math.round(25+random()*20):Math.round(2+random()*12),dissent:0,rebellionActive:false,thermalSinks:hasOcean?1:0,spiresCount:0,warpPadsCount:0,
+                hasOrbitalRing:false,hasRings:sizeClass==='giant'&&random()<.35,
+                orbitRadius:70+index*48,orbitAngle:random()*Math.PI*2,orbitSpeed:.00004+.00022/(index+1),sphereRadius,
+                colors:Object.assign({},data.palette),moons,veins:createRadialVeins(specs),emergedHoles:[],walkingGems:[],
+                systemId:system.id,redEyesBuilt:0,temperatureC,atmosphericPressureAtm:pressure,orbitAU:Math.round(au*100)/100,
+                waterReserve:hasOcean?5000:800,landmassCreated:false,mountainous:biome==='icy'&&random()<.4,
+                resourceSize:profile.size,resourceTotal:total,resourcesRemaining:total,resourcesByType:resources,corePressure:profile.pressure,diamondForgeSeconds:profile.forgeSeconds,diamondPower:profile.power,
+                surfaceProfile:{version:1,seed:Math.floor(random()*0xffffffff)>>>0,topology,biome,landCoverage,waterKind:biome==='volcanic'?'lava':biome==='icy'?'ice':hasOcean?'water':'none',featureCount:topology==='archipelago'?18:topology==='oceanic'?10:4}
+            };
+            if(planet.mountainous)planet.waterReserve=Math.max(3500,planet.waterReserve);
+            return planet;
+        }
+
+        function generateGalaxy(seed){
+            seed=(Number(seed)>>>0)||newGalaxySeed();
+            const random=surfaceRandom(seed);
+            // Remove mundos de galáxias anteriores (gerados ou de fronteira); preserva Homeworld e os especiais.
+            Object.keys(PLANETS).forEach(id=>{if(id!=='homeworld'&&!SPECIAL_WORLD_IDS.includes(id))delete PLANETS[id];});
+            const count=7+Math.floor(random()*5),systems=[],used=new Set();
+            for(let attempt=0;systems.length<count&&attempt<4000;attempt++){
+                const a=random()*Math.PI*2,r=.3+Math.sqrt(random())*.7,x=Math.cos(a)*r,y=Math.sin(a)*r;
+                if(systems.some(s=>Math.hypot(s.x-x,s.y-y)<.27))continue;
+                let name=galaxyName(random);while(used.has(name))name=galaxyName(random);used.add(name);
+                const star=pickWeighted(STAR_CLASSES,random);
+                systems.push({id:'sys_'+systems.length,name,starClass:star.cls,starLabel:star.label,color:star.color,size:star.size,lum:Math.round(star.lum*(.8+random()*.4)*100)/100,x:Math.round(x*1000)/1000,y:Math.round(y*1000)/1000,dist:Math.round(r*100)/100});
+            }
+            // Mundos especiais: cada um em um sistema distinto, sorteado.
+            const order=systems.map((s,i)=>i).sort(()=>random()-.5);
+            const specialAt={};SPECIAL_WORLD_IDS.forEach((id,k)=>{if(PLANETS[id]&&order[k]!==undefined)specialAt[order[k]]=id;});
+            systems.forEach((system,si)=>{
+                const planetCount=1+Math.floor(Math.pow(random(),.8)*5),ids=[];
+                const special=specialAt[si],specialSlot=special?Math.floor(random()*planetCount):-1;
+                for(let k=0;k<planetCount;k++){
+                    const au=Math.round((.3+.5*k+random()*.22)*Math.sqrt(system.lum)*100)/100;
+                    if(k===specialSlot){
+                        const p=PLANETS[special];
+                        Object.assign(p,{systemId:system.id,orbitRadius:70+k*48,orbitAngle:random()*Math.PI*2,orbitSpeed:.00004+.00022/(k+1),orbitAU:au,unlockCost:{minerals:Math.round((150+system.dist*120+k*15)/10)*10,white:Math.round((40+system.dist*35+k*5)/5)*5}});
+                        ensurePlanetSurfaceProfile(p);p.surfaceProfile.seed=Math.floor(random()*0xffffffff)>>>0;
+                        ids.push(special);continue;
+                    }
+                    const planet=generateProceduralPlanet(system,k,au,random);
+                    PLANETS[planet.id]=planet;ids.push(planet.id);
+                }
+                system.planetIds=ids;
+            });
+            const home=PLANETS.homeworld;ensurePlanetSurfaceProfile(home);home.surfaceProfile.seed=Math.floor(random()*0xffffffff)>>>0;home.systemId='home_system';
+            state.galaxy={version:GALAXY_VERSION,seed,systems:[{id:'home_system',name:'Homeworld',starClass:'M',starLabel:'Estrela moribunda',color:'#ff9e6e',size:16,lum:.9,x:0,y:0,dist:0,home:true,planetIds:['homeworld']},...systems]};
+            PLANET_SURFACE_CACHE.clear();
+            return state.galaxy;
+        }
+        // Saves anteriores à galáxia procedural: monta o mapa a partir dos sistemas fixos antigos.
+        function ensureGalaxyState(){
+            if(state.galaxy&&Array.isArray(state.galaxy.systems)&&state.galaxy.systems.length)return state.galaxy;
+            const ids=[...new Set(Object.values(PLANETS).map(p=>p.systemId||'home_system'))].filter(id=>id!=='home_system').sort();
+            const tints=['#c9a6ff','#9fd8ff','#f4a8e4','#ffe0a0','#a8f0d8','#d6b4ff','#ffc2c2'];
+            const systems=ids.map((id,i)=>{const a=i*2.3999632297+.4,d=.55+(i%3)*.17;return {id,name:'Sistema '+(i+1),starClass:'G',starLabel:'Estrela',color:tints[i%tints.length],size:5+i%3*1.6,lum:1,x:Math.cos(a)*d,y:Math.sin(a)*d,dist:d,planetIds:Object.values(PLANETS).filter(p=>p.systemId===id).map(p=>p.id)};});
+            state.galaxy={version:0,seed:0,legacy:true,systems:[{id:'home_system',name:'Homeworld',starClass:'M',starLabel:'Estrela moribunda',color:'#ff9e6e',size:16,lum:.9,x:0,y:0,dist:0,home:true,planetIds:['homeworld']},...systems]};
+            return state.galaxy;
+        }
+        generateGalaxy(newGalaxySeed());
+
         function resetCampaignForNewGame(founderIdentity) {
             for (const key of Object.keys(state)) delete state[key];
             Object.assign(state, JSON.parse(JSON.stringify(NEW_CAMPAIGN_STATE_TEMPLATE)));
 
             for (const id of Object.keys(PLANETS)) {
+                if (!NEW_CAMPAIGN_PLANETS_TEMPLATE[id]) { delete PLANETS[id]; continue; }
                 const freshPlanet = JSON.parse(JSON.stringify(NEW_CAMPAIGN_PLANETS_TEMPLATE[id]));
                 for (const key of Object.keys(PLANETS[id])) delete PLANETS[id][key];
                 Object.assign(PLANETS[id], freshPlanet);
             }
 
             Object.assign(state.firstDiamond, founderIdentity);
+            // Nova partida, nova galáxia: a semente fica salva em state.galaxy.seed.
+            generateGalaxy(newGalaxySeed());
             // A campanha começa na cena principal; o Globo 360° continua acessível pela navegação.
             state.currentScreen = 'throne';
             state.activeColonyPlanetId = 'homeworld';
@@ -3255,7 +3403,7 @@
             changeActiveColonyPlanet(targetId);switchScreen('colony');
             setStatusTicker('Teletransporte instantâneo concluído para '+PLANETS[targetId].shortName+'.');
         }
-        function getSpaceDistance(originId,targetId){const a=PLANETS[originId],b=PLANETS[targetId];if(!a||!b)return 1;const au=id=>{const p=PLANETS[id],env=PLANET_ENVIRONMENT[id]||{};return Number(env.orbitAU??p.orbitAU??(Number(p.orbitRadius)||100)/100)||0;};return Math.max(.25,Math.abs(au(originId)-au(targetId))+(a.systemId!==b.systemId?3:0));}
+        function getSpaceDistance(originId,targetId){const a=PLANETS[originId],b=PLANETS[targetId];if(!a||!b)return 1;const au=id=>{const p=PLANETS[id],env=PLANET_ENVIRONMENT[id]||{};return Number(env.orbitAU??p.orbitAU??(Number(p.orbitRadius)||100)/100)||0;};const sa=getStarSystem(a.systemId||'home_system'),sb=getStarSystem(b.systemId||'home_system');const between=a.systemId===b.systemId?0:(sa&&sb?1.2+Math.hypot(sa.x-sb.x,sa.y-sb.y)*2.6:3);return Math.max(.25,Math.abs(au(originId)-au(targetId))+between);}
         function getSpaceTravelSeconds(originId,targetId,factor=1){return Math.max(12,Math.ceil((30+getSpaceDistance(originId,targetId)*150)/Math.max(.25,factor)));}
         function startRedEyeMission(targetId,requestedOrigin){if(!PLANETS[targetId]||PLANETS[targetId].scouted){setStatusTicker('Selecione um planeta ainda não reconhecido.',true);return;}const originId=requestedOrigin&&PLANETS[requestedOrigin]?requestedOrigin:pickRedEyeOrigin(targetId);if(!originId||getAvailableRedEyeCountAt(originId)<1){setStatusTicker('Não há Olho Vermelho livre'+(requestedOrigin?' em '+(PLANETS[requestedOrigin]?.shortName||'origem'):'')+'. Aguarde uma missão ou construa outra unidade.',true);return;}state.redEyeMissions=Array.isArray(state.redEyeMissions)?state.redEyeMissions:[];state.redEyeMissions.push({id:'eye_'+Date.now()+'_'+Math.floor(Math.random()*1e5),planetId:targetId,originId,phase:'outbound',phaseProgress:0,phaseDuration:getSpaceTravelSeconds(originId,targetId),progress:0,active:true,reportDraft:null});setStatusTicker('Olho Vermelho enviado de '+PLANETS[originId].shortName+' para '+PLANETS[targetId].shortName+'.');updateHUD();renderDrawerContent();}
         function renameScoutedPlanet(id,name){const p=PLANETS[id],value=String(name||'').trim().slice(0,32);if(!p||!p.scouted||!value){setStatusTicker('Nome inválido ou planeta ainda não reconhecido.',true);return;}p.shortName=value;p.name=value;if(p.reconnaissance)p.reconnaissance.planetName=value;(state.redEyeReports||[]).filter(r=>r.planetId===id).forEach(r=>r.planetName=value);setStatusTicker('Planeta renomeado para '+value+'.');addChronicle('Planeta renomeado',id+' recebeu o nome '+value+'.','Catálogo atualizado');renderDrawerContent();renderBottomBar();}
@@ -3469,7 +3617,7 @@
                 }).join('')+'</div>';
         }
         function getPlanetsInStarSystem(id){return Object.values(PLANETS).filter(p=>(p.systemId||'home_system')===id);}
-        function selectStarSystem(id){if(id!=='home_system'&&!/^unknown_[0-6]$/.test(id))return;const worlds=getPlanetsInStarSystem(id);if(!worlds.length)return;state.starMapView='system';state.selectedStarSystemId=id;state.selectedStarMapPlanetId=worlds[0].id;renderDrawerContent();renderBottomBar();}
+        function selectStarSystem(id){if(id!=='home_system'&&!getStarSystem(id))return;const worlds=getPlanetsInStarSystem(id);if(!worlds.length)return;state.starMapView='system';state.selectedStarSystemId=id;state.selectedStarMapPlanetId=worlds[0].id;renderDrawerContent();renderBottomBar();}
         function returnToGalaxyMap(){state.starMapView='galaxy';renderDrawerContent();renderBottomBar();}
 
         function resolveSpaceDiplomacyRequest(id,accept){const r=(state.spaceDiplomacyRequests||[]).find(x=>x.id===id&&x.status==='pending');if(!r)return;if(accept){if(freeGemWorkers('demantoid')<1){setStatusTicker('Não existe Demantoide livre.',true);return;}state.census.demantoid--;const p=PLANETS[r.planetId];if(p)p.demantoidSupervisor=true;r.status='accepted';}else r.status='rejected';updateHUD();renderDrawerContent();}
@@ -3948,11 +4096,12 @@ ${hasAristocrats ? `
             const report=p.reconnaissance||(p.scouted?createRedEyeReport(p):null);
             const missions=Array.isArray(state.redEyeMissions)?state.redEyeMissions:[];
             const activeMissions=missions.filter(m=>m.active);
-            let html='<div class="card card-cyan"><div class="card-header"><b class="card-title">'+(state.starMapView==='galaxy'?'Mapa galáctico':'Sistema estelar · '+(systemId==='home_system'?'Homeworld':'Estrela '+(Number(systemId.split('_')[1])+1)))+'</b><span class="badge">'+Object.values(PLANETS).filter(x=>x.scouted).length+'/'+Object.keys(PLANETS).length+' reconhecidos</span></div>';
+            let html='<div class="card card-cyan"><div class="card-header"><b class="card-title">'+(state.starMapView==='galaxy'?'Mapa galáctico':'Sistema estelar · '+escapeHTML(getStarSystemName(systemId)))+'</b><span class="badge">'+Object.values(PLANETS).filter(x=>x.scouted).length+'/'+Object.keys(PLANETS).length+' reconhecidos</span></div>';
             if(state.starMapView==='galaxy'){
-                html+='<p class="structure-desc">Homeworld é um sistema isolado com um único planeta. Selecione outra estrela para explorar seus próprios mundos.</p>';
+                html+='<p class="structure-desc">Homeworld é um sistema isolado com um único planeta. Esta galáxia tem '+(getGalaxySystems().length-1)+' outros sistemas'+(state.galaxy?.seed?' · semente '+state.galaxy.seed:'')+'. Selecione uma estrela para explorar seus mundos.</p>';
                 html+='<div class="stat-box"><b>☀ Sistema Homeworld</b><small>1 planeta · estrela moribunda · sistema inicial</small><button class="btn btn-emerald btn-block" onclick="selectStarSystem(\'home_system\')">Entrar no sistema</button></div>';
-                for(let i=0;i<7;i++){const id='unknown_'+i,ws=getPlanetsInStarSystem(id);html+='<div class="stat-box"><b>✦ Sistema '+(i+1)+'</b><small>'+ws.length+' planeta(s) · '+ws.filter(w=>w.scouted).length+' reconhecido(s)</small><button class="btn btn-block" onclick="selectStarSystem(\''+id+'\')">Viajar até a estrela</button></div>';}
+                const homeSys=getStarSystem('home_system')||{x:0,y:0};
+                getGalaxySystems().filter(sys=>!sys.home).slice().sort((a,b)=>Math.hypot(a.x-homeSys.x,a.y-homeSys.y)-Math.hypot(b.x-homeSys.x,b.y-homeSys.y)).forEach(sys=>{const ws=getPlanetsInStarSystem(sys.id),colonies=ws.filter(w=>w.colonized).length;html+='<div class="stat-box"><b>✦ '+escapeHTML(sys.name)+'</b><small>'+escapeHTML(sys.starLabel||'Estrela')+' · '+ws.length+' planeta(s) · '+ws.filter(w=>w.scouted).length+' reconhecido(s)'+(colonies?' · '+colonies+' colônia(s)':'')+'</small><button class="btn btn-block" onclick="selectStarSystem(\''+sys.id+'\')">Viajar até a estrela</button></div>';});
             }else{
                 html+='<button class="btn" onclick="returnToGalaxyMap()">← Voltar ao mapa galáctico</button><p class="structure-desc">Escolha um planeta deste sistema. Cada Olho Vermelho parte do planeta onde foi construído e retorna a ele.</p>';
                 worlds.forEach(w=>html+='<button class="btn btn-block '+(w.id===p.id?'active':'')+'" onclick="selectStarMapPlanet(\''+w.id+'\')">'+(w.scouted?'◈ ':'? ')+escapeHTML(w.shortName)+(w.scouted?' · Reconhecido':' · Não reconhecido')+'</button>');
@@ -6289,22 +6438,24 @@ ${hasAristocrats ? `
         function drawStarMap(time){
             const {cx,cy}=getVisibleCenter(canvasWidth,canvasHeight);starMapHitTargets=[];
             if(state.starMapView!=='system'){
-                const nodes=[{id:'home_system',x:cx,y:cy-8,r:16,label:'HOMEWORLD · SISTEMA SOLO',color:'#ffb37a',home:true}];
-                const tints=['#c9a6ff','#9fd8ff','#f4a8e4','#ffe0a0','#a8f0d8','#d6b4ff','#ffc2c2'];
-                for(let i=0;i<7;i++){const a=i*2.3999632297+.4,d=Math.min(canvasWidth,canvasHeight)*(.22+(i%3)*.06);nodes.push({id:'unknown_'+i,x:cx+Math.cos(a)*d,y:cy+Math.sin(a)*d*.72,r:5+i%3*1.6,label:'SISTEMA '+(i+1),color:tints[i]});}
-                // Rotas tênues ligando Homeworld aos sistemas vizinhos.
-                ctx.save();ctx.setLineDash([2,7]);ctx.lineWidth=1;
-                nodes.slice(1).forEach(n=>{ctx.strokeStyle='rgba(201,166,255,.18)';ctx.beginPath();ctx.moveTo(nodes[0].x,nodes[0].y);ctx.lineTo(n.x,n.y);ctx.stroke();});
+                // Galáxia procedural: posições normalizadas (-1..1) projetadas na área visível.
+                const spanX=Math.min(canvasWidth*.42,canvasHeight*.62),spanY=Math.min(canvasHeight*.36,canvasWidth*.3);
+                const nodes=getGalaxySystems().map(sys=>({id:sys.id,x:cx+sys.x*spanX,y:cy-8+sys.y*spanY,r:sys.home?16:sys.size*.8,label:sys.home?'HOMEWORLD · SISTEMA SOLO':sys.name.toUpperCase(),color:sys.color,home:!!sys.home,known:getPlanetsInStarSystem(sys.id).some(p=>p.scouted)}));
+                // Rotas tênues: cada estrela ligada às duas vizinhas mais próximas.
+                ctx.save();ctx.setLineDash([2,7]);ctx.lineWidth=1;const drawn=new Set();
+                nodes.forEach(n=>{nodes.filter(m=>m!==n).sort((p,q)=>Math.hypot(p.x-n.x,p.y-n.y)-Math.hypot(q.x-n.x,q.y-n.y)).slice(0,2).forEach(m=>{const k=[n.id,m.id].sort().join('|');if(drawn.has(k))return;drawn.add(k);ctx.strokeStyle=n.known&&m.known||n.home&&m.known||m.home&&n.known?'rgba(242,207,134,.35)':'rgba(201,166,255,.16)';ctx.beginPath();ctx.moveTo(n.x,n.y);ctx.lineTo(m.x,m.y);ctx.stroke();});});
                 ctx.restore();
-                nodes.forEach(n=>{GempirePlanetArt.drawStar(ctx,n.x,n.y,n.r,n.color,time,n.home);drawMapLabel(n.label,n.x,n.y+n.r*2.6+12,n.home?'#ffe7b0':'#e7d4ff',n.home);starMapHitTargets.push({type:'star',id:n.id,x:n.x,y:n.y,radius:Math.max(n.r*2,14)});});
+                nodes.forEach(n=>{GempirePlanetArt.drawStar(ctx,n.x,n.y,n.r,n.color,time,n.home);drawMapLabel(n.label,n.x,n.y+n.r*2.6+12,n.home?'#ffe7b0':n.known?'#f2e6ff':'#cdb8ef',n.home);starMapHitTargets.push({type:'star',id:n.id,x:n.x,y:n.y,radius:Math.max(n.r*2,14)});});
                 drawMapHeading('MAPA GALÁCTICO','Selecione a estrela para entrar no sistema',cx);return;
             }
-            const maxOrbit=Math.min(canvasWidth*.34,canvasHeight*.36,280);
-            const planets=getPlanetsInStarSystem(state.selectedStarSystemId||'home_system');
-            planets.forEach(p=>{const orbit=Math.max(48,Math.min(maxOrbit,Number(p.orbitRadius)||80));ctx.save();ctx.strokeStyle='rgba(201,166,255,.28)';ctx.lineWidth=1;ctx.setLineDash([3,6]);ctx.beginPath();ctx.ellipse(cx,cy,orbit,orbit*.66,0,0,Math.PI*2);ctx.stroke();ctx.restore();});
-            GempirePlanetArt.drawStar(ctx,cx,cy,20,'#ff9e6e',time,true);
-            planets.forEach((p,i)=>{const orbit=Math.max(48,Math.min(maxOrbit,Number(p.orbitRadius)||80)),angle=(Number(p.orbitAngle)||i)+time*(Number(p.orbitSpeed)||.00005),x=cx+Math.cos(angle)*orbit,y=cy+Math.sin(angle)*orbit*.66,r=Math.max(10,Math.min(22,Number(p.sphereRadius)||18)*.9);drawPlanetDisc(x,y,r,p,state.selectedStarMapPlanetId===p.id,time);drawMapLabel(p.scouted?p.shortName:'SINAL NÃO IDENTIFICADO',x,y+r+16,p.scouted?'#f6efff':'#b4a3d4',state.selectedStarMapPlanetId===p.id);starMapHitTargets.push({type:'planet',id:p.id,x,y,radius:r+12});});
-            drawMapHeading(state.selectedStarSystemId==='home_system'?'SISTEMA HOMEWORLD · 1 PLANETA':'SISTEMA ESTELAR '+(Number(String(state.selectedStarSystemId||'').split('_')[1])+1),'Selecione um planeta para reconhecimento',cx);
+            const maxOrbit=Math.min(canvasWidth*.34,canvasHeight*.36,280),sys=getStarSystem(state.selectedStarSystemId||'home_system');
+            const planets=getPlanetsInStarSystem(state.selectedStarSystemId||'home_system').slice().sort((a,b)=>(Number(a.orbitAU)||0)-(Number(b.orbitAU)||0));
+            // Órbitas distribuídas pela ordem de distância da estrela, sempre dentro da tela.
+            const orbitOf=p=>planets.length<2?Math.max(48,Math.min(maxOrbit,Number(p.orbitRadius)||80)):60+(maxOrbit-60)*planets.indexOf(p)/(planets.length-1);
+            planets.forEach(p=>{const orbit=orbitOf(p);ctx.save();ctx.strokeStyle='rgba(201,166,255,.28)';ctx.lineWidth=1;ctx.setLineDash([3,6]);ctx.beginPath();ctx.ellipse(cx,cy,orbit,orbit*.66,0,0,Math.PI*2);ctx.stroke();ctx.restore();});
+            GempirePlanetArt.drawStar(ctx,cx,cy,sys&&!sys.home?Math.max(12,sys.size*2.2):20,sys?.color||'#ff9e6e',time,true);
+            planets.forEach((p,i)=>{const orbit=orbitOf(p),angle=(Number(p.orbitAngle)||i)+time*(Number(p.orbitSpeed)||.00005),x=cx+Math.cos(angle)*orbit,y=cy+Math.sin(angle)*orbit*.66,r=Math.max(10,Math.min(22,Number(p.sphereRadius)||18)*.9);drawPlanetDisc(x,y,r,p,state.selectedStarMapPlanetId===p.id,time);drawMapLabel(p.scouted?p.shortName:'SINAL NÃO IDENTIFICADO',x,y+r+16,p.scouted?'#f6efff':'#b4a3d4',state.selectedStarMapPlanetId===p.id);starMapHitTargets.push({type:'planet',id:p.id,x,y,radius:r+12});});
+            drawMapHeading(state.selectedStarSystemId==='home_system'?'SISTEMA HOMEWORLD · 1 PLANETA':('SISTEMA '+getStarSystemName(state.selectedStarSystemId)+' · '+planets.length+(planets.length===1?' PLANETA':' PLANETAS')).toUpperCase(),(sys&&!sys.home?sys.starLabel+' · ':'')+'Selecione um planeta para reconhecimento',cx);
         }
 
         // --- ARQUITETURA MODULAR DE HOMEWORLD ---
@@ -7608,9 +7759,12 @@ function drawColony(time){
 
             // Incorpora planetas novos usando os valores-padrão atuais; preserva por
             // completo os dados já existentes no arquivo do jogador.
-            Object.keys(PLANETS).forEach(id => {
-                const defaults = JSON.parse(JSON.stringify(PLANETS[id]));
+            // Planetas gerados pertencem à galáxia de cada partida: só Homeworld e os mundos
+            // especiais recebem valores-padrão; os do save são normalizados com o próprio conteúdo.
+            [...new Set([...Object.keys(migrated.planets), 'homeworld', ...SPECIAL_WORLD_IDS])].forEach(id => {
                 const saved = migrated.planets[id];
+                if (!PLANETS[id] && !saved) return;
+                const defaults = JSON.parse(JSON.stringify(PLANETS[id] && (id === 'homeworld' || SPECIAL_WORLD_IDS.includes(id)) ? PLANETS[id] : saved));
                 if (!saved) {
                     migrated.planets[id] = defaults;
                     return;
@@ -7641,12 +7795,17 @@ function drawColony(time){
                 for (const key of Object.keys(state)) delete state[key];
                 Object.assign(state, data.state);
                 // Substitui os dados dos planetas mantendo as referências globais usadas pela interface.
-                Object.keys(PLANETS).forEach(id => {
+                // A galáxia é procedural: o save traz todos os planetas daquela partida.
+                Object.keys(PLANETS).forEach(id => { if (!data.planets[id] && id !== 'homeworld' && !SPECIAL_WORLD_IDS.includes(id)) delete PLANETS[id]; });
+                Object.keys(data.planets).forEach(id => {
                     const savedPlanet = data.planets[id];
                     if (!savedPlanet) return;
+                    if (!PLANETS[id]) { PLANETS[id] = JSON.parse(JSON.stringify(savedPlanet)); return; }
                     for (const key of Object.keys(PLANETS[id])) delete PLANETS[id][key];
                     Object.assign(PLANETS[id], savedPlanet);
                 });
+                if (typeof PLANET_SURFACE_CACHE !== 'undefined') PLANET_SURFACE_CACHE.clear();
+                ensureGalaxyState();
                 if (!state.founding) state.founding = {stage:'legacy',firstGemCreated:true,mineralSamples:{},gatheredMinerals:{},essenceOutput:0,activityCount:0,diamondEssence:0,gemsCreatedCount:0,selectedGem:'quartz',creationProgress:0,creationActive:false,creationTarget:null,creationSource:'manual'};
                 state.founding.diamondEssence = Number(state.founding.diamondEssence) || 0;
                 state.founding.essenceCooldown = Number(state.founding.essenceCooldown) || 0;
