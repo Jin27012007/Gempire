@@ -665,6 +665,7 @@
                 <nav class="governance-screen-tabs" aria-label="Seções do Governo Imperial">
                     <button id="governance-section-council" class="btn active" onclick="switchGovernanceSection('council')">🏛 Conselho</button>
                     <button id="governance-section-court" class="btn" onclick="switchGovernanceSection('court')">👑 Corte</button>
+                    <button id="governance-section-order" class="btn" onclick="switchGovernanceSection('order')">⚖️ Ordem Pública</button>
                     <button id="governance-section-demantoid" class="btn hidden" onclick="switchGovernanceSection('demantoid')">🔬 Demantoide</button>
                     <button id="governance-section-hessonite" class="btn hidden" onclick="switchGovernanceSection('hessonite')">⚔️ Hessonita</button>
                     <button id="governance-section-morganite" class="btn hidden" onclick="switchGovernanceSection('morganite')">🏛 Morganita</button>
@@ -2460,14 +2461,14 @@
         }
 
         function switchGovernanceSection(section) {
-            const allowed = ['council', 'court', 'demantoid', 'hessonite', 'morganite', 'aquamarine'];
+            const allowed = ['council', 'court', 'order', 'demantoid', 'hessonite', 'morganite', 'aquamarine'];
             if (!allowed.includes(section)) section = 'council';
             if (section === 'demantoid' && !isInjectorManagerActive()) section = 'council';
             if (section === 'hessonite' && !(window.isHessoniteCommandActive && window.isHessoniteCommandActive())) section = 'council';
             if (section === 'morganite' && Number(state.census.morganite||0)<1) section = 'council';
             if (section === 'aquamarine' && Number(state.census.aquamarine||0)<1) section = 'council';
             state.governanceSection = section;
-            ['council', 'court', 'demantoid', 'hessonite', 'morganite', 'aquamarine'].forEach(key => {
+            ['council', 'court', 'order', 'demantoid', 'hessonite', 'morganite', 'aquamarine'].forEach(key => {
                 const button = document.getElementById('governance-section-' + key);
                 if (!button) return;
                 button.classList.toggle('hidden', key === 'demantoid' && !isInjectorManagerActive());
@@ -2478,7 +2479,8 @@
             });
             const content = document.getElementById('governance-content');
             if (!content) return;
-            if (section === 'court') { if (window.renderDiamondCourtTab) window.renderDiamondCourtTab(content); else content.innerHTML = '<div class="card">O módulo da Corte ainda não foi carregado.</div>'; }
+            if (section === 'order') { if (window.renderOrderTab) window.renderOrderTab(content); else content.innerHTML = '<div class="card">O módulo de Ordem Pública ainda não foi carregado.</div>'; }
+            else if (section === 'court') { if (window.renderDiamondCourtTab) window.renderDiamondCourtTab(content); else content.innerHTML = '<div class="card">O módulo da Corte ainda não foi carregado.</div>'; }
             else if (section === 'demantoid') renderDemantoidManagementTab(content);
             else if (section === 'morganite') renderMorganiteArchitectureTab(content);
             else if (section === 'aquamarine') renderAquamarineTerraformingTab(content);
@@ -3804,7 +3806,7 @@
 
         function updateStructureSimulation(dt,mode='all',allowUI=true) {
             if(mode!=='local'){
-                updateRedEyeMission(dt);updateCargoMissions(dt);updateFleetTravel(dt);updateGalaxyWarpExpeditions(dt);updateMatriarchChambers(dt);if(window.GempireCourt)GempireCourt.update(dt);
+                updateRedEyeMission(dt);updateCargoMissions(dt);updateFleetTravel(dt);updateGalaxyWarpExpeditions(dt);updateMatriarchChambers(dt);if(window.GempireCourt)GempireCourt.update(dt);if(window.GempireOffColors)GempireOffColors.update(dt);
                 if(window.updateHessonitePatrols)window.updateHessonitePatrols(dt);
             }
             if(mode==='global')return;
@@ -4607,7 +4609,10 @@ ${hasAristocrats ? `
             const result = { min: 0, tech: 0, white: 0, yellow: 0, blue: 0, pink: 0, order: 0 };
             if (!planet || !planet.colonized) return result;
 
-            const localCensus=planet.id===(state.activeColonyPlanetId||'homeworld')?(state.census||{}):(ensurePlanetEconomy(planet,false).census||{});
+            const rawCensus=planet.id===(state.activeColonyPlanetId||'homeworld')?(state.census||{}):(ensurePlanetEconomy(planet,false).census||{});
+            // A Lei Off-Color define quanto as off-colors trabalham.
+            const localCensus=window.GempireOffColors?GempireOffColors.adjustCensus(planet,rawCensus):rawCensus;
+            if(window.GempireOffColors)result.tech+=GempireOffColors.extraYield(planet).tech;
             result.tech += Math.max(0,Number(localCensus.peridot)||0)*6;
             result.min += Math.max(0,Number(localCensus.bismuth)||0)*10;
             result.tech += Math.max(0,Number(localCensus.sapphire)||0)*8;
@@ -4940,6 +4945,7 @@ ${hasAristocrats ? `
                 variants[gem.variant]=(Number(variants[gem.variant])||0)+1;
             }
             if(recipe.id!=='pearl')planet.walkingGems.push(gem);
+            if(isOffColor&&window.GempireOffColors)GempireOffColors.onEmerge(planet,recipe.id,recipe.id!=='pearl'?gem:null);
             planet.emergedHoles.push({ angle: vein.angle, size: 7 + Math.random() * 4 });
             vein.injector = null;
             if (recipe.id === 'ruby') planet.dissent = Math.max(0, planet.dissent - 5);
@@ -7173,6 +7179,7 @@ function drawColony(time){
                 '<div class="founding-note">Você define apenas a identidade da fundadora. Sua personalidade será formada pelas decisões e ações tomadas durante a partida. Ela desperta sem Corte, população ou estruturas.</div>' +
                 '<div><label for="founder-name">Nome da Primeira Diamante</label><input id="founder-name" maxlength="28" value="' + escapeHTML(fd.name) + '" placeholder="Nome da Diamante"></div>' +
                 '<div><label for="founder-homeworld-name">Nome do planeta natal</label><input id="founder-homeworld-name" maxlength="32" value="Homeworld" placeholder="Homeworld"></div>' +
+                '<div><label for="founder-intensity">Intensidade de rebeliões e off-colors</label><select id="founder-intensity">' + (window.GempireOffColors ? GempireOffColors.intensityOptions('moderate') : '<option value="moderate">Moderada</option>') + '</select></div>' +
                 '<div class="founding-grid"><div><label for="founder-color">Cor primária</label><input id="founder-color" type="color" value="' + currentColor + '" aria-label="Cor primária da Primeira Diamante" onchange="renderDiamondVitralGallery(document.getElementById(\'founder-vitral-gallery\'))" style="height:46px;padding:4px;cursor:pointer"></div><div><label for="founder-secondary-color">Cor secundária</label><input id="founder-secondary-color" type="color" value="' + (fd.secondaryColorHex||'#c4b5fd') + '" aria-label="Cor secundária" onchange="renderDiamondVitralGallery(document.getElementById(\'founder-vitral-gallery\'))" style="height:46px;padding:4px;cursor:pointer"></div><div><label for="founder-tertiary-color">Cor terciária</label><input id="founder-tertiary-color" type="color" value="' + (fd.tertiaryColorHex||'#7dd3fc') + '" aria-label="Cor terciária" onchange="renderDiamondVitralGallery(document.getElementById(\'founder-vitral-gallery\'))" style="height:46px;padding:4px;cursor:pointer"></div></div>' +
                 '<div><label>Modelo visual da Diamante</label><div id="founder-vitral-gallery" class="diamond-vitral-gallery"></div></div>' +
                 '<div class="founding-grid">' +
@@ -7211,6 +7218,7 @@ function drawColony(time){
             setGameMenuStatus('Iniciando a fundação de Homeworld…');
             const name = (document.getElementById('founder-name')?.value || '').trim();
             const homeworldName = (document.getElementById('founder-homeworld-name')?.value || '').trim().slice(0,32) || 'Homeworld';
+            const intensityRaw = document.getElementById('founder-intensity')?.value;
             const colorRaw = document.getElementById('founder-color')?.value;
             const secondaryColorRaw = document.getElementById('founder-secondary-color')?.value;
             const tertiaryColorRaw = document.getElementById('founder-tertiary-color')?.value;
@@ -7235,6 +7243,7 @@ function drawColony(time){
                 const founderIdentity={name,colorHex:colorHex.toLowerCase(),secondaryColorHex:secondaryColorHex.toLowerCase(),tertiaryColorHex:tertiaryColorHex.toLowerCase(),gemCut,bodySilhouette,gemPos,title:'A Fundadora'};
                 resetCampaignForNewGame(founderIdentity);
                 renamePlanetDirect('homeworld', homeworldName);
+                state.rebellionIntensity = ['rare','moderate','constant'].includes(intensityRaw) ? intensityRaw : 'moderate';
                 initializePlanetaryReserves();
                 beginPrimitiveEra();
                 gameHasStarted = true;
@@ -7660,8 +7669,9 @@ function drawColony(time){
                     planet.walkingGems.push({id:'gem_'+Date.now()+'_'+Math.floor(Math.random()*1000000),ownerId:courtOwner,caste:batch.type,variant:variant,color:data.color,grade:'A',isOrbiting:batch.type==='lapis',bubbleText:'✨ Recém-emergida',angle:Math.random()*Math.PI*2,dir:1,speed:0.0005,bobPhase:0});
                 }
             }
+            const offColorCount=window.GempireOffColors?GempireOffColors.onBatch(planet,batch.type,quantity):0;
             if(!Array.isArray(state.founding.productionReports))state.founding.productionReports=[];
-            state.founding.productionReports.push({type:batch.type,injectorIndex:Number(batch.injectorIndex)||0,gemLabel:data.label,quantity:quantity,grade:'A',mineralName:data.mineralName,cycle:Number(state.cycleCount)||1,targetOwnerId:courtOwner,demandId:batch.demandId||null,description:'Lote do Injetor #'+(Number(batch.injectorIndex)+1)+(batch.demandId?' · exigência direcionada para '+getDemantoidOwnerName(courtOwner)+'.':state.founding.creationMode==='manual'?' programado manualmente.':' administrado automaticamente pela Demantoide.')});
+            state.founding.productionReports.push({offColors:offColorCount,type:batch.type,injectorIndex:Number(batch.injectorIndex)||0,gemLabel:data.label,quantity:quantity,grade:'A',mineralName:data.mineralName,cycle:Number(state.cycleCount)||1,targetOwnerId:courtOwner,demandId:batch.demandId||null,description:'Lote do Injetor #'+(Number(batch.injectorIndex)+1)+(batch.demandId?' · exigência direcionada para '+getDemantoidOwnerName(courtOwner)+'.':state.founding.creationMode==='manual'?' programado manualmente.':' administrado automaticamente pela Demantoide.')});
             if(state.founding.creationMode==='automatic')state.founding.injectorAutomationStatus='Último lote concluído: '+quantity+' '+data.label+'. A Demantoide avaliará o próximo ciclo.';
             if(state.founding.productionReports.length>20)state.founding.productionReports.splice(0,state.founding.productionReports.length-20);
             batch.completed=true;
@@ -8030,7 +8040,7 @@ function drawColony(time){
                 state.constructionQueue=Array.isArray(state.constructionQueue)?state.constructionQueue:(state.construction&&state.construction.active?[state.construction]:[]);
                 state.construction=state.constructionQueue[0]||null;
                 state.currentScreen='throne';
-                state.governanceSection = ['council','court','demantoid','hessonite','morganite','aquamarine'].includes(state.governanceSection) ? state.governanceSection : 'council';
+                state.governanceSection = ['council','court','order','demantoid','hessonite','morganite','aquamarine'].includes(state.governanceSection) ? state.governanceSection : 'council';
                 state.morganiteAutoBuild = state.morganiteAutoBuild !== false;
                 ensureMorganiteArchitectureState();
                 state.structures.diamond_quarters=Number(state.structures.diamond_quarters)||0;
@@ -8218,5 +8228,6 @@ function drawColony(time){
     <script src="diamond-social.js"></script>
     <script src="diamond-chat.js"></script>
     <script src="gempire-court.js"></script>
+    <script src="gempire-offcolors.js"></script>
 </body>
 </html>

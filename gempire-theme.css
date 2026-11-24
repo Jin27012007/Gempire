@@ -358,3 +358,9 @@ input.gstep-source{position:absolute!important;width:1px!important;height:1px!im
 
 /* Arrastar Diamantes no emblema do Trono sem rolar a página no toque */
 #gameCanvas{touch-action:none}
+
+/* Ordem Pública · Off-Colors */
+.order-laws{display:grid;grid-template-columns:repeat(auto-fill,minmax(220px,1fr));gap:8px}
+.order-law.active{border-color:#f2cf86;box-shadow:inset 0 0 0 1px rgba(242,207,134,.5)}
+.order-planet{padding:8px 10px;margin-top:8px;background:rgba(20,10,40,.45);border:1px solid rgba(201,166,255,.18)}
+.order-groups{display:flex;flex-wrap:wrap;gap:4px;margin-top:6px}
