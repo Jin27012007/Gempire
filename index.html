@@ -3219,6 +3219,36 @@
             const source=PLANETS[state.activeColonyPlanetId],target=PLANETS[targetId];
             return !!(source&&target&&structureIsOperational('galaxy_warp')&&source.galaxyWarpBuilt&&target.galaxyWarpBuilt&&target.colonized);
         }
+        // Mobilização em massa pelo Galaxy Warp: sem limite de capacidade e instantânea,
+        // entre dois pontos da rede (origem = colônia aberta; destino colonizado com Warp).
+        function getGalaxyWarpMobilizationTargets(){
+            const source=PLANETS[state.activeColonyPlanetId||'homeworld'];
+            if(!source?.galaxyWarpBuilt||!structureIsOperational('galaxy_warp'))return [];
+            return Object.values(PLANETS).filter(p=>p.id!==source.id&&p.galaxyWarpBuilt&&p.colonized);
+        }
+        function getGalaxyWarpPortal(){return {id:'galaxy_warp_portal',type:'warp',name:'Galaxy Warp',planetId:state.activeColonyPlanetId||'homeworld'};}
+        function mobilizeGemsThroughGalaxyWarp(targetId,selection){
+            const portal=getGalaxyWarpPortal(),source=PLANETS[portal.planetId],target=PLANETS[targetId];
+            if(!target||!getGalaxyWarpMobilizationTargets().some(p=>p.id===targetId)){setStatusTicker('A mobilização exige Galaxy Warp operacional na origem e um destino colonizado com Galaxy Warp.',true);return;}
+            const wanted=normalizePassengerSelection(portal,selection),total=Object.values(wanted).reduce((a,b)=>a+b,0);
+            if(!total){setStatusTicker('Escolha quantas Gems de cada casta serão mobilizadas.',true);return;}
+            const invalid=validatePassengerSelection(portal,wanted);if(invalid){setStatusTicker(invalid,true);return;}
+            portal.passengers=embarkGemsOnShip(portal,wanted);portal.originPlanetId=source.id;
+            disembarkShipGem(portal,target);
+            state.warpBeams=Array.isArray(state.warpBeams)?state.warpBeams:[];
+            state.warpBeams.push({from:source.id,to:target.id,count:total,time:Date.now()});state.warpBeams=state.warpBeams.slice(-20);
+            setStatusTicker('Galaxy Warp mobilizou '+total.toLocaleString('pt-BR')+' Gem(s) de '+source.shortName+' para '+target.shortName+'.');
+            updateHUD();renderDrawerContent();
+        }
+        function renderGalaxyWarpMobilization(){
+            const targets=getGalaxyWarpMobilizationTargets(),portal=getGalaxyWarpPortal();
+            let html='<div class="stat-box"><b>Mobilização em massa</b><small style="display:block;color:var(--text-muted)">Teletransporte instantâneo de qualquer quantidade de Gems livres entre colônias ligadas pela rede.</small>';
+            if(!targets.length)return html+'<small style="display:block;margin-top:6px">'+(PLANETS[portal.planetId]?.galaxyWarpBuilt?'Nenhuma outra colônia com Galaxy Warp na rede.':'Esta colônia ainda não tem Galaxy Warp operacional.')+'</small></div>';
+            html+='<label class="stat-label">Destino<select id="warp-mobilize-target">'+targets.map(p=>'<option value="'+p.id+'">'+escapeHTML(p.shortName)+'</option>').join('')+'</select></label>';
+            html+=getShipPassengerSelector(portal);
+            html+='<button class="btn btn-emerald btn-block" onclick="mobilizeGemsThroughGalaxyWarp(document.getElementById(\'warp-mobilize-target\').value,readShipPassengerSelection(\'galaxy_warp_portal\'))">Mobilizar pelo Galaxy Warp</button></div>';
+            return html;
+        }
         function travelThroughGalaxyWarp(targetId){
             if(!canGalaxyWarpToPlanet(targetId)){setStatusTicker('A viagem exige Galaxy Warp operacional tanto na origem quanto no destino.',true);return;}
             changeActiveColonyPlanet(targetId);switchScreen('colony');
@@ -3309,7 +3339,7 @@
         // Cada nave leva até a sua capacidade em Gems, escolhidas por casta e quantidade.
         // As Gems saem do censo da origem e entram no censo do destino (com as variantes
         // de Quartzo e as Gems que caminham pela superfície), então a cor do planeta acompanha.
-        function getShipGemCapacity(ship){const bp=SHIP_BLUEPRINTS[ship?.type]||{};return Math.max(0,Math.floor(Number(bp.gemCapacity??ship?.capacity??bp.capacity)||0));}
+        function getShipGemCapacity(ship){if(ship?.type==='warp')return Infinity;const bp=SHIP_BLUEPRINTS[ship?.type]||{};return Math.max(0,Math.floor(Number(bp.gemCapacity??bp.capacity??ship?.capacity)||0));}
         function getPlanetFounding(planetId){const planet=PLANETS[planetId];if(!planet)return null;return planetId===(state.activeColonyPlanetId||'homeworld')?state.founding:ensurePlanetEconomy(planet,false).founding;}
         function getShipPassengerStock(ship){
             const originId=ship?.planetId||'homeworld',origin=PLANETS[originId];if(!origin)return [];
@@ -3322,7 +3352,7 @@
             const stock=getShipPassengerStock(ship),cap=getShipGemCapacity(ship);
             if(!cap)return '<small style="display:block;color:var(--text-muted)">Esta nave não transporta Gems.</small>';
             if(!stock.length)return '<small style="display:block;color:var(--text-muted)">Nenhuma Gem livre em '+escapeHTML(PLANETS[ship.planetId||'homeworld']?.shortName||'origem')+' para embarcar.</small>';
-            return '<div class="ship-passengers" data-ship-id="'+escapeHTML(ship.id)+'"><label class="stat-label">Passageiras · capacidade '+cap+' Gems</label><div class="grid-2">'+stock.map(x=>'<label class="stat-label" style="display:flex;justify-content:space-between;align-items:center;gap:6px">'+escapeHTML(x.label)+' <small>('+x.available.toLocaleString('pt-BR')+')</small><input type="number" min="0" step="1" value="0" max="'+Math.min(x.available,cap)+'" data-gem-type="'+escapeHTML(x.type)+'" style="width:64px"></label>').join('')+'</div></div>';
+            return '<div class="ship-passengers" data-ship-id="'+escapeHTML(ship.id)+'"><label class="stat-label">'+(cap===Infinity?'Gems livres para mobilizar · sem limite':'Passageiras · capacidade '+cap+' Gems')+'</label><div class="grid-2">'+stock.map(x=>'<label class="stat-label" style="display:flex;justify-content:space-between;align-items:center;gap:6px">'+escapeHTML(x.label)+' <small>('+x.available.toLocaleString('pt-BR')+')</small><input type="number" min="0" step="1" value="0" max="'+Math.min(x.available,cap)+'" data-gem-type="'+escapeHTML(x.type)+'" style="width:64px"></label>').join('')+'</div></div>';
         }
         function readShipPassengerSelection(shipId){
             const box=document.querySelector('.ship-passengers[data-ship-id="'+shipId+'"]'),out={};
@@ -3445,8 +3475,8 @@
                 const SHIP_BLUEPRINTS={
             diamond:{name:'Nave Diamante',cost: {minerals:500,tech:250},speed:'FTL extremo',capacity:1,description:'Nave colossal, uma por Diamante, capaz de orbitar planetas e cruzar sistemas em velocidade acima da luz.',operator:'diamond',shape:'colossal'},
             elite:{name:'Nave da Elite',cost:{minerals:180,tech:90},speed:'FTL',capacity:6,description:'Casco losangular para a família Berílio: Hessonitas, Esmeraldas, Aquamarinas, Morganitas e outras Gems relacionadas. Canhões de energia leves.',operator:'beryl',shape:'losango'},
-            war:{name:'Nave de Guerra',cost:{minerals:260,tech:120},speed:'subluz',capacity:12,description:'Disco voador blindado, com canhões de energia pesados. Operação exclusiva de Nefritas.',operator:'nephrite',shape:'disco'},
-            excursion:{name:'Nave de Excursão',cost:{minerals:110,tech:50},speed:'FTL moderado',capacity:8,description:'Casco resistente em formato de mão pequena em repouso, com um canhão de baixa potência. Operada por Peridots, Quartzos, Rubis ou Pérolas.',operator:'common',shape:'hand'},
+            war:{name:'Nave de Guerra',cost:{minerals:260,tech:120},speed:'subluz',capacity:50,description:'Disco voador blindado, com canhões de energia pesados. Operação exclusiva de Nefritas. Leva até 50 Gems.',operator:'nephrite',shape:'disco'},
+            excursion:{name:'Nave de Excursão',cost:{minerals:110,tech:50},speed:'FTL moderado',capacity:20,description:'Casco resistente em formato de mão pequena em repouso, com um canhão de baixa potência. Operada por Peridots, Quartzos, Rubis ou Pérolas. Leva até 20 Gems, contando prisioneiras.',operator:'common',shape:'hand'},
             ruby:{name:'Nave Rubi',cost:{minerals:85,tech:35},speed:'FTL extremo',capacity:5,description:'Nave compacta permanentemente vermelha, sem armamento, feita para esquadrões de até cinco Rubis ou transporte urgente de Gems.',operator:'ruby',shape:'red'},
             cargo:{name:'Nave de Carga',cost:{minerals:210,tech:100},speed:'FTL moderado',capacity:5,description:'Transporta até cinco estruturas físicas; piloto Peridot ou Nefrita. A Bismuto inicia a instalação no destino.',operator:'cargo',shape:'cargo'}
         };
@@ -3777,13 +3807,14 @@
                         } else if(def.id==='galaxy_warp'){
                             const nodes=Object.values(PLANETS).filter(p=>p.galaxyWarpBuilt);
                             const names=nodes.map(p=>escapeHTML(p.shortName)).join(' ↔ ');
-                            html+='<div class="founding-note">Buraco de minhoca permanente. Cada Galaxy Warp é um ponto da rede: dois pontos estabelecem a conexão A–B; qualquer terceiro ponto é integrado automaticamente aos demais. Não há comandos locais de transporte ou sincronização.</div>';
+                            html+='<div class="founding-note">Buraco de minhoca permanente. Cada Galaxy Warp é um ponto da rede: dois pontos estabelecem a conexão A–B; qualquer terceiro ponto é integrado automaticamente aos demais. É o meio eficiente de mobilizar Gems em massa: sem limite de capacidade e sem tempo de viagem.</div>';
                             html+='<div class="stat-box"><b>Rede interplanetária · '+nodes.length+' ponto(s)</b><small style="display:block;color:var(--text-muted);margin-top:5px">'+(nodes.length>=2?names:'A rede aguarda a construção de um segundo Galaxy Warp em outro planeta.')+'</small></div>';
+                            html+=renderGalaxyWarpMobilization();
                         } else if(def.id==='red_eye'){
                             html+='<div class="founding-note">Olho Vermelho instalado: '+redEyeCountForPlanet(state.activeColonyPlanetId||'homeworld')+'. Suas missões e relatórios são acessados pelo Mapa Estelar.</div>';
                         } else if(def.id==='shipyard'){
                             html+='<div class="founding-note">Frota construída: '+(state.shipFleet||[]).length+' nave(s). O Estaleiro operacional já libera a fabricação das classes disponíveis; não exige pesquisa.</div>';
-                            (state.shipFleet||[]).slice().reverse().forEach(ship=>{html+='<div class="stat-box ship-entry"><canvas class="ship-preview" data-ship="'+escapeHTML(ship.type)+'" width="120" height="72"></canvas><div><b>'+escapeHTML(ship.name)+'</b><small style="display:block;color:var(--text-muted)">'+(ship.ownerName?escapeHTML(ship.ownerName)+' · ':'')+escapeHTML(ship.speed)+' · Capacidade '+ship.capacity+' Gems · '+escapeHTML(PLANETS[ship.planetId]?.shortName||'Órbita desconhecida')+'</small></div></div>';});
+                            (state.shipFleet||[]).slice().reverse().forEach(ship=>{html+='<div class="stat-box ship-entry"><canvas class="ship-preview" data-ship="'+escapeHTML(ship.type)+'" width="120" height="72"></canvas><div><b>'+escapeHTML(ship.name)+'</b><small style="display:block;color:var(--text-muted)">'+(ship.ownerName?escapeHTML(ship.ownerName)+' · ':'')+escapeHTML(ship.speed)+' · Capacidade '+getShipGemCapacity(ship)+' Gems · '+escapeHTML(PLANETS[ship.planetId]?.shortName||'Órbita desconhecida')+'</small></div></div>';});
                             Object.entries(SHIP_BLUEPRINTS).forEach(([type,bp])=>{
                                 const reason=canBuildShip(type);
                                 html+='<div class="stat-box ship-blueprint"><canvas class="ship-preview" data-ship="'+type+'" width="120" height="72"></canvas><b>'+bp.name+'</b><small style="display:block;color:var(--text-muted)">'+bp.description+'</small><small>Velocidade: '+bp.speed+' · Capacidade: '+bp.capacity+(type==='cargo'?' estruturas + '+(bp.gemCapacity??bp.capacity)+' Gems':' Gems')+' · Custo por nave: '+bp.cost.minerals+' minerais / '+bp.cost.tech+' tecnologia</small>'+(reason?'':'<label class="stat-label" style="display:flex;align-items:center;justify-content:space-between;gap:8px">Quantidade <small>(máx. '+getMaxShipBuildCount(type)+')</small><input type="number" id="ship-qty-'+type+'" min="1" max="'+getMaxShipBuildCount(type)+'" step="1" value="1" style="width:72px"></label>')+'<button class="btn btn-block" onclick="buildShipFromInput(\''+type+'\')" '+(reason?'disabled':'')+'>Construir '+bp.name+'</button>'+(reason?'<small style="color:var(--text-muted)">'+reason+'</small>':'')+'</div>';
