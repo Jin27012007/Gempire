@@ -1379,6 +1379,22 @@
             const map=generatePlanetSurfaceMap(planet),profile=map.profile;
             return {id:planet.id,seed:profile.seed,topology:profile.topology,biome:profile.biome,landCoverage:profile.landCoverage,waterKind:profile.waterKind,features:map.features};
         }
+        // Estado visual de dano do planeta. Não interfere na operação da colônia:
+        // - estágios de extração (0–4) abrem fissuras cada vez maiores entre as grandes placas;
+        // - cada Diamante formada no núcleo estilhaça o mundo em fragmentos colossais;
+        // - a exaustão total deixa a crosta tomada por buracos geométricos até o núcleo.
+        function getPlanetDamage(planet,stats){
+            stats=stats||getPlanetVisualStats(planet);
+            const born=(state.matriarchs||[]).filter(m=>m&&m.consumedPlanet===planet.id);
+            let shatterProgress=1;
+            if(born.length){
+                const newest=Math.max(...born.map(m=>Number(String(m.id||'').split('_')[1])||0)),age=Date.now()-newest;
+                // Animação de ruptura durante os primeiros segundos após o nascimento.
+                if(newest&&age>=0&&age<9000){const t=age/9000;shatterProgress=.05+.95*(1-Math.pow(1-t,3));}
+            }
+            const latest=born[born.length-1];
+            return {stage:stats.stage,depleted:stats.stage>=4||(stats.totalResources>1&&stats.remainingResources<=0),shattered:born.length>0,shatterProgress,coreColor:latest?.colorHex||'#ffe9c2'};
+        }
         function getPlanetSurfaceDescription(planet){
             const profile=ensurePlanetSurfaceProfile(planet),land=Math.round(profile.landCoverage*100),fluid=100-land;
             const fluidLabel=profile.waterKind==='water'?'oceano':profile.waterKind==='ice'?'gelo':profile.waterKind==='lava'?'magma':null;
@@ -6079,7 +6095,7 @@ ${hasAristocrats ? `
             const ringBack=()=>{if(!(planet.hasRings||planet.hasOrbitalRing))return;ctx.save();ctx.strokeStyle='rgba(242,207,134,.55)';ctx.lineWidth=Math.max(1.4,radius*.12);ctx.beginPath();ctx.ellipse(x,y,radius*1.6,radius*.42,tilt,Math.PI,Math.PI*2);ctx.stroke();ctx.restore();};
             const ringFront=()=>{if(!(planet.hasRings||planet.hasOrbitalRing))return;ctx.save();ctx.strokeStyle='rgba(242,207,134,.8)';ctx.lineWidth=Math.max(1.4,radius*.12);ctx.beginPath();ctx.ellipse(x,y,radius*1.6,radius*.42,tilt,0,Math.PI);ctx.stroke();ctx.restore();};
             ringBack();
-            GempirePlanetArt.drawPlanet(ctx,{cx:x,cy:y,radius,surface:getPlanetArtSurface(planet),rotation:time*.00018+(planet.orbitAngle||0),time,atmosphere:planet.colors?.atmosphere,selected,maxResolution:128,deferred:true});
+            GempirePlanetArt.drawPlanet(ctx,{cx:x,cy:y,radius,surface:getPlanetArtSurface(planet),rotation:time*.00018+(planet.orbitAngle||0),time,atmosphere:planet.colors?.atmosphere,selected,maxResolution:128,deferred:true,damage:getPlanetDamage(planet)});
             ringFront();
             if(selected){
                 ctx.save();ctx.strokeStyle='#f2cf86';ctx.lineWidth=1.5;ctx.setLineDash([5,4]);ctx.lineDashOffset=-time*.01;
@@ -6506,7 +6522,7 @@ function drawColony(time){
             drawPlanetDebris(planet,cx,cy,radius,time,cam,stage,false);
 
             // Globo procedural estilizado: continentes, relevo, bioma e nuvens acompanham a rotação.
-            GempirePlanetArt.drawPlanet(ctx,{cx,cy,radius,surface:getPlanetArtSurface(planet),rotation:cam.rotation,time,atmosphere:palette.atmosphere,selected:stage>=2});
+            GempirePlanetArt.drawPlanet(ctx,{cx,cy,radius,surface:getPlanetArtSurface(planet),rotation:cam.rotation,time,atmosphere:palette.atmosphere,selected:stage>=2,damage:getPlanetDamage(planet,stats)});
 
             if(cam.xrayMode){
                 ctx.save();ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.clip();
@@ -6526,7 +6542,9 @@ function drawColony(time){
             drawColonyInjectors(planet,cx,cy,radius,cam);
             // Fragmentos que passam pela frente fecham o efeito de órbita 360°.
             drawPlanetDebris(planet,cx,cy,radius,time,cam,stage,true);
-            drawPlanetCombinedInfoPanel(planet,stats,12,52);
+            const bannerEl=document.getElementById('hud-banners'),canvasTop=canvas.getBoundingClientRect().top;
+            const panelY=bannerEl?Math.max(52,Math.round(bannerEl.getBoundingClientRect().bottom-canvasTop+8)):52;
+            drawPlanetCombinedInfoPanel(planet,stats,12,panelY);
             ctx.save();ctx.textAlign='center';ctx.font='900 italic 20px "Exo 2", "Segoe UI", sans-serif';ctx.lineWidth=4;ctx.strokeStyle='rgba(27,15,48,.85)';const ty=Math.max(28,cy-radius-30);ctx.strokeText(planet.shortName,cx,ty);ctx.fillStyle='#f6efff';ctx.fillText(planet.shortName,cx,ty);ctx.restore();
         }
 

@@ -225,7 +225,7 @@
                 clouds[y*W+x]=Math.round(smooth(cut,cut+.05,n)*255);
             }
         }
-        const result={W,H,rgba:finalData,flags,clouds,biome,cloudColor:hex(biome.cloud),shadow:hex(biome.shadow)};
+        const result={key,W,H,seed,rgba:finalData,flags,clouds,biome,land,cloudColor:hex(biome.cloud),shadow:hex(biome.shadow)};
         TEXTURE_CACHE.set(key,result);
         return result;
     }
@@ -246,6 +246,100 @@
     }
 
     // ------------------------------------------------------------------
+    // Camada de dano: fraturas por estágio, estilhaçamento e buracos de exaustão
+    // ------------------------------------------------------------------
+    // Grandes placas da crosta (cerca de 15–20 fragmentos por mundo), calculadas
+    // uma vez por planeta e reaproveitadas por todos os estados de dano.
+    function ensureMegaPlates(base){
+        if(base.megaEdge)return;
+        const W=base.W,H=base.H,edge=new Float32Array(W*H),id=new Float32Array(W*H);
+        for(let y=0;y<H;y++){
+            const lat=-Math.PI/2+(y+.5)/H*Math.PI,cl=Math.cos(lat),sl=Math.sin(lat);
+            for(let x=0;x<W;x++){
+                const lon=-Math.PI+(x+.5)/W*TAU,px=cl*Math.sin(lon),py=sl,pz=cl*Math.cos(lon);
+                const w=(fbm(px*3,py*3,pz*3,base.seed+71,2)-.5)*.35;
+                const pl=plates(px+w,py-w,pz+w*.5,1.45,base.seed+999);
+                edge[y*W+x]=pl.edge;id[y*W+x]=pl.id;
+            }
+        }
+        base.megaEdge=edge;base.megaId=id;
+    }
+    const DAMAGE_CACHE=new Map();
+    const CRACK_WIDTH=[0,.022,.045,.075,.1];
+    function getDamagedTexture(base,damage){
+        const stage=Math.max(0,Math.min(4,damage.stage|0));
+        const shatter=damage.shattered?Math.max(.05,Math.min(1,damage.shatterProgress??1)):0;
+        const shatterStep=Math.round(shatter*8)/8,depleted=!!damage.depleted;
+        if(!stage&&!shatterStep&&!depleted)return base;
+        const core=damage.coreColor||'#ffe9c2';
+        const key=base.key+'|'+stage+'|'+shatterStep+'|'+(depleted?1:0)+'|'+core;
+        if(DAMAGE_CACHE.has(key))return DAMAGE_CACHE.get(key);
+        ensureMegaPlates(base);
+        const W=base.W,H=base.H,b=base.biome,edge=base.megaEdge,id=base.megaId;
+        const rgba=new Uint8ClampedArray(base.rgba),flags=new Uint8Array(base.flags);
+        const ink=hex(b.ink),wall=hex(b.cliffDark),wallLit=hex(b.cliff),mantle=hex('#5a2160'),glow=hex(core),hot=mix(glow,[255,255,255],.55);
+        const crack=Math.max(CRACK_WIDTH[stage],shatterStep?.11:0);
+        const missingShare=shatterStep*.3;
+        for(let i=0;i<W*H;i++){
+            const e=edge[i],o=i*4;let c=null,f=-1;
+            if(missingShare&&id[i]<missingShare){
+                // Placa arrancada: parede da casca na borda, interior visto pelo rombo.
+                if(e<.045){const t=e/.045;c=mix(wallLit,wall,t);if(t<.15)c=mix(c,ink,.6);f=0;}
+                else{f=3;c=[0,0,0];}
+            }else if(crack&&e<crack){
+                // Fissura: borda escura, manto e luz do núcleo no fundo.
+                const t=e/crack;
+                if(t<.2){c=mix(hot,glow,t/.2);f=2;}
+                else if(t<.55){c=mix(mix(glow,mantle,.55),mantle,smooth(.2,.55,t));f=t<.3?2:0;}
+                else{c=mix(mantle,ink,smooth(.55,.95,t));f=0;}
+            }else if(crack&&e<crack*1.35){
+                c=mix([rgba[o],rgba[o+1],rgba[o+2]],ink,.55);
+            }
+            if(c){rgba[o]=c[0];rgba[o+1]=c[1];rgba[o+2]=c[2];if(f>=0)flags[i]=f;}
+        }
+        if(depleted)carveKindergartenHoles(base,rgba,flags,glow,hot,mantle,wall,wallLit,ink);
+        const result=Object.assign({},base,{rgba,flags,damaged:true,coreRGB:glow,hotRGB:hot});
+        if(DAMAGE_CACHE.size>24)DAMAGE_CACHE.delete(DAMAGE_CACHE.keys().next().value);
+        DAMAGE_CACHE.set(key,result);
+        return result;
+    }
+    // Buracos geométricos do Jardim de Infância, em camadas até o núcleo.
+    function carveKindergartenHoles(base,rgba,flags,glow,hot,mantle,wall,wallLit,ink){
+        const W=base.W,H=base.H,c=document.createElement('canvas');c.width=W;c.height=H;
+        const g=c.getContext('2d',{willReadFrequently:true});
+        g.putImageData(new ImageData(rgba,W,H),0,0);
+        const mask=document.createElement('canvas');mask.width=W;mask.height=H;const m=mask.getContext('2d',{willReadFrequently:true});
+        const R=rng(base.seed^0x51ed27);
+        const css=a=>'rgb('+a.map(Math.round).join(',')+')';
+        const holes=[];
+        for(let n=0;n<220&&holes.length<26;n++){
+            const lat=(R()-.5)*Math.PI*.66,x=R()*W,y=(lat+Math.PI/2)/Math.PI*H,size=H*(.035+R()*.055);
+            if(holes.some(h=>Math.hypot(((h.x-x+W*1.5)%W)-W/2,h.y-y)<(h.size+size)*1.25))continue;
+            holes.push({x,y,size,lat,sides:R()<.5?4:R()<.6?6:5,rot:R()*Math.PI});
+        }
+        const shape=(ctx2,h,k,dy)=>{
+            const sx=1/Math.max(.35,Math.cos(h.lat));ctx2.beginPath();
+            for(let j=0;j<h.sides;j++){
+                const a=h.rot+j/h.sides*TAU,jit=1+((j*7919+h.sides)%5)*.04;
+                const px=h.x+Math.cos(a)*h.size*k*sx*jit,py=h.y+dy*h.size+Math.sin(a)*h.size*k*jit;
+                j?ctx2.lineTo(px,py):ctx2.moveTo(px,py);
+            }
+            ctx2.closePath();
+        };
+        const layers=[[1,0,wallLit],[.86,.1,wall],[.72,.17,mix(wall,ink,.35)],[.56,.23,mantle],[.4,.28,mix(mantle,ink,.45)],[.22,.32,glow],[.1,.33,hot]];
+        holes.forEach(h=>{
+            [h.x,h.x-W,h.x+W].forEach(xx=>{
+                const hh=Object.assign({},h,{x:xx});
+                layers.forEach(([k,dy,col],li)=>{shape(g,hh,k,dy);g.fillStyle=css(col);g.fill();if(li===0){g.lineWidth=1.2;g.strokeStyle=css(ink);g.stroke();}});
+                shape(m,hh,.22,.32);m.fillStyle='#fff';m.fill();
+            });
+        });
+        const d=g.getImageData(0,0,W,H).data,md=m.getImageData(0,0,W,H).data;
+        rgba.set(d);
+        for(let i=0;i<W*H;i++)if(md[i*4+3]>100)flags[i]=2;
+    }
+
+    // ------------------------------------------------------------------
     // Projeção esférica (tabelas pré-calculadas por tamanho)
     // ------------------------------------------------------------------
     const SPHERE_CACHE=new Map();
@@ -254,14 +348,14 @@
         if(SPHERE_CACHE.has(S)){const hit=SPHERE_CACHE.get(S);SPHERE_CACHE.delete(S);SPHERE_CACHE.set(S,hit);return hit;}
         // Mantém apenas os tamanhos usados recentemente (zoom contínuo gera vários).
         while(SPHERE_CACHE.size>=10)SPHERE_CACHE.delete(SPHERE_CACHE.keys().next().value);
-        const idx=[],u0=[],row=[],rowF=[],shade=[],rim=[],spec=[];
+        const idx=[],u0=[],row=[],rowF=[],shade=[],rim=[],spec=[],zs=[],ds=[];
         const half=S/2;
         for(let py=0;py<S;py++){
             for(let px=0;px<S;px++){
                 const x=(px+.5-half)/half,y=(py+.5-half)/half,d2=x*x+y*y;
                 if(d2>1)continue;
                 const z=Math.sqrt(1-d2),lat=Math.asin(Math.max(-1,Math.min(1,y))),rel=Math.atan2(x,z);
-                idx.push(py*S+px);
+                idx.push(py*S+px);zs.push(z);ds.push(Math.sqrt(d2));
                 u0.push((rel+Math.PI)/TAU*TEX_W);
                 const fy=Math.max(0,Math.min(TEX_H-1.001,(lat+Math.PI/2)/Math.PI*TEX_H-.5));
                 row.push(Math.floor(fy));rowF.push(fy-Math.floor(fy));
@@ -279,7 +373,7 @@
         const c=canvas.getContext('2d');
         const sphere={S,canvas,ctx:c,image:c.createImageData(S,S),
             idx:Int32Array.from(idx),u0:Float32Array.from(u0),row:Int16Array.from(row),rowF:Float32Array.from(rowF),
-            shade:Float32Array.from(shade),rim:Float32Array.from(rim),spec:Float32Array.from(spec)};
+            shade:Float32Array.from(shade),rim:Float32Array.from(rim),spec:Float32Array.from(spec),z:Float32Array.from(zs),d:Float32Array.from(ds)};
         SPHERE_CACHE.set(S,sphere);
         return sphere;
     }
@@ -287,7 +381,7 @@
     function renderSphere(tex,S,rotation,time,rimColor){
         const sp=getSphere(S),out=sp.image.data,W=tex.W,src=tex.rgba,flags=tex.flags,clouds=tex.clouds;
         const rotT=((rotation/TAU)*W)%W,cloudRot=(((rotation*1.18+time*.000012)/TAU)*W)%W;
-        const sh=tex.shadow,cc=tex.cloudColor,rc=rimColor;
+        const sh=tex.shadow,cc=tex.cloudColor,rc=rimColor,coreR=.52;
         out.fill(0);
         const n=sp.idx.length;
         const H=tex.H;
@@ -300,6 +394,22 @@
             const a0=(rowBase+u0i)*4,a1=(rowBase+u1i)*4,b0=(r1*W+u0i)*4,b1=(r1*W+u1i)*4;
             const w00=(1-tx)*(1-ty),w10=tx*(1-ty),w01=(1-tx)*ty,w11=tx*ty;
             const ti=rowBase+(u|0),flag=flags[ti];
+            if(flag===3){
+                // Interior exposto: casca rompida, cavidade escura com cristais e núcleo brilhante.
+                const dist=sp.d[k];
+                if(dist<coreR){
+                    // Núcleo cristalino: brilho radial com borda suavizada para dentro da cavidade.
+                    const t=dist/coreR,cr=tex.coreRGB,hr=tex.hotRGB,lit=Math.max(0,1-t*t),edgeT=smooth(.86,1,t);
+                    const r0=cr[0]+(hr[0]-cr[0])*lit,g0=cr[1]+(hr[1]-cr[1])*lit,b0=cr[2]+(hr[2]-cr[2])*lit;
+                    out[p]=r0+(60-r0)*edgeT*.7;out[p+1]=g0+(30-g0)*edgeT*.7;out[p+2]=b0+(80-b0)*edgeT*.7;out[p+3]=255;
+                }else if(sp.z[k]<.28){out[p+3]=0;}
+                else{
+                    const t=(dist-coreR)/(1-coreR),spark=((ti*2654435761)>>>0)%97===0;
+                    const bl=Math.max(0,1-t*1.6),cr=tex.coreRGB;
+                    out[p]=spark?120:34+cr[0]*.35*bl;out[p+1]=spark?235:18+cr[1]*.3*bl;out[p+2]=spark?230:52+cr[2]*.4*bl;out[p+3]=255;
+                }
+                continue;
+            }
             let s=sp.shade[k];
             let r=src[a0]*w00+src[a1]*w10+src[b0]*w01+src[b1]*w11;
             let g=src[a0+1]*w00+src[a1+1]*w10+src[b0+1]*w01+src[b1+1]*w11;
@@ -336,6 +446,46 @@
         return fallback;
     }
 
+    // Anéis de entulho e fragmentos colossais que se afastam após o nascimento de uma Diamante.
+    function drawShatterField(ctx,cx,cy,radius,opts,amount,front){
+        const time=Number(opts.time)||0,b=BIOMES[opts.surface.biome]||BIOMES.rocky,seed=(opts.surface.seed>>>0)||1;
+        const hr=(i,j,k)=>hash3(i,j,k,seed^0xa5a5);
+        const rings=[[1.62,.3,-.32,.000018],[1.95,.42,.22,-.000012]];
+        rings.forEach(([rx,ry,tilt,spd],ri)=>{
+            ctx.save();ctx.translate(cx,cy);ctx.rotate(tilt);
+            ctx.lineWidth=radius*(.07-ri*.02);ctx.strokeStyle='rgba(196,182,224,'+(.28*amount)+')';
+            ctx.beginPath();ctx.ellipse(0,0,radius*rx,radius*ry,0,front?0:Math.PI,front?Math.PI:TAU);ctx.stroke();
+            ctx.lineWidth=Math.max(1,radius*.008);ctx.strokeStyle='rgba(27,15,48,'+(.5*amount)+')';ctx.stroke();
+            const count=26+ri*10;
+            for(let i=0;i<count;i++){
+                const a=(i/count)*TAU+time*spd+hr(i,ri,0)*.2,isFront=Math.sin(a)>0;
+                if(isFront!==front)continue;
+                const x=Math.cos(a)*radius*rx*(1+(hr(i,ri,1)-.5)*.08),y=Math.sin(a)*radius*ry*(1+(hr(i,ri,2)-.5)*.25),sz=radius*(.012+hr(i,ri,3)*.022)*amount;
+                ctx.save();ctx.translate(x,y);ctx.rotate(a*3+i);
+                poly(ctx,[[-sz,-sz*.3],[-sz*.2,-sz],[sz,-sz*.4],[sz*.6,sz*.8],[-sz*.7,sz*.6]]);
+                ctx.fillStyle=i%3?b.cliffDark:b.land[1];ctx.fill();ctx.lineWidth=Math.max(.8,sz*.18);ctx.strokeStyle=b.ink;ctx.stroke();ctx.restore();
+            }
+            ctx.restore();
+        });
+        // Fragmentos colossais da casca.
+        for(let i=0;i<6;i++){
+            const base=i/6*TAU+hr(i,9,0)*.6,a=base+time*.000006*(i%2?1:-1),isFront=Math.sin(a+.4)>-.1;
+            const dist=radius*(1.02+.12*(i%3)+.38*amount),sz=radius*(.16+hr(i,9,1)*.13);
+            if(isFront!==front)continue;
+            const x=cx+Math.cos(a)*dist,y=cy+Math.sin(a)*dist*.72+Math.sin(time*.0006+i)*radius*.015;
+            ctx.save();ctx.translate(x,y);ctx.rotate(a+Math.PI/2+Math.sin(time*.0002+i)*.08);
+            const pts=[],nv=7+(i%3);for(let j=0;j<nv;j++){const t=j/nv*TAU+hr(i,j,5)*.45,rr=sz*(j%2?.48+hr(i,j,6)*.3:.8+hr(i,j,6)*.4);pts.push([Math.cos(t)*rr,Math.sin(t)*rr*.6-Math.cos(t)*Math.cos(t)*sz*.12]);}
+            const depth=sz*(.3+hr(i,3,7)*.25);
+            poly(ctx,pts.map(([px,py])=>[px,py+depth]));ctx.fillStyle=b.cliffDark;ctx.fill();ctx.lineWidth=Math.max(1,radius*.01);ctx.strokeStyle=b.ink;ctx.stroke();
+            // Face interna do fragmento: manto e veios brilhantes.
+            ctx.beginPath();pts.forEach(([px,py],j)=>{if(py>-sz*.1){ctx.moveTo(px,py);ctx.lineTo(px,py+depth);}});ctx.strokeStyle='rgba(27,15,48,.45)';ctx.stroke();
+            poly(ctx,pts);const tg=ctx.createLinearGradient(0,-sz,0,sz);tg.addColorStop(0,b.land[2]);tg.addColorStop(1,b.land[0]);ctx.fillStyle=tg;ctx.fill();ctx.stroke();
+            ctx.beginPath();ctx.moveTo(pts[0][0]*.5,pts[0][1]*.5+depth*.6);ctx.lineTo(pts[3][0]*.4,pts[3][1]*.4+depth*.7);ctx.strokeStyle='rgba(255,236,190,.8)';ctx.lineWidth=Math.max(1,radius*.008);ctx.stroke();
+            ctx.fillStyle=b.crystal[1];const cs=sz*.18;poly(ctx,[[0,-cs*1.4],[cs*.5,-cs*.2],[0,cs*.3],[-cs*.5,-cs*.2]]);ctx.fill();ctx.strokeStyle=b.ink;ctx.lineWidth=Math.max(.8,radius*.006);ctx.stroke();
+            ctx.restore();
+        }
+    }
+
     /**
      * Desenha um planeta completo.
      * opts: {cx,cy,radius,surface:{id,seed,topology,biome,landCoverage,waterKind,features},
@@ -344,7 +494,11 @@
     function drawPlanet(ctx,opts){
         const {cx,cy,radius}=opts;
         if(!ctx||!(radius>1))return;
-        const tex=getTexture(opts.surface,!!opts.deferred);
+        const base=getTexture(opts.surface,!!opts.deferred);
+        const damage=opts.damage||{};
+        const tex=base&&(damage.stage||damage.shattered||damage.depleted)?getDamagedTexture(base,damage):base;
+        const shatter=damage.shattered?Math.max(.05,Math.min(1,damage.shatterProgress??1)):0;
+        const coreRGB=parseColor(damage.coreColor,[255,233,194]);
         const dpr=Math.max(1,Math.min(2,window.devicePixelRatio||1));
         const S=Math.max(32,Math.min(opts.maxResolution||352,Math.round(radius*2*dpr/16)*16));
         const atm=parseColor(opts.atmosphere,[201,166,255]);
@@ -355,6 +509,14 @@
         glow.addColorStop(.35,'rgba('+atm.join(',')+',.18)');
         glow.addColorStop(1,'rgba('+atm.join(',')+',0)');
         ctx.fillStyle=glow;ctx.beginPath();ctx.arc(cx,cy,radius*1.36,0,TAU);ctx.fill();
+        // Luz do núcleo vazando pelas fissuras (mais intensa quando estilhaçado).
+        const leak=shatter?1:Math.min(.6,(damage.stage||0)*.14+(damage.depleted?.2:0));
+        if(leak>0){
+            const cg=ctx.createRadialGradient(cx,cy,radius*.5,cx,cy,radius*(1.25+leak*.55));
+            cg.addColorStop(0,'rgba('+coreRGB.join(',')+','+(.55*leak)+')');cg.addColorStop(1,'rgba('+coreRGB.join(',')+',0)');
+            ctx.fillStyle=cg;ctx.beginPath();ctx.arc(cx,cy,radius*(1.25+leak*.55),0,TAU);ctx.fill();
+        }
+        if(shatter)drawShatterField(ctx,cx,cy,radius,opts,shatter,false);
         if(!tex){
             const b=BIOMES[opts.surface.biome]||BIOMES.rocky,g=ctx.createRadialGradient(cx-radius*.35,cy-radius*.4,radius*.1,cx,cy,radius);
             g.addColorStop(0,b.land[2]);g.addColorStop(.55,b.shallow);g.addColorStop(1,b.shadow);
@@ -372,8 +534,9 @@
         ctx.imageSmoothingEnabled=true;
         ctx.drawImage(img,cx-radius,cy-radius,radius*2,radius*2);
         ctx.restore();
-        // Contorno de tinta + filete de luz atmosférica.
-        if(opts.outline!==false){
+        if(shatter)drawShatterField(ctx,cx,cy,radius,opts,shatter,true);
+        // Contorno de tinta + filete de luz atmosférica (a casca rompida dispensa o contorno contínuo).
+        if(opts.outline!==false&&!shatter){
             ctx.lineWidth=Math.max(1.2,radius*.018);ctx.strokeStyle='rgba(26,12,46,.9)';
             ctx.beginPath();ctx.arc(cx,cy,radius,0,TAU);ctx.stroke();
             ctx.lineWidth=Math.max(1,radius*.012);ctx.strokeStyle='rgba('+atm.join(',')+',.75)';
