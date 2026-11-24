@@ -333,3 +333,20 @@ input.gstep-source{position:absolute!important;width:1px!important;height:1px!im
 /* Essência por Diamante na HUD */
 #hud-diamond-essences:empty{display:none}
 #hud-diamond-essences b{text-shadow:0 0 3px rgba(10,4,24,.95),0 0 1px rgba(10,4,24,1)}
+
+/* ---------------------------------------------------------------------------
+ * Corte das Diamantes (gempire-court.js)
+ * ------------------------------------------------------------------------- */
+.court-row{display:flex;justify-content:space-between;align-items:center;gap:8px}
+.court-actions{display:flex;flex-wrap:wrap;gap:6px;margin-top:8px}
+.court-actions .btn{flex:1 1 auto;min-width:120px}
+.court-subtitle{margin-top:10px;font-size:10px;font-weight:800;letter-spacing:.12em;text-transform:uppercase;color:#f2cf86}
+.court-speech{margin:8px 0;padding:8px 10px;border-left:2px solid rgba(242,207,134,.6);background:rgba(20,10,40,.55);font-style:italic;color:#efe4ff;font-size:12px}
+.court-rels{display:flex;flex-wrap:wrap;gap:4px;margin:6px 0}
+.court-bar{display:grid;grid-template-columns:72px 1fr 40px;align-items:center;gap:8px;font-size:11px;margin-top:5px}
+.court-bar>div{height:7px;background:rgba(201,166,255,.15);border-radius:4px;overflow:hidden}
+.court-bar>div>i{display:block;height:100%;border-radius:4px}
+.court-bar b{text-align:right}
+.court-mission{display:flex;flex-direction:column;gap:6px;margin-top:6px}
+.court-log{display:flex;flex-direction:column;gap:2px;padding:6px 8px;margin-top:5px;border-left:3px solid rgba(201,166,255,.45);background:rgba(20,10,40,.4);font-size:12px}
+.court-log small{color:var(--text-muted,#b4a3d4)}

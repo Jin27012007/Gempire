@@ -664,6 +664,7 @@
                 </div>
                 <nav class="governance-screen-tabs" aria-label="Seções do Governo Imperial">
                     <button id="governance-section-council" class="btn active" onclick="switchGovernanceSection('council')">🏛 Conselho</button>
+                    <button id="governance-section-court" class="btn" onclick="switchGovernanceSection('court')">👑 Corte</button>
                     <button id="governance-section-demantoid" class="btn hidden" onclick="switchGovernanceSection('demantoid')">🔬 Demantoide</button>
                     <button id="governance-section-hessonite" class="btn hidden" onclick="switchGovernanceSection('hessonite')">⚔️ Hessonita</button>
                     <button id="governance-section-morganite" class="btn hidden" onclick="switchGovernanceSection('morganite')">🏛 Morganita</button>
@@ -2459,14 +2460,14 @@
         }
 
         function switchGovernanceSection(section) {
-            const allowed = ['council', 'demantoid', 'hessonite', 'morganite', 'aquamarine'];
+            const allowed = ['council', 'court', 'demantoid', 'hessonite', 'morganite', 'aquamarine'];
             if (!allowed.includes(section)) section = 'council';
             if (section === 'demantoid' && !isInjectorManagerActive()) section = 'council';
             if (section === 'hessonite' && !(window.isHessoniteCommandActive && window.isHessoniteCommandActive())) section = 'council';
             if (section === 'morganite' && Number(state.census.morganite||0)<1) section = 'council';
             if (section === 'aquamarine' && Number(state.census.aquamarine||0)<1) section = 'council';
             state.governanceSection = section;
-            ['council', 'demantoid', 'hessonite', 'morganite', 'aquamarine'].forEach(key => {
+            ['council', 'court', 'demantoid', 'hessonite', 'morganite', 'aquamarine'].forEach(key => {
                 const button = document.getElementById('governance-section-' + key);
                 if (!button) return;
                 button.classList.toggle('hidden', key === 'demantoid' && !isInjectorManagerActive());
@@ -2477,7 +2478,8 @@
             });
             const content = document.getElementById('governance-content');
             if (!content) return;
-            if (section === 'demantoid') renderDemantoidManagementTab(content);
+            if (section === 'court') { if (window.renderDiamondCourtTab) window.renderDiamondCourtTab(content); else content.innerHTML = '<div class="card">O módulo da Corte ainda não foi carregado.</div>'; }
+            else if (section === 'demantoid') renderDemantoidManagementTab(content);
             else if (section === 'morganite') renderMorganiteArchitectureTab(content);
             else if (section === 'aquamarine') renderAquamarineTerraformingTab(content);
             else if (section === 'hessonite') {
@@ -3802,7 +3804,7 @@
 
         function updateStructureSimulation(dt,mode='all',allowUI=true) {
             if(mode!=='local'){
-                updateRedEyeMission(dt);updateCargoMissions(dt);updateFleetTravel(dt);updateGalaxyWarpExpeditions(dt);updateMatriarchChambers(dt);
+                updateRedEyeMission(dt);updateCargoMissions(dt);updateFleetTravel(dt);updateGalaxyWarpExpeditions(dt);updateMatriarchChambers(dt);if(window.GempireCourt)GempireCourt.update(dt);
                 if(window.updateHessonitePatrols)window.updateHessonitePatrols(dt);
             }
             if(mode==='global')return;
@@ -4056,7 +4058,7 @@
                         <div style="display:flex; justify-content:space-between; align-items:center; font-size:10px; color:var(--text-muted);">
                             <span>Lealdade: <b style="color:${m.loyalty < 45 ? '#fb7185' : '#6ee7b7'}">${Math.round(m.loyalty)}%</b></span>
                             <span>Autonomia: <b style="color:#7dd3fc">${Math.round(m.autonomy)}%</b></span>
-                            <button class="btn" style="padding:2px 6px; font-size:10px;" onclick="communeWithMatriarch(${idx})">✨ Comunhão (20 B)</button>
+                            <button class="btn" style="padding:2px 6px; font-size:10px;" onclick="openDiamondCourt()">👑 Corte</button>
                         </div>
                     </div>
                 `).join('');
@@ -4097,6 +4099,7 @@ ${hasAristocrats ? `
                 </div>` : `
                 <div class="card"><div class="card-header"><span class="card-title title-font">⚖️ Conferência de Diamantes</span><span class="badge">Aguardando Rank S</span></div><p style="font-size:11px;color:#94a3b8;line-height:1.5">Somente Gems Aristocratas podem convocar e conduzir conferências diante da autoridade Diamante. A conferência será desbloqueada quando houver ao menos uma Aristocrata no Império.</p></div>`}
 
+                ${(()=>{const c=window.GempireCourt&&GempireCourt.summary();if(!c)return '';const pending=c.requests+(c.dispute?1:0)+(c.vote?1:0);return '<div class="card card-amber"><div class="card-header"><span class="card-title title-font">👑 Corte das Diamantes</span><span class="badge">'+(pending?pending+' pendente(s)':'Em ordem')+'</span></div><p class="structure-desc">'+c.requests+' pedido(s) · '+(c.dispute?'1 disputa · ':'')+(c.vote?'1 votação · ':'')+c.missions+' missão(ões) em andamento'+(c.rebels?' · <b style="color:#fb7185">'+c.rebels+' rebelde(s)</b>':'')+'</p><button class="btn btn-block" onclick="openDiamondCourt()">Abrir a Corte</button></div>';})()}
                 <!-- Dinastia de Diamantes Autônomas -->
                 <div class="card">
                     <div class="card-header">
@@ -4446,6 +4449,7 @@ ${hasAristocrats ? `
             updateHUD();switchDrawerTab('context');
         }
 
+        function openDiamondCourt(){state.governanceSection='court';switchScreen('governance');switchGovernanceSection('court');}
         function communeWithMatriarch(idx) {
             const m = state.matriarchs[idx];
             if (!m) return;
@@ -7942,7 +7946,7 @@ function drawColony(time){
                 state.constructionQueue=Array.isArray(state.constructionQueue)?state.constructionQueue:(state.construction&&state.construction.active?[state.construction]:[]);
                 state.construction=state.constructionQueue[0]||null;
                 state.currentScreen='throne';
-                state.governanceSection = ['council','demantoid','hessonite','morganite','aquamarine'].includes(state.governanceSection) ? state.governanceSection : 'council';
+                state.governanceSection = ['council','court','demantoid','hessonite','morganite','aquamarine'].includes(state.governanceSection) ? state.governanceSection : 'council';
                 state.morganiteAutoBuild = state.morganiteAutoBuild !== false;
                 ensureMorganiteArchitectureState();
                 state.structures.diamond_quarters=Number(state.structures.diamond_quarters)||0;
@@ -8129,5 +8133,6 @@ function drawColony(time){
     <script src="diamond-governance.js"></script>
     <script src="diamond-social.js"></script>
     <script src="diamond-chat.js"></script>
+    <script src="gempire-court.js"></script>
 </body>
 </html>
