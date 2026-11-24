@@ -632,12 +632,7 @@
         </div>
 
         <div class="res-group">
-            <div class="res-pill" title="Essências Diamante: Branca, Amarela, Azul e Vital">
-                <span class="res-item"><i class="diamond-icon" style="background:#ffffff"></i><b id="hud-white">240</b></span>
-                <span class="res-item"><i class="diamond-icon" style="background:#facc15"></i><b id="hud-yellow" style="color:#fde047">160</b></span>
-                <span class="res-item"><i class="diamond-icon" style="background:#38bdf8"></i><b id="hud-blue" style="color:#7dd3fc">160</b></span>
-                <span class="res-item"><i class="diamond-icon" style="background:#fb7185"></i><b id="hud-pink" style="color:#fda4af">140</b></span>
-            </div>
+            <div class="res-pill" id="hud-diamond-essences" title="Essência de cada Diamante do império"></div>
             <div class="res-pill">
                 <span class="res-item" title="Matéria Mineral"><span class="res-label">MAT:</span><b id="hud-minerals" style="color:#fcd34d">460</b></span>
                 <span class="res-item" title="Tecnologia Imperial"><span class="res-label">TEC:</span><b id="hud-tech" style="color:#6ee7b7">130</b></span>
@@ -902,7 +897,7 @@
         };
 
         const STRUCTURE_CATALOG = [
-            {id:'essence_chamber',name:'Câmara de Extração de Essência',category:'Essência e Criação',desc:'Uma sauna ou piscina de essência onde a Primeira Diamante toma um banho de 30 segundos. Ao terminar, produz 50 vezes a essência de uma atividade física comum.',cost:{minerals:20,tech:0},buildTime:18,prerequisites:[],workers:{peridot:1},interaction:'Desbloqueia o banho de essência de 30 segundos. Cada Diamante pode possuir sua própria Câmara.',maxCount:12},
+            {id:'essence_chamber',name:'Câmara de Extração de Essência',category:'Essência e Criação',desc:'Uma sauna ou piscina de essência onde a Diamante toma um banho. O banho básico dura 30 segundos e rende 10.000 de essência; até 3 aprimoramentos alongam o banho e multiplicam o rendimento.',cost:{minerals:20,tech:0},buildTime:18,prerequisites:[],workers:{peridot:1},interaction:'Desbloqueia o banho de essência de 30 segundos. Cada Diamante pode possuir sua própria Câmara.',maxCount:12},
             {id:'injector',name:'Injetor',category:'Essência e Criação',desc:'Cada unidade opera em paralelo em um setor do planeta, formando lotes simultâneos de Gems do material presente.',cost:{minerals:35,tech:0},buildTime:28,prerequisites:['essence_chamber'],workers:{peridot:1},interaction:'Produção paralela: cada Injetor acrescenta cinco Gems por ciclo.',maxCount:12},
             {id:'reef',name:'Recife de Pérolas',category:'Essência e Criação',desc:'Berçário nacarado que fabrica Pérolas automaticamente a partir de Nácar e as armazena antes da distribuição automática às Diamantes e aos Aristocratas.',cost:{minerals:65,tech:12},buildTime:36,prerequisites:[],workers:{lapis:1,peridot:1},interaction:'Produção automática de Pérolas com Nácar e distribuição automática às donas elegíveis.',maxCount:5},
             {id:'mineral_extractor',name:'Extrator Mineral',category:'Extração, Indústria e Energia',desc:'Exige um Peridoto operador. Todos os Quartzos da população extraem 1 mineral a cada 10 segundos, em paralelo. Cada Ágata coordena até 20 Quartzos e reduz o intervalo desse grupo para 5 segundos (2×).',cost:{minerals:25,tech:0},buildTime:20,prerequisites:[],workers:{peridot:1},interaction:'Todos os Quartzos mineram automaticamente; Ágatas aceleram até 2×.',maxCount:3},
@@ -1713,7 +1708,7 @@
         function pickWeighted(list,random){const total=list.reduce((a,x)=>a+x.weight,0);let r=random()*total;for(const x of list){r-=x.weight;if(r<=0)return x;}return list[list.length-1];}
         function getGalaxySystems(){return Array.isArray(state.galaxy?.systems)?state.galaxy.systems:[];}
         function getStarSystem(id){return getGalaxySystems().find(s=>s.id===id)||null;}
-        function getStarSystemName(id){if(id==='home_system')return 'Homeworld';return getStarSystem(id)?.name||'Sistema desconhecido';}
+        function getStarSystemName(id){const sys=getStarSystem(id);if(id==='home_system')return sys?.name||PLANETS.homeworld?.shortName||'Homeworld';return sys?.name||'Sistema desconhecido';}
 
         function generateProceduralPlanet(system,index,au,random){
             const id='gen_'+system.id.replace(/^sys_/,'')+'_'+index;
@@ -3406,7 +3401,44 @@
         function getSpaceDistance(originId,targetId){const a=PLANETS[originId],b=PLANETS[targetId];if(!a||!b)return 1;const au=id=>{const p=PLANETS[id],env=PLANET_ENVIRONMENT[id]||{};return Number(env.orbitAU??p.orbitAU??(Number(p.orbitRadius)||100)/100)||0;};const sa=getStarSystem(a.systemId||'home_system'),sb=getStarSystem(b.systemId||'home_system');const between=a.systemId===b.systemId?0:(sa&&sb?1.2+Math.hypot(sa.x-sb.x,sa.y-sb.y)*2.6:3);return Math.max(.25,Math.abs(au(originId)-au(targetId))+between);}
         function getSpaceTravelSeconds(originId,targetId,factor=1){return Math.max(12,Math.ceil((30+getSpaceDistance(originId,targetId)*150)/Math.max(.25,factor)));}
         function startRedEyeMission(targetId,requestedOrigin){if(!PLANETS[targetId]||PLANETS[targetId].scouted){setStatusTicker('Selecione um planeta ainda não reconhecido.',true);return;}const originId=requestedOrigin&&PLANETS[requestedOrigin]?requestedOrigin:pickRedEyeOrigin(targetId);if(!originId||getAvailableRedEyeCountAt(originId)<1){setStatusTicker('Não há Olho Vermelho livre'+(requestedOrigin?' em '+(PLANETS[requestedOrigin]?.shortName||'origem'):'')+'. Aguarde uma missão ou construa outra unidade.',true);return;}state.redEyeMissions=Array.isArray(state.redEyeMissions)?state.redEyeMissions:[];state.redEyeMissions.push({id:'eye_'+Date.now()+'_'+Math.floor(Math.random()*1e5),planetId:targetId,originId,phase:'outbound',phaseProgress:0,phaseDuration:getSpaceTravelSeconds(originId,targetId),progress:0,active:true,reportDraft:null});setStatusTicker('Olho Vermelho enviado de '+PLANETS[originId].shortName+' para '+PLANETS[targetId].shortName+'.');updateHUD();renderDrawerContent();}
-        function renameScoutedPlanet(id,name){const p=PLANETS[id],value=String(name||'').trim().slice(0,32);if(!p||!p.scouted||!value){setStatusTicker('Nome inválido ou planeta ainda não reconhecido.',true);return;}p.shortName=value;p.name=value;if(p.reconnaissance)p.reconnaissance.planetName=value;(state.redEyeReports||[]).filter(r=>r.planetId===id).forEach(r=>r.planetName=value);setStatusTicker('Planeta renomeado para '+value+'.');addChronicle('Planeta renomeado',id+' recebeu o nome '+value+'.','Catálogo atualizado');renderDrawerContent();renderBottomBar();}
+        // ---- Renomear planetas e estrelas ----------------------------------------------
+        function getHomeworldName(){return PLANETS.homeworld?.shortName||'Homeworld';}
+        function renamePlanetDirect(id,name){
+            const p=PLANETS[id],value=String(name||'').trim().slice(0,32);if(!p||!value)return false;
+            p.shortName=value;p.name=value;if(p.reconnaissance)p.reconnaissance.planetName=value;
+            (state.redEyeReports||[]).filter(r=>r.planetId===id).forEach(r=>r.planetName=value);
+            if(id==='homeworld'){const home=getStarSystem('home_system');if(home&&(!home.customName))home.name=value;}
+            applyHomeworldNameToDOM();
+            return true;
+        }
+        function renameStarSystem(id,name){
+            const sys=getStarSystem(id),value=String(name||'').trim().slice(0,32);
+            if(!sys||!value){setStatusTicker('Nome de estrela inválido.',true);return;}
+            const old=sys.name;sys.name=value;sys.customName=true;
+            // Planetas que ainda usam o nome de fábrica ("Estrela II") acompanham a estrela.
+            (sys.planetIds||[]).forEach((pid,i)=>{const p=PLANETS[pid];if(!p)return;const m=String(p.shortName||'').match(/^(.*) ([IVX]+)$/);if(m&&m[1]===old)renamePlanetDirect(pid,value+' '+m[2]);});
+            setStatusTicker('Estrela renomeada para '+value+'.');addChronicle('Estrela renomeada',old+' passou a se chamar '+value+'.','Catálogo atualizado');
+            renderDrawerContent();renderBottomBar();
+        }
+        // O nome do planeta natal aparece em muitos textos fixos; a interface troca a palavra
+        // "Homeworld" pelo nome escolhido sem alterar os dados internos.
+        let homeworldNameObserver=null;
+        function replaceHomeworldText(node,name){
+            if(node.nodeType===3){if(node.nodeValue.includes('Homeworld'))node.nodeValue=node.nodeValue.replace(/Homeworld/g,name);return;}
+            if(node.nodeType!==1||/^(SCRIPT|STYLE|TEXTAREA|INPUT|SELECT)$/.test(node.tagName))return;
+            const walker=document.createTreeWalker(node,NodeFilter.SHOW_TEXT,{acceptNode:t=>t.parentElement&&/^(SCRIPT|STYLE|TEXTAREA)$/.test(t.parentElement.tagName)?NodeFilter.FILTER_REJECT:NodeFilter.FILTER_ACCEPT});
+            let t;while((t=walker.nextNode()))if(t.nodeValue.includes('Homeworld'))t.nodeValue=t.nodeValue.replace(/Homeworld/g,name);
+        }
+        function applyHomeworldNameToDOM(){
+            const name=getHomeworldName();
+            if(name==='Homeworld'){if(homeworldNameObserver){homeworldNameObserver.disconnect();homeworldNameObserver=null;}return;}
+            replaceHomeworldText(document.body,name);
+            if(!homeworldNameObserver){
+                homeworldNameObserver=new MutationObserver(list=>{const current=getHomeworldName();if(current==='Homeworld')return;list.forEach(m=>{if(m.type==='characterData')replaceHomeworldText(m.target,current);else m.addedNodes.forEach(n=>replaceHomeworldText(n,current));});});
+                homeworldNameObserver.observe(document.body,{childList:true,subtree:true,characterData:true});
+            }
+        }
+        function renameScoutedPlanet(id,name){const p=PLANETS[id],value=String(name||'').trim().slice(0,32);if(!p||!(p.scouted||p.colonized||id==='homeworld')||!value){setStatusTicker('Nome inválido ou planeta ainda não reconhecido.',true);return;}renamePlanetDirect(id,value);setStatusTicker('Planeta renomeado para '+value+'.');addChronicle('Planeta renomeado',id+' recebeu o nome '+value+'.','Catálogo atualizado');renderDrawerContent();renderBottomBar();}
         function createRedEyeReport(p){const env=PLANET_ENVIRONMENT[p.id]||{};return{id:'scan_'+Date.now(),planetId:p.id,planetName:p.shortName||p.name,distanceAU:Number(env.orbitAU??p.orbitAU??p.orbitRadius/100)||0,temperatureC:Number(env.temperatureC??p.temperatureC)||0,pressureAtm:Number(env.atmosphericPressureAtm??p.atmosphericPressureAtm)||0,composition:Object.entries(p.resourcesByType||{}).map(([type,amount])=>({type,amount:Math.floor(Number(amount)||0)})),water:!!p.hasOcean,moons:(p.moons||[]).length,organicLifePresent:p.organicLifePresent===true||(Number(p.organicLifePopulation)||0)>0,organicLifePopulation:p.organicLifePopulation??null,habitability:p.hasOcean&&Number(env.temperatureC??p.temperatureC??0)>-20&&Number(env.temperatureC??p.temperatureC??0)<55?'Potencialmente habitável':'Condições ambientais restritivas',cycle:state.cycleCount||1};}
         function updateRedEyeMission(dt){const missions=Array.isArray(state.redEyeMissions)?state.redEyeMissions:[];missions.forEach(m=>{if(!m||!m.active)return;m.phaseProgress=(Number(m.phaseProgress)||0)+Math.max(0,Number(dt)||0);m.progress=Math.min(100,m.phaseProgress/Math.max(1,Number(m.phaseDuration)||1)*100);if(m.phaseProgress<m.phaseDuration)return;if(m.phase==='outbound'){m.phase='survey';m.phaseProgress=0;m.phaseDuration=12;setStatusTicker('Olho Vermelho chegou a '+PLANETS[m.planetId].shortName+' e iniciou a varredura.');}else if(m.phase==='survey'){m.reportDraft=createRedEyeReport(PLANETS[m.planetId]);m.phase='returning';m.phaseProgress=0;m.phaseDuration=getSpaceTravelSeconds(m.planetId,m.originId);setStatusTicker('Varredura concluída em '+PLANETS[m.planetId].shortName+'. Retorno iniciado.');}else{const p=PLANETS[m.planetId],report=m.reportDraft||createRedEyeReport(p);p.scouted=true;p.travelUnlocked=true;p.reconnaissance=report;state.redEyeReports=Array.isArray(state.redEyeReports)?state.redEyeReports:[];state.redEyeReports.unshift(report);state.redEyeReports=state.redEyeReports.slice(0,30);m.phase='completed';m.progress=100;m.active=false;setStatusTicker(report.planetName+' reconhecido. Viagens espaciais desbloqueadas.');addChronicle('Reconhecimento espacial concluído',report.planetName+' foi catalogado; viagens espaciais liberadas.','Destino reconhecido');}});state.redEyeMissions=missions.filter(m=>m.active||m.phase==='completed').slice(-30);updateHUD();renderDrawerContent();renderBottomBar();}
         const CARGO_STRUCTURE_IDS=['injector','galaxy_warp','mineral_extractor'];
@@ -3940,7 +3972,8 @@
                             html += '<div class="founding-note">Programação independente: '+orders.length+' Injetor(es), até 5 Gems por unidade. Essência disponível: '+(state.founding.injectorEssence||0).toFixed(1)+' unidades.</div>';
                         } else if(def.id==='essence_chamber'){
                             html+='<div class="founding-note">Câmaras construídas: '+count+' / '+(state.matriarchs.length+1)+' Diamantes. Cada Câmara produz essência para sua própria Diamante.</div>';
-                            (state.diamondChambers||[]).forEach(ch=>{if(ch.ownerId==='first')return;const owner=state.matriarchs.find(m=>m.id===ch.ownerId);html+='<div class="stat-box"><b>'+escapeHTML(ch.ownerName)+'</b><small style="display:block;color:var(--text-muted)">Essência: '+Number(owner?.essence||0).toFixed(1)+' · '+(ch.active?'Banho '+Math.floor(ch.progress)+'%':ch.cooldown>0?'Recuperação: '+formatDuration(ch.cooldown):'Disponível')+'</small><button class="btn btn-block" onclick="startMatriarchEssenceBath(\''+ch.ownerId+'\')" '+(!structureIsOperational('essence_chamber')||ch.active||ch.cooldown>0?'disabled':'')+'>🛁 Iniciar banho · 30s</button></div>';});
+                            (state.diamondChambers||[]).forEach(ch=>{if(ch.ownerId==='first')return;const owner=state.matriarchs.find(m=>m.id===ch.ownerId);html+='<div class="stat-box"><b>'+escapeHTML(ch.ownerName)+'</b><small style="display:block;color:var(--text-muted)">Essência: '+Number(owner?.essence||0).toFixed(1)+' · '+(ch.active?'Banho '+Math.floor(ch.progress)+'%':ch.cooldown>0?'Recuperação: '+formatDuration(ch.cooldown):'Disponível')+'</small><button class="btn btn-block" onclick="startMatriarchEssenceBath(\''+ch.ownerId+'\')" '+(!structureIsOperational('essence_chamber')||ch.active||ch.cooldown>0?'disabled':'')+'>🛁 Iniciar banho · '+getEssenceChamberStats(ch.ownerId).duration+'s</button></div>';});
+                            html+=renderEssenceChamberUpgrades();
                         } else if(def.id==='lunar_base'){
                             const p=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld,env=PLANET_ENVIRONMENT[p.id]||{};
                             html+='<div class="founding-note">Base Lunar ativa em '+escapeHTML(p.shortName)+'. População: '+Object.values(state.census||{}).reduce((a,v)=>a+(Number(v)||0),0)+' Gems · Recursos restantes: '+Math.floor(p.resourcesRemaining||0).toLocaleString('pt-BR')+' · Temperatura: '+(env.temperatureC??'—')+' °C · Pressão: '+(env.atmosphericPressureAtm??'—')+' atm.</div>';
@@ -4099,11 +4132,11 @@ ${hasAristocrats ? `
             let html='<div class="card card-cyan"><div class="card-header"><b class="card-title">'+(state.starMapView==='galaxy'?'Mapa galáctico':'Sistema estelar · '+escapeHTML(getStarSystemName(systemId)))+'</b><span class="badge">'+Object.values(PLANETS).filter(x=>x.scouted).length+'/'+Object.keys(PLANETS).length+' reconhecidos</span></div>';
             if(state.starMapView==='galaxy'){
                 html+='<p class="structure-desc">Homeworld é um sistema isolado com um único planeta. Esta galáxia tem '+(getGalaxySystems().length-1)+' outros sistemas'+(state.galaxy?.seed?' · semente '+state.galaxy.seed:'')+'. Selecione uma estrela para explorar seus mundos.</p>';
-                html+='<div class="stat-box"><b>☀ Sistema Homeworld</b><small>1 planeta · estrela moribunda · sistema inicial</small><button class="btn btn-emerald btn-block" onclick="selectStarSystem(\'home_system\')">Entrar no sistema</button></div>';
+                html+='<div class="stat-box"><b>☀ Sistema '+escapeHTML(getStarSystemName('home_system'))+'</b><small>1 planeta · estrela moribunda · sistema inicial</small><button class="btn btn-emerald btn-block" onclick="selectStarSystem(\'home_system\')">Entrar no sistema</button></div>';
                 const homeSys=getStarSystem('home_system')||{x:0,y:0};
                 getGalaxySystems().filter(sys=>!sys.home).slice().sort((a,b)=>Math.hypot(a.x-homeSys.x,a.y-homeSys.y)-Math.hypot(b.x-homeSys.x,b.y-homeSys.y)).forEach(sys=>{const ws=getPlanetsInStarSystem(sys.id),colonies=ws.filter(w=>w.colonized).length;html+='<div class="stat-box"><b>✦ '+escapeHTML(sys.name)+'</b><small>'+escapeHTML(sys.starLabel||'Estrela')+' · '+ws.length+' planeta(s) · '+ws.filter(w=>w.scouted).length+' reconhecido(s)'+(colonies?' · '+colonies+' colônia(s)':'')+'</small><button class="btn btn-block" onclick="selectStarSystem(\''+sys.id+'\')">Viajar até a estrela</button></div>';});
             }else{
-                html+='<button class="btn" onclick="returnToGalaxyMap()">← Voltar ao mapa galáctico</button><p class="structure-desc">Escolha um planeta deste sistema. Cada Olho Vermelho parte do planeta onde foi construído e retorna a ele.</p>';
+                html+='<button class="btn" onclick="returnToGalaxyMap()">← Voltar ao mapa galáctico</button><div class="stat-box"><label class="stat-label">Nome da estrela</label><input id="star-system-name" type="text" maxlength="32" value="'+escapeHTML(getStarSystemName(systemId))+'"><button class="btn btn-block" onclick="renameStarSystem(\''+systemId+'\',document.getElementById(\'star-system-name\').value)">Renomear estrela</button></div><p class="structure-desc">Escolha um planeta deste sistema. Cada Olho Vermelho parte do planeta onde foi construído e retorna a ele.</p>';
                 worlds.forEach(w=>html+='<button class="btn btn-block '+(w.id===p.id?'active':'')+'" onclick="selectStarMapPlanet(\''+w.id+'\')">'+(w.scouted?'◈ ':'? ')+escapeHTML(w.shortName)+(w.scouted?' · Reconhecido':' · Não reconhecido')+'</button>');
                 html+='<div class="stat-box"><div class="card-header"><b>'+escapeHTML(p.shortName)+'</b><span class="badge">'+(p.scouted?'Reconhecido':'Não reconhecido')+'</span></div>';
                 if(!p.scouted){
@@ -4141,7 +4174,7 @@ ${hasAristocrats ? `
                 '<div class="founding-note">'+(chamberBuilt?'A Câmara funciona como sauna de essência. O banho dura 30 segundos, produz 10.000 unidades e exige até 3 horas de recuperação.':'Sem Câmara construída, a Diamante produz essência por meio de exercícios físicos.')+'</div>'+
                 '<div class="stat-box">Essência armazenada: <b>'+essence.toFixed(1)+'</b> · Reserva interna: <b>'+(Number(f.diamondEssence)||0).toFixed(1)+'</b> · Recebida pelo Injetor: <b>'+(Number(f.injectorEssence)||0).toFixed(1)+'</b></div>'+
                 (f.bathActive?'<div class="founding-progress"><div id="founder-bath-progress" style="width:'+Math.floor(f.bathProgress||0)+'%"></div></div><div id="founder-bath-label" style="font-size:10px;color:#cbd5e1">Banho de essência: '+Math.floor(f.bathProgress||0)+'% · '+Math.max(0,Math.ceil(30*(1-(Number(f.bathProgress)||0)/100)))+'s restantes</div>':(cooldown>0?'<div class="stat-box" style="color:#fbbf24">Próximo banho em: <b id="founder-bath-cooldown">'+formatDuration(cooldown)+'</b></div>':''))+
-                '<button id="founder-activity-button" class="btn btn-pink btn-block" onclick="performFounderActivity()" '+(f.bathActive||f.creationActive||cooldown>0||(chamberBuilt&&!chamberReady)||(!chamberBuilt&&(Number(f.essenceCooldown)||0)>0)?'disabled':'')+'>'+(chamberBuilt?(f.bathActive?'🛁 Banho em andamento':chamberReady?(cooldown>0?'⏳ Próximo banho em '+formatDuration(cooldown):'🛁 Iniciar banho · 30s'):'⏳ Aguardando Peridot na Câmara'):(Number(f.essenceCooldown)||0)>0?'⏳ Recuperando fôlego':'💪 Exercício físico · produzir 2 essência')+'</button></div>';
+                '<button id="founder-activity-button" class="btn btn-pink btn-block" onclick="performFounderActivity()" '+(f.bathActive||f.creationActive||cooldown>0||(chamberBuilt&&!chamberReady)||(!chamberBuilt&&(Number(f.essenceCooldown)||0)>0)?'disabled':'')+'>'+(chamberBuilt?(f.bathActive?'🛁 Banho em andamento':chamberReady?(cooldown>0?'⏳ Próximo banho em '+formatDuration(cooldown):'🛁 Iniciar banho · '+getEssenceChamberStats('first').duration+'s'):'⏳ Aguardando Peridot na Câmara'):(Number(f.essenceCooldown)||0)>0?'⏳ Recuperando fôlego':'💪 Exercício físico · produzir 2 essência')+'</button></div>';
         }
 
         function renderColonyContext(container) {
@@ -4612,15 +4645,33 @@ ${hasAristocrats ? `
             return result;
         }
 
+        // HUD de essências: uma pílula por Diamante do império, na cor dela, com a essência
+        // que ela tem disponível. A Primeira Diamante soma a reserva interna, o estoque da
+        // Câmara e as essências da colônia; cada Matriarca mostra a própria essência.
+        function getDiamondEssenceTotals(){
+            const f=state.founding||{},pools=state.essence||{};
+            const colonyPool=['white','yellow','blue','pink'].reduce((a,k)=>a+Math.max(0,Number(pools[k])||0),0);
+            const first={id:'first',name:state.firstDiamond?.name||'Primeira Diamante',color:state.firstDiamond?.colorHex||COLOR_PALETTES[state.firstDiamond?.colorKey]?.hex||'#f8fafc',
+                amount:Math.max(0,Number(f.diamondEssence)||0)+Math.max(0,Number(f.injectorEssence)||0)+colonyPool,
+                detail:'Reserva '+Math.floor(Number(f.diamondEssence)||0)+' · Estoque da Câmara '+Math.floor(Number(f.injectorEssence)||0)+' · Colônia: Branca '+Math.floor(pools.white||0)+', Amarela '+Math.floor(pools.yellow||0)+', Azul '+Math.floor(pools.blue||0)+', Vital '+Math.floor(pools.pink||0)};
+            return [first,...(state.matriarchs||[]).map(m=>({id:m.id,name:m.name||'Matriarca',color:m.colorHex||COLOR_PALETTES[m.colorKey]?.hex||'#c9a6ff',amount:Math.max(0,Number(m.essence)||0),detail:'Essência própria da Matriarca'}))];
+        }
+        function formatEssenceAmount(n){n=Math.floor(n);return n>=1e6?(n/1e6).toFixed(n>=1e7?0:1).replace('.',',')+' mi':n>=1e4?(n/1e3).toFixed(n>=1e5?0:1).replace('.',',')+' mil':n.toLocaleString('pt-BR');}
+        function updateDiamondEssenceHUD(){
+            const box=document.getElementById('hud-diamond-essences');if(!box)return;
+            const totals=getDiamondEssenceTotals(),sig=totals.map(t=>t.id+t.color).join('|');
+            if(box.dataset.sig!==sig){
+                box.dataset.sig=sig;
+                box.innerHTML=totals.map(t=>'<span class="res-item" data-owner="'+escapeHTML(t.id)+'"><i class="diamond-icon" style="background:'+escapeHTML(t.color)+'"></i><b style="color:'+escapeHTML(t.color)+'"></b></span>').join('');
+            }
+            totals.forEach(t=>{const item=box.querySelector('[data-owner="'+t.id+'"]');if(!item)return;item.title=t.name+' · '+Math.floor(t.amount).toLocaleString('pt-BR')+' essência\n'+t.detail;const b=item.querySelector('b');const text=formatEssenceAmount(t.amount);if(b.textContent!==text)b.textContent=text;});
+        }
         function updateHUD() {
             const put = (id, value) => {
                 const el = document.getElementById(id);
                 if (el) el.textContent = value;
             };
-            put('hud-white', Math.floor(state.essence.white));
-            put('hud-yellow', Math.floor(state.essence.yellow));
-            put('hud-blue', Math.floor(state.essence.blue));
-            put('hud-pink', Math.floor(state.essence.pink));
+            updateDiamondEssenceHUD();
             put('hud-minerals', Math.floor(state.minerals));
             put('hud-tech', Math.floor(state.tech));
             put('hud-order', `${Math.round(state.order)}%`);
@@ -6440,7 +6491,7 @@ ${hasAristocrats ? `
             if(state.starMapView!=='system'){
                 // Galáxia procedural: posições normalizadas (-1..1) projetadas na área visível.
                 const spanX=Math.min(canvasWidth*.42,canvasHeight*.62),spanY=Math.min(canvasHeight*.36,canvasWidth*.3);
-                const nodes=getGalaxySystems().map(sys=>({id:sys.id,x:cx+sys.x*spanX,y:cy-8+sys.y*spanY,r:sys.home?16:sys.size*.8,label:sys.home?'HOMEWORLD · SISTEMA SOLO':sys.name.toUpperCase(),color:sys.color,home:!!sys.home,known:getPlanetsInStarSystem(sys.id).some(p=>p.scouted)}));
+                const nodes=getGalaxySystems().map(sys=>({id:sys.id,x:cx+sys.x*spanX,y:cy-8+sys.y*spanY,r:sys.home?16:sys.size*.8,label:sys.home?(sys.name||getHomeworldName()).toUpperCase()+' · SISTEMA SOLO':sys.name.toUpperCase(),color:sys.color,home:!!sys.home,known:getPlanetsInStarSystem(sys.id).some(p=>p.scouted)}));
                 // Rotas tênues: cada estrela ligada às duas vizinhas mais próximas.
                 ctx.save();ctx.setLineDash([2,7]);ctx.lineWidth=1;const drawn=new Set();
                 nodes.forEach(n=>{nodes.filter(m=>m!==n).sort((p,q)=>Math.hypot(p.x-n.x,p.y-n.y)-Math.hypot(q.x-n.x,q.y-n.y)).slice(0,2).forEach(m=>{const k=[n.id,m.id].sort().join('|');if(drawn.has(k))return;drawn.add(k);ctx.strokeStyle=n.known&&m.known||n.home&&m.known||m.home&&n.known?'rgba(242,207,134,.35)':'rgba(201,166,255,.16)';ctx.beginPath();ctx.moveTo(n.x,n.y);ctx.lineTo(m.x,m.y);ctx.stroke();});});
@@ -6455,7 +6506,7 @@ ${hasAristocrats ? `
             planets.forEach(p=>{const orbit=orbitOf(p);ctx.save();ctx.strokeStyle='rgba(201,166,255,.28)';ctx.lineWidth=1;ctx.setLineDash([3,6]);ctx.beginPath();ctx.ellipse(cx,cy,orbit,orbit*.66,0,0,Math.PI*2);ctx.stroke();ctx.restore();});
             GempirePlanetArt.drawStar(ctx,cx,cy,sys&&!sys.home?Math.max(12,sys.size*2.2):20,sys?.color||'#ff9e6e',time,true);
             planets.forEach((p,i)=>{const orbit=orbitOf(p),angle=(Number(p.orbitAngle)||i)+time*(Number(p.orbitSpeed)||.00005),x=cx+Math.cos(angle)*orbit,y=cy+Math.sin(angle)*orbit*.66,r=Math.max(10,Math.min(22,Number(p.sphereRadius)||18)*.9);drawPlanetDisc(x,y,r,p,state.selectedStarMapPlanetId===p.id,time);drawMapLabel(p.scouted?p.shortName:'SINAL NÃO IDENTIFICADO',x,y+r+16,p.scouted?'#f6efff':'#b4a3d4',state.selectedStarMapPlanetId===p.id);starMapHitTargets.push({type:'planet',id:p.id,x,y,radius:r+12});});
-            drawMapHeading(state.selectedStarSystemId==='home_system'?'SISTEMA HOMEWORLD · 1 PLANETA':('SISTEMA '+getStarSystemName(state.selectedStarSystemId)+' · '+planets.length+(planets.length===1?' PLANETA':' PLANETAS')).toUpperCase(),(sys&&!sys.home?sys.starLabel+' · ':'')+'Selecione um planeta para reconhecimento',cx);
+            drawMapHeading(state.selectedStarSystemId==='home_system'?('SISTEMA '+getStarSystemName('home_system')+' · 1 PLANETA').toUpperCase():('SISTEMA '+getStarSystemName(state.selectedStarSystemId)+' · '+planets.length+(planets.length===1?' PLANETA':' PLANETAS')).toUpperCase(),(sys&&!sys.home?sys.starLabel+' · ':'')+'Selecione um planeta para reconhecimento',cx);
         }
 
         // --- ARQUITETURA MODULAR DE HOMEWORLD ---
@@ -7033,6 +7084,7 @@ function drawColony(time){
                 '<div class="founding-intro">' +
                 '<div class="founding-note">Você define apenas a identidade da fundadora. Sua personalidade será formada pelas decisões e ações tomadas durante a partida. Ela desperta sem Corte, população ou estruturas.</div>' +
                 '<div><label for="founder-name">Nome da Primeira Diamante</label><input id="founder-name" maxlength="28" value="' + escapeHTML(fd.name) + '" placeholder="Nome da Diamante"></div>' +
+                '<div><label for="founder-homeworld-name">Nome do planeta natal</label><input id="founder-homeworld-name" maxlength="32" value="Homeworld" placeholder="Homeworld"></div>' +
                 '<div class="founding-grid"><div><label for="founder-color">Cor primária</label><input id="founder-color" type="color" value="' + currentColor + '" aria-label="Cor primária da Primeira Diamante" onchange="renderDiamondVitralGallery(document.getElementById(\'founder-vitral-gallery\'))" style="height:46px;padding:4px;cursor:pointer"></div><div><label for="founder-secondary-color">Cor secundária</label><input id="founder-secondary-color" type="color" value="' + (fd.secondaryColorHex||'#c4b5fd') + '" aria-label="Cor secundária" onchange="renderDiamondVitralGallery(document.getElementById(\'founder-vitral-gallery\'))" style="height:46px;padding:4px;cursor:pointer"></div><div><label for="founder-tertiary-color">Cor terciária</label><input id="founder-tertiary-color" type="color" value="' + (fd.tertiaryColorHex||'#7dd3fc') + '" aria-label="Cor terciária" onchange="renderDiamondVitralGallery(document.getElementById(\'founder-vitral-gallery\'))" style="height:46px;padding:4px;cursor:pointer"></div></div>' +
                 '<div><label>Modelo visual da Diamante</label><div id="founder-vitral-gallery" class="diamond-vitral-gallery"></div></div>' +
                 '<div class="founding-grid">' +
@@ -7070,6 +7122,7 @@ function drawColony(time){
             if(founderStartInProgress) return false;
             setGameMenuStatus('Iniciando a fundação de Homeworld…');
             const name = (document.getElementById('founder-name')?.value || '').trim();
+            const homeworldName = (document.getElementById('founder-homeworld-name')?.value || '').trim().slice(0,32) || 'Homeworld';
             const colorRaw = document.getElementById('founder-color')?.value;
             const secondaryColorRaw = document.getElementById('founder-secondary-color')?.value;
             const tertiaryColorRaw = document.getElementById('founder-tertiary-color')?.value;
@@ -7093,6 +7146,7 @@ function drawColony(time){
             try {
                 const founderIdentity={name,colorHex:colorHex.toLowerCase(),secondaryColorHex:secondaryColorHex.toLowerCase(),tertiaryColorHex:tertiaryColorHex.toLowerCase(),gemCut,bodySilhouette,gemPos,title:'A Fundadora'};
                 resetCampaignForNewGame(founderIdentity);
+                renamePlanetDirect('homeworld', homeworldName);
                 initializePlanetaryReserves();
                 beginPrimitiveEra();
                 gameHasStarted = true;
@@ -7270,14 +7324,50 @@ function drawColony(time){
         function getDiamondOwners(){
             return [{id:'first',name:state.firstDiamond.name,diamond:state.firstDiamond},...(state.matriarchs||[]).map(m=>({id:m.id,name:m.name,diamond:m}))];
         }
+        // Câmara de Essência: nível 0 (construída) até 3 upgrades. Cada nível rende mais
+        // essência por banho e exige um banho mais longo. O nível é de cada Diamante.
+        const ESSENCE_CHAMBER_LEVELS=[
+            {label:'Câmara básica',duration:30,amount:10000,cooldown:10800},
+            {label:'Câmara refinada',duration:60,amount:25000,cooldown:10800,cost:{minerals:400,tech:150}},
+            {label:'Câmara cristalina',duration:120,amount:60000,cooldown:10800,cost:{minerals:1200,tech:500}},
+            {label:'Câmara soberana',duration:240,amount:150000,cooldown:10800,cost:{minerals:3000,tech:1500}}
+        ];
+        function getEssenceChamberLevel(ownerId){return Math.max(0,Math.min(ESSENCE_CHAMBER_LEVELS.length-1,Math.floor(Number(state.essenceChamberLevels?.[ownerId])||0)));}
+        function getEssenceChamberStats(ownerId){return ESSENCE_CHAMBER_LEVELS[getEssenceChamberLevel(ownerId)];}
+        function ownerHasEssenceChamber(ownerId){return ownerId==='first'?structureCount('essence_chamber')>0:(state.diamondChambers||[]).some(c=>c.ownerId===ownerId);}
+        function getEssenceChamberUpgradeBlock(ownerId){
+            const level=getEssenceChamberLevel(ownerId),next=ESSENCE_CHAMBER_LEVELS[level+1];
+            if(!ownerHasEssenceChamber(ownerId))return 'Esta Diamante ainda não possui Câmara.';
+            if(!next)return 'Câmara no nível máximo.';
+            const busy=ownerId==='first'?state.founding?.bathActive:(state.diamondChambers||[]).find(c=>c.ownerId===ownerId)?.active;
+            if(busy)return 'Aguarde o banho em andamento terminar.';
+            if(state.minerals<next.cost.minerals||state.tech<next.cost.tech)return 'Exige '+next.cost.minerals+' minerais e '+next.cost.tech+' tecnologia.';
+            return '';
+        }
+        function upgradeEssenceChamber(ownerId){
+            const reason=getEssenceChamberUpgradeBlock(ownerId);if(reason){setStatusTicker(reason,true);return;}
+            const level=getEssenceChamberLevel(ownerId),next=ESSENCE_CHAMBER_LEVELS[level+1],owner=getDiamondOwners().find(o=>o.id===ownerId);
+            state.minerals-=next.cost.minerals;state.tech-=next.cost.tech;
+            state.essenceChamberLevels=Object.assign({},state.essenceChamberLevels||{},{[ownerId]:level+1});
+            setStatusTicker('Câmara de '+(owner?.name||'Diamante')+' aprimorada: '+next.label+' · '+next.amount.toLocaleString('pt-BR')+' essência em '+next.duration+'s.');
+            addChronicle('Câmara de Essência aprimorada',(owner?.name||'A Diamante')+' recebeu a '+next.label+' (nível '+(level+1)+'/3).','Banho mais longo e mais produtivo');
+            updateHUD();renderDrawerContent();renderBottomBar();
+        }
+        function renderEssenceChamberUpgrades(){
+            return getDiamondOwners().filter(o=>ownerHasEssenceChamber(o.id)).map(o=>{
+                const level=getEssenceChamberLevel(o.id),cur=ESSENCE_CHAMBER_LEVELS[level],next=ESSENCE_CHAMBER_LEVELS[level+1],block=getEssenceChamberUpgradeBlock(o.id);
+                return '<div class="stat-box"><b>'+escapeHTML(o.name)+' · '+cur.label+'</b><small style="display:block;color:var(--text-muted)">Nível '+level+'/3 · '+cur.amount.toLocaleString('pt-BR')+' essência por banho de '+cur.duration+'s</small>'+
+                    (next?'<small style="display:block;margin-top:4px">Próximo: <b>'+next.label+'</b> · '+next.amount.toLocaleString('pt-BR')+' essência em '+next.duration+'s · custo '+next.cost.minerals+' minerais / '+next.cost.tech+' tecnologia</small><button class="btn btn-block" onclick="upgradeEssenceChamber(\''+o.id+'\')" '+(block?'disabled':'')+'>Aprimorar Câmara · nível '+(level+1)+'</button>'+(block?'<small style="color:var(--text-muted)">'+escapeHTML(block)+'</small>':''):'')+'</div>';
+            }).join('');
+        }
         function startMatriarchEssenceBath(ownerId){
             const chamber=(state.diamondChambers||[]).find(c=>c.ownerId===ownerId);
             if(!chamber||ownerId==='first')return;
             if(!structureIsOperational('essence_chamber')){setStatusTicker('A Câmara exige uma Peridot para cada Diamante atendida.',true);return;}
             if(chamber.active){setStatusTicker('Esta Diamante já está em banho.',true);return;}
             if(chamber.cooldown>0){setStatusTicker('A Câmara desta Diamante ainda está em recuperação: '+formatDuration(chamber.cooldown)+'.',true);return;}
-            chamber.active=true;chamber.progress=0;
-            setStatusTicker(chamber.ownerName+' iniciou um banho de essência de 30 segundos.');
+            chamber.active=true;chamber.progress=0;chamber.duration=getEssenceChamberStats(ownerId).duration;
+            setStatusTicker(chamber.ownerName+' iniciou um banho de essência de '+chamber.duration+' segundos.');
             updateHUD();renderDrawerContent();
         }
         function updateMatriarchChambers(dt){
@@ -7285,12 +7375,13 @@ function drawColony(time){
                 if(chamber.ownerId==='first')return;
                 chamber.cooldown=Math.max(0,(Number(chamber.cooldown)||0)-dt);
                 if(!chamber.active)return;
-                chamber.progress=Math.min(100,(Number(chamber.progress)||0)+dt*100/30);
+                const stats=getEssenceChamberStats(chamber.ownerId);
+                chamber.progress=Math.min(100,(Number(chamber.progress)||0)+dt*100/Math.max(1,Number(chamber.duration)||stats.duration));
                 if(chamber.progress<100)return;
-                const owner=state.matriarchs.find(m=>m.id===chamber.ownerId);
-                if(owner)owner.essence=(Number(owner.essence)||0)+10000*getPearlMultiplierFor('matriarch_'+owner.id);
-                chamber.active=false;chamber.cooldown=10800;
-                setStatusTicker('Banho concluído: '+chamber.ownerName+' produziu 10.000 unidades de essência.');
+                const owner=state.matriarchs.find(m=>m.id===chamber.ownerId),amount=stats.amount*getPearlMultiplierFor('matriarch_'+chamber.ownerId);
+                if(owner)owner.essence=(Number(owner.essence)||0)+amount;
+                chamber.active=false;chamber.cooldown=stats.cooldown;
+                setStatusTicker('Banho concluído: '+chamber.ownerName+' produziu '+Math.round(amount).toLocaleString('pt-BR')+' unidades de essência.');
                 addChronicle('Banho de essência concluído',chamber.ownerName+' produziu essência em sua Câmara particular.','Câmara de Diamante');
                 updateHUD();renderDrawerContent();
             });
@@ -7300,17 +7391,18 @@ function drawColony(time){
             if(!structureIsOperational('essence_chamber')){setStatusTicker('A Câmara precisa de uma Peridot operadora para iniciar o banho.',true);return;}
             if(f.bathActive||f.creationActive){setStatusTicker('A Diamante já está ocupada.',true);return;}
             if((Number(f.bathCooldown)||0)>0){setStatusTicker('A Câmara ainda está em recuperação. Próximo banho em '+formatDuration(f.bathCooldown)+'.',true);return;}
-            f.bathActive=true;f.bathProgress=0;f.bathDuration=30;
-            setStatusTicker('A Diamante entrou na Câmara de Extração de Essência. O banho levará 30 segundos.');
-            addChronicle('Banho de essência iniciado',state.firstDiamond.name+' entrou na sauna de essência por 30 segundos.','Câmara em operação');
+            const stats=getEssenceChamberStats('first');
+            f.bathActive=true;f.bathProgress=0;f.bathDuration=stats.duration;
+            setStatusTicker('A Diamante entrou na '+stats.label+'. O banho levará '+stats.duration+' segundos.');
+            addChronicle('Banho de essência iniciado',state.firstDiamond.name+' entrou na sauna de essência por '+stats.duration+' segundos.','Câmara em operação');
             updateHUD();renderDrawerContent();renderBottomBar();
         }
         function completeEssenceBath() {
-            const f=state.founding,amount=10000*getPearlMultiplierFor('firstDiamond');
+            const f=state.founding,stats=getEssenceChamberStats('first'),amount=stats.amount*getPearlMultiplierFor('firstDiamond');
             f.diamondEssence=(Number(f.diamondEssence)||0)+amount;f.essenceOutput=(Number(f.essenceOutput)||0)+amount;
-            f.activityCount=(Number(f.activityCount)||0)+1;f.bathActive=false;f.bathProgress=100;f.bathCooldown=10800;f.stage='essence';
-            setStatusTicker('Banho concluído: a Diamante produziu '+amount+' unidades de essência (100× o rendimento do banho anterior).');
-            addChronicle('Banho de essência concluído',state.firstDiamond.name+' concluiu o banho de 30 segundos e produziu '+amount+' unidades de essência.','+'+amount+' essência');
+            f.activityCount=(Number(f.activityCount)||0)+1;f.bathActive=false;f.bathProgress=100;f.bathCooldown=stats.cooldown;f.stage='essence';
+            setStatusTicker('Banho concluído: a Diamante produziu '+Math.round(amount).toLocaleString('pt-BR')+' unidades de essência.');
+            addChronicle('Banho de essência concluído',state.firstDiamond.name+' concluiu o banho de '+stats.duration+' segundos e produziu '+Math.round(amount).toLocaleString('pt-BR')+' unidades de essência.','+'+Math.round(amount)+' essência');
             updateHUD();renderDrawerContent();renderBottomBar();
         }
         function performFounderActivity() {
@@ -7575,7 +7667,7 @@ function drawColony(time){
                 '<div class="founding-note">'+(structureCount('essence_chamber')>0?'A Câmara funciona como uma sauna de essência. O banho dura 30 segundos, produz 10.000 unidades (100× o rendimento anterior) e exige até 3 horas de recuperação.':'Sem uma Câmara construída, a Diamante produz essência por meio de exercícios físicos.')+'</div>' +
                 '<div class="stat-box">Essência armazenada: <b>' + Object.values(state.essence).reduce((a,b)=>a+b,0).toFixed(1) + '</b> · Reserva interna da Diamante: <b>' + (found.diamondEssence || 0).toFixed(1) + '</b> · Recebida pelo Injetor: <b>' + (found.injectorEssence || 0).toFixed(1) + '</b></div>' +
                 (found.bathActive?'<div class="founding-progress"><div id="founder-bath-progress" style="width:'+Math.floor(found.bathProgress||0)+'%"></div></div><div id="founder-bath-label" style="font-size:10px;color:#cbd5e1">Banho de essência: '+Math.floor(found.bathProgress||0)+'% · '+Math.max(0,Math.ceil(30*(1-(Number(found.bathProgress)||0)/100)))+'s restantes</div>':(found.bathCooldown>0?'<div class="stat-box" style="color:#fbbf24">Próximo banho em: <b id="founder-bath-cooldown">'+formatDuration(found.bathCooldown)+'</b></div>':''))+
-                '<button id="founder-activity-button" class="btn btn-pink btn-block" onclick="performFounderActivity()" '+(found.bathActive||found.creationActive||found.bathCooldown>0||(structureCount('essence_chamber')>0&&!hasChamber)||(!hasChamber&&structureCount('essence_chamber')===0&&(found.essenceCooldown||0)>0)?'disabled':'')+'>'+(structureCount('essence_chamber')>0?(found.bathActive?'🛁 Banho de essência em andamento':hasChamber?(found.bathCooldown>0?'⏳ Próximo banho em '+formatDuration(found.bathCooldown):'🛁 Iniciar banho · 30s'):'⏳ Aguardando Peridot na Câmara'):(found.essenceCooldown||0)>0?'⏳ Recuperando fôlego · '+found.essenceCooldown.toFixed(1)+'s':'💪 Exercício físico · produzir 2 essência')+'</button></div>' +
+                '<button id="founder-activity-button" class="btn btn-pink btn-block" onclick="performFounderActivity()" '+(found.bathActive||found.creationActive||found.bathCooldown>0||(structureCount('essence_chamber')>0&&!hasChamber)||(!hasChamber&&structureCount('essence_chamber')===0&&(found.essenceCooldown||0)>0)?'disabled':'')+'>'+(structureCount('essence_chamber')>0?(found.bathActive?'🛁 Banho de essência em andamento':hasChamber?(found.bathCooldown>0?'⏳ Próximo banho em '+formatDuration(found.bathCooldown):'🛁 Iniciar banho · '+getEssenceChamberStats('first').duration+'s'):'⏳ Aguardando Peridot na Câmara'):(found.essenceCooldown||0)>0?'⏳ Recuperando fôlego · '+found.essenceCooldown.toFixed(1)+'s':'💪 Exercício físico · produzir 2 essência')+'</button></div>' +
                 (hasInjector?'<div class="card"><div class="card-header"><span class="card-title title-font">📊 Programação dos Injetores</span><span class="badge">Produção paralela</span></div><div class="founding-note">Ajuste cada Injetor individualmente. Cada unidade faz até 5 Gems por ciclo; 1 Injetor a cada 5 fica reservado para matéria-prima refinada.</div>'+buildInjectorProductionControlsHTML('context')+'<div class="stat-box">Lotes concluídos: <b>'+(found.productionReports||[]).length+'</b> · Gems produzidas: <b>'+(found.gemsCreatedCount||0)+'</b></div><button class="btn btn-emerald btn-block" onclick="requestGemProductionReport()">📄 Abrir relatório detalhado</button></div>':
                 '<div class="card"><div class="card-header"><span class="card-title title-font">💎 Formação manual de Gems</span></div>' +
                 '<div class="card-header"><span class="card-title title-font">📚 Catálogo de tipos de Gem</span><span class="badge">Sempre aberto</span></div><div class="founding-note">Todos os tipos ficam visíveis aqui. Toque em uma opção para selecioná-la; não há lista suspensa.</div><div class="founding-gem-catalog" role="group" aria-label="Catálogo de tipos de Gem">' + gemCatalog + '</div>' +
@@ -7591,7 +7683,7 @@ function drawColony(time){
             if (button) {
                 const cooling=(found.essenceCooldown||0)>0,chamberBuilt=structureCount('essence_chamber')>0,chamberReady=structureIsOperational('essence_chamber');
                 button.disabled=Boolean(found.creationActive||found.bathActive||(chamberBuilt&&found.bathCooldown>0)||(!chamberBuilt&&cooling)||(chamberBuilt&&!chamberReady));
-                button.textContent=chamberBuilt?(found.bathActive?'🛁 Banho de essência · '+Math.floor(found.bathProgress||0)+'%':chamberReady?(found.bathCooldown>0?'⏳ Próximo banho em '+formatDuration(found.bathCooldown):'🛁 Iniciar banho · 30s'):'⏳ Aguardando Peridot na Câmara'):cooling?'⏳ Recuperando fôlego · '+found.essenceCooldown.toFixed(1)+'s':'💪 Exercício físico · produzir 2 essência';
+                button.textContent=chamberBuilt?(found.bathActive?'🛁 Banho de essência · '+Math.floor(found.bathProgress||0)+'%':chamberReady?(found.bathCooldown>0?'⏳ Próximo banho em '+formatDuration(found.bathCooldown):'🛁 Iniciar banho · '+getEssenceChamberStats('first').duration+'s'):'⏳ Aguardando Peridot na Câmara'):cooling?'⏳ Recuperando fôlego · '+found.essenceCooldown.toFixed(1)+'s':'💪 Exercício físico · produzir 2 essência';
             }
             const bathProgress=document.getElementById('founder-bath-progress'),bathLabel=document.getElementById('founder-bath-label');
             if(bathProgress)bathProgress.style.width=Math.floor(found.bathProgress||0)+'%';
@@ -7806,6 +7898,7 @@ function drawColony(time){
                 });
                 if (typeof PLANET_SURFACE_CACHE !== 'undefined') PLANET_SURFACE_CACHE.clear();
                 ensureGalaxyState();
+                applyHomeworldNameToDOM();
                 if (!state.founding) state.founding = {stage:'legacy',firstGemCreated:true,mineralSamples:{},gatheredMinerals:{},essenceOutput:0,activityCount:0,diamondEssence:0,gemsCreatedCount:0,selectedGem:'quartz',creationProgress:0,creationActive:false,creationTarget:null,creationSource:'manual'};
                 state.founding.diamondEssence = Number(state.founding.diamondEssence) || 0;
                 state.founding.essenceCooldown = Number(state.founding.essenceCooldown) || 0;

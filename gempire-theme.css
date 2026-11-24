@@ -329,3 +329,7 @@ input.gstep-source{position:absolute!important;width:1px!important;height:1px!im
 .gstep-pick{display:block;margin:6px 0 8px}
 .gstep-pick .gstep-pick-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:12px;color:#e9ddff}
 .gstep-pick .gstep-pick-head small{color:var(--text-muted,#b4a3d4)}
+
+/* Essência por Diamante na HUD */
+#hud-diamond-essences:empty{display:none}
+#hud-diamond-essences b{text-shadow:0 0 3px rgba(10,4,24,.95),0 0 1px rgba(10,4,24,1)}
