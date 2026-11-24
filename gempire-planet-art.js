@@ -67,7 +67,7 @@
     // Paletas de bioma (direção de arte: tons saturados, contorno escuro)
     // ------------------------------------------------------------------
     const BIOMES={
-        rocky:{deep:'#3e2a5c',shallow:'#5e4580',foam:null,land:['#8466a3','#a481bb','#c39dcb'],cliff:'#5a3d7a',cliffDark:'#3b2756',ink:'#24143a',plates:{scale:4.2,crack:'#4a3168',width:.06,emissive:false},
+        rocky:{deep:'#3e2a5c',shallow:'#5e4580',foam:null,land:['#8466a3','#a481bb','#c39dcb'],cliff:'#5a3d7a',cliffDark:'#3b2756',ink:'#24143a',plates:{scale:4.2,crack:'#5a3f7a',width:.04,emissive:false,soft:true},
             beach:null,cap:null,detail:'crystal',crystal:['#fbe8ff','#d3a8ff','#9d6cf0'],shadow:'#24124a',cloud:'#f6ecff',cloudAmount:.18,fluid:false},
         oceanic:{deep:'#1d4d9e',shallow:'#36a3dc',foam:'#dafcff',land:['#6cc06a','#8fd36f','#c1e38c'],cliff:'#8b6a8f',cliffDark:'#5d4569',ink:'#1b2d58',
             beach:'#f2e1a8',cap:'#f4fbff',detail:'reef',crystal:['#ffe0f6','#bfe9ff','#f4a8e4'],shadow:'#1a1f5a',cloud:'#ffffff',cloudAmount:.42,fluid:true},
@@ -155,7 +155,7 @@
                         if(e<plateCfg.width){
                             const k=smooth(0,1,1-e/plateCfg.width);
                             if(plateCfg.emissive){c=mix(hex(plateCfg.crack),hex(plateCfg.core),smooth(.55,1,k));flags[i]=2;}
-                            else c=mix(c,hex(plateCfg.crack),.55+.4*k);
+                            else c=mix(c,hex(plateCfg.crack),plateCfg.soft?.25+.3*k:.55+.4*k);
                         }else if(e<plateCfg.width*1.8&&!plateCfg.emissive){c=mix(c,[255,255,255],.1);}
                     }
                     // Terraços: borda inferior de cada patamar vira uma pequena falésia.
@@ -248,57 +248,127 @@
     // ------------------------------------------------------------------
     // Camada de dano: fraturas por estágio, estilhaçamento e buracos de exaustão
     // ------------------------------------------------------------------
-    // Grandes placas da crosta (cerca de 15–20 fragmentos por mundo), calculadas
-    // uma vez por planeta e reaproveitadas por todos os estados de dano.
+    // Rede de fraturas em três níveis, calculada uma vez por planeta:
+    //  · falhas primárias entre 15–20 grandes placas da crosta;
+    //  · ramificações secundárias que nascem nas falhas primárias e afinam;
+    //  · trincas finas que se espalham a partir das secundárias.
+    // Um ruído de alta frequência quebra as bordas para que nada pareça desenhado à régua.
     function ensureMegaPlates(base){
         if(base.megaEdge)return;
-        const W=base.W,H=base.H,edge=new Float32Array(W*H),id=new Float32Array(W*H);
+        const W=base.W,H=base.H,N=W*H,seed=base.seed;
+        const edge=new Float32Array(N),id=new Float32Array(N),sec=new Float32Array(N),ter=new Float32Array(N),jag=new Float32Array(N),wmod=new Float32Array(N);
         for(let y=0;y<H;y++){
             const lat=-Math.PI/2+(y+.5)/H*Math.PI,cl=Math.cos(lat),sl=Math.sin(lat);
             for(let x=0;x<W;x++){
-                const lon=-Math.PI+(x+.5)/W*TAU,px=cl*Math.sin(lon),py=sl,pz=cl*Math.cos(lon);
-                const w=(fbm(px*3,py*3,pz*3,base.seed+71,2)-.5)*.35;
-                const pl=plates(px+w,py-w,pz+w*.5,1.45,base.seed+999);
-                edge[y*W+x]=pl.edge;id[y*W+x]=pl.id;
+                const lon=-Math.PI+(x+.5)/W*TAU,px=cl*Math.sin(lon),py=sl,pz=cl*Math.cos(lon),i=y*W+x;
+                const wx=(fbm(px*2.4+1.3,py*2.4,pz*2.4,seed+71,3)-.5)*.55,wy=(fbm(px*2.4,py*2.4+5.1,pz*2.4,seed+72,3)-.5)*.55;
+                const pl=plates(px+wx,py+wy,pz-wx*.6,1.45,seed+999);
+                edge[i]=pl.edge;id[i]=pl.id;
+                // Normalizadas para a escala das falhas primárias (mesma largura física em texels).
+                sec[i]=plates(px+wx*.7+wy*.3,py+wy*.7,pz+wx*.4,3.3,seed+1777).edge*(1.45/3.3);
+                ter[i]=plates(px+wy*.5,py-wx*.5,pz+wy*.4,7.2,seed+2333).edge*(1.45/7.2);
+                jag[i]=fbm(px*8,py*8,pz*8,seed+5,3)-.5;
+                wmod[i]=fbm(px*4.5,py*4.5,pz*4.5,seed+9,2);
             }
         }
-        base.megaEdge=edge;base.megaId=id;
+        // Índice inteiro e centro 3D de cada placa (usados para desmontar o planeta).
+        const map=new Map(),idx=new Uint8Array(N),cent=[];
+        for(let y=0;y<H;y++){
+            const lat=-Math.PI/2+(y+.5)/H*Math.PI,cl=Math.cos(lat),sl=Math.sin(lat);
+            for(let x=0;x<W;x++){
+                const i=y*W+x;let p=map.get(id[i]);
+                if(p===undefined){p=Math.min(254,cent.length);map.set(id[i],p);if(p===cent.length)cent.push([0,0,0,id[i]]);}
+                idx[i]=p;const lon=-Math.PI+(x+.5)/W*TAU,c=cent[p];
+                c[0]+=cl*Math.sin(lon)*cl;c[1]+=sl*cl;c[2]+=cl*Math.cos(lon)*cl;
+            }
+        }
+        cent.forEach(c=>{const m=Math.hypot(c[0],c[1],c[2])||1;c[0]/=m;c[1]/=m;c[2]/=m;});
+        Object.assign(base,{megaEdge:edge,megaId:id,megaSec:sec,megaTer:ter,megaJag:jag,megaWmod:wmod,megaIdx:idx,megaCent:cent});
     }
     const DAMAGE_CACHE=new Map();
-    const CRACK_WIDTH=[0,.022,.045,.075,.1];
-    function getDamagedTexture(base,damage){
+    // Largura das fraturas por estágio: [primária, secundária, alcance da secundária, trinca, alcance da trinca, brilho do fundo]
+    const CRACK_STAGES=[null,[.042,.03,.26,0,0,.2],[.066,.044,.38,.026,.16,.5],[.092,.056,.5,.032,.24,.8],[.12,.068,.64,.04,.32,1]];
+    const LIGHT_UV=[-.67,-.74];
+    function getDamagedTexture(base,damage,deferred){
         const stage=Math.max(0,Math.min(4,damage.stage|0));
         const shatter=damage.shattered?Math.max(.05,Math.min(1,damage.shatterProgress??1)):0;
         const shatterStep=Math.round(shatter*8)/8,depleted=!!damage.depleted;
         if(!stage&&!shatterStep&&!depleted)return base;
         const core=damage.coreColor||'#ffe9c2';
-        const key=base.key+'|'+stage+'|'+shatterStep+'|'+(depleted?1:0)+'|'+core;
+        const key=base.key+'|'+stage+'|'+(shatterStep?1:0)+'|'+(depleted?1:0)+'|'+core;
         if(DAMAGE_CACHE.has(key))return DAMAGE_CACHE.get(key);
+        if(deferred&&!base.megaEdge){
+            // Miniaturas: calcula a rede de fraturas fora do quadro atual.
+            if(!base.megaQueued){base.megaQueued=true;setTimeout(()=>ensureMegaPlates(base),40);}
+            return base;
+        }
         ensureMegaPlates(base);
-        const W=base.W,H=base.H,b=base.biome,edge=base.megaEdge,id=base.megaId;
+        const W=base.W,H=base.H,N=W*H,b=base.biome;
+        const edge=base.megaEdge,sec=base.megaSec,ter=base.megaTer,jag=base.megaJag,wmod=base.megaWmod,mid=base.megaId;
         const rgba=new Uint8ClampedArray(base.rgba),flags=new Uint8Array(base.flags);
         const ink=hex(b.ink),wall=hex(b.cliffDark),wallLit=hex(b.cliff),mantle=hex('#5a2160'),glow=hex(core),hot=mix(glow,[255,255,255],.55);
-        const crack=Math.max(CRACK_WIDTH[stage],shatterStep?.11:0);
-        const missingShare=shatterStep*.3;
-        for(let i=0;i<W*H;i++){
-            const e=edge[i],o=i*4;let c=null,f=-1;
-            if(missingShare&&id[i]<missingShare){
-                // Placa arrancada: parede da casca na borda, interior visto pelo rombo.
-                if(e<.045){const t=e/.045;c=mix(wallLit,wall,t);if(t<.15)c=mix(c,ink,.6);f=0;}
-                else{f=3;c=[0,0,0];}
-            }else if(crack&&e<crack){
-                // Fissura: borda escura, manto e luz do núcleo no fundo.
-                const t=e/crack;
-                if(t<.2){c=mix(hot,glow,t/.2);f=2;}
-                else if(t<.55){c=mix(mix(glow,mantle,.55),mantle,smooth(.2,.55,t));f=t<.3?2:0;}
-                else{c=mix(mantle,ink,smooth(.55,.95,t));f=0;}
-            }else if(crack&&e<crack*1.35){
-                c=mix([rgba[o],rgba[o+1],rgba[o+2]],ink,.55);
+        const lit=mix(hex(b.land[2]),[255,255,255],.35);
+        const cfg=(CRACK_STAGES[Math.max(stage,shatterStep?3:0)]||[0,0,0,0,0,0]).slice();
+        if(shatterStep)cfg[0]=.055;
+        const [pw,sw,sr,tw,tr,glowAmt]=cfg;
+        // 1) Campo de distância normalizado até a fratura mais próxima (0 = centro, 1 = borda).
+        const D=new Float32Array(N).fill(9),L=new Uint8Array(N);
+        for(let i=0;i<N;i++){
+            const wm=.5+smooth(.25,.75,wmod[i])*.95,j=jag[i];
+            if(pw){const w=pw*wm,d=(edge[i]+j*w*.9)/w;if(d<D[i]){D[i]=d;L[i]=1;}}
+            if(sw){const r=1-edge[i]/sr;if(r>0){const w=sw*wm*(.4+.6*r),d=(sec[i]+j*w*.7)/w;if(d<D[i]){D[i]=d;L[i]=2;}}}
+            if(tw){const r=1-edge[i]/tr;if(r>0){const w=tw*(.7+.3*wm)*(.55+.45*r),d=(ter[i]+j*w*.5)/w;if(d<D[i]){D[i]=d;L[i]=3;}}}
+        }
+        // Placas levemente inclinadas: cada laje da crosta recebe um tom próprio.
+        const tilt=Math.min(1,stage/4+(shatterStep?.5:0))*.16;
+        const gapD=shatterStep?new Float32Array(N).fill(9):null;
+        for(let y=0;y<H;y++)for(let x=0;x<W;x++){
+            const i=y*W+x,o=i*4,d=D[i],lv=L[i];
+            let c=[rgba[o],rgba[o+1],rgba[o+2]];
+            if(tilt){const t=(mid[i]-.5)*2;c=mix(c,t>0?lit:hex(b.shadow),Math.abs(t)*tilt);}
+            if(shatterStep&&lv===1){
+                // Falha primária vira vão aberto: o espaço aparece entre os fragmentos.
+                gapD[i]=d;
+                if(d<1){flags[i]=4;rgba[o+3]=0;continue;}
+                if(d<1.35){c=mix(c,ink,.75*(1-(d-1)/.35));}
+                rgba[o]=c[0];rgba[o+1]=c[1];rgba[o+2]=c[2];continue;
             }
-            if(c){rgba[o]=c[0];rgba[o+1]=c[1];rgba[o+2]=c[2];if(f>=0)flags[i]=f;}
+            if(d<1.7){
+                if(d>=1){
+                    // Oclusão ao redor da fenda: a crosta afunda em direção à fratura.
+                    c=mix(c,ink,.28*(1-(d-1)/.7)*(lv===3?.5:1));
+                }else{
+                    const xl=(x+W-1)%W,xr=(x+1)%W,yu=Math.max(0,y-1)*W,yd=Math.min(H-1,y+1)*W;
+                    const gx=D[y*W+xr]-D[y*W+xl],gy=D[yd+x]-D[yu+x],gm=Math.hypot(gx,gy)||1;
+                    const facing=-(gx*LIGHT_UV[0]+gy*LIGHT_UV[1])/gm; // >0: parede voltada para a luz
+                    const k=1-d;
+                    if(k<.14){
+                        // Lábio da fenda: destaque no lado iluminado, tinta no lado em sombra.
+                        c=facing>0?mix(c,lit,.55):mix(c,ink,.8);
+                    }else{
+                        const t=(k-.14)/.86,deepK=lv===1?1:lv===2?.8:.55;
+                        let wc=facing>0?mix(wallLit,wall,smooth(0,1,t)):mix(wall,ink,.35+.4*t);
+                        // Sombra projetada pela borda iluminada sobre o fundo da fenda.
+                        if(facing<-.2)wc=mix(wc,ink,.25);
+                        wc=mix(wc,mix(ink,[8,4,18],.4),smooth(.45,1,t)*deepK);
+                        if(glowAmt&&lv<3&&t>.62){
+                            const gk=smooth(.62,1,t)*glowAmt*(lv===1?1:.6);
+                            wc=mix(wc,mix(mantle,glow,smooth(.8,1,t)),gk);
+                            if(gk>.45)flags[i]=2;else if(flags[i]===2)flags[i]=0;
+                        }else if(flags[i]!==2||!b.emissive)flags[i]=0;
+                        c=wc;
+                    }
+                }
+            }
+            rgba[o]=c[0];rgba[o+1]=c[1];rgba[o+2]=c[2];
         }
         if(depleted)carveKindergartenHoles(base,rgba,flags,glow,hot,mantle,wall,wallLit,ink);
-        const result=Object.assign({},base,{rgba,flags,damaged:true,coreRGB:glow,hotRGB:hot});
+        if(shatterStep){
+            // Placas arrancadas (viraram os fragmentos colossais em órbita).
+            const missing=.1;
+            for(let i=0;i<N;i++)if(mid[i]<missing){flags[i]=3;rgba[i*4+3]=0;}
+        }
+        const result=Object.assign({},base,{rgba,flags,damaged:true,shattered:!!shatterStep,gapD,coreRGB:glow,hotRGB:hot});
         if(DAMAGE_CACHE.size>24)DAMAGE_CACHE.delete(DAMAGE_CACHE.keys().next().value);
         DAMAGE_CACHE.set(key,result);
         return result;
@@ -384,6 +454,8 @@
         const sh=tex.shadow,cc=tex.cloudColor,rc=rimColor,coreR=.52;
         out.fill(0);
         const n=sp.idx.length;
+        let tiOut=null;
+        if(tex.shattered){if(!sp.ti)sp.ti=new Int32Array(n);tiOut=sp.ti;}
         const H=tex.H;
         for(let k=0;k<n;k++){
             const p=sp.idx[k]*4,row=sp.row[k],rowBase=row*W;
@@ -394,6 +466,8 @@
             const a0=(rowBase+u0i)*4,a1=(rowBase+u1i)*4,b0=(r1*W+u0i)*4,b1=(r1*W+u1i)*4;
             const w00=(1-tx)*(1-ty),w10=tx*(1-ty),w01=(1-tx)*ty,w11=tx*ty;
             const ti=rowBase+(u|0),flag=flags[ti];
+            if(tiOut)tiOut[k]=ti;
+            if(flag===4||(flag===3&&tex.shattered)){out[p+3]=0;continue;}
             if(flag===3){
                 // Interior exposto: casca rompida, cavidade escura com cristais e núcleo brilhante.
                 const dist=sp.d[k];
@@ -436,6 +510,74 @@
         }
         sp.ctx.putImageData(sp.image,0,0);
         return sp.canvas;
+    }
+
+    // Desmonta a esfera: cada placa da crosta é deslocada para fora do centro,
+    // deixando vãos por onde se vê o espaço e o núcleo. As bordas internas das
+    // placas ganham espessura (paredes iluminadas pelo núcleo) com z-buffer.
+    function renderShattered(tex,S,rotation,time,rimColor,amount){
+        const sp=getSphere(S);
+        renderSphere(tex,S,rotation,time,rimColor);sp.last=null;
+        const pad=Math.round(S*.32),SO=S+pad*2;
+        let buf=sp.shatterBuf;
+        if(!buf||buf.SO!==SO){
+            const canvas=document.createElement('canvas');canvas.width=SO;canvas.height=SO;
+            const c=canvas.getContext('2d');buf=sp.shatterBuf={SO,pad,canvas,ctx:c,image:c.createImageData(SO,SO),zb:new Float32Array(SO*SO)};
+        }
+        const src=sp.image.data,out=buf.image.data,zb=buf.zb,cent=tex.megaCent,pidx=tex.megaIdx,gap=tex.gapD;
+        out.fill(0);zb.fill(-9);
+        const np=cent.length,ox=new Float32Array(np),oy=new Float32Array(np),oz=new Float32Array(np);
+        const half=S/2;
+        for(let q=0;q<np;q++){
+            const c=cent[q],cl=Math.hypot(c[0],c[2]),lon=Math.atan2(c[0],c[2])-rotation;
+            const X=cl*Math.sin(lon),Y=c[1],Z=cl*Math.cos(lon),h=hash3(q,7,3,tex.seed);
+            const mag=amount*half*(.16+.16*h),wob=Math.sin(time*.00035+q*1.7)*half*.012*amount;
+            ox[q]=X*mag+wob;oy[q]=Y*mag+Math.cos(time*.0003+q)*half*.01*amount;oz[q]=Z*.08*amount;
+        }
+        const wallDark=mix(hex(tex.biome.cliffDark),hex(tex.biome.ink),.45),wallTop=mix(hex(tex.biome.cliff),hex(tex.biome.land[1]),.35),core=tex.coreRGB;
+        const n=sp.idx.length,ti=sp.ti,STEPS=[];
+        const nSteps=Math.max(4,Math.ceil(half*.11));for(let s=1;s<=nSteps;s++)STEPS.push(s/nSteps*.11);
+        const put=(x,y,z,r,g,b)=>{
+            const xi=x|0,yi=y|0;if(xi<0||yi<0||xi>=SO||yi>=SO)return;
+            const j=yi*SO+xi;if(z<=zb[j])return;zb[j]=z;const o=j*4;out[o]=r;out[o+1]=g;out[o+2]=b;out[o+3]=255;
+        };
+        for(let k=0;k<n;k++){
+            const p=sp.idx[k]*4;if(src[p+3]===0)continue;
+            const t=ti[k],q=pidx[t],id=sp.idx[k],ix=id%S,iy=(id/S)|0,z=sp.z[k]+oz[q];
+            const bx=ix+pad+ox[q],by=iy+pad+oy[q];
+            put(bx,by,z,src[p],src[p+1],src[p+2]);
+            // Espessura da casca junto aos vãos: pontos da face interna projetados para o centro.
+            if(gap[t]<2.4&&sp.z[k]>.3){
+                const dx=ix+.5-half,dy=iy+.5-half;
+                for(let s=0;s<STEPS.length;s++){
+                    const f=STEPS[s],lt=Math.min(1,s/3);
+                    const r=wallTop[0]+(wallDark[0]-wallTop[0])*lt,g=wallTop[1]+(wallDark[1]-wallTop[1])*lt,bb=wallTop[2]+(wallDark[2]-wallTop[2])*lt;
+                    const cg=lt>.99?.16:.04,shadeW=1;
+                    put(bx-dx*f,by-dy*f,z-f*1.5,(r+(core[0]-r)*cg)*shadeW,(g+(core[1]-g)*cg)*shadeW,(bb+(core[2]-bb)*cg)*shadeW);
+                }
+            }
+        }
+        buf.ctx.putImageData(buf.image,0,0);
+        return buf;
+    }
+
+    // Núcleo cristalino exposto no centro do planeta desmontado.
+    function drawExposedCore(ctx,cx,cy,radius,coreRGB,time,amount){
+        const col='rgb('+coreRGB.join(',')+')',hot='rgb('+mix(coreRGB,[255,255,255],.6).map(Math.round).join(',')+')';
+        const g=ctx.createRadialGradient(cx,cy,0,cx,cy,radius*.7);
+        g.addColorStop(0,'rgba('+coreRGB.join(',')+','+(.7*amount)+')');g.addColorStop(.3,'rgba('+coreRGB.join(',')+','+(.18*amount)+')');g.addColorStop(1,'rgba('+coreRGB.join(',')+',0)');
+        ctx.fillStyle=g;ctx.beginPath();ctx.arc(cx,cy,radius*.7,0,TAU);ctx.fill();
+        const r=radius*.22,rot=time*.00012,nv=8,pts=[];
+        for(let i=0;i<nv;i++){const a=rot+i/nv*TAU;pts.push([cx+Math.cos(a)*r,cy+Math.sin(a)*r*.92]);}
+        ctx.save();
+        for(let i=0;i<nv;i++){
+            const a=pts[i],b2=pts[(i+1)%nv],lt=.5+.5*Math.cos(rot+(i+.5)/nv*TAU+2.3);
+            ctx.beginPath();ctx.moveTo(cx,cy);ctx.lineTo(a[0],a[1]);ctx.lineTo(b2[0],b2[1]);ctx.closePath();
+            ctx.fillStyle='rgb('+mix(mix(coreRGB,[60,30,90],.35),[255,255,255],lt*.75).map(Math.round).join(',')+')';ctx.fill();
+        }
+        poly(ctx,pts);ctx.lineWidth=Math.max(1,radius*.012);ctx.strokeStyle='rgba(26,12,46,.85)';ctx.stroke();
+        ctx.beginPath();ctx.arc(cx,cy,r*.35,0,TAU);ctx.fillStyle=hot;ctx.fill();
+        ctx.restore();
     }
 
     function parseColor(c,fallback){
@@ -496,25 +638,27 @@
         if(!ctx||!(radius>1))return;
         const base=getTexture(opts.surface,!!opts.deferred);
         const damage=opts.damage||{};
-        const tex=base&&(damage.stage||damage.shattered||damage.depleted)?getDamagedTexture(base,damage):base;
+        const tex=base&&(damage.stage||damage.shattered||damage.depleted)?getDamagedTexture(base,damage,!!opts.deferred):base;
         const shatter=damage.shattered?Math.max(.05,Math.min(1,damage.shatterProgress??1)):0;
         const coreRGB=parseColor(damage.coreColor,[255,233,194]);
         const dpr=Math.max(1,Math.min(2,window.devicePixelRatio||1));
         const S=Math.max(32,Math.min(opts.maxResolution||352,Math.round(radius*2*dpr/16)*16));
         const atm=parseColor(opts.atmosphere,[201,166,255]);
         const rimCol=[atm[0]*.75,atm[1]*.75,atm[2]*.9];
-        // Halo atmosférico externo.
+        // Halo atmosférico externo (um mundo desmontado perdeu a atmosfera: o vão mostra o espaço).
+        if(!shatter){
         const glow=ctx.createRadialGradient(cx,cy,radius*.92,cx,cy,radius*(opts.selected?1.34:1.24));
         glow.addColorStop(0,'rgba('+atm.join(',')+',.55)');
         glow.addColorStop(.35,'rgba('+atm.join(',')+',.18)');
         glow.addColorStop(1,'rgba('+atm.join(',')+',0)');
         ctx.fillStyle=glow;ctx.beginPath();ctx.arc(cx,cy,radius*1.36,0,TAU);ctx.fill();
         // Luz do núcleo vazando pelas fissuras (mais intensa quando estilhaçado).
-        const leak=shatter?1:Math.min(.6,(damage.stage||0)*.14+(damage.depleted?.2:0));
+        const leak=Math.min(.6,(damage.stage||0)*.14+(damage.depleted?.2:0));
         if(leak>0){
             const cg=ctx.createRadialGradient(cx,cy,radius*.5,cx,cy,radius*(1.25+leak*.55));
             cg.addColorStop(0,'rgba('+coreRGB.join(',')+','+(.55*leak)+')');cg.addColorStop(1,'rgba('+coreRGB.join(',')+',0)');
             ctx.fillStyle=cg;ctx.beginPath();ctx.arc(cx,cy,radius*(1.25+leak*.55),0,TAU);ctx.fill();
+        }
         }
         if(shatter)drawShatterField(ctx,cx,cy,radius,opts,shatter,false);
         if(!tex){
@@ -525,6 +669,17 @@
             return;
         }
         const rot=Number(opts.rotation)||0,time=Number(opts.time)||0,sp=getSphere(S);
+        if(tex.shattered){
+            drawExposedCore(ctx,cx,cy,radius,coreRGB,time,shatter);
+            const last=sp.lastShatter,fresh=last&&last.tex===tex&&Math.abs(last.rot-rot)<.006&&Math.abs(last.time-time)<90&&last.amount===shatter;
+            if(!fresh){renderShattered(tex,S,rot,time,rimCol,shatter);sp.lastShatter={tex,rot,time,amount:shatter};}
+            const buf=sp.shatterBuf,scale=radius*2/S;
+            ctx.save();ctx.imageSmoothingEnabled=true;
+            ctx.drawImage(buf.canvas,cx-radius-buf.pad*scale,cy-radius-buf.pad*scale,buf.SO*scale,buf.SO*scale);
+            ctx.restore();
+            drawShatterField(ctx,cx,cy,radius,opts,shatter,true);
+            return;
+        }
         // Reaproveita o último quadro quando a rotação mudou menos que meio texel.
         const last=sp.last,fresh=last&&last.tex===tex&&Math.abs(last.rot-rot)<.006&&Math.abs(last.time-time)<120;
         if(!fresh){renderSphere(tex,S,rot,time,rimCol);sp.last={tex,rot,time};}
