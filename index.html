@@ -816,7 +816,7 @@
             lifeseeder: {
                 id: 'lifeseeder',
                 name: 'Semeadora Empática',
-                desc: 'Reduz Dissidência em mundos orgânicos e aumenta síntese de Essência Vital.'
+                desc: 'Reduz Dissidência em mundos orgânicos e aumenta síntese de Essência.'
             }
         };
 
@@ -929,7 +929,7 @@
 
         const IMPERIAL_TECHS = [
             { id: 'diamond_drills', name: 'Brocas de Diamante Sintético', cost: 90, desc: '+35% velocidade de perfuração em todos os Injetores sem perder pureza.' },
-            { id: 'automated_reefs', name: 'Recifes de Pérolas Automatizados', cost: 110, desc: 'Reduz o consumo de Essência Branca em todas as injeções em 25%.' },
+            { id: 'automated_reefs', name: 'Recifes de Pérolas Automatizados', cost: 110, desc: 'Reduz o consumo de Essência em todas as injeções em 25%.' },
             { id: 'harmonic_resonance', name: 'Ressonância Harmônica das Cortes', cost: 140, desc: '+18 pontos de pureza em todas as injeções para obter Rank [S].' },
             { id: 'geothermal_shield', name: 'Escudo Geotérmico Planetário', cost: 120, desc: 'Reduz pela metade o Calor Sísmico gerado por Injetores.' },
             { id: 'orbital_pacification', name: 'Rede de Vigilância Ágata', cost: 100, desc: 'Reduz passivamente a Dissidência em todas as colônias a cada ciclo.' }
@@ -1135,7 +1135,7 @@
                 scouted:false,travelUnlocked:false,reconnaissance:null,structures:{injector:0,mineral_extractor:0,galaxy_warp:0},remoteConstructionQueue:[],fleetVisits:[],
                 name: 'Terra-Veritas (Orgânico Fértil)',
                 shortName: 'Terra-Veritas',
-                biomeTag: 'Biosfera Orgânica • Alta Essência Vital',
+                biomeTag: 'Biosfera Orgânica • Alta Essência',
                 hasOcean: true,
                 lore: 'Um globo fértil de continentes verdes e oceanos azuis. Sua biosfera favorece a formação de Quartzos e Gems de alta pureza, mas tem alto risco rebelde.',
                 optimalText: 'Quartzos de alta pureza, Hessonitas e Peridots',
@@ -1471,7 +1471,7 @@
             aquamarineTerraforming: {teams:[],completed:[],nextId:1,uiAccumulator:0},
             era: 0,
             cycleCount: 1,
-            essence: { white: 0, yellow: 0, blue: 0, pink: 0 },
+            essence: 0,
             minerals: 0,
             tech: 0,
             energy: 0,
@@ -1884,9 +1884,9 @@
                             action: () => { openDrawerDynasty(); }
                         },
                         {
-                            label: '⚡ Impor Turnos Duplos às Peridots (-20 Branca, +55 MAT, +12% Dissidência)',
+                            label: '⚡ Impor Turnos Duplos às Peridots (-20 Essência, +55 MAT, +12% Dissidência)',
                             action: () => {
-                                state.essence.white = Math.max(0, state.essence.white - 20);
+                                state.essence = Math.max(0, essenceValue(state.essence) - 20);
                                 state.minerals += 55;
                                 randPlanet.dissent = Math.min(100, randPlanet.dissent + 12);
                                 addChronicle('Sobrecarga em ' + randPlanet.shortName, `${state.firstDiamond.name} recusou dividir o poder e exigiu sobrecarga das Peridots.`, '+55 MAT / +Dissidência');
@@ -1928,9 +1928,9 @@
                                 }
                             },
                             {
-                                label: `⚡ Subjugar ${m1.name} com Aura Primordial (-35 Branca, +15% Lealdade, -15 Dogma)`,
+                                label: `⚡ Subjugar ${m1.name} com Aura Primordial (-35 Essência, +15% Lealdade, -15 Dogma)`,
                                 action: () => {
-                                    state.essence.white = Math.max(0, state.essence.white - 35);
+                                    state.essence = Math.max(0, essenceValue(state.essence) - 35);
                                     m1.loyalty = Math.min(100, m1.loyalty + 15);
                                     state.ideologyAxis = Math.max(-100, state.ideologyAxis - 15);
                                     m1.currentSpeech = 'Sua luz... é incontestável, Minha Diamante.';
@@ -1986,13 +1986,13 @@
                                 }
                             },
                             {
-                                label: `Exigir Síntese Conjunta (-20 Branca, +6% Lealdade Ambas, +40 Essências)`,
+                                label: `Exigir Síntese Conjunta (-20 Essência, +6% Lealdade Ambas, +40 Essências)`,
                                 action: () => {
-                                    state.essence.white = Math.max(0, state.essence.white - 20);
+                                    state.essence = Math.max(0, essenceValue(state.essence) - 20);
                                     m1.loyalty = Math.min(100, m1.loyalty + 6);
                                     m2.loyalty = Math.min(100, m2.loyalty + 6);
-                                    state.essence.yellow += 20;
-                                    state.essence.blue += 20;
+                                    state.essence = essenceValue(state.essence) + 20;
+                                    state.essence = essenceValue(state.essence) + 20;
                                     addChronicle('Concórdia das Cortes', `${m1.name} e ${m2.name} cooperaram na administração de ${randPlanet.shortName}.`, 'Harmonia Matriarcal');
                                 }
                             }
@@ -2031,12 +2031,12 @@
                                 }
                             },
                             {
-                                label: '🌸 Decretar Santuário Subterrâneo (+15 Evolução, +30 Vital, -4% Ordem)',
+                                label: '🌸 Decretar Santuário Subterrâneo (+15 Evolução, +30 Essência, -4% Ordem)',
                                 action: () => {
                                     state.storyArcs.offColorStage = 1;
                                     state.imperialLaws.offColorPolicy = 'Santuário Protegido';
                                     state.ideologyAxis = Math.min(100, state.ideologyAxis + 15);
-                                    state.essence.pink += 30;
+                                    state.essence = essenceValue(state.essence) + 30;
                                     state.order = Math.max(0, state.order - 4);
                                     addChronicle('Cap. 1: O Santuário Subterrâneo', `${state.firstDiamond.name} poupou as Off-Colors de ${randPlanet.shortName}.`, 'Lei: Santuário Protegido');
                                 }
@@ -2084,25 +2084,25 @@
                 return {
                     arcTag: `🌋 Crise Geotérmica • ${hotPlanet.shortName}`,
                     speaker: `Peridot Chefe de Perfuração • ${hotPlanet.name}`,
-                    text: `Minha Diamante! O Calor Sísmico de ${hotPlanet.name} subiu para ${Math.round(hotPlanet.seismicHeat)}% devido às brocas ativas. Bolsões de plasma raro surgiram no manto. Devemos resfriar com Essência Azul ou colher o plasma sob risco sísmico?`,
+                    text: `Minha Diamante! O Calor Sísmico de ${hotPlanet.name} subiu para ${Math.round(hotPlanet.seismicHeat)}% devido às brocas ativas. Bolsões de plasma raro surgiram no manto. Devemos resfriar com Essência ou colher o plasma sob risco sísmico?`,
                     consequenceHint: `Baseado diretamente na temperatura real de ${hotPlanet.shortName}.`,
                     choices: [
                         {
-                            label: `🌊 Resfriar Manto com Essência Azul (-20 Azul, -35% Calor, +45 TEC)`,
+                            label: `🌊 Resfriar Manto com Essência (-20 Essência, -35% Calor, +45 TEC)`,
                             action: () => {
-                                state.essence.blue = Math.max(0, state.essence.blue - 20);
+                                state.essence = Math.max(0, essenceValue(state.essence) - 20);
                                 hotPlanet.seismicHeat = Math.max(0, hotPlanet.seismicHeat - 35);
                                 state.tech += 45;
-                                addChronicle(`Resfriamento em ${hotPlanet.shortName}`, `Ondas de Essência Azul estabilizaram a crosta de ${hotPlanet.shortName}.`, '-35% Calor Sísmico');
+                                addChronicle(`Resfriamento em ${hotPlanet.shortName}`, `Ondas de Essência estabilizaram a crosta de ${hotPlanet.shortName}.`, '-35% Calor Sísmico');
                             }
                         },
                         {
-                            label: `🔥 Extrair Plasma Superaquecido (+95 MAT, +35 Amarela, +15% Calor)`,
+                            label: `🔥 Extrair Plasma Superaquecido (+95 MAT, +35 Essência, +15% Calor)`,
                             action: () => {
                                 state.minerals += 95;
-                                state.essence.yellow += 35;
+                                state.essence = essenceValue(state.essence) + 35;
                                 hotPlanet.seismicHeat = Math.min(100, hotPlanet.seismicHeat + 15);
-                                addChronicle(`Colheita Magmática em ${hotPlanet.shortName}`, `Plasma incandescente foi convertido em reservas imperiais.`, '+95 MAT / +35 Amarela');
+                                addChronicle(`Colheita Magmática em ${hotPlanet.shortName}`, `Plasma incandescente foi convertido em reservas imperiais.`, '+95 MAT / +35 Essência');
                             }
                         }
                     ]
@@ -2118,11 +2118,11 @@
                     consequenceHint: 'Altera a Lei Imperial de Fusões e o Eixo Ideológico.',
                     choices: [
                         {
-                            label: '⚖️ Proibir Fusões Inter-Castas (-12 Dogma, +35 Branca, +5% Ordem)',
+                            label: '⚖️ Proibir Fusões Inter-Castas (-12 Dogma, +35 Essência, +5% Ordem)',
                             action: () => {
                                 state.imperialLaws.fusionPolicy = 'Proibida';
                                 state.ideologyAxis = Math.max(-100, state.ideologyAxis - 12);
-                                state.essence.white += 35;
+                                state.essence = essenceValue(state.essence) + 35;
                                 state.order = Math.min(100, state.order + 5);
                                 addChronicle(`Proibição de Fusão em ${randPlanet.shortName}`, `A Primeira Diamante reafirmou a separação absoluta entre castas.`, 'Lei: Fusão Proibida');
                             }
@@ -2137,11 +2137,11 @@
                             }
                         },
                         {
-                            label: '💗 Celebrar a Fusão como Evolução Luminosa (+15 Evolução, +40 Vital, +1 Rank S)',
+                            label: '💗 Celebrar a Fusão como Evolução Luminosa (+15 Evolução, +40 Essência, +1 Rank S)',
                             action: () => {
                                 state.imperialLaws.fusionPolicy = 'Livre';
                                 state.ideologyAxis = Math.min(100, state.ideologyAxis + 15);
-                                state.essence.pink += 40;
+                                state.essence = essenceValue(state.essence) + 40;
                                 state.census.prime++;
                                 addChronicle('Reconhecimento das Fusões Livres', `${state.firstDiamond.name} abençoou a união entre castas diferentes em ${randPlanet.shortName}.`, 'Lei: Fusão Livre (+1 Rank S)');
                             }
@@ -2151,7 +2151,7 @@
                 {
                     arcTag: `🌱 Anomalia da Biosfera • ${randPlanet.shortName}`,
                     speaker: `Lápis-Lazúli Terraformadora • ${randPlanet.name}`,
-                    text: `Ao nivelar o continente de ${randPlanet.name} (${randPlanet.biomeTag}), descobrimos uma floresta de flora acústica que amplifica o canto das Pérolas. Demoli-la renderá Matéria imediata, mas preservá-la gerará Essência Vital contínua.`,
+                    text: `Ao nivelar o continente de ${randPlanet.name} (${randPlanet.biomeTag}), descobrimos uma floresta de flora acústica que amplifica o canto das Pérolas. Demoli-la renderá Matéria imediata, mas preservá-la gerará Essência contínua.`,
                     consequenceHint: `Afeta a Vitalidade do Núcleo de ${randPlanet.shortName} e o estoque de Essências.`,
                     choices: [
                         {
@@ -2164,13 +2164,13 @@
                             }
                         },
                         {
-                            label: `🌸 Preservar como Santuário Acústico (+45 Vital, +35 Azul, -12% Dissidência)`,
+                            label: `🌸 Preservar como Santuário Acústico (+45 Essência, +35 Essência, -12% Dissidência)`,
                             action: () => {
-                                state.essence.pink += 45;
-                                state.essence.blue += 35;
+                                state.essence = essenceValue(state.essence) + 45;
+                                state.essence = essenceValue(state.essence) + 35;
                                 randPlanet.dissent = Math.max(0, randPlanet.dissent - 12);
                                 state.ideologyAxis = Math.min(100, state.ideologyAxis + 10);
-                                addChronicle(`Reserva Harmônica de ${randPlanet.shortName}`, `${state.firstDiamond.name} preservou a flora acústica para canalizar Essência Vital.`, '+45 Vital / +35 Azul');
+                                addChronicle(`Reserva Harmônica de ${randPlanet.shortName}`, `${state.firstDiamond.name} preservou a flora acústica para canalizar Essência.`, '+45 Essência / +35 Essência');
                             }
                         }
                     ]
@@ -2355,13 +2355,13 @@
             if (getMorganiteAssignedCount(proposal.planetId) < getMorganiteReservedCount(proposal.planetId)) { setStatusTicker('Não há uma Morganita disponível para supervisionar a obra.'); return; }
             if (freeGemWorkers('bismuth') < 1) { setStatusTicker('É necessária uma Bismuto livre para executar o projeto.'); return; }
             const refinedBeryllium = Math.max(0,Number(state.refinedResources && state.refinedResources.beryllium)||0);
-            if ((Number(state.minerals)||0) < definition.minerals || (Number(state.tech)||0) < definition.tech || (Number(state.essence && state.essence.pink)||0) < definition.pink || refinedBeryllium < definition.beryllium) {
+            if ((Number(state.minerals)||0) < definition.minerals || (Number(state.tech)||0) < definition.tech || essenceValue(state.essence) < definition.pink || refinedBeryllium < definition.beryllium) {
                 setStatusTicker('Recursos insuficientes. A proposta continua aguardando aprovação.');
                 return;
             }
             state.minerals = Math.max(0,Number(state.minerals)||0)-definition.minerals;
             state.tech = Math.max(0,Number(state.tech)||0)-definition.tech;
-            state.essence.pink = Math.max(0,Number(state.essence && state.essence.pink)||0)-definition.pink;
+            state.essence = Math.max(0,essenceValue(state.essence)-definition.pink);
             state.refinedResources.beryllium = refinedBeryllium-definition.beryllium;
             proposal.status = 'approved';
             proposal.decidedAt = Number(state.cycleCount)||1;
@@ -2439,7 +2439,7 @@
                 const pending = architecture.proposals.filter(proposal=>proposal && proposal.status==='pending' && proposal.planetId===planet.id).map(proposal=>{
                     const definition = getMorganiteProjectDefinition(proposal.projectId);
                     if (!definition) return '';
-                    return '<div class="stat-box" style="margin-top:7px;border-left:3px solid #f0a6c2"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>'+definition.name+'</b><span class="badge">Aguardando Diamante</span></div><small>'+definition.category+' · '+proposal.source+'</small><p class="governance-muted">'+definition.description+'</p><small class="governance-muted">Investimento: '+definition.minerals+' minerais · '+definition.tech+' tecnologia · '+definition.beryllium+' Berílio refinado · '+definition.pink+' Essência Rosa · '+definition.duration+'s de obra</small><div style="display:flex;gap:6px;margin-top:7px"><button class="btn btn-emerald" onclick="decideMorganiteProposal('+proposal.id+',&#39;approve&#39;)">Aprovar investimento</button><button class="btn" onclick="decideMorganiteProposal('+proposal.id+',&#39;reject&#39;)">Rejeitar</button></div></div>';
+                    return '<div class="stat-box" style="margin-top:7px;border-left:3px solid #f0a6c2"><div style="display:flex;justify-content:space-between;gap:8px;align-items:center"><b>'+definition.name+'</b><span class="badge">Aguardando Diamante</span></div><small>'+definition.category+' · '+proposal.source+'</small><p class="governance-muted">'+definition.description+'</p><small class="governance-muted">Investimento: '+definition.minerals+' minerais · '+definition.tech+' tecnologia · '+definition.beryllium+' Berílio refinado · '+definition.pink+' Essência · '+definition.duration+'s de obra</small><div style="display:flex;gap:6px;margin-top:7px"><button class="btn btn-emerald" onclick="decideMorganiteProposal('+proposal.id+',&#39;approve&#39;)">Aprovar investimento</button><button class="btn" onclick="decideMorganiteProposal('+proposal.id+',&#39;reject&#39;)">Rejeitar</button></div></div>';
                 }).join('');
                 const active = architecture.activeProjects.filter(project=>project && project.planetId===planet.id).map(project=>{
                     const definition = getMorganiteProjectDefinition(project.projectId);
@@ -4113,10 +4113,7 @@ ${hasAristocrats ? `
                         <span style="font-size:10px; color:var(--text-muted);">Custo: 40 MAT</span>
                     </div>
                     <div class="grid-2">
-                        <button class="btn" onclick="distillEssence('white')">+25 Branca</button>
-                        <button class="btn" style="color:#fde047" onclick="distillEssence('yellow')">+25 Amarela</button>
-                        <button class="btn" style="color:#7dd3fc" onclick="distillEssence('blue')">+25 Azul</button>
-                        <button class="btn" style="color:#fda4af" onclick="distillEssence('pink')">+25 Vital</button>
+                        <button class="btn" onclick="distillEssence()">+25 Essência</button>
                     </div>
                 </div>
             `;
@@ -4169,7 +4166,7 @@ ${hasAristocrats ? `
 
         function buildEssenceBathCard() {
             const f=state.founding||{},chamberBuilt=structureCount('essence_chamber')>0,chamberReady=structureIsOperational('essence_chamber');
-            const cooldown=Number(f.bathCooldown)||0,essence=Object.values(state.essence||{}).reduce((a,b)=>a+(Number(b)||0),0);
+            const cooldown=Number(f.bathCooldown)||0,essence=essenceValue(state.essence);
             return '<div class="card"><div class="card-header"><span class="card-title title-font">✨ Essência da Diamante</span></div>'+
                 '<div class="founding-note">'+(chamberBuilt?'A Câmara funciona como sauna de essência. O banho dura 30 segundos, produz 10.000 unidades e exige até 3 horas de recuperação.':'Sem Câmara construída, a Diamante produz essência por meio de exercícios físicos.')+'</div>'+
                 '<div class="stat-box">Essência armazenada: <b>'+essence.toFixed(1)+'</b> · Reserva interna: <b>'+(Number(f.diamondEssence)||0).toFixed(1)+'</b> · Recebida pelo Injetor: <b>'+(Number(f.injectorEssence)||0).toFixed(1)+'</b></div>'+
@@ -4452,11 +4449,11 @@ ${hasAristocrats ? `
         function communeWithMatriarch(idx) {
             const m = state.matriarchs[idx];
             if (!m) return;
-            if (state.essence.white < 20) {
-                setStatusTicker('⚠️ Requer 20 Essência Branca para Comunhão Mental.');
+            if (essenceValue(state.essence) < 20) {
+                setStatusTicker('⚠️ Requer 20 Essência para Comunhão Mental.');
                 return;
             }
-            state.essence.white -= 20;
+            state.essence = Math.max(0, essenceValue(state.essence) - 20);
             m.loyalty = Math.min(100, m.loyalty + 16);
             m.currentSpeech = 'Nossas mentes ressoam em harmonia, Minha Diamante.';
             state.thronePulseEffects.push({ radius: 14, alpha: 1.0 });
@@ -4478,7 +4475,7 @@ ${hasAristocrats ? `
                             <b>Veio:</b> ${r.veinLabel} • <b>Mundos Ideais:</b> ${r.optimalLabel}
                         </div>
                         <div style="font-size:10px; color:#fde047; margin-top:2px;">
-                            <b>Fórmula:</b> ${r.essence.white} Branca / ${r.essence.yellow} Amarela / ${r.essence.blue} Azul / ${r.essence.pink} Vital
+                            <b>Essência:</b> ${r.essence.white + r.essence.yellow + r.essence.blue + r.essence.pink} unidades
                         </div>
                     </div>
                     <button class="btn active" onclick="applyFormulaPreset('${r.id}'); toggleModal('codex-modal'); switchScreen('colony');">
@@ -4648,13 +4645,16 @@ ${hasAristocrats ? `
         // HUD de essências: uma pílula por Diamante do império, na cor dela, com a essência
         // que ela tem disponível. A Primeira Diamante soma a reserva interna, o estoque da
         // Câmara e as essências da colônia; cada Matriarca mostra a própria essência.
+        // Essência única: saves antigos guardavam quatro cores ({white,yellow,blue,pink}); agora é um só número.
+        function essenceValue(v){if(v&&typeof v==='object')return ['white','yellow','blue','pink'].reduce((a,k)=>a+Math.max(0,Number(v[k])||0),0);return Math.max(0,Number(v)||0);}
         function getDiamondEssenceTotals(){
-            const f=state.founding||{},pools=state.essence||{};
-            const colonyPool=['white','yellow','blue','pink'].reduce((a,k)=>a+Math.max(0,Number(pools[k])||0),0);
+            const f=state.founding||{},colonyPool=essenceValue(state.essence),activePlanet=PLANETS[state.activeColonyPlanetId||'homeworld'],gov=String(activePlanet?.governor||'');
+            // A essência da colônia aberta pertence à Diamante que a governa.
+            const colonyOwner=state.activeDiamondColonyOwnerId&&state.activeDiamondColonyOwnerId!=='first'?state.activeDiamondColonyOwnerId:gov.startsWith('matriarch_')?gov.slice(10):'first';
             const first={id:'first',name:state.firstDiamond?.name||'Primeira Diamante',color:state.firstDiamond?.colorHex||COLOR_PALETTES[state.firstDiamond?.colorKey]?.hex||'#f8fafc',
-                amount:Math.max(0,Number(f.diamondEssence)||0)+Math.max(0,Number(f.injectorEssence)||0)+colonyPool,
-                detail:'Reserva '+Math.floor(Number(f.diamondEssence)||0)+' · Estoque da Câmara '+Math.floor(Number(f.injectorEssence)||0)+' · Colônia: Branca '+Math.floor(pools.white||0)+', Amarela '+Math.floor(pools.yellow||0)+', Azul '+Math.floor(pools.blue||0)+', Vital '+Math.floor(pools.pink||0)};
-            return [first,...(state.matriarchs||[]).map(m=>({id:m.id,name:m.name||'Matriarca',color:m.colorHex||COLOR_PALETTES[m.colorKey]?.hex||'#c9a6ff',amount:Math.max(0,Number(m.essence)||0),detail:'Essência própria da Matriarca'}))];
+                amount:Math.max(0,Number(f.diamondEssence)||0)+Math.max(0,Number(f.injectorEssence)||0)+(colonyOwner==='first'?colonyPool:0),
+                detail:'Reserva '+Math.floor(Number(f.diamondEssence)||0)+' · Estoque da Câmara '+Math.floor(Number(f.injectorEssence)||0)+(colonyOwner==='first'?' · Colônia '+Math.floor(colonyPool):'')};
+            return [first,...(state.matriarchs||[]).map(m=>({id:m.id,name:m.name||'Matriarca',color:m.colorHex||COLOR_PALETTES[m.colorKey]?.hex||'#c9a6ff',amount:Math.max(0,Number(m.essence)||0)+(colonyOwner===m.id?colonyPool:0),detail:'Essência própria'+(colonyOwner===m.id?' + colônia '+Math.floor(colonyPool):'')}))];
         }
         function formatEssenceAmount(n){n=Math.floor(n);return n>=1e6?(n/1e6).toFixed(n>=1e7?0:1).replace('.',',')+' mi':n>=1e4?(n/1e3).toFixed(n>=1e5?0:1).replace('.',',')+' mil':n.toLocaleString('pt-BR');}
         function updateDiamondEssenceHUD(){
@@ -4792,7 +4792,7 @@ ${hasAristocrats ? `
         }
 
         function hasEnoughEssence(costs) {
-            return Object.keys(costs).every(key => state.essence[key] >= costs[key]);
+            return essenceValue(state.essence) >= Object.values(costs).reduce((a,v)=>a+(Number(v)||0),0);
         }
 
         function startConfiguredInjection() {
@@ -4824,7 +4824,7 @@ ${hasAristocrats ? `
                 setStatusTicker('⚠️ Essências insuficientes para iniciar esta injeção.');
                 return;
             }
-            for (const key of Object.keys(costs)) state.essence[key] -= costs[key];
+            state.essence = Math.max(0, essenceValue(state.essence) - Object.values(costs).reduce((a,v)=>a+(Number(v)||0),0));
             vein.injector = {
                 progress: 0,
                 evalData: evaluation,
@@ -4855,11 +4855,11 @@ ${hasAristocrats ? `
                 planet.seismicHeat = Math.min(100, planet.seismicHeat + 3);
                 setStatusTicker('⚡ Injetor acelerado em 32%. O esforço adicional elevou o calor sísmico.');
             } else if (mode === 'stabilize') {
-                if (state.essence.blue < 15) {
-                    setStatusTicker('⚠️ São necessárias 15 unidades de Essência Azul para estabilizar o corte.');
+                if (essenceValue(state.essence) < 15) {
+                    setStatusTicker('⚠️ São necessárias 15 unidades de Essência para estabilizar o corte.');
                     return;
                 }
-                state.essence.blue -= 15;
+                state.essence = Math.max(0, essenceValue(state.essence) - 15);
                 injector.evalData.purity = Math.min(100, injector.evalData.purity + 15);
                 injector.evalData.grade = 'S';
                 injector.evalData.gradeLabel = 'CORTE PERFEITA • RANK [S]';
@@ -4881,7 +4881,7 @@ ${hasAristocrats ? `
             const refinedMaterial=injector.refinedMaterial||null,refinedCost=Math.max(0,Number(injector.refinedCost)||0);
             const mineralAvailable=Math.max(0,Number(planet.resourcesByType&&planet.resourcesByType[mineralType])||0);
             if(mineralAvailable<mineralCost||(refinedMaterial&&Number(state.refinedResources&&state.refinedResources[refinedMaterial]||0)<refinedCost)){
-                for(const [key,value] of Object.entries(result.costs||{})) state.essence[key]=(Number(state.essence[key])||0)+Number(value||0);
+                state.essence=essenceValue(state.essence)+Object.values(result.costs||{}).reduce((a,v)=>a+(Number(v)||0),0);
                 vein.injector=null;
                 setStatusTicker('Injeção cancelada: o veio não tinha mais matéria-prima suficiente. As essências foram devolvidas.',true);
                 updateHUD();renderDrawerContent();renderBottomBar();return;
@@ -4948,28 +4948,27 @@ ${hasAristocrats ? `
 
         function channelRoyalEssence() {
             const fd = state.firstDiamond;
-            state.essence.white += 18;
-            state.essence.yellow += 12;
-            state.essence.blue += 12;
-            state.essence.pink += 8;
+            state.essence = essenceValue(state.essence) + 18;
+            state.essence = essenceValue(state.essence) + 12;
+            state.essence = essenceValue(state.essence) + 12;
+            state.essence = essenceValue(state.essence) + 8;
             state.thronePulseEffects.push({ radius: 22, alpha: 1 });
             fd.currentSpeech = 'Minha luz percorre cada estrato de Homeworld. A Corte jamais ficará sem essência.';
-            addChronicle('Pulso da Aura Real', `${fd.name} canalizou energia primordial para as reservas do Império.`, '+18 Branca / +12 Amarela / +12 Azul / +8 Vital');
+            addChronicle('Pulso da Aura Real', `${fd.name} canalizou energia primordial para as reservas do Império.`, '+50 Essência');
             setStatusTicker('✨ Aura Real canalizada. As quatro reservas de Essência foram ampliadas.');
             updateHUD();
             renderBottomBar();
         }
 
-        function distillEssence(type) {
-            if (!Object.prototype.hasOwnProperty.call(state.essence, type)) return;
+        function distillEssence() {
             if (state.minerals < 40) {
                 setStatusTicker('⚠️ A Refinaria exige 40 MAT para destilar Essência.');
                 return;
             }
             state.minerals -= 40;
-            state.essence[type] += 25;
-            addChronicle('Destilação de Essência', `A Refinaria converteu 40 MAT em 25 unidades de Essência ${type}.`, '+25 Essência');
-            setStatusTicker(`⚗️ Refinaria concluída: +25 Essência ${type}.`);
+            state.essence = essenceValue(state.essence) + 25;
+            addChronicle('Destilação de Essência', 'A Refinaria converteu 40 MAT em 25 unidades de Essência.', '+25 Essência');
+            setStatusTicker('⚗️ Refinaria concluída: +25 Essência.');
             updateHUD();
             renderDrawerContent();
         }
@@ -4979,7 +4978,7 @@ ${hasAristocrats ? `
         function clonePlanetData(value){return JSON.parse(JSON.stringify(value===undefined?null:value));}
         function createEmptyPlanetEconomy(){
             const base={};PLANET_LOCAL_STATE_KEYS.forEach(key=>base[key]=clonePlanetData(state[key]));
-            base.minerals=0;base.tech=0;base.energy=0;base.refinedMaterials=0;base.refinedResources={quartz:0,pyroxene:0,beryllium:0,cooled_obsidian:0};base.essence={white:0,yellow:0,blue:0,pink:0};
+            base.minerals=0;base.tech=0;base.energy=0;base.refinedMaterials=0;base.refinedResources={quartz:0,pyroxene:0,beryllium:0,cooled_obsidian:0};base.essence=0;
             base.structures={};base.structureAssignments={};base.construction=null;base.constructionQueue=[];base.census=Object.fromEntries(Object.keys(state.census||{}).map(key=>[key,0]));
             base.order=100;base.logisticsActive=true;base.logisticsMaintenanceTimer=0;base.morganiteAutoBuild=true;
             base.founding=clonePlanetData(state.founding||{});const f=base.founding;f.firstGemCreated=true;f.stage='colony';f.mineralSamples={};f.gatheredMinerals={};f.collectedMinerals={};f.refineryProcessed={};f.injectorEssence=0;f.essenceOutput=0;f.creationActive=false;f.creationProgress=0;f.creationBatches=[];f.productionReports=[];f.productionReportRequested=false;f.reefPearlInventory=[];f.assignedPearls=[];f.injectorOrders=[];f.gemsCreatedCount=0;f.quartzVariantCounts={carnelian:0,amethyst:0,jasper:0,rose:0,citrine:0,ruby:0,onyx:0,tigerEye:0,chalcedony:0,rutile:0};
@@ -4992,6 +4991,7 @@ ${hasAristocrats ? `
         }
         function ensurePlanetEconomy(planet,adoptCurrent){
             if(!planet)return null;if(!planet.economy){if(adoptCurrent&&planet.id==='homeworld'){planet.economy={};PLANET_LOCAL_STATE_KEYS.forEach(key=>{if(state[key]!==undefined)planet.economy[key]=state[key];});}else planet.economy=createEmptyPlanetEconomy();}
+            if(planet.economy.essence!==undefined&&typeof planet.economy.essence==='object')planet.economy.essence=essenceValue(planet.economy.essence);
             if(PLANET_LOCAL_STATE_KEYS.some(key=>planet.economy[key]===undefined)){const defaults=createEmptyPlanetEconomy();PLANET_LOCAL_STATE_KEYS.forEach(key=>{if(planet.economy[key]===undefined)planet.economy[key]=defaults[key];});}
             if(planet.structures&&typeof planet.structures==='object'){['injector','mineral_extractor','galaxy_warp'].forEach(key=>{planet.economy.structures[key]=Math.max(Number(planet.economy.structures[key])||0,Number(planet.structures[key])||0);});}if(planet.galaxyWarpBuilt)planet.economy.structures.galaxy_warp=Math.max(1,Number(planet.economy.structures.galaxy_warp)||0);return planet.economy;
         }
@@ -5048,12 +5048,12 @@ ${hasAristocrats ? `
             }
             const preparation=getAquamarinePlanetPreparation(planet);
             if(!preparation.ready){setStatusTicker('A colonização de '+planet.shortName+' está bloqueada. A Diretoria da Água-marinha precisa concluir: '+preparation.reason,true);return;}
-            if (state.minerals < planet.unlockCost.minerals || state.essence.white < planet.unlockCost.white) {
+            if (state.minerals < planet.unlockCost.minerals || essenceValue(state.essence) < planet.unlockCost.white) {
                 setStatusTicker(`⚠️ Recursos insuficientes para colonizar ${planet.shortName}.`);
                 return;
             }
             state.minerals -= planet.unlockCost.minerals;
-            state.essence.white -= planet.unlockCost.white;
+            state.essence = Math.max(0, essenceValue(state.essence) - planet.unlockCost.white);
             planet.colonized = true;
             planet.governor = 'none';
             planet.walkingGems = [];
@@ -5198,11 +5198,11 @@ ${hasAristocrats ? `
         function pacifyPlanetRebellion() {
             const planet = PLANETS[state.activeColonyPlanetId];
             if (!planet) return;
-            if (state.essence.yellow < 25) {
-                setStatusTicker('⚠️ São necessárias 25 unidades de Essência Amarela para mobilizar a guarnição.');
+            if (essenceValue(state.essence) < 25) {
+                setStatusTicker('⚠️ São necessárias 25 unidades de Essência para mobilizar a guarnição.');
                 return;
             }
-            state.essence.yellow -= 25;
+            state.essence = Math.max(0, essenceValue(state.essence) - 25);
             planet.rebellionActive = false;
             planet.dissent = Math.max(0, planet.dissent - 55);
             planet.veins.forEach(v => { v.rebelBlocked = false; });
@@ -5789,7 +5789,7 @@ ${hasAristocrats ? `
                 const yieldRate = calculatePlanetYield(planet);if(planet.id===(state.activeColonyPlanetId||'homeworld'))saveActivePlanetEconomy();const economy=ensurePlanetEconomy(planet,false);
                 economy.minerals += yieldRate.min * dt;
                 economy.tech += yieldRate.tech * dt * (1 + Math.max(0, Math.min(0.20, Number(planet.governanceResearchBonus) || 0)));
-                economy.essence.white += yieldRate.white * dt;economy.essence.yellow += yieldRate.yellow * dt;economy.essence.blue += yieldRate.blue * dt;economy.essence.pink += yieldRate.pink * dt;
+                economy.essence = essenceValue(economy.essence) + (yieldRate.white + yieldRate.yellow + yieldRate.blue + yieldRate.pink) * dt;
                 economy.order = Math.max(0, Math.min(100, economy.order + yieldRate.order * dt));
                 if(planet.id===(state.activeColonyPlanetId||'homeworld')){state.minerals=economy.minerals;state.tech=economy.tech;state.essence=clonePlanetData(economy.essence);state.order=economy.order;}
             }
@@ -7184,7 +7184,7 @@ function drawColony(time){
             state.founding.gemsCreatedCount = 0;
             state.founding.terraformLevel = 0;
             state.founding.defenseLevel = 0;
-            state.essence = {white:0,yellow:0,blue:0,pink:0};
+            state.essence = 0;
             state.minerals = 0;
             state.tech = 0;
             state.energy = 0;
@@ -7412,8 +7412,7 @@ function drawColony(time){
             if((f.essenceCooldown||0)>0){setStatusTicker('A Diamante precisa recuperar o fôlego por mais '+f.essenceCooldown.toFixed(1)+'s.');return;}
             const amount=2*getPearlMultiplierFor('firstDiamond');
             f.essenceCooldown=1.5/getPearlMultiplierFor('firstDiamond');
-            const key=['white','yellow','blue','pink'].includes(fd.colorKey)?fd.colorKey:'white';
-            state.essence[key]+=amount;f.essenceOutput+=amount;f.activityCount++;f.stage='essence';
+            state.essence=essenceValue(state.essence)+amount;f.essenceOutput+=amount;f.activityCount++;f.stage='essence';
             setStatusTicker('A Diamante produziu '+amount+' unidades de essência por esforço físico.');
             addChronicle('Essência produzida',fd.name+' realizou uma atividade física e produziu '+amount+' unidades de essência.','+'+amount+' essência');
             updateHUD();renderDrawerContent();renderBottomBar();
@@ -7519,11 +7518,10 @@ function drawColony(time){
             if(gem.climate&&!foundingGemClimateAllowed(gem,planet)){setStatusTicker('As condições de temperatura e órbita deste planeta não permitem formar '+gem.label+'.',true);return;}
             if(gem.refinedMaterial){if(Number(state.refinedResources&&state.refinedResources[gem.refinedMaterial]||0)<1){setStatusTicker('É necessário refinar '+gem.refinedMaterial+' antes de formar '+gem.label+'.',true);return;}}
             else if ((state.founding.gatheredMinerals[gem.mineral] || 0) < 1) { setStatusTicker('É preciso recolher uma amostra de ' + gem.mineralName + ' primeiro.'); return; }
-            const essenceKey = ['white','yellow','blue','pink'].includes(state.firstDiamond.colorKey) ? state.firstDiamond.colorKey : 'white';
-            if ((state.essence[essenceKey] || 0) < 12) { setStatusTicker('A Diamante precisa produzir mais essência antes de criar a Gem.'); return; }
+            if (essenceValue(state.essence) < 12) { setStatusTicker('A Diamante precisa produzir mais essência antes de criar a Gem.'); return; }
             if(gem.refinedMaterial)state.refinedResources[gem.refinedMaterial]=Math.max(0,(Number(state.refinedResources[gem.refinedMaterial])||0)-1);
             else state.founding.gatheredMinerals[gem.mineral]--;
-            state.essence[essenceKey] -= 12;
+            state.essence = Math.max(0, essenceValue(state.essence) - 12);
             state.founding.creationTarget = type;
             state.founding.creationSource = 'manual';
             state.founding.creationProgress = 0;
@@ -7665,7 +7663,7 @@ function drawColony(time){
                 '<div class="card"><div class="card-header"><span class="card-title title-font">⛏️ Exploração manual</span></div><div class="founding-note">Cada busca encontra uma rocha aleatória. Coríndon, matéria-prima de Safiras e Rubis, é abundante; a temperatura do planeta determina qual das duas variedades pode se formar. Lápis-lazúli e granada hessonítica continuam menos comuns.</div><div class="stat-box"><span class="stat-label">Próximo encontro</span><b>' + ((found.gatherCooldown||0)>0?'⏳ Disponível em '+found.gatherCooldown.toFixed(1)+'s':'Pronto para explorar') + '</b></div><button id="gather-mineral-button" class="btn btn-amber btn-block" onclick="gatherPrimitiveMineral()" ' + ((found.gatherCooldown||0)>0||manualMineralGatheringCanEnd()?'disabled':'') + '>'+(manualMineralGatheringCanEnd()?'⛏️ Extração automatizada':'⛏️ Procurar rochas · 5s entre encontros')+'</button><div class="grid-2">' + mineralCards + '</div></div>' +
                 '<div class="card"><div class="card-header"><span class="card-title title-font">✨ Essência da Diamante</span></div>' +
                 '<div class="founding-note">'+(structureCount('essence_chamber')>0?'A Câmara funciona como uma sauna de essência. O banho dura 30 segundos, produz 10.000 unidades (100× o rendimento anterior) e exige até 3 horas de recuperação.':'Sem uma Câmara construída, a Diamante produz essência por meio de exercícios físicos.')+'</div>' +
-                '<div class="stat-box">Essência armazenada: <b>' + Object.values(state.essence).reduce((a,b)=>a+b,0).toFixed(1) + '</b> · Reserva interna da Diamante: <b>' + (found.diamondEssence || 0).toFixed(1) + '</b> · Recebida pelo Injetor: <b>' + (found.injectorEssence || 0).toFixed(1) + '</b></div>' +
+                '<div class="stat-box">Essência armazenada: <b>' + essenceValue(state.essence).toFixed(1) + '</b> · Reserva interna da Diamante: <b>' + (found.diamondEssence || 0).toFixed(1) + '</b> · Recebida pelo Injetor: <b>' + (found.injectorEssence || 0).toFixed(1) + '</b></div>' +
                 (found.bathActive?'<div class="founding-progress"><div id="founder-bath-progress" style="width:'+Math.floor(found.bathProgress||0)+'%"></div></div><div id="founder-bath-label" style="font-size:10px;color:#cbd5e1">Banho de essência: '+Math.floor(found.bathProgress||0)+'% · '+Math.max(0,Math.ceil(30*(1-(Number(found.bathProgress)||0)/100)))+'s restantes</div>':(found.bathCooldown>0?'<div class="stat-box" style="color:#fbbf24">Próximo banho em: <b id="founder-bath-cooldown">'+formatDuration(found.bathCooldown)+'</b></div>':''))+
                 '<button id="founder-activity-button" class="btn btn-pink btn-block" onclick="performFounderActivity()" '+(found.bathActive||found.creationActive||found.bathCooldown>0||(structureCount('essence_chamber')>0&&!hasChamber)||(!hasChamber&&structureCount('essence_chamber')===0&&(found.essenceCooldown||0)>0)?'disabled':'')+'>'+(structureCount('essence_chamber')>0?(found.bathActive?'🛁 Banho de essência em andamento':hasChamber?(found.bathCooldown>0?'⏳ Próximo banho em '+formatDuration(found.bathCooldown):'🛁 Iniciar banho · '+getEssenceChamberStats('first').duration+'s'):'⏳ Aguardando Peridot na Câmara'):(found.essenceCooldown||0)>0?'⏳ Recuperando fôlego · '+found.essenceCooldown.toFixed(1)+'s':'💪 Exercício físico · produzir 2 essência')+'</button></div>' +
                 (hasInjector?'<div class="card"><div class="card-header"><span class="card-title title-font">📊 Programação dos Injetores</span><span class="badge">Produção paralela</span></div><div class="founding-note">Ajuste cada Injetor individualmente. Cada unidade faz até 5 Gems por ciclo; 1 Injetor a cada 5 fica reservado para matéria-prima refinada.</div>'+buildInjectorProductionControlsHTML('context')+'<div class="stat-box">Lotes concluídos: <b>'+(found.productionReports||[]).length+'</b> · Gems produzidas: <b>'+(found.gemsCreatedCount||0)+'</b></div><button class="btn btn-emerald btn-block" onclick="requestGemProductionReport()">📄 Abrir relatório detalhado</button></div>':
@@ -7826,7 +7824,7 @@ function drawColony(time){
 
         function isValidSaveData(data) {
             if (!data || !data.state || !data.planets || typeof data.planets !== 'object') return false;
-            if (!data.state.essence || !data.state.firstDiamond || !data.state.planetCamera) return false;
+            if (data.state.essence === undefined || !data.state.firstDiamond || !data.state.planetCamera) return false;
             if (!['throne', 'starmap', 'colony', 'governance'].includes(data.state.currentScreen)) return false;
             // Não exigir que saves antigos já contenham planetas adicionados em versões novas.
             const savedPlanetIds = Object.keys(data.planets);
@@ -7898,6 +7896,8 @@ function drawColony(time){
                 });
                 if (typeof PLANET_SURFACE_CACHE !== 'undefined') PLANET_SURFACE_CACHE.clear();
                 ensureGalaxyState();
+                state.essence = essenceValue(state.essence);
+                Object.values(PLANETS).forEach(pl => { if (pl.economy) pl.economy.essence = essenceValue(pl.economy.essence); });
                 applyHomeworldNameToDOM();
                 if (!state.founding) state.founding = {stage:'legacy',firstGemCreated:true,mineralSamples:{},gatheredMinerals:{},essenceOutput:0,activityCount:0,diamondEssence:0,gemsCreatedCount:0,selectedGem:'quartz',creationProgress:0,creationActive:false,creationTarget:null,creationSource:'manual'};
                 state.founding.diamondEssence = Number(state.founding.diamondEssence) || 0;
