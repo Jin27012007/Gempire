@@ -1395,6 +1395,30 @@
             const latest=born[born.length-1];
             return {stage:stats.stage,depleted:stats.stage>=4||(stats.totalResources>1&&stats.remainingResources<=0),shattered:born.length>0,shatterProgress,coreColor:latest?.colorHex||'#ffe9c2'};
         }
+        // Luas naturais com a mesma arte procedural dos planetas. Elas acompanham o
+        // dano do planeta (fissuras e buracos), mas não se estilhaçam com ele.
+        function getMoonArtSurface(planet,index,moon){
+            const base=generatePlanetSurfaceMap(planet).profile,hex=String(moon?.color||'#cbd5e1').replace('#','');
+            const n=parseInt(hex.length===3?hex.split('').map(c=>c+c).join(''):hex,16)||0,r=(n>>16)&255,g=(n>>8)&255,b=n&255;
+            const biome=r>200&&g<170&&b<110?'volcanic':b>r+30?'icy':'rocky';
+            return {id:planet.id+'_moon'+index,seed:((base.seed||1)*31+index*977+7)>>>0,topology:'cratered',biome,landCoverage:.97,waterKind:'none',features:[]};
+        }
+        function getMoonDamage(damage){return damage?{stage:damage.stage,depleted:damage.depleted,coreColor:damage.coreColor}:{};}
+        function drawNaturalMoons(planet,cx,cy,radius,time,opts={}){
+            const moons=Array.isArray(planet.moons)?planet.moons:[];if(!moons.length)return;
+            const damage=getMoonDamage(opts.damage||getPlanetDamage(planet));
+            moons.forEach((moon,i)=>{
+                const a=time*(Number(moon.speed)||.0005)*(opts.speedScale??.18)+i*2.1,dist=radius*(opts.distScale??(Number(moon.dist)||1.5));
+                const mx=cx+Math.cos(a)*dist,my=cy+Math.sin(a)*dist*(opts.flatten??.42),mr=Math.max(opts.minRadius??3,radius*(opts.sizeScale??.2));
+                const behind=Math.sin(a)<0;
+                ctx.save();
+                // Atrás do planeta: recorta a parte encoberta pelo disco.
+                if(behind){ctx.beginPath();ctx.rect(mx-mr*2,my-mr*2,mr*4,mr*4);ctx.arc(cx,cy,radius*(opts.occludeScale??1),0,Math.PI*2,true);ctx.clip();}
+                GempirePlanetArt.drawPlanet(ctx,{cx:mx,cy:my,radius:mr,surface:getMoonArtSurface(planet,i,moon),rotation:time*.00012+i,time,atmosphere:'rgba(214,200,240,.28)',maxResolution:opts.maxResolution||160,deferred:!!opts.deferred,damage});
+                if(opts.lunarBase&&i===0){ctx.fillStyle='#f2cf86';ctx.strokeStyle='#1b0f30';ctx.lineWidth=1.2;ctx.beginPath();ctx.moveTo(mx,my-mr-7);ctx.lineTo(mx+4,my-mr-1);ctx.lineTo(mx-4,my-mr-1);ctx.closePath();ctx.fill();ctx.stroke();}
+                ctx.restore();
+            });
+        }
         function getPlanetSurfaceDescription(planet){
             const profile=ensurePlanetSurfaceProfile(planet),land=Math.round(profile.landCoverage*100),fluid=100-land;
             const fluidLabel=profile.waterKind==='water'?'oceano':profile.waterKind==='ice'?'gelo':profile.waterKind==='lava'?'magma':null;
@@ -6097,6 +6121,7 @@ ${hasAristocrats ? `
             ringBack();
             GempirePlanetArt.drawPlanet(ctx,{cx:x,cy:y,radius,surface:getPlanetArtSurface(planet),rotation:time*.00018+(planet.orbitAngle||0),time,atmosphere:planet.colors?.atmosphere,selected,maxResolution:128,deferred:true,damage:getPlanetDamage(planet)});
             ringFront();
+            drawNaturalMoons(planet,x,y,radius,time,{sizeScale:.3,distScale:Math.max(1.7,(Number(planet.moons?.[0]?.dist)||1.5)*1.2),maxResolution:64,deferred:true,occludeScale:1.02});
             if(selected){
                 ctx.save();ctx.strokeStyle='#f2cf86';ctx.lineWidth=1.5;ctx.setLineDash([5,4]);ctx.lineDashOffset=-time*.01;
                 ctx.beginPath();ctx.arc(x,y,radius+7,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
@@ -6248,7 +6273,7 @@ ${hasAristocrats ? `
             return {color:hex,accent:shade(.84),glow:shade(.68)};
         }
         function drawFleetShips(planet,cx,cy,radius,time){
-            if(structureCount('lunar_base')>0&&(planet.moons||[]).length){const a=time*.00009,rx=radius*1.34,ry=radius*1.08,mx=cx+Math.cos(a)*rx,my=cy+Math.sin(a)*ry,mr=Math.max(6,radius*.06);ctx.save();ctx.fillStyle='#8f7ab3';ctx.strokeStyle='#1b0f30';ctx.lineWidth=1.4;ctx.beginPath();ctx.arc(mx,my,mr,0,Math.PI*2);ctx.fill();ctx.stroke();ctx.fillStyle='#c9b6e8';ctx.beginPath();ctx.arc(mx-mr*.3,my-mr*.3,mr*.45,0,Math.PI*2);ctx.fill();ctx.fillStyle='#f2cf86';ctx.beginPath();ctx.moveTo(mx,my-mr-5);ctx.lineTo(mx+3,my-mr);ctx.lineTo(mx-3,my-mr);ctx.closePath();ctx.fill();ctx.restore();}
+            drawNaturalMoons(planet,cx,cy,radius,time,{distScale:1.42,flatten:.36,sizeScale:.13,minRadius:8,speedScale:.1,lunarBase:structureCount('lunar_base')>0});
             const fleet=(state.shipFleet||[]).filter(ship=>ship.planetId===planet.id);
             fleet.forEach((ship,index)=>{
                 const a=time*.00007+index*2.1,rx=radius*(1.34+index*.055),ry=radius*(1.04+index*.04),x=cx+Math.cos(a)*rx,y=cy+Math.sin(a)*ry;

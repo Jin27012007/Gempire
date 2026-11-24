@@ -288,7 +288,7 @@
     const DAMAGE_CACHE=new Map();
     // Largura das fraturas por estágio: [primária, secundária, alcance da secundária, trinca, alcance da trinca, brilho do fundo]
     const CRACK_STAGES=[null,[.042,.03,.26,0,0,.2],[.066,.044,.38,.026,.16,.5],[.092,.056,.5,.032,.24,.8],[.12,.068,.64,.04,.32,1]];
-    const LIGHT_UV=[-.67,-.74];
+    const LIGHT_UV=[-.67,-.74],ABYSS=[6,2,14];
     function getDamagedTexture(base,damage,deferred){
         const stage=Math.max(0,Math.min(4,damage.stage|0));
         const shatter=damage.shattered?Math.max(.05,Math.min(1,damage.shatterProgress??1)):0;
@@ -310,7 +310,7 @@
         const lit=mix(hex(b.land[2]),[255,255,255],.35);
         const cfg=(CRACK_STAGES[Math.max(stage,shatterStep?3:0)]||[0,0,0,0,0,0]).slice();
         if(shatterStep)cfg[0]=.055;
-        const [pw,sw,sr,tw,tr,glowAmt]=cfg;
+        const [pw,sw,sr,tw,tr]=cfg,depthK=Math.min(1,.5+.125*Math.max(stage,shatterStep?4:0));
         // 1) Campo de distância normalizado até a fratura mais próxima (0 = centro, 1 = borda).
         const D=new Float32Array(N).fill(9),L=new Uint8Array(N);
         for(let i=0;i<N;i++){
@@ -346,16 +346,14 @@
                         // Lábio da fenda: destaque no lado iluminado, tinta no lado em sombra.
                         c=facing>0?mix(c,lit,.55):mix(c,ink,.8);
                     }else{
-                        const t=(k-.14)/.86,deepK=lv===1?1:lv===2?.8:.55;
-                        let wc=facing>0?mix(wallLit,wall,smooth(0,1,t)):mix(wall,ink,.35+.4*t);
+                        // Quanto mais funda a fenda (nível da falha, estágio e centro do vão), mais escura a cor.
+                        const t=(k-.14)/.86,deepK=(lv===1?1:lv===2?.78:.55)*depthK;
+                        let wc=facing>0?mix(wallLit,wall,smooth(0,.6,t)):mix(wall,ink,.35+.4*t);
                         // Sombra projetada pela borda iluminada sobre o fundo da fenda.
-                        if(facing<-.2)wc=mix(wc,ink,.25);
-                        wc=mix(wc,mix(ink,[8,4,18],.4),smooth(.45,1,t)*deepK);
-                        if(glowAmt&&lv<3&&t>.62){
-                            const gk=smooth(.62,1,t)*glowAmt*(lv===1?1:.6);
-                            wc=mix(wc,mix(mantle,glow,smooth(.8,1,t)),gk);
-                            if(gk>.45)flags[i]=2;else if(flags[i]===2)flags[i]=0;
-                        }else if(flags[i]!==2||!b.emissive)flags[i]=0;
+                        if(facing<-.2)wc=mix(wc,ink,.3);
+                        wc=mix(wc,ink,smooth(.05,.55,t)*Math.min(1,deepK*1.1));
+                        wc=mix(wc,ABYSS,smooth(.35,1,t)*Math.min(1,deepK));
+                        flags[i]=0;
                         c=wc;
                     }
                 }
@@ -396,12 +394,13 @@
             }
             ctx2.closePath();
         };
-        const layers=[[1,0,wallLit],[.86,.1,wall],[.72,.17,mix(wall,ink,.35)],[.56,.23,mantle],[.4,.28,mix(mantle,ink,.45)],[.22,.32,glow],[.1,.33,hot]];
+        // Camadas cada vez mais escuras até o fundo; o núcleo é só um ponto fraco de luz lá embaixo.
+        const layers=[[1,0,wallLit],[.86,.1,wall],[.72,.17,mix(wall,ink,.4)],[.56,.23,ink],[.4,.28,mix(ink,ABYSS,.6)],[.24,.32,ABYSS],[.08,.33,mix(ABYSS,glow,.45)]];
         holes.forEach(h=>{
             [h.x,h.x-W,h.x+W].forEach(xx=>{
                 const hh=Object.assign({},h,{x:xx});
                 layers.forEach(([k,dy,col],li)=>{shape(g,hh,k,dy);g.fillStyle=css(col);g.fill();if(li===0){g.lineWidth=1.2;g.strokeStyle=css(ink);g.stroke();}});
-                shape(m,hh,.22,.32);m.fillStyle='#fff';m.fill();
+                shape(m,hh,.08,.33);m.fillStyle='#fff';m.fill();
             });
         });
         const d=g.getImageData(0,0,W,H).data,md=m.getImageData(0,0,W,H).data;
@@ -653,7 +652,7 @@
         glow.addColorStop(1,'rgba('+atm.join(',')+',0)');
         ctx.fillStyle=glow;ctx.beginPath();ctx.arc(cx,cy,radius*1.36,0,TAU);ctx.fill();
         // Luz do núcleo vazando pelas fissuras (mais intensa quando estilhaçado).
-        const leak=Math.min(.6,(damage.stage||0)*.14+(damage.depleted?.2:0));
+        const leak=Math.min(.35,(damage.stage||0)*.06+(damage.depleted?.12:0));
         if(leak>0){
             const cg=ctx.createRadialGradient(cx,cy,radius*.5,cx,cy,radius*(1.25+leak*.55));
             cg.addColorStop(0,'rgba('+coreRGB.join(',')+','+(.55*leak)+')');cg.addColorStop(1,'rgba('+coreRGB.join(',')+',0)');
