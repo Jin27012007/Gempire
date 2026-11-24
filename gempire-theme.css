@@ -307,3 +307,25 @@ body.compact-ui .btn{padding:4px 10px}
 /* Ação principal do menu em lilás real */
 .game-menu-content .btn-emerald{--edge:linear-gradient(180deg,#fff1c8,var(--gx-gold) 45%,var(--gx-gold-deep));--fill:linear-gradient(180deg,#8d5fd8 0%,#6a3fb8 55%,#55309c 100%);--ink:#fff}
 .game-menu-content .btn-emerald:hover:not(:disabled){--fill:linear-gradient(180deg,#a678ee,#7a4bc8)}
+
+/* ---------------------------------------------------------------------------
+ * Seletor de quantidade sem teclado (gempire-stepper.js)
+ * ------------------------------------------------------------------------- */
+input.gstep-source{position:absolute!important;width:1px!important;height:1px!important;opacity:0!important;pointer-events:none!important;margin:0!important;padding:0!important;border:0!important}
+.gstep{display:flex;flex-direction:column;gap:6px;width:100%;min-width:0;margin:4px 0}
+.gstep-row{display:flex;align-items:stretch;gap:4px;width:100%}
+.gstep-btn{flex:0 0 auto;min-width:38px;height:36px;padding:0 8px;border:1px solid rgba(201,166,255,.45);background:linear-gradient(180deg,rgba(92,58,150,.85),rgba(48,28,88,.92));color:#f6efff;font:700 15px/1 "Exo 2","Segoe UI",sans-serif;cursor:pointer;touch-action:manipulation;user-select:none;-webkit-user-select:none;clip-path:polygon(6px 0,calc(100% - 6px) 0,100% 50%,calc(100% - 6px) 100%,6px 100%,0 50%)}
+.gstep-btn:hover:not(:disabled){background:linear-gradient(180deg,rgba(124,82,196,.95),rgba(66,38,120,.95))}
+.gstep-btn:active:not(:disabled){transform:translateY(1px);filter:brightness(1.15)}
+.gstep-btn:disabled{opacity:.38;cursor:default}
+.gstep-zero,.gstep-max{font-size:11px;letter-spacing:.04em;min-width:42px;color:#f2cf86}
+.gstep-val{flex:1 1 auto;min-width:44px;display:flex;align-items:center;justify-content:center;height:36px;background:rgba(14,8,30,.75);border:1px solid rgba(201,166,255,.25);color:#fff;font:800 15px/1 "Exo 2","Segoe UI",sans-serif;font-variant-numeric:tabular-nums}
+.gstep-range{-webkit-appearance:none;appearance:none;width:100%;height:22px;background:transparent;margin:0;touch-action:pan-y}
+.gstep-range::-webkit-slider-runnable-track{height:6px;border-radius:3px;background:linear-gradient(90deg,#c9a6ff var(--fill,0%),rgba(201,166,255,.18) var(--fill,0%))}
+.gstep-range::-moz-range-track{height:6px;border-radius:3px;background:rgba(201,166,255,.18)}
+.gstep-range::-moz-range-progress{height:6px;border-radius:3px;background:#c9a6ff}
+.gstep-range::-webkit-slider-thumb{-webkit-appearance:none;width:22px;height:22px;margin-top:-8px;background:#f2cf86;border:2px solid #24143a;transform:rotate(45deg);border-radius:3px;cursor:pointer}
+.gstep-range::-moz-range-thumb{width:18px;height:18px;background:#f2cf86;border:2px solid #24143a;transform:rotate(45deg);border-radius:3px;cursor:pointer}
+.gstep-pick{display:block;margin:6px 0 8px}
+.gstep-pick .gstep-pick-head{display:flex;justify-content:space-between;align-items:baseline;gap:8px;font-size:12px;color:#e9ddff}
+.gstep-pick .gstep-pick-head small{color:var(--text-muted,#b4a3d4)}
