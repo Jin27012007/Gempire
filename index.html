@@ -1395,6 +1395,44 @@
             const latest=born[born.length-1];
             return {stage:stats.stage,depleted:stats.stage>=4||(stats.totalResources>1&&stats.remainingResources<=0),shattered:born.length>0,shatterProgress,coreColor:latest?.colorHex||'#ffe9c2'};
         }
+        // Cobertura de gems na superfície: cada casta presente na colônia pinta uma mancha
+        // da própria cor, puxada para a cor da Diamante que governa o planeta. A área cresce
+        // com a população (1.000 gems num mundo pequeno = só uma partezinha) e acompanha o
+        // censo local, então gems que embarcam levam a cor junto para o planeta de destino.
+        const QUARTZ_VARIANT_COLORS={carnelian:'#e0533a',amethyst:'#a855f7',jasper:'#c2410c',rose:'#f9a8d4',citrine:'#facc15',onyx:'#3b3355',tigerEye:'#c98a2b',chalcedony:'#93c5fd',rutile:'#f2d98a'};
+        const GEM_COVER_IGNORED=new Set(['prime','offcolor']);
+        function mixHexColor(a,b,t){
+            const pa=parseInt(String(a).replace('#',''),16),pb=parseInt(String(b).replace('#',''),16);
+            const ch=(n,sh)=>(n>>sh)&255,m=sh=>Math.round(ch(pa,sh)+(ch(pb,sh)-ch(pa,sh))*t);
+            return '#'+[m(16),m(8),m(0)].map(v=>v.toString(16).padStart(2,'0')).join('');
+        }
+        function getPlanetGemCover(planet){
+            if(!planet||!planet.colonized)return null;
+            const active=planet.id===(state.activeColonyPlanetId||'homeworld');
+            const census=active?state.census:planet.economy?.census,founding=active?state.founding:planet.economy?.founding;
+            if(!census)return null;
+            const ruler=getPlanetRulerColors(planet)?.color,counts=[];
+            Object.entries(census).forEach(([type,value])=>{
+                const n=Math.max(0,Math.floor(Number(value)||0));if(!n||GEM_COVER_IGNORED.has(type))return;
+                if(type==='quartz'){
+                    // Quartzos se dividem nas variantes nascidas no planeta (Ametistas, Jaspers...).
+                    const v=Object.entries(founding?.quartzVariantCounts||{}).filter(([k,c])=>k!=='ruby'&&Number(c)>0),vt=v.reduce((a,[,c])=>a+Number(c),0);
+                    let left=n;
+                    v.forEach(([k,c])=>{const part=Math.min(left,Math.round(n*Number(c)/vt));if(part>0){counts.push(['quartz_'+k,part,QUARTZ_VARIANT_COLORS[k]||'#e2e8f0']);left-=part;}});
+                    if(left>0)counts.push(['quartz',left,FOUNDING_GEM_DATA.quartz.color]);
+                    return;
+                }
+                counts.push([type,n,FOUNDING_GEM_DATA[type]?.color||'#e2e8f0']);
+            });
+            const total=counts.reduce((a,c)=>a+c[1],0);if(!total)return null;
+            const capacity=600*Math.max(8,Number(planet.sphereRadius)||30);
+            const coverage=Math.round(Math.min(.9,1-Math.exp(-total/capacity))*400)/400;
+            if(coverage<.0025)return null;
+            counts.sort((a,b)=>b[1]-a[1]);
+            const parts=counts.map(([id,n,color])=>({id,share:Math.round(n/total*50)/50,color:ruler?mixHexColor(color,ruler,.3):color})).filter(p=>p.share>0).slice(0,12);
+            if(!parts.length)parts.push({id:counts[0][0],share:1,color:ruler?mixHexColor(counts[0][2],ruler,.3):counts[0][2]});
+            return {coverage,parts,key:coverage+':'+parts.map(p=>p.id+'='+p.share+p.color).join(',')};
+        }
         // Luas naturais com a mesma arte procedural dos planetas. Elas acompanham o
         // dano do planeta (fissuras e buracos), mas não se estilhaçam com ele.
         function getMoonArtSurface(planet,index,moon){
@@ -6119,7 +6157,7 @@ ${hasAristocrats ? `
             const ringBack=()=>{if(!(planet.hasRings||planet.hasOrbitalRing))return;ctx.save();ctx.strokeStyle='rgba(242,207,134,.55)';ctx.lineWidth=Math.max(1.4,radius*.12);ctx.beginPath();ctx.ellipse(x,y,radius*1.6,radius*.42,tilt,Math.PI,Math.PI*2);ctx.stroke();ctx.restore();};
             const ringFront=()=>{if(!(planet.hasRings||planet.hasOrbitalRing))return;ctx.save();ctx.strokeStyle='rgba(242,207,134,.8)';ctx.lineWidth=Math.max(1.4,radius*.12);ctx.beginPath();ctx.ellipse(x,y,radius*1.6,radius*.42,tilt,0,Math.PI);ctx.stroke();ctx.restore();};
             ringBack();
-            GempirePlanetArt.drawPlanet(ctx,{cx:x,cy:y,radius,surface:getPlanetArtSurface(planet),rotation:time*.00018+(planet.orbitAngle||0),time,atmosphere:planet.colors?.atmosphere,selected,maxResolution:128,deferred:true,damage:getPlanetDamage(planet)});
+            GempirePlanetArt.drawPlanet(ctx,{cx:x,cy:y,radius,surface:getPlanetArtSurface(planet),rotation:time*.00018+(planet.orbitAngle||0),time,atmosphere:planet.colors?.atmosphere,selected,maxResolution:128,deferred:true,gemCover:getPlanetGemCover(planet),damage:getPlanetDamage(planet)});
             ringFront();
             drawNaturalMoons(planet,x,y,radius,time,{sizeScale:.3,distScale:Math.max(1.7,(Number(planet.moons?.[0]?.dist)||1.5)*1.2),maxResolution:64,deferred:true,occludeScale:1.02});
             if(selected){
@@ -6547,7 +6585,7 @@ function drawColony(time){
             drawPlanetDebris(planet,cx,cy,radius,time,cam,stage,false);
 
             // Globo procedural estilizado: continentes, relevo, bioma e nuvens acompanham a rotação.
-            GempirePlanetArt.drawPlanet(ctx,{cx,cy,radius,surface:getPlanetArtSurface(planet),rotation:cam.rotation,time,atmosphere:palette.atmosphere,selected:stage>=2,damage:getPlanetDamage(planet,stats)});
+            GempirePlanetArt.drawPlanet(ctx,{cx,cy,radius,surface:getPlanetArtSurface(planet),rotation:cam.rotation,time,atmosphere:palette.atmosphere,selected:stage>=2,gemCover:getPlanetGemCover(planet),damage:getPlanetDamage(planet,stats)});
 
             if(cam.xrayMode){
                 ctx.save();ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.clip();

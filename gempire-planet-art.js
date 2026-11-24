@@ -246,6 +246,87 @@
     }
 
     // ------------------------------------------------------------------
+    // Cobertura de gems: manchas da cor de cada casta que vivem no planeta
+    // ------------------------------------------------------------------
+    // cover: {key, coverage (0–1 da superfície), parts:[{id, color, share}]}
+    // Cada casta cresce a partir de um ponto próprio do globo; quanto maior a
+    // fatia da população, mais território ela toma das vizinhas. Com poucas
+    // gems surge só uma mancha pequena; com muitas, a cor domina o planeta.
+    const GEM_COVER_CACHE=new Map();
+    function ensureGemCoverField(root){
+        if(root.gcPos)return;
+        const W=root.W,H=root.H,N=W*H,pos=new Float32Array(N*3),warp=new Float32Array(N),area=new Float32Array(H);
+        for(let y=0;y<H;y++){
+            const lat=-Math.PI/2+(y+.5)/H*Math.PI,cl=Math.cos(lat),sl=Math.sin(lat);area[y]=cl;
+            for(let x=0;x<W;x++){
+                const lon=-Math.PI+(x+.5)/W*TAU,i=y*W+x,px=cl*Math.sin(lon),pz=cl*Math.cos(lon);
+                // Posição distorcida por ruído: bordas orgânicas mesmo para manchas pequenas.
+                const qx=px+(fbm(px*2.2+1.7,sl*2.2,pz*2.2,root.seed+4451,3)-.5)*.9+(fbm(px*7,sl*7,pz*7,root.seed+4454,2)-.5)*.22;
+                const qy=sl+(fbm(px*2.2,sl*2.2+4.3,pz*2.2,root.seed+4452,3)-.5)*.9+(fbm(px*7+3,sl*7,pz*7,root.seed+4455,2)-.5)*.22;
+                const qz=pz+(fbm(px*2.2,sl*2.2,pz*2.2+8.9,root.seed+4453,3)-.5)*.9+(fbm(px*7,sl*7+5,pz*7,root.seed+4456,2)-.5)*.22;
+                const qm=Math.hypot(qx,qy,qz)||1;
+                pos[i*3]=qx/qm;pos[i*3+1]=qy/qm;pos[i*3+2]=qz/qm;
+                warp[i]=fbm(px*2.8+9.1,sl*2.8,pz*2.8,root.seed+4441,4)-.5+(fbm(px*9,sl*9,pz*9,root.seed+4442,2)-.5)*.35;
+            }
+        }
+        root.gcPos=pos;root.gcWarp=warp;root.gcArea=area;
+    }
+    function strHash(str){let h=2166136261;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
+    function getGemCoverTexture(base,cover){
+        const parts=(cover&&cover.parts||[]).filter(p=>p&&p.share>0);
+        if(!parts.length||!(cover.coverage>0))return base;
+        const key=base.key+'|gc|'+(cover.key||JSON.stringify(cover));
+        if(GEM_COVER_CACHE.has(key))return GEM_COVER_CACHE.get(key);
+        const root=base.root||base;ensureGemCoverField(root);
+        const W=base.W,H=base.H,N=W*H,pos=root.gcPos,warp=root.gcWarp,area=root.gcArea;
+        // Ponto de origem de cada casta (estável por planeta + casta).
+        const anchors=parts.map((p,k)=>{
+            const h=strHash(String(p.id)+':'+root.seed);
+            // Origem fixa por casta: quando uma casta sai, as outras não mudam de lugar.
+            const lon=(h%3600)/3600*TAU-Math.PI,lat=(((h>>>12)%1000)/1000-.5)*1.4;
+            const cl=Math.cos(lat);
+            return [cl*Math.sin(lon),Math.sin(lat),cl*Math.cos(lon),1/(Math.sqrt(p.share)+.08)];
+        });
+        const score=new Float32Array(N),owner=new Uint8Array(N),margin=new Float32Array(N);
+        const BINS=2048;const hist=new Float32Array(BINS);let maxS=0;
+        for(let i=0;i<N;i++){
+            const x=pos[i*3],y=pos[i*3+1],z=pos[i*3+2];let b1=1e9,b2=1e9,o=0;
+            for(let k=0;k<anchors.length;k++){
+                const a=anchors[k],dot=Math.max(-1,Math.min(1,x*a[0]+y*a[1]+z*a[2]));
+                const d=Math.sqrt(2*(1-dot))*a[3];
+                if(d<b1){b2=b1;b1=d;o=k;}else if(d<b2)b2=d;
+            }
+            const sc=b1+warp[i]*.3;score[i]=sc;owner[i]=o;margin[i]=b2-b1;if(sc>maxS)maxS=sc;
+        }
+        const minS=-.4,span=maxS-minS+1e-6;let total=0;
+        for(let i=0;i<N;i++){const w=area[(i/W)|0];total+=w;hist[Math.min(BINS-1,Math.max(0,((score[i]-minS)/span*BINS)|0))]+=w;}
+        let acc=0,T=maxS;const goal=total*Math.min(.97,cover.coverage);
+        for(let bI=0;bI<BINS;bI++){acc+=hist[bI];if(acc>=goal){T=minS+(bI+1)/BINS*span;break;}}
+        const rgba=new Uint8ClampedArray(base.rgba),flags=base.flags,ink=hex(base.biome.ink);
+        const cols=parts.map(p=>hex(p.color)),lights=cols.map(c=>mix(c,[255,255,255],.45)),darks=cols.map(c=>mix(c,ink,.45));
+        const edgeW=.035;
+        for(let i=0;i<N;i++){
+            const sc=score[i];if(sc>T)continue;
+            const o=i*4,k=owner[i],inside=T-sc;
+            let c=[rgba[o],rgba[o+1],rgba[o+2]];
+            const lum=(c[0]*.3+c[1]*.55+c[2]*.15)/255;
+            // Mantém o relevo: tons claros do terreno viram o tom claro da gem, sombras viram o tom escuro.
+            const tone=lum>.6?mix(cols[k],lights[k],(lum-.6)*1.2):mix(darks[k],cols[k],Math.min(1,lum/.6));
+            c=mix(c,tone,flags[i]===1?.6:.92);
+            // Facetas cristalinas: a mancha brilha como gem, não como tinta chapada.
+            const f=warp[i]*7.3;const facet=f-Math.floor(f);
+            if(facet<.12)c=mix(c,lights[k],.35);else if(facet>.9)c=mix(c,darks[k],.25);
+            if(inside<edgeW*.45||margin[i]<.012)c=mix(c,ink,.7);           // contorno de tinta da mancha
+            else if(inside<edgeW)c=mix(c,lights[k],.35);                       // brilho cristalino na borda
+            rgba[o]=c[0];rgba[o+1]=c[1];rgba[o+2]=c[2];
+        }
+        const result=Object.assign({},base,{root,rgba,key});
+        if(GEM_COVER_CACHE.size>24)GEM_COVER_CACHE.delete(GEM_COVER_CACHE.keys().next().value);
+        GEM_COVER_CACHE.set(key,result);
+        return result;
+    }
+
+    // ------------------------------------------------------------------
     // Camada de dano: fraturas por estágio, estilhaçamento e buracos de exaustão
     // ------------------------------------------------------------------
     // Rede de fraturas em três níveis, calculada uma vez por planeta:
@@ -297,14 +378,16 @@
         const core=damage.coreColor||'#ffe9c2';
         const key=base.key+'|'+stage+'|'+(shatterStep?1:0)+'|'+(depleted?1:0)+'|'+core;
         if(DAMAGE_CACHE.has(key))return DAMAGE_CACHE.get(key);
-        if(deferred&&!base.megaEdge){
+        // Dados das placas ficam na textura original, compartilhados por todas as variantes (cobertura de gems etc.).
+        const root=base.root||base;
+        if(deferred&&!root.megaEdge){
             // Miniaturas: calcula a rede de fraturas fora do quadro atual.
-            if(!base.megaQueued){base.megaQueued=true;setTimeout(()=>ensureMegaPlates(base),40);}
+            if(!root.megaQueued){root.megaQueued=true;setTimeout(()=>ensureMegaPlates(root),40);}
             return base;
         }
-        ensureMegaPlates(base);
+        ensureMegaPlates(root);
         const W=base.W,H=base.H,N=W*H,b=base.biome;
-        const edge=base.megaEdge,sec=base.megaSec,ter=base.megaTer,jag=base.megaJag,wmod=base.megaWmod,mid=base.megaId;
+        const edge=root.megaEdge,sec=root.megaSec,ter=root.megaTer,jag=root.megaJag,wmod=root.megaWmod,mid=root.megaId;
         const rgba=new Uint8ClampedArray(base.rgba),flags=new Uint8Array(base.flags);
         const ink=hex(b.ink),wall=hex(b.cliffDark),wallLit=hex(b.cliff),mantle=hex('#5a2160'),glow=hex(core),hot=mix(glow,[255,255,255],.55);
         const lit=mix(hex(b.land[2]),[255,255,255],.35);
@@ -366,7 +449,7 @@
             const missing=.1;
             for(let i=0;i<N;i++)if(mid[i]<missing){flags[i]=3;rgba[i*4+3]=0;}
         }
-        const result=Object.assign({},base,{rgba,flags,damaged:true,shattered:!!shatterStep,gapD,coreRGB:glow,hotRGB:hot});
+        const result=Object.assign({},base,{root,megaIdx:root.megaIdx,megaCent:root.megaCent,rgba,flags,damaged:true,shattered:!!shatterStep,gapD,coreRGB:glow,hotRGB:hot});
         if(DAMAGE_CACHE.size>24)DAMAGE_CACHE.delete(DAMAGE_CACHE.keys().next().value);
         DAMAGE_CACHE.set(key,result);
         return result;
@@ -637,7 +720,8 @@
         if(!ctx||!(radius>1))return;
         const base=getTexture(opts.surface,!!opts.deferred);
         const damage=opts.damage||{};
-        const tex=base&&(damage.stage||damage.shattered||damage.depleted)?getDamagedTexture(base,damage,!!opts.deferred):base;
+        const covered=base&&opts.gemCover?getGemCoverTexture(base,opts.gemCover):base;
+        const tex=covered&&(damage.stage||damage.shattered||damage.depleted)?getDamagedTexture(covered,damage,!!opts.deferred):covered;
         const shatter=damage.shattered?Math.max(.05,Math.min(1,damage.shatterProgress??1)):0;
         const coreRGB=parseColor(damage.coreColor,[255,233,194]);
         const dpr=Math.max(1,Math.min(2,window.devicePixelRatio||1));
