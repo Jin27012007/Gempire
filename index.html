@@ -6338,66 +6338,85 @@ ${hasAristocrats ? `
             ctx.restore();
         }
 
-        function drawAuthorityDiamondNode(x,y,w,h,entity,isFounder,index){
-            const color=entity.colorHex||'#c4b5fd';
+        // Cena da Autoridade Diamante: pirâmide de losangos. A posição define a autoridade:
+        // quanto mais alto, mais poder sobre as Diamantes abaixo. Linhas ligam cada Diamante
+        // à superiora responsável por ela (douradas quando a superiora é outra Matriarca).
+        let authorityHitTargets=[];
+        function shortDiamondName(name){return String(name||'Diamante').replace(/^Diamante\s+/i,'');}
+        function drawAuthorityDiamondNode(x,y,w,h,entity,isFounder,rank,time,hover){
+            const color=entity.colorHex||'#c4b5fd',rebel=entity.courtStatus==='rebel',away=entity.courtStatus==='mission';
             ctx.save();ctx.translate(x,y);
-            ctx.shadowColor=entity.glowHex||color;ctx.shadowBlur=isFounder?19:13;
-            ctx.fillStyle=color;
+            const pulse=1+(hover?.08:0)+Math.sin(time*.002+rank)*.015;ctx.scale(pulse,pulse);
+            ctx.shadowColor=entity.glowHex||color;ctx.shadowBlur=isFounder?24:hover?22:14;
+            const g=ctx.createLinearGradient(-w*.5,-h*.5,w*.5,h*.5);g.addColorStop(0,'#ffffff');g.addColorStop(.28,color);g.addColorStop(1,entity.glowHex||color);
+            ctx.fillStyle=g;ctx.globalAlpha=away?.55:1;
             ctx.beginPath();ctx.moveTo(0,-h*.5);ctx.lineTo(w*.5,0);ctx.lineTo(0,h*.5);ctx.lineTo(-w*.5,0);ctx.closePath();ctx.fill();
-            ctx.restore();
-            ctx.save();ctx.textAlign='center';ctx.fillStyle='#fff9ff';
-            ctx.font='bold '+Math.max(9,isFounder?12:10)+'px "Exo 2", "Segoe UI", sans-serif';
-            ctx.shadowColor='rgba(20,10,35,.9)';ctx.shadowBlur=4;
-            ctx.fillText(entity.name||'Diamante',x,y+h*.5+13);
+            ctx.shadowBlur=0;ctx.lineWidth=Math.max(1.5,w*.05);ctx.strokeStyle=rebel?'#fb7185':'rgba(255,246,220,.85)';ctx.stroke();
+            // Facetas internas.
+            ctx.globalAlpha=(away?.4:1)*.35;ctx.strokeStyle='#fff';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(-w*.25,-h*.25);ctx.lineTo(0,0);ctx.lineTo(w*.25,-h*.25);ctx.moveTo(0,0);ctx.lineTo(0,h*.5);ctx.stroke();
+            ctx.globalAlpha=1;ctx.restore();
+            // Obediência como arco ao redor do losango (Matriarcas).
+            if(!isFounder){
+                const ob=Math.max(0,Math.min(100,Number(entity.obedience)||0))/100,r=Math.max(w,h)*.62;
+                ctx.save();ctx.lineWidth=3;ctx.strokeStyle='rgba(20,10,35,.55)';ctx.beginPath();ctx.arc(x,y,r,Math.PI*.75,Math.PI*2.25);ctx.stroke();
+                ctx.strokeStyle=ob<.35?'#fb7185':ob<.6?'#f2cf86':'#6ee7b7';ctx.beginPath();ctx.arc(x,y,r,Math.PI*.75,Math.PI*.75+Math.PI*1.5*ob);ctx.stroke();ctx.restore();
+            }
+            ctx.save();ctx.textAlign='center';ctx.shadowColor='rgba(20,10,35,.95)';ctx.shadowBlur=5;
+            if(!isFounder){ctx.fillStyle='#f2cf86';ctx.font='800 '+Math.max(9,Math.round(w*.2))+'px "Exo 2", "Segoe UI", sans-serif';ctx.fillText(String(rank),x,y+4);}
+            ctx.fillStyle='#fff9ff';ctx.font='bold '+(isFounder?13:Math.max(10,Math.min(12,Math.round(w*.24))))+'px "Exo 2", "Segoe UI", sans-serif';
+            ctx.fillText(isFounder?(entity.name||'Primeira Diamante'):shortDiamondName(entity.name),x,y+h*.5+(isFounder?16:15));
+            if(!isFounder&&(rebel||away)){ctx.font='700 9px "Exo 2", "Segoe UI", sans-serif';ctx.fillStyle=rebel?'#fb7185':'#7dd3fc';ctx.fillText(rebel?'REBELDE':'EM MISSÃO',x,y+h*.5+27);}
             ctx.restore();
         }
-
+        // Layout da pirâmide: fileiras crescentes (2, 3, 4, 5…) abaixo da fundadora.
+        function getAuthorityLayout(){
+            const isMobile=window.matchMedia('(max-width:600px)').matches,cx=canvasWidth*.5,members=state.matriarchs.slice();
+            const topY=canvasHeight*.22,topW=Math.min(isMobile?70:92,canvasWidth*.2),topH=topW*1.3;
+            const caps=[2,3,4,5,6,7];const rows=[];let cursor=0,r=0;
+            while(cursor<members.length){const c=Math.min(caps[Math.min(r,caps.length-1)],members.length-cursor);rows.push(members.slice(cursor,cursor+c));cursor+=c;r++;}
+            const bottom=canvasHeight*.88,rowStep=Math.max(isMobile?64:78,Math.min(isMobile?100:150,(bottom-topY-topH*.6)/Math.max(1,rows.length)));
+            const nodes=[{entity:state.firstDiamond,id:'first',x:cx,y:topY,w:topW,h:topH,founder:true,rank:0}];
+            let rank=1;
+            rows.forEach((row,ri)=>{
+                const y=topY+topH*.45+(ri+1)*rowStep,gap=Math.min(isMobile?78:168,(canvasWidth*.86)/Math.max(1,row.length));
+                const w=Math.max(isMobile?26:32,Math.min(isMobile?44:62,topW*(.68-ri*.08),gap*.6)),h=w*1.28;
+                row.forEach((m,i)=>{nodes.push({entity:m,id:m.id,x:cx+(i-(row.length-1)/2)*gap,y,w,h,founder:false,rank:rank++});});
+            });
+            return nodes;
+        }
+        let authorityHoverId=null;
         function drawDiamondAuthorityScene(time){
             const image=getPrimarySceneImage('authority');
-            drawPrimarySceneImage(image,'rgba(20,8,34,.14)');
+            drawPrimarySceneImage(image,'rgba(20,8,34,.24)');
             const cx=canvasWidth*.5,isMobile=window.matchMedia('(max-width:600px)').matches;
-            const founder=state.firstDiamond;
             ctx.save();
             ctx.textAlign='center';ctx.fillStyle='rgba(255,248,255,.96)';
             ctx.font='bold '+(isMobile?16:21)+'px "Exo 2", Georgia, serif';
             ctx.shadowColor='rgba(28,7,45,.8)';ctx.shadowBlur=10;
-            ctx.fillText('AUTORIDADE DIAMANTE',cx,Math.max(28,canvasHeight*.09));
+            ctx.fillText('AUTORIDADE DIAMANTE',cx,Math.max(28,canvasHeight*.08));
             ctx.shadowBlur=0;ctx.font=(isMobile?9:11)+'px "Exo 2", "Segoe UI", sans-serif';
-            ctx.fillStyle='rgba(248,226,255,.76)';
-            ctx.fillText('HIERARQUIA IMPERIAL · HOMEWORLD',cx,Math.max(44,canvasHeight*.09+18));
+            ctx.fillStyle='rgba(248,226,255,.8)';
+            ctx.fillText('Quanto mais alto, mais autoridade · toque numa Diamante para abrir a Corte',cx,Math.max(44,canvasHeight*.08+18));
             ctx.restore();
-
-            const topY=canvasHeight*.20;
-            const topW=Math.min(isMobile?76:106,canvasWidth*.22),topH=topW*1.28;
-            drawAuthorityDiamondNode(cx,topY,topW,topH,founder,true,0);
-            const members=state.matriarchs.slice();
-            if(!members.length){
+            const nodes=getAuthorityLayout(),byId=Object.fromEntries(nodes.map(n=>[n.id,n]));
+            authorityHitTargets=nodes.map(n=>({id:n.id,x:n.x,y:n.y,r:Math.max(n.w,n.h)*.6}));
+            // Linhas de comando: de cada Diamante até a superiora responsável.
+            nodes.forEach(n=>{
+                if(n.founder)return;
+                const sup=byId[n.entity.superiorId]||byId.first,golden=sup.id!=='first';
+                ctx.save();ctx.lineWidth=golden?2.2:1.2;ctx.strokeStyle=golden?'rgba(242,207,134,.85)':'rgba(255,240,255,.32)';
+                if(!golden)ctx.setLineDash([3,5]);if(n.entity.courtStatus==='rebel'){ctx.strokeStyle='rgba(251,113,133,.7)';ctx.setLineDash([2,4]);}
+                ctx.beginPath();ctx.moveTo(sup.x,sup.y+sup.h*.5);ctx.lineTo(n.x,n.y-n.h*.5);ctx.stroke();ctx.restore();
+            });
+            nodes.forEach(n=>drawAuthorityDiamondNode(n.x,n.y,n.w,n.h,n.entity,n.founder,n.rank,time,authorityHoverId===n.id));
+            if(!state.matriarchs.length){
                 ctx.save();ctx.textAlign='center';ctx.fillStyle='rgba(250,238,255,.86)';
                 ctx.font=(isMobile?10:12)+'px "Exo 2", "Segoe UI", sans-serif';
-                ctx.fillText('A próxima Diamante ocupará uma posição abaixo da Matriarca.',cx,canvasHeight*.53);
-                ctx.restore();return;
-            }
-            const rowCaps=[2,3,4,5,6,7,8];
-            let cursor=0,row=0;
-            const availableHeight=canvasHeight*.43;
-            const rowCount=(()=>{let c=0,r=0;while(c<members.length){c+=rowCaps[Math.min(r,rowCaps.length-1)];r++;}return r;})();
-            const rowStep=Math.min(isMobile?96:112,availableHeight/Math.max(1,rowCount));
-            while(cursor<members.length&&row<rowCaps.length){
-                const count=Math.min(rowCaps[row],members.length-cursor);
-                const y=canvasHeight*.48+row*rowStep;
-                const gap=Math.min(isMobile?58:76,canvasWidth/(count+.8));
-                const nodeW=Math.min(isMobile?34:43,gap*.78),nodeH=nodeW*1.25;
-                for(let i=0;i<count;i++){
-                    const x=cx+(i-(count-1)/2)*gap;
-                    drawAuthorityDiamondNode(x,y,nodeW,nodeH,members[cursor+i],false,cursor+i);
-                }
-                cursor+=count;row++;
-            }
-            if(cursor<members.length){
-                ctx.save();ctx.textAlign='center';ctx.fillStyle='#f5d0fe';
-                ctx.font='bold 11px "Exo 2", "Segoe UI", sans-serif';ctx.fillText('+'+(members.length-cursor)+' DIAMANTES NA HIERARQUIA',cx,canvasHeight*.94);ctx.restore();
+                ctx.fillText('A próxima Diamante ocupará uma posição abaixo da fundadora.',cx,canvasHeight*.53);
+                ctx.restore();
             }
         }
+        function authorityTargetAt(x,y){return authorityHitTargets.find(t=>Math.hypot(x-t.x,y-t.y)<=t.r+6)||null;}
 
         function drawThrone(time) {
             const { cx, cy } = getVisibleCenter(canvasWidth, canvasHeight);
@@ -6947,6 +6966,10 @@ function drawColony(time){
                     }
                 }
                 if (nearest) { if (nearest.type === 'star') selectStarSystem(nearest.id); else selectStarMapPlanet(nearest.id); }
+            } else if (state.currentScreen === 'throne') {
+                const target=authorityTargetAt(x,y);
+                if(target&&target.id!=='first'&&window.GempireCourt){GempireCourt.focus(target.id);openDiamondCourt();}
+                else if(target&&target.id==='first'&&window.GempireCourt)openDiamondCourt();
             } else if (state.currentScreen === 'colony') {
                 if(planetInfoToggleTarget&&x>=planetInfoToggleTarget.x&&x<=planetInfoToggleTarget.x+planetInfoToggleTarget.w&&y>=planetInfoToggleTarget.y&&y<=planetInfoToggleTarget.y+planetInfoToggleTarget.h){state.planetInfoExpanded=state.planetInfoExpanded===false;return;}
                 const chartTarget=mineralChartHitTargets.find(target=>x>=target.x&&x<=target.x+target.w&&y>=target.y&&y<=target.y+target.h);
@@ -6967,6 +6990,7 @@ function drawColony(time){
                 if (canvas.setPointerCapture) canvas.setPointerCapture(event.pointerId);
             });
             canvas.addEventListener('pointermove', event => {
+                if (state.currentScreen === 'throne') {const rect=canvas.getBoundingClientRect(),t=authorityTargetAt(event.clientX-rect.left,event.clientY-rect.top);authorityHoverId=t?t.id:null;canvas.style.cursor=t?'pointer':'';}
                 if (!lastPointerPosition) return;
                 if (state.currentScreen === 'colony' && state.planetCamera.isDragging && event.buttons) {
                     const dx = event.clientX - state.planetCamera.dragStartX;

@@ -350,3 +350,8 @@ input.gstep-source{position:absolute!important;width:1px!important;height:1px!im
 .court-mission{display:flex;flex-direction:column;gap:6px;margin-top:6px}
 .court-log{display:flex;flex-direction:column;gap:2px;padding:6px 8px;margin-top:5px;border-left:3px solid rgba(201,166,255,.45);background:rgba(20,10,40,.4);font-size:12px}
 .court-log small{color:var(--text-muted,#b4a3d4)}
+.court-rank{padding:8px 10px;margin-top:6px;background:rgba(20,10,40,.45);border:1px solid rgba(201,166,255,.18)}
+.court-rank-n{display:inline-flex;align-items:center;justify-content:center;width:22px;height:22px;margin-right:6px;background:#f2cf86;color:#24143a;font-weight:800;clip-path:polygon(50% 0,100% 50%,50% 100%,0 50%)}
+.court-rank-move{display:flex;gap:4px}
+.court-rank-move .btn{min-width:34px;padding:4px 8px}
+.court-focus{box-shadow:0 0 0 2px #f2cf86,0 0 24px rgba(242,207,134,.35)}

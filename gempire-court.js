@@ -42,6 +42,11 @@
             refuseMission:'Não me sinto inspirada a servir agora.',missionOk:'Glorioso! Contarão histórias sobre isto.',missionFail:'Um contratempo. Até as estrelas tropeçam.',
             refused:'Que decepção.',fulfilled:'Magnífico! Você entende de grandeza.',rebel:'Minha colônia merece uma soberana à altura. Eu.',reconcile:'Muito bem. Um novo capítulo começa.'}
     };
+    // Obediência inicial à hierarquia, por personalidade.
+    const OBEDIENCE_BASE={militarist:80,melancholic:70,empathic:60,technocrat:70,visionary:45,isolationist:40,artist:55,scholar:65,hedonist:40,reformer:30,manipulator:35,naturalist:55};
+    // Pedidos que uma superiora pode assumir pelas menores.
+    const DELEGABLE={pay:'Tributos',autonomy:'Autonomia',govern:'Governo de colônias'};
+    const SUPERIOR_BIAS={gentle:.62,grand:.52,cerebral:.46,harsh:.32};
     const CASTE_GOALS={harsh:['quartz','ruby','topaz','nephrite'],gentle:['lapis','pearl','peridot'],cerebral:['sapphire','peridot','demantoid'],grand:['morganite','jade','pearl','emerald']};
     const MISSION_TYPES={
         explore:{label:'Expedição de reconhecimento',desc:'Reconhece um planeta desconhecido.',affinity:['visionary','scholar','artist'],target:'unscouted'},
@@ -92,7 +97,12 @@
             m.cooldowns=m.cooldowns&&typeof m.cooldowns==='object'?m.cooldowns:{};
             if(!['court','mission','rebel'].includes(m.courtStatus))m.courtStatus='court';
             if(!Number.isFinite(m.requestTimer))m.requestTimer=90+Math.random()*120;
+            if(!Number.isFinite(m.obedience))m.obedience=clamp((OBEDIENCE_BASE[m.personalityId]??55)+(Math.random()-.5)*20);
+            if(!Array.isArray(m.delegated))m.delegated=[];
         });
+        c.appeals=Array.isArray(c.appeals)?c.appeals:[];
+        // A superiora precisa estar acima na hierarquia (posição menor) e não ser rebelde.
+        matriarchs().forEach(m=>{if(m.superiorId&&m.superiorId!=='first'&&!validSuperiors(m).includes(m.superiorId))m.superiorId='first';if(!m.superiorId)m.superiorId='first';});
         // Relações entre cada par de Matriarcas, sorteadas pela compatibilidade de temperamento.
         const ms=matriarchs();
         for(let i=0;i<ms.length;i++)for(let j=i+1;j<ms.length;j++){
@@ -104,6 +114,9 @@
     const relKey=(a,b)=>[a,b].sort().join('|');
     const relation=(a,b)=>Number(ensureCourt().relations[relKey(a,b)])||0;
     function changeRelation(a,b,d){const c=ensureCourt(),k=relKey(a,b);c.relations[k]=clamp((Number(c.relations[k])||0)+d,-100,100);}
+    function rankOf(m){return matriarchs().indexOf(m)+1;}
+    function validSuperiors(m){const i=matriarchs().indexOf(m);return ['first',...matriarchs().slice(0,Math.max(0,i)).filter(o=>o.courtStatus!=='rebel').map(o=>o.id)];}
+    function superiorOf(m){return m.superiorId&&m.superiorId!=='first'?byId(m.superiorId):null;}
     function relationLabel(v){return v>=60?'Aliadas':v>=20?'Próximas':v<=-40?'Rivais':v<=-10?'Tensas':'Neutras';}
     // Lealdade com efeito em cadeia: aliadas sentem parte do gesto, rivais sentem o oposto.
     function changeLoyalty(m,d,spill=true){
@@ -151,10 +164,109 @@
         const req=Object.assign({id:c.nextId++,ownerId:m.id,remaining:spec.deadline,created:Date.now()},spec);
         c.requests.push(req);
         say(m,req.text);
+        if(routeRequest(req,m))return req;
         log(m.name+' fez um pedido: '+req.title+'.','Prazo '+formatDuration(req.deadline),m.colorHex);
         notify(m.name+' fez um pedido: '+req.title+'. Abra a Corte para responder.');
         return req;
     }
+    // Delegação: a superiora responsável decide; Diamantes desobedientes podem pular a hierarquia.
+    function routeRequest(r,m){
+        const sup=superiorOf(m);
+        if(!sup||!DELEGABLE[r.type]||!m.delegated.includes(r.type)||sup.courtStatus!=='court')return false;
+        if(m.obedience<25&&Math.random()<(25-m.obedience)/25){
+            changeLoyalty(sup,-3,false);
+            openAppeal(r,m,sup,'bypass',m.name+' ignorou '+sup.name+' e trouxe o pedido direto a você: '+r.title+'.');
+            return true;
+        }
+        r.handledBy=sup.id;r.decideIn=20+Math.random()*25;
+        log(sup.name+' assumiu o pedido de '+m.name+': '+r.title+'.','Delegado pela hierarquia',sup.colorHex);
+        return true;
+    }
+    function essenceEquivalent(cost){return Math.ceil((Number(cost?.minerals)||0)/4+(Number(cost?.tech)||0)/2+(Number(cost?.essence)||0));}
+    function superiorDecide(r){
+        const m=byId(r.ownerId),sup=byId(r.handledBy);r.handledBy=null;
+        if(!m)return closeRequest(r);
+        if(!sup||sup.courtStatus!=='court'){log('O pedido de '+m.name+' voltou para você.','Superiora indisponível',m.colorHex);return;}
+        const score=(SUPERIOR_BIAS[toneOf(sup)]||.45)-(sup.personalityId==='manipulator'?.08:0)+relation(sup.id,m.id)/200+(sup.loyalty-50)/300+(Math.random()-.5)*.3;
+        let decision='refuse';
+        if(r.type==='pay'){const eq=essenceEquivalent(r.cost),own=Number(sup.essence)||0;if(score>.55&&own>=eq)decision='grant';else if(score>.35&&own>=Math.ceil(eq/2))decision='negotiate';}
+        else if(r.type==='autonomy')decision=score>.5?'grant':'refuse';
+        else if(r.type==='govern'){const pl=PLANETS[r.planetId];decision=score>.45&&pl&&pl.colonized&&(!pl.governor||pl.governor==='none')?'grant':'refuse';}
+        if(decision==='grant'){
+            if(r.type==='pay')sup.essence=Math.max(0,(Number(sup.essence)||0)-essenceEquivalent(r.cost));
+            if(r.type==='autonomy')m.autonomy=clamp(m.autonomy+15);
+            if(r.type==='govern')PLANETS[r.planetId].governor='matriarch_'+m.id;
+            const d=Math.round(r.reward*.6);changeLoyalty(m,d,false);changeRelation(sup.id,m.id,10);m.obedience=clamp(m.obedience+3);if(m.grievances>0)m.grievances--;
+            say(m,lines(m).fulfilled);log(sup.name+' atendeu '+m.name+': '+r.title+'.','+'+d+' lealdade · relação melhor'+(r.type==='pay'?' · '+fmt(essenceEquivalent(r.cost))+' essência de '+sup.name:''),sup.colorHex);
+            closeRequest(r);return;
+        }
+        if(decision==='negotiate'){
+            sup.essence=Math.max(0,(Number(sup.essence)||0)-Math.ceil(essenceEquivalent(r.cost)/2));
+            if(Math.random()<.35+m.obedience/200){const d=Math.round(r.reward*.3);changeLoyalty(m,d,false);changeRelation(sup.id,m.id,3);log(sup.name+' negociou com '+m.name+' e ela aceitou metade.','+'+d+' lealdade',sup.colorHex);closeRequest(r);return;}
+        }
+        // Recusa (ou negociação rejeitada): a menor pode apelar diretamente à fundadora.
+        changeLoyalty(m,-Math.round(r.penalty*.4),false);changeRelation(sup.id,m.id,-12);m.obedience=clamp(m.obedience-3);
+        log(sup.name+' '+(decision==='negotiate'?'não chegou a um acordo com':'recusou o pedido de')+' '+m.name+': '+r.title+'.','Relação pior',sup.colorHex);
+        if(m.obedience<50&&Math.random()<(50-m.obedience)/50*.9){openAppeal(r,m,sup,'refused',m.name+' não aceitou a decisão de '+sup.name+' e apela diretamente a você: '+r.title+'.');return;}
+        say(m,lines(m).refused);closeRequest(r);
+    }
+    function openAppeal(r,m,sup,kind,text){
+        const c=ensureCourt();c.requests=c.requests.filter(x=>x!==r);
+        c.appeals.push({id:c.nextId++,subId:m.id,supId:sup.id,kind,text,request:r,remaining:240});
+        say(m,kind==='bypass'?'Prefiro tratar disso com você, não com '+sup.name+'.':'A decisão de '+sup.name+' foi injusta. Peço que você decida.');
+        notify(text,true);
+    }
+    function resolveAppeal(id,choice){
+        const c=ensureCourt(),a=c.appeals.find(x=>x.id===id);if(!a)return;
+        const m=byId(a.subId),sup=byId(a.supId),r=a.request;
+        if(!m){c.appeals=c.appeals.filter(x=>x!==a);refresh();return;}
+        const supName=sup?.name||'a superiora';let impact='';
+        if(choice==='uphold'){
+            if(a.kind==='bypass'){
+                if(sup&&sup.courtStatus==='court'){r.handledBy=sup.id;r.decideIn=15;c.requests.push(r);}else c.requests.push(r);
+                m.obedience=clamp(m.obedience+5);changeLoyalty(m,-2,false);impact='Devolvido a '+supName+' · +5 obediência';
+            }else{
+                if(sup)changeLoyalty(sup,4,false);changeLoyalty(m,-5,false);m.obedience=clamp(m.obedience+6);if(sup)changeRelation(sup.id,m.id,-5);
+                say(m,lines(m).refused);impact='Decisão de '+supName+' mantida · +6 obediência · −5 lealdade';
+                const rr=c.requests.find(x=>x===r);if(rr)closeRequest(rr);else{const mm=byId(r.ownerId);if(mm)mm.requestTimer=240+Math.random()*240;}
+            }
+        }else if(choice==='overrule'){
+            if(a.kind==='bypass'){r.handledBy=null;c.requests.push(r);m.obedience=clamp(m.obedience-6);if(sup)changeLoyalty(sup,-5,false);impact='Você assumiu o pedido · −6 obediência · '+supName+' ofendida';}
+            else{
+                if(r.type==='pay'){if(!canPay(r.cost)){notify('Recursos insuficientes para atender: '+costText(r.cost)+'.',true);return;}pay(r.cost);}
+                else if(r.type==='autonomy')m.autonomy=clamp(m.autonomy+15);
+                else if(r.type==='govern'){const pl=PLANETS[r.planetId];if(pl&&pl.colonized&&(!pl.governor||pl.governor==='none'))pl.governor='matriarch_'+m.id;}
+                changeLoyalty(m,r.reward,false);m.obedience=clamp(m.obedience-8);if(sup){changeLoyalty(sup,-8,false);changeRelation(sup.id,m.id,-10);}
+                say(m,lines(m).fulfilled);impact='Você revogou '+supName+' · +'+r.reward+' lealdade de '+m.name+' · −8 obediência · '+supName+' −8 lealdade';
+                const mm=byId(r.ownerId);if(mm)mm.requestTimer=240+Math.random()*240;
+            }
+        }else if(choice==='punish'){
+            m.obedience=clamp(m.obedience+12);changeLoyalty(m,-10,false);m.grievances++;if(sup)changeLoyalty(sup,3,false);
+            say(m,lines(m).reprimand);impact='Insubordinação punida · +12 obediência · −10 lealdade · +1 queixa';
+            const mm=byId(r.ownerId);if(mm)mm.requestTimer=240+Math.random()*240;
+        }
+        c.appeals=c.appeals.filter(x=>x!==a);
+        log('Apelo de '+m.name+' resolvido.',impact,m.colorHex);refresh();
+    }
+    function updateAppeals(dt){
+        const c=ensureCourt();
+        c.appeals.slice().forEach(a=>{a.remaining-=dt;if(a.remaining>0)return;const m=byId(a.subId);c.appeals=c.appeals.filter(x=>x!==a);
+            if(m){changeLoyalty(m,-6,false);m.obedience=clamp(m.obedience-4);m.grievances++;m.requestTimer=240;log('O apelo de '+m.name+' ficou sem resposta.','−6 lealdade · −4 obediência · +1 queixa',m.colorHex);notify(m.name+' sentiu-se ignorada pela fundadora.',true);}});
+    }
+    function setSuperior(id,supId){
+        const m=byId(id);if(!m)return;if(!validSuperiors(m).includes(supId)){notify('A superiora precisa estar acima na hierarquia.',true);return;}
+        m.superiorId=supId;if(supId==='first')m.delegated=[];
+        const sup=byId(supId);log(supId==='first'?m.name+' responde diretamente à fundadora.':sup.name+' passou a responder pelos pedidos de '+m.name+'.','Hierarquia',sup?.colorHex||m.colorHex);
+        refresh();
+    }
+    function toggleDelegation(id,type){
+        const m=byId(id);if(!m||!DELEGABLE[type])return;if(!superiorOf(m)){notify('Escolha primeiro uma superiora para '+m.name+'.',true);return;}
+        m.delegated=m.delegated.includes(type)?m.delegated.filter(t=>t!==type):[...m.delegated,type];
+        // Pedidos já abertos desse tipo passam para a superiora.
+        ensureCourt().requests.filter(r=>r.ownerId===m.id&&r.type===type&&!r.handledBy&&m.delegated.includes(type)).forEach(r=>{r.handledBy=m.superiorId;r.decideIn=20;});
+        refresh();
+    }
+    function takeBack(rid){const r=ensureCourt().requests.find(x=>x.id===rid);if(!r||!r.handledBy)return;const sup=byId(r.handledBy);r.handledBy=null;if(sup)changeLoyalty(sup,-2,false);log('Você retomou um pedido que estava com '+(sup?.name||'a superiora')+'.','−2 lealdade de '+(sup?.name||'superiora'),sup?.colorHex);refresh();}
     function requestProgress(r){
         if(r.type==='caste'){const n=Math.floor(Number(getEmpireCensus()[r.goal.caste])||0);return {done:n>=r.goal.count,text:fmt(n)+' / '+fmt(r.goal.count)};}
         if(r.type==='colonies'){const n=Object.values(PLANETS).filter(p=>p.colonized).length;return {done:n>=r.goal.count,text:n+' / '+r.goal.count+' colônias'};}
@@ -198,6 +310,7 @@
         const c=ensureCourt();
         c.requests.slice().forEach(r=>{
             const m=byId(r.ownerId);if(!m){closeRequest(r);return;}
+            if(r.handledBy){const sup=byId(r.handledBy);if(!sup||sup.courtStatus!=='court'){r.handledBy=null;}else{r.decideIn-=dt;if(r.decideIn<=0)superiorDecide(r);return;}}
             const prog=requestProgress(r);
             if(r.type==='protect'&&prog.broken){changeLoyalty(m,-r.penalty-4);m.grievances++;say(m,lines(m).refused);log('A extração em '+(PLANETS[r.planetId]?.shortName||'um planeta')+' feriu a confiança de '+m.name+'.','−'+(r.penalty+4)+' lealdade',m.colorHex);notify(m.name+' viu a extração que pediu para evitar.',true);closeRequest(r);return;}
             if((r.type==='caste'||r.type==='colonies')&&prog.done){grantRequest(r,m,false);closeRequest(r);notify('Objetivo de '+m.name+' alcançado: '+r.title+'.');return;}
@@ -211,7 +324,7 @@
         });
         matriarchs().forEach(m=>{
             if(m.courtStatus==='rebel')return;
-            if(c.requests.some(r=>r.ownerId===m.id))return;
+            if(c.requests.some(r=>r.ownerId===m.id)||c.appeals.some(a=>a.subId===m.id))return;
             m.requestTimer-=dt;if(m.requestTimer<=0)makeRequest(m);
         });
     }
@@ -236,7 +349,7 @@
 
     // ---------------------------------------------------------------- 2. audiências
     const AUDIENCE={
-        autonomy:{label:'Conceder autonomia',cooldown:300},
+        autonomy:{label:'Conceder autonomia',cooldown:300},obey:{label:'Exigir obediência',cooldown:300},
         gift:{label:'Presentear 50 essência'},tribute:{label:'Exigir tributo',cooldown:300},commune:{label:'Comunhão · 20 essência'},report:{label:'Pedir relatório'}
     };
     function audience(id,action){
@@ -245,7 +358,8 @@
         if(m.courtStatus==='mission'&&action!=='report'){notify(m.name+' está em missão.',true);return;}
         if(def&&def.cooldown&&cooldownLeft(m,action)>0){notify('Aguarde '+formatDuration(cooldownLeft(m,action))+' para '+def.label.toLowerCase()+' '+m.name+' de novo.',true);return;}
         let impact='';
-        if(action==='autonomy'){const d=['reformer','visionary','isolationist'].includes(p)?12:7;m.autonomy=clamp(m.autonomy+12);changeLoyalty(m,d);say(m,L.autonomy);impact='+'+d+' lealdade · +12 autonomia';}
+        if(action==='obey'){const d=toneOf(m)==='harsh'?-3:toneOf(m)==='gentle'?-8:-6;m.obedience=clamp(m.obedience+12);changeLoyalty(m,d,false);say(m,L.reprimand);impact='+12 obediência · '+d+' lealdade';}
+        else if(action==='autonomy'){const d=['reformer','visionary','isolationist'].includes(p)?12:7;m.autonomy=clamp(m.autonomy+12);changeLoyalty(m,d);say(m,L.autonomy);impact='+'+d+' lealdade · +12 autonomia';}
         else if(action==='gift'){if(!spendEssence(50)){notify('A colônia não tem 50 de essência.',true);return;}m.essence=(Number(m.essence)||0)+50;const d=toneOf(m)==='grand'?13:9;changeLoyalty(m,d);say(m,L.gift);impact='+'+d+' lealdade';}
         else if(action==='commune'){if(!spendEssence(20)){notify('A Comunhão exige 20 de essência.',true);return;}changeLoyalty(m,16,false);m.grievances=Math.max(0,m.grievances-1);say(m,L.commune);impact='+16 lealdade · −1 queixa';if(Array.isArray(state.thronePulseEffects))state.thronePulseEffects.push({radius:14,alpha:1});}
         else if(action==='tribute'){
@@ -344,8 +458,13 @@
     function resolveDispute(choice){
         const c=ensureCourt(),d=c.dispute;if(!d)return;const a=byId(d.a),b=byId(d.b);c.dispute=null;if(!a||!b){renderIfVisible(true);return;}
         let impact='';
-        if(choice==='a'){changeLoyalty(a,8);changeLoyalty(b,-9);changeRelation(a.id,b.id,-15);impact='Favoreceu '+a.name;}
-        else if(choice==='b'){changeLoyalty(b,8);changeLoyalty(a,-9);changeRelation(a.id,b.id,-15);impact='Favoreceu '+b.name;}
+        if(choice==='a'||choice==='b'){
+            const win=choice==='a'?a:b,lose=choice==='a'?b:a;changeLoyalty(win,8);changeLoyalty(lose,-9);changeRelation(a.id,b.id,-15);impact='Favoreceu '+win.name;
+            // Hierarquia: dar razão à menor contra a superiora mina a autoridade.
+            const winRank=rankOf(win),loseRank=rankOf(lose);
+            if(winRank>loseRank){win.obedience=clamp(win.obedience-5);changeLoyalty(lose,-3,false);impact+=' · contra a hierarquia (−5 obediência)';}
+            else{lose.obedience=clamp(lose.obedience+5);impact+=' · hierarquia reforçada (+5 obediência de '+lose.name+')';}
+        }
         else if(choice==='mediate'){if(!spendEssence(40)){c.dispute=d;notify('A mediação exige 40 de essência.',true);return;}changeLoyalty(a,3,false);changeLoyalty(b,3,false);changeRelation(a.id,b.id,22);impact='Mediação · −40 essência';}
         else{changeLoyalty(a,-3,false);changeLoyalty(b,-3,false);changeRelation(a.id,b.id,-10);impact='Ignorada';}
         log('Disputa entre '+a.name+' e '+b.name+' resolvida.',impact,'#f2cf86');refresh();
@@ -355,7 +474,9 @@
         const prop=pick(PROPOSALS),votes={};
         // Voto pela preferência do temperamento, puxado pela lealdade (leais tendem a apoiar a fundadora).
         ms.forEach(m=>{const pref=prop.pref[toneOf(m)]||0;votes[m.id]=pref+(Math.random()-.5)*.8>0?'yes':'no';});
-        ensureCourt().vote={id:prop.id,votes,remaining:300};
+        // Autoridade: Diamantes obedientes tendem a seguir o voto da superiora (na ordem da hierarquia).
+        const follows={};ms.forEach(m=>{const sup=superiorOf(m);if(sup&&votes[sup.id]&&Math.random()<m.obedience/100*.75){votes[m.id]=votes[sup.id];follows[m.id]=sup.id;}});
+        ensureCourt().vote={id:prop.id,votes,follows,remaining:300};
         log('Proposta no conselho: '+prop.title+'.','Votação aberta','#c9a6ff');notify('O conselho votou: '+prop.title+'. Sua decisão é final.');
         renderIfVisible(true);
     }
@@ -376,7 +497,7 @@
     function update(dt){
         if(!state||!state.firstGameStarted||!matriarchs().length)return;
         dt=Math.max(0,Math.min(5,Number(dt)||0));
-        ensureCourt();updateRequests(dt);updateMissions(dt);updateIndependence(dt);updatePolitics(dt);
+        ensureCourt();updateAppeals(dt);updateRequests(dt);updateMissions(dt);updateIndependence(dt);updatePolitics(dt);
         renderTimer-=dt;if(renderTimer<=0){renderTimer=2;renderIfVisible(false);}
     }
     let renderTimer=2;
@@ -389,6 +510,7 @@
     }
 
     // ---------------------------------------------------------------- interface
+    const shortName=n=>String(n||'').replace(/^Diamante\s+/i,'');
     function bar(label,value,color){return '<div class="court-bar"><span>'+label+'</span><div><i style="width:'+clamp(value)+'%;background:'+color+'"></i></div><b>'+Math.round(value)+'%</b></div>';}
     function audienceButton(m,key){
         const def=AUDIENCE[key],left=def.cooldown?cooldownLeft(m,key):0,blocked=(m.courtStatus!=='court'&&key!=='report')||left>0;
@@ -396,6 +518,7 @@
     }
     function renderRequest(r){
         const m=byId(r.ownerId);if(!m)return '';const prog=requestProgress(r);
+        if(r.handledBy){const sup=byId(r.handledBy);return '<div class="stat-box court-request" style="border-left:3px solid '+esc(sup?.colorHex||m.colorHex)+'"><div class="court-row"><b>'+esc(m.name)+' · '+esc(r.title)+'</b><span class="badge">Com '+esc(shortName(sup?.name))+' · decide em '+Math.ceil(Math.max(0,r.decideIn))+'s</span></div><p class="structure-desc">“'+esc(r.text)+'”</p><small style="color:var(--text-muted)">Delegado pela hierarquia. '+esc(sup?.name||'A superiora')+' decide conforme a personalidade e a relação com '+esc(shortName(m.name))+'.</small><div class="court-actions"><button class="btn" onclick="GempireCourt.takeBack('+r.id+')">Retomar o pedido (−2 lealdade de '+esc(shortName(sup?.name))+')</button></div></div>';}
         const actions=[];
         if(r.type==='pay'){actions.push('<button class="btn btn-emerald" '+(canPay(r.cost)?'':'disabled')+' onclick="GempireCourt.fulfill('+r.id+')">Atender · '+costText(r.cost)+'</button>');actions.push('<button class="btn" '+(canPay(r.cost,.5)?'':'disabled')+' onclick="GempireCourt.negotiate('+r.id+')">Negociar metade</button>');}
         else if(r.type==='govern')actions.push('<button class="btn btn-emerald" onclick="GempireCourt.fulfill('+r.id+')">Conceder o governo</button>');
@@ -408,13 +531,14 @@
         const c=ensureCourt(),mood=moodOf(m),tone=toneOf(m),g=governedPlanet(m),mission=c.missions.find(x=>x.ownerId===m.id);
         const rels=matriarchs().filter(o=>o!==m).map(o=>{const r=relation(m.id,o.id);return '<span class="badge" style="border-color:'+(r>=20?'#6ee7b7':r<=-10?'#fb7185':'rgba(201,166,255,.4)')+'">'+esc(o.name)+' · '+relationLabel(r)+'</span>';}).join(' ');
         const status=m.courtStatus==='rebel'?'<b style="color:#fb7185">Rebelde</b>':m.courtStatus==='mission'?'<b style="color:#7dd3fc">Em missão</b>':'<b style="color:#6ee7b7">Na corte</b>';
-        let html='<section class="card court-diamond" style="border-left:4px solid '+esc(m.colorHex)+'"><div class="card-header"><span class="card-title"><i class="diamond-icon" style="background:'+esc(m.colorHex)+';margin-right:6px"></i>'+esc(m.name)+'</span><span class="badge">'+MOOD_LABEL[mood]+'</span></div>';
+        let html='<section id="court-card-'+esc(m.id)+'" class="card court-diamond'+(c.ui?.focus===m.id?' court-focus':'')+'" style="border-left:4px solid '+esc(m.colorHex)+'"><div class="card-header"><span class="card-title"><i class="diamond-icon" style="background:'+esc(m.colorHex)+';margin-right:6px"></i>'+esc(m.name)+'</span><span class="badge">'+MOOD_LABEL[mood]+'</span></div>';
         html+='<small style="display:block;color:var(--text-muted)">'+esc(m.personalityName||'')+' · temperamento '+TONE_LABEL[tone]+' · '+status+(g?' · governa '+esc(g.shortName):'')+' · '+fmt(m.essence)+' essência própria'+(m.grievances?' · <b style="color:#fb923c">'+m.grievances+' queixa(s)</b>':'')+'</small>';
-        html+=bar('Lealdade',m.loyalty,m.loyalty<35?'#fb7185':m.loyalty<70?'#f2cf86':'#6ee7b7')+bar('Autonomia',m.autonomy,'#7dd3fc');
+        html+=bar('Lealdade',m.loyalty,m.loyalty<35?'#fb7185':m.loyalty<70?'#f2cf86':'#6ee7b7')+bar('Autonomia',m.autonomy,'#7dd3fc')+bar('Obediência',m.obedience,m.obedience<35?'#fb7185':m.obedience<60?'#f2cf86':'#c9a6ff');
+        html+='<small style="display:block;color:var(--text-muted);margin-top:4px">Posição '+rankOf(m)+' · responde a '+(superiorOf(m)?'<b>'+esc(superiorOf(m).name)+'</b>':'<b>fundadora</b>')+(m.delegated.length?' · delega '+m.delegated.map(t=>DELEGABLE[t]).join(', '):'')+'</small>';
         html+='<div class="court-speech">“'+esc(m.currentSpeech||lines(m).greet[mood])+'”</div>';
         if(rels)html+='<div class="court-rels">'+rels+'</div>';
         if(m.courtStatus==='rebel'){html+='<div class="court-actions"><button class="btn btn-emerald" onclick="GempireCourt.reconcile(\''+m.id+'\')">Reconciliação · 250 essência + 300 minerais</button>'+audienceButton(m,'report')+'</div></section>';return html;}
-        html+='<div class="court-subtitle">Audiência política</div><div class="court-actions">'+['autonomy','gift','tribute','commune','report'].map(k=>audienceButton(m,k)).join('')+'<button class="btn" onclick="GempireCourt.openSocial(\''+m.id+'\')">Convívio pessoal →</button></div>';
+        html+='<div class="court-subtitle">Audiência política</div><div class="court-actions">'+['autonomy','obey','gift','tribute','commune','report'].map(k=>audienceButton(m,k)).join('')+'<button class="btn" onclick="GempireCourt.openSocial(\''+m.id+'\')">Convívio pessoal →</button></div>';
         html+='<div class="court-subtitle">Missão</div>';
         if(mission){html+='<div class="stat-box"><b>'+MISSION_TYPES[mission.type].label+'</b>'+(mission.targetId?' · '+esc(PLANETS[mission.targetId]?.shortName||byId(mission.targetId)?.name||''):'')+'<div class="founding-progress"><div style="width:'+mission.progress+'%"></div></div><small>Chance de sucesso: '+Math.round(mission.chance*100)+'% · faltam '+formatDuration(mission.duration*(100-mission.progress)/100)+'</small></div>';}
         else{
@@ -433,9 +557,19 @@
         const c=ensureCourt();let html='';
         const avg=ms.reduce((a,m)=>a+m.loyalty,0)/ms.length;
         html+='<section class="card card-cyan"><div class="card-header"><span class="card-title title-font">Corte das Diamantes</span><span class="badge">'+ms.length+' Matriarca(s) · lealdade média '+Math.round(avg)+'%</span></div><p class="governance-muted">Atenda pedidos, conduza audiências, delegue missões e decida as disputas e votações. Lealdade abaixo de 35% leva a ações independentes; abaixo de 15% com 3 queixas, a Diamante se rebela.</p></section>';
+        if(c.appeals.length)html+='<section class="card card-amber"><div class="card-header"><span class="card-title">Apelos à fundadora</span><span class="badge">'+c.appeals.length+'</span></div>'+c.appeals.map(a=>{const m=byId(a.subId),sup=byId(a.supId);if(!m)return '';const bypass=a.kind==='bypass';
+            return '<div class="stat-box court-request" style="border-left:3px solid '+esc(m.colorHex)+'"><div class="court-row"><b>'+esc(bypass?'Hierarquia ignorada':'Apelo contra '+(sup?.name||'a superiora'))+'</b><span class="badge">'+formatDuration(a.remaining)+'</span></div><p class="structure-desc">'+esc(a.text)+'</p><small style="color:var(--text-muted)">Obediência de '+esc(shortName(m.name))+': '+Math.round(m.obedience)+'%. Sem resposta, ela se sente ignorada.</small><div class="court-actions">'+
+                (bypass?'<button class="btn" onclick="GempireCourt.appeal('+a.id+',\'uphold\')">Devolver a '+esc(shortName(sup?.name))+'</button><button class="btn btn-emerald" onclick="GempireCourt.appeal('+a.id+',\'overrule\')">Tratar eu mesma</button>'
+                :'<button class="btn" onclick="GempireCourt.appeal('+a.id+',\'uphold\')">Manter a decisão de '+esc(shortName(sup?.name))+'</button><button class="btn btn-emerald" onclick="GempireCourt.appeal('+a.id+',\'overrule\')">Revogar e atender'+(a.request.type==='pay'?' · '+costText(a.request.cost):'')+'</button>')+
+                '<button class="btn btn-pink" onclick="GempireCourt.appeal('+a.id+',\'punish\')">Punir a insubordinação</button></div></div>';}).join('')+'</section>';
+        html+='<section class="card"><div class="card-header"><span class="card-title">Hierarquia da Autoridade</span><span class="badge">Mais alto = mais poder</span></div><p class="governance-muted">Escolha a superiora de cada Diamante e quais pedidos ela resolve. Superioras decidem conforme a personalidade e pagam tributos com a própria essência. Diamantes desobedientes podem pular a hierarquia ou apelar a você; as obedientes seguem o voto da superiora no conselho.</p>'+
+            ms.map((m,i)=>{const sups=validSuperiors(m);return '<div class="court-rank"><div class="court-row"><b><span class="court-rank-n">'+(i+1)+'</span><i class="diamond-icon" style="background:'+esc(m.colorHex)+';margin-right:5px"></i>'+esc(m.name)+'</b><span class="court-rank-move"><button class="btn" '+(i===0?'disabled':'')+' onclick="moveMatriarchAuthority('+i+',-1)" aria-label="Promover">▲</button><button class="btn" '+(i===ms.length-1?'disabled':'')+' onclick="moveMatriarchAuthority('+i+',1)" aria-label="Rebaixar">▼</button></span></div>'+
+                bar('Obediência',m.obedience,m.obedience<35?'#fb7185':m.obedience<60?'#f2cf86':'#c9a6ff')+
+                '<label class="stat-label">Responde a<select onchange="GempireCourt.setSuperior(\''+m.id+'\',this.value)">'+sups.map(id=>'<option value="'+esc(id)+'"'+((m.superiorId||'first')===id?' selected':'')+'>'+(id==='first'?'Fundadora (você)':esc(byId(id)?.name))+'</option>').join('')+'</select></label>'+
+                (superiorOf(m)?'<div class="court-actions">'+Object.entries(DELEGABLE).map(([k,l])=>'<button class="btn'+(m.delegated.includes(k)?' active':'')+'" onclick="GempireCourt.toggleDelegation(\''+m.id+'\',\''+k+'\')">'+(m.delegated.includes(k)?'✓ ':'')+l+'</button>').join('')+'</div>':'<small style="color:var(--text-muted)">Responde diretamente a você; nenhum pedido é delegado.</small>')+'</div>';}).join('')+'</section>';
         if(c.dispute){const a=byId(c.dispute.a),b=byId(c.dispute.b);if(a&&b)html+='<section class="card"><div class="card-header"><span class="card-title">Disputa na corte</span><span class="badge">'+formatDuration(c.dispute.remaining)+'</span></div><p class="structure-desc">'+esc(c.dispute.text)+'</p><small style="color:var(--text-muted)">Relação atual: '+relationLabel(relation(a.id,b.id))+'. Favorecer uma afasta as duas; mediar aproxima.</small><div class="court-actions"><button class="btn" onclick="GempireCourt.dispute(\'a\')">Apoiar '+esc(a.name)+'</button><button class="btn" onclick="GempireCourt.dispute(\'b\')">Apoiar '+esc(b.name)+'</button><button class="btn btn-emerald" onclick="GempireCourt.dispute(\'mediate\')">Mediar · 40 essência</button><button class="btn btn-pink" onclick="GempireCourt.dispute(\'ignore\')">Ignorar</button></div></section>';}
         if(c.vote){const prop=PROPOSALS.find(p=>p.id===c.vote.id);if(prop){const entries=Object.entries(c.vote.votes),yes=entries.filter(([,x])=>x==='yes').length;
-            html+='<section class="card"><div class="card-header"><span class="card-title">Conselho · '+esc(prop.title)+'</span><span class="badge">'+formatDuration(c.vote.remaining)+'</span></div><p class="structure-desc">'+esc(prop.text)+'</p><div class="court-rels">'+entries.map(([id,x])=>{const m=byId(id);return m?'<span class="badge" style="border-color:'+(x==='yes'?'#6ee7b7':'#fb7185')+'">'+esc(m.name)+' · '+(x==='yes'?'a favor':'contra')+'</span>':'';}).join(' ')+'</div><small style="color:var(--text-muted)">'+yes+' a favor, '+(entries.length-yes)+' contra. Quem votou com você ganha lealdade; contrariar a maioria custa lealdade de todas.</small><div class="court-actions"><button class="btn btn-emerald" onclick="GempireCourt.vote(true)">Aprovar</button><button class="btn btn-pink" onclick="GempireCourt.vote(false)">Rejeitar</button></div></section>';}}
+            html+='<section class="card"><div class="card-header"><span class="card-title">Conselho · '+esc(prop.title)+'</span><span class="badge">'+formatDuration(c.vote.remaining)+'</span></div><p class="structure-desc">'+esc(prop.text)+'</p><div class="court-rels">'+entries.map(([id,x])=>{const m=byId(id);return m?'<span class="badge" style="border-color:'+(x==='yes'?'#6ee7b7':'#fb7185')+'">'+esc(m.name)+' · '+(x==='yes'?'a favor':'contra')+(c.vote.follows&&c.vote.follows[id]?' (segue '+esc(shortName(byId(c.vote.follows[id])?.name))+')':'')+'</span>':'';}).join(' ')+'</div><small style="color:var(--text-muted)">'+yes+' a favor, '+(entries.length-yes)+' contra. Quem votou com você ganha lealdade; contrariar a maioria custa lealdade de todas.</small><div class="court-actions"><button class="btn btn-emerald" onclick="GempireCourt.vote(true)">Aprovar</button><button class="btn btn-pink" onclick="GempireCourt.vote(false)">Rejeitar</button></div></section>';}}
         html+='<section class="card"><div class="card-header"><span class="card-title">Pedidos</span><span class="badge">'+c.requests.length+' aberto(s)</span></div>'+(c.requests.length?c.requests.map(renderRequest).join(''):'<p class="governance-muted">Nenhum pedido no momento. As Diamantes trazem novos pedidos de tempos em tempos.</p>')+'</section>';
         html+=ms.map(renderMatriarch).join('');
         html+='<section class="card"><div class="card-header"><span class="card-title">Registro da corte</span></div>'+(c.log.length?c.log.slice(0,14).map(e=>'<div class="court-log"'+(e.color?' style="border-left-color:'+esc(e.color)+'"':'')+'><span>'+esc(e.text)+'</span>'+(e.impact?'<small>'+esc(e.impact)+'</small>':'')+'</div>').join(''):'<p class="governance-muted">Nada registrado ainda.</p>')+'</section>';
@@ -445,12 +579,24 @@
         if(typeof switchDrawerTab==='function'){state.drawerOpen=true;try{toggleDrawer(true);}catch(e){}switchDrawerTab('social');}
         if(typeof window.selectSocialDiamond==='function')window.selectSocialDiamond(id);
     }
+    function focus(id){const c=ensureCourt();c.ui=c.ui||{};c.ui.focus=id;setTimeout(()=>{const el=document.getElementById('court-card-'+id);if(el)el.scrollIntoView({behavior:'smooth',block:'start'});},120);}
     function pickMission(id,type){const c=ensureCourt();c.ui=c.ui||{};c.ui[id]=type;renderIfVisible(true);}
     function summary(){
         if(!matriarchs().length)return null;const c=ensureCourt();
-        return {requests:c.requests.length,dispute:!!c.dispute,vote:!!c.vote,missions:c.missions.length,rebels:matriarchs().filter(m=>m.courtStatus==='rebel').length};
+        return {requests:c.requests.length+c.appeals.length,appeals:c.appeals.length,dispute:!!c.dispute,vote:!!c.vote,missions:c.missions.length,rebels:matriarchs().filter(m=>m.courtStatus==='rebel').length};
     }
 
-    window.GempireCourt={update,render,audience,reconcile,fulfill:fulfillRequest,negotiate:negotiateRequest,refuse:refuseRequest,startMission,pickMission,openSocial,dispute:resolveDispute,vote:resolveVote,summary,ensure:ensureCourt,_debug:{makeRequest,startDispute,startVote}};
+    window.GempireCourt={update,render,audience,reconcile,fulfill:fulfillRequest,negotiate:negotiateRequest,refuse:refuseRequest,startMission,pickMission,openSocial,focus,appeal:resolveAppeal,setSuperior,toggleDelegation,takeBack,dispute:resolveDispute,vote:resolveVote,summary,ensure:ensureCourt,_debug:{makeRequest,startDispute,startVote}};
     window.renderDiamondCourtTab=render;
+    // Promover ou rebaixar na hierarquia mexe com o orgulho de quem sobe e de quem desce.
+    const baseMove=window.moveMatriarchAuthority;
+    if(typeof baseMove==='function')window.moveMatriarchAuthority=function(index,direction){
+        const list=matriarchs(),m=list[index],other=list[index+direction];
+        baseMove(index,direction);
+        if(!m||!other||list.indexOf(m)===index)return;
+        ensureCourt();
+        if(direction<0){changeLoyalty(m,5,false);changeLoyalty(other,-4,false);other.obedience=clamp(other.obedience-3);log(m.name+' foi promovida acima de '+other.name+'.','+5 lealdade · '+other.name+' −4',m.colorHex);}
+        else{changeLoyalty(m,-6,false);m.obedience=clamp(m.obedience-4);changeLoyalty(other,4,false);log(m.name+' foi rebaixada abaixo de '+other.name+'.','−6 lealdade · −4 obediência',m.colorHex);}
+        ensureCourt();refresh();
+    };
 })();
