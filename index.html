@@ -2719,7 +2719,15 @@
         function structureCount(id) { return Math.max(0, Number(state.structures && state.structures[id]) || 0); }
         function redEyeCountForPlanet(planetId){const planet=PLANETS[planetId];if(!planet)return 0;if(planetId==='homeworld'){const count=planetId===(state.activeColonyPlanetId||'homeworld')?state.structures?.red_eye:ensurePlanetEconomy(planet,false).structures?.red_eye;return Math.max(0,Math.floor(Number(count)||0));}return Math.max(0,Math.floor(Number(planet.redEyesBuilt)||0));}
         function getTotalRedEyeCount(){return Object.values(PLANETS).reduce((sum,planet)=>sum+redEyeCountForPlanet(planet.id),0);}
-        function getAvailableRedEyeCount(){const missions=Array.isArray(state.redEyeMissions)?state.redEyeMissions:[];return Math.max(0,getTotalRedEyeCount()-missions.filter(m=>m&&m.active).length);}
+        // Cada Olho Vermelho pertence ao planeta onde foi construído: parte de lá e volta para lá.
+        function getAvailableRedEyeCountAt(planetId){const missions=Array.isArray(state.redEyeMissions)?state.redEyeMissions:[];return Math.max(0,redEyeCountForPlanet(planetId)-missions.filter(m=>m&&m.active&&(m.originId||'homeworld')===planetId).length);}
+        function getAvailableRedEyeCount(){return Object.keys(PLANETS).reduce((sum,id)=>sum+getAvailableRedEyeCountAt(id),0);}
+        function getRedEyeOrigins(){return Object.keys(PLANETS).filter(id=>getAvailableRedEyeCountAt(id)>0);}
+        function pickRedEyeOrigin(targetId){
+            const origins=getRedEyeOrigins();if(!origins.length)return null;
+            const active=state.activeColonyPlanetId||'homeworld';if(origins.includes(active))return active;
+            return origins.slice().sort((a,b)=>getSpaceTravelSeconds(a,targetId)-getSpaceTravelSeconds(b,targetId))[0];
+        }
         function structureDefinition(id) { return STRUCTURE_CATALOG.find(item => item.id === id); }
         function hasStructurePrerequisites(def) { const required=def.id==='lunar_base'?['reactor']:(def.prerequisites||[]);return required.every(id => id==='red_eye'&&def.id==='royal_palace' ? redEyeCountForPlanet('homeworld')>0 : id==='galaxy_warp'&&def.id==='red_eye' ? !!PLANETS[state.activeColonyPlanetId||'homeworld']?.galaxyWarpBuilt : structureCount(id) > 0); }
         function totalAssignedWorkers(gemType) {
@@ -3218,7 +3226,7 @@
         }
         function getSpaceDistance(originId,targetId){const a=PLANETS[originId],b=PLANETS[targetId];if(!a||!b)return 1;const au=id=>{const p=PLANETS[id],env=PLANET_ENVIRONMENT[id]||{};return Number(env.orbitAU??p.orbitAU??(Number(p.orbitRadius)||100)/100)||0;};return Math.max(.25,Math.abs(au(originId)-au(targetId))+(a.systemId!==b.systemId?3:0));}
         function getSpaceTravelSeconds(originId,targetId,factor=1){return Math.max(12,Math.ceil((30+getSpaceDistance(originId,targetId)*150)/Math.max(.25,factor)));}
-        function startRedEyeMission(targetId){if(!PLANETS[targetId]||PLANETS[targetId].scouted){setStatusTicker('Selecione um planeta ainda não reconhecido.',true);return;}if(getAvailableRedEyeCount()<1){setStatusTicker('Não há Olho Vermelho livre. Aguarde uma missão ou construa outra unidade.',true);return;}const originId='homeworld';state.redEyeMissions=Array.isArray(state.redEyeMissions)?state.redEyeMissions:[];state.redEyeMissions.push({id:'eye_'+Date.now()+'_'+Math.floor(Math.random()*1e5),planetId:targetId,originId,phase:'outbound',phaseProgress:0,phaseDuration:getSpaceTravelSeconds(originId,targetId),progress:0,active:true,reportDraft:null});setStatusTicker('Olho Vermelho enviado de Homeworld para '+PLANETS[targetId].shortName+'.');updateHUD();renderDrawerContent();}
+        function startRedEyeMission(targetId,requestedOrigin){if(!PLANETS[targetId]||PLANETS[targetId].scouted){setStatusTicker('Selecione um planeta ainda não reconhecido.',true);return;}const originId=requestedOrigin&&PLANETS[requestedOrigin]?requestedOrigin:pickRedEyeOrigin(targetId);if(!originId||getAvailableRedEyeCountAt(originId)<1){setStatusTicker('Não há Olho Vermelho livre'+(requestedOrigin?' em '+(PLANETS[requestedOrigin]?.shortName||'origem'):'')+'. Aguarde uma missão ou construa outra unidade.',true);return;}state.redEyeMissions=Array.isArray(state.redEyeMissions)?state.redEyeMissions:[];state.redEyeMissions.push({id:'eye_'+Date.now()+'_'+Math.floor(Math.random()*1e5),planetId:targetId,originId,phase:'outbound',phaseProgress:0,phaseDuration:getSpaceTravelSeconds(originId,targetId),progress:0,active:true,reportDraft:null});setStatusTicker('Olho Vermelho enviado de '+PLANETS[originId].shortName+' para '+PLANETS[targetId].shortName+'.');updateHUD();renderDrawerContent();}
         function renameScoutedPlanet(id,name){const p=PLANETS[id],value=String(name||'').trim().slice(0,32);if(!p||!p.scouted||!value){setStatusTicker('Nome inválido ou planeta ainda não reconhecido.',true);return;}p.shortName=value;p.name=value;if(p.reconnaissance)p.reconnaissance.planetName=value;(state.redEyeReports||[]).filter(r=>r.planetId===id).forEach(r=>r.planetName=value);setStatusTicker('Planeta renomeado para '+value+'.');addChronicle('Planeta renomeado',id+' recebeu o nome '+value+'.','Catálogo atualizado');renderDrawerContent();renderBottomBar();}
         function createRedEyeReport(p){const env=PLANET_ENVIRONMENT[p.id]||{};return{id:'scan_'+Date.now(),planetId:p.id,planetName:p.shortName||p.name,distanceAU:Number(env.orbitAU??p.orbitAU??p.orbitRadius/100)||0,temperatureC:Number(env.temperatureC??p.temperatureC)||0,pressureAtm:Number(env.atmosphericPressureAtm??p.atmosphericPressureAtm)||0,composition:Object.entries(p.resourcesByType||{}).map(([type,amount])=>({type,amount:Math.floor(Number(amount)||0)})),water:!!p.hasOcean,moons:(p.moons||[]).length,organicLifePresent:p.organicLifePresent===true||(Number(p.organicLifePopulation)||0)>0,organicLifePopulation:p.organicLifePopulation??null,habitability:p.hasOcean&&Number(env.temperatureC??p.temperatureC??0)>-20&&Number(env.temperatureC??p.temperatureC??0)<55?'Potencialmente habitável':'Condições ambientais restritivas',cycle:state.cycleCount||1};}
         function updateRedEyeMission(dt){const missions=Array.isArray(state.redEyeMissions)?state.redEyeMissions:[];missions.forEach(m=>{if(!m||!m.active)return;m.phaseProgress=(Number(m.phaseProgress)||0)+Math.max(0,Number(dt)||0);m.progress=Math.min(100,m.phaseProgress/Math.max(1,Number(m.phaseDuration)||1)*100);if(m.phaseProgress<m.phaseDuration)return;if(m.phase==='outbound'){m.phase='survey';m.phaseProgress=0;m.phaseDuration=12;setStatusTicker('Olho Vermelho chegou a '+PLANETS[m.planetId].shortName+' e iniciou a varredura.');}else if(m.phase==='survey'){m.reportDraft=createRedEyeReport(PLANETS[m.planetId]);m.phase='returning';m.phaseProgress=0;m.phaseDuration=getSpaceTravelSeconds(m.planetId,m.originId);setStatusTicker('Varredura concluída em '+PLANETS[m.planetId].shortName+'. Retorno iniciado.');}else{const p=PLANETS[m.planetId],report=m.reportDraft||createRedEyeReport(p);p.scouted=true;p.travelUnlocked=true;p.reconnaissance=report;state.redEyeReports=Array.isArray(state.redEyeReports)?state.redEyeReports:[];state.redEyeReports.unshift(report);state.redEyeReports=state.redEyeReports.slice(0,30);m.phase='completed';m.progress=100;m.active=false;setStatusTicker(report.planetName+' reconhecido. Viagens espaciais desbloqueadas.');addChronicle('Reconhecimento espacial concluído',report.planetName+' foi catalogado; viagens espaciais liberadas.','Destino reconhecido');}});state.redEyeMissions=missions.filter(m=>m.active||m.phase==='completed').slice(-30);updateHUD();renderDrawerContent();renderBottomBar();}
@@ -3262,14 +3270,14 @@
             if(state.minerals<cost.minerals||state.tech<cost.tech)return'Recursos insuficientes: a carga automática exige '+cost.minerals+' minerais e '+cost.tech+' tecnologia.';
             return'';
         }
-        function dispatchCargoShip(shipId,targetId,gemId){
+        function dispatchCargoShip(shipId,targetId,selection){
             const ship=(state.shipFleet||[]).find(x=>x.id===shipId),manifest=DEFAULT_CARGO_MANIFEST.slice(),crew=getCargoCrewPlan(ship);
-            if(ship?.passengerGem){setStatusTicker('Esta nave já transporta uma Gem.',true);return;}
+            if(getShipPassengerCount(ship)){setStatusTicker('Esta nave ainda transporta Gems.',true);return;}
             const reason=getCargoValidation(ship,targetId);
             if(reason){setStatusTicker(reason,true);return;}
-            const passenger=gemId?embarkGemOnShip(ship,gemId):null;
-            if(gemId&&!passenger){setStatusTicker('A Gem selecionada não está mais disponível na origem.',true);return;}
-            ship.originPlanetId=ship.planetId||'homeworld';ship.passengerGem=passenger;
+            const wanted=normalizePassengerSelection(ship,selection),invalid=validatePassengerSelection(ship,wanted);
+            if(invalid){setStatusTicker(invalid,true);return;}
+            ship.originPlanetId=ship.planetId||'homeworld';ship.passengers=embarkGemsOnShip(ship,wanted);
             const cost=cargoManifestCost(manifest);
             state.minerals-=cost.minerals;
             state.tech-=cost.tech;
@@ -3297,50 +3305,100 @@
             renderDrawerContent();
         }
         function updateCargoMissions(dt){(state.cargoShipMissions||[]).forEach(m=>{const ship=(state.shipFleet||[]).find(x=>x.id===m.shipId),p=PLANETS[m.targetId];if(!ship||!p)return;if(m.phase==='outbound'){m.progress=Math.min(100,(Number(m.progress)||0)+dt*100/Math.max(1,m.duration));ship.missionProgress=m.progress;if(m.progress>=100){p.remoteConstructionQueue=Array.isArray(p.remoteConstructionQueue)?p.remoteConstructionQueue:[];p.structures=Object.assign({injector:0,mineral_extractor:0,galaxy_warp:0},p.structures||{});m.manifest.forEach(id=>p.remoteConstructionQueue.push({id,progress:0,active:true}));p.demantoidSupervisor=!!m.demantoidEscort;p.manualProductionControl=!m.demantoidEscort;disembarkShipGem(ship,p);ship.status='constructing';ship.planetId=p.id;ship.manifest=[];m.phase='construction';m.progress=0;setStatusTicker('A Bismuto iniciou a instalação das estruturas em '+p.shortName+'.');}}else if(m.phase==='construction'){const job=p.remoteConstructionQueue.find(x=>x.active);if(job){const d=structureDefinition(job.id);job.progress=Math.min(100,(Number(job.progress)||0)+dt*100/(Math.max(1,Number(d?.buildTime)||20)*2.5));if(job.progress>=100){job.active=false;p.structures[job.id]=(Number(p.structures[job.id])||0)+1;if(job.id==='galaxy_warp')p.galaxyWarpBuilt=true;}}m.progress=p.remoteConstructionQueue.length?100*p.remoteConstructionQueue.filter(x=>!x.active).length/p.remoteConstructionQueue.length:100;ship.missionProgress=m.progress;if(!p.remoteConstructionQueue.some(x=>x.active)){m.phase='completed';ship.status='orbital';ship.missionProgress=100;setStatusTicker('Infraestrutura concluída em '+p.shortName+'. '+(p.demantoidSupervisor?'Demantoide supervisionando a produção.':'Comandos manuais de produção liberados.'));}}});}
-        function getShipPassengerOptions(ship){
-            const source=PLANETS[ship?.planetId||'homeworld'];
-            if(!source)return '<option value="">Nenhuma Gem disponível</option>';
-            const reserved=(state.shipFleet||[]).filter(item=>item!==ship&&item.passengerGem?.id).map(item=>item.passengerGem.id);
-            const options=(source.walkingGems||[]).filter(gem=>gem&&gem.id&&!reserved.includes(gem.id));
-            return '<option value="">Viajar sem passageira</option>'+options.map(gem=>'<option value="'+escapeHTML(gem.id)+'">'+escapeHTML(GEM_RECIPES[gem.caste||gem.type]?.shortName||gem.caste||gem.type)+' · '+escapeHTML(gem.name||gem.id)+'</option>').join('');
+        // ---- Transporte de Gems em massa -------------------------------------------
+        // Cada nave leva até a sua capacidade em Gems, escolhidas por casta e quantidade.
+        // As Gems saem do censo da origem e entram no censo do destino (com as variantes
+        // de Quartzo e as Gems que caminham pela superfície), então a cor do planeta acompanha.
+        function getShipGemCapacity(ship){const bp=SHIP_BLUEPRINTS[ship?.type]||{};return Math.max(0,Math.floor(Number(bp.gemCapacity??ship?.capacity??bp.capacity)||0));}
+        function getPlanetFounding(planetId){const planet=PLANETS[planetId];if(!planet)return null;return planetId===(state.activeColonyPlanetId||'homeworld')?state.founding:ensurePlanetEconomy(planet,false).founding;}
+        function getShipPassengerStock(ship){
+            const originId=ship?.planetId||'homeworld',origin=PLANETS[originId];if(!origin)return [];
+            const census=getPlanetCensus(originId)||{};
+            // Gems designadas a estruturas ou obras continuam trabalhando: só as livres embarcam.
+            const free=type=>{const n=origin.colonized?withPlanetEconomy(originId,()=>freeGemWorkers(type)):undefined;return Math.max(0,Math.floor(Number(n??census[type])||0));};
+            return Object.keys(census).filter(type=>type!=='prime').map(type=>({type,label:FOUNDING_GEM_DATA[type]?.label||(type==='offcolor'?'Fora de cor':type),available:free(type)})).filter(x=>x.available>0);
         }
-        function embarkGemOnShip(ship,gemId){
-            if(!gemId)return null;
-            const source=PLANETS[ship?.planetId||'homeworld'];
-            if(!source||!Array.isArray(source.walkingGems))return null;
-            const index=source.walkingGems.findIndex(gem=>gem&&String(gem.id)===String(gemId));
-            if(index<0)return null;
-            const gem=source.walkingGems.splice(index,1)[0];
-            const type=gem.caste||gem.type,census=Object.assign({},getPlanetCensus(source.id));
-            if(type&&Number(census[type])>0){census[type]--;setPlanetCensus(source.id,census);gem.populationTracked=true;}else gem.populationTracked=false;
-            gem.transportStatus='aboard';
-            return gem;
+        function getShipPassengerSelector(ship){
+            const stock=getShipPassengerStock(ship),cap=getShipGemCapacity(ship);
+            if(!cap)return '<small style="display:block;color:var(--text-muted)">Esta nave não transporta Gems.</small>';
+            if(!stock.length)return '<small style="display:block;color:var(--text-muted)">Nenhuma Gem livre em '+escapeHTML(PLANETS[ship.planetId||'homeworld']?.shortName||'origem')+' para embarcar.</small>';
+            return '<div class="ship-passengers" data-ship-id="'+escapeHTML(ship.id)+'"><label class="stat-label">Passageiras · capacidade '+cap+' Gems</label><div class="grid-2">'+stock.map(x=>'<label class="stat-label" style="display:flex;justify-content:space-between;align-items:center;gap:6px">'+escapeHTML(x.label)+' <small>('+x.available.toLocaleString('pt-BR')+')</small><input type="number" min="0" step="1" value="0" max="'+Math.min(x.available,cap)+'" data-gem-type="'+escapeHTML(x.type)+'" style="width:64px"></label>').join('')+'</div></div>';
         }
+        function readShipPassengerSelection(shipId){
+            const box=document.querySelector('.ship-passengers[data-ship-id="'+shipId+'"]'),out={};
+            if(!box)return out;
+            box.querySelectorAll('input[data-gem-type]').forEach(input=>{const n=Math.max(0,Math.floor(Number(input.value)||0));if(n)out[input.dataset.gemType]=n;});
+            return out;
+        }
+        function normalizePassengerSelection(ship,selection){
+            if(!selection)return {};
+            if(typeof selection==='string'){ // compatibilidade: id de uma Gem caminhante
+                const gem=(PLANETS[ship?.planetId||'homeworld']?.walkingGems||[]).find(g=>g&&String(g.id)===selection);
+                return gem?{[gem.caste||gem.type]:1}:{};
+            }
+            return Object.fromEntries(Object.entries(selection).map(([k,v])=>[k,Math.max(0,Math.floor(Number(v)||0))]).filter(([,v])=>v>0));
+        }
+        function validatePassengerSelection(ship,selection){
+            const total=Object.values(selection).reduce((a,b)=>a+b,0),cap=getShipGemCapacity(ship);
+            if(total>cap)return 'A '+ship.name+' leva no máximo '+cap+' Gems por viagem ('+total+' selecionadas).';
+            const stock=Object.fromEntries(getShipPassengerStock(ship).map(x=>[x.type,x.available]));
+            for(const [type,n] of Object.entries(selection))if(n>(stock[type]||0))return 'Não há '+n+' '+(FOUNDING_GEM_DATA[type]?.label||type)+' livres na origem.';
+            return '';
+        }
+        function embarkGemsOnShip(ship,selection){
+            const originId=ship?.planetId||'homeworld',origin=PLANETS[originId];
+            if(!origin||!Object.keys(selection).length)return null;
+            const census=Object.assign({},getPlanetCensus(originId)),walkers=[],variants={};
+            Object.entries(selection).forEach(([type,n])=>{
+                const before=Math.max(0,Number(census[type])||0);census[type]=Math.max(0,before-n);
+                if(type==='quartz'){
+                    // Leva a mesma proporção de variantes (Ametistas, Jaspers...) que existe na origem.
+                    const f=getPlanetFounding(originId),pool=f&&f.quartzVariantCounts;
+                    if(pool&&before>0)Object.keys(pool).forEach(k=>{if(k==='ruby')return;const take=Math.min(Number(pool[k])||0,Math.round((Number(pool[k])||0)*n/before));if(take>0){pool[k]-=take;variants[k]=take;}});
+                }
+                origin.walkingGems=Array.isArray(origin.walkingGems)?origin.walkingGems:[];
+                for(let i=origin.walkingGems.length-1,left=n;i>=0&&left>0;i--){const g=origin.walkingGems[i];if(g&&(g.caste||g.type)===type){walkers.push(Object.assign(origin.walkingGems.splice(i,1)[0],{transportStatus:'aboard'}));left--;}}
+            });
+            setPlanetCensus(originId,census);
+            return {counts:Object.assign({},selection),walkers,quartzVariants:variants};
+        }
+        function getShipPassengerCount(ship){return Object.values(ship?.passengers?.counts||{}).reduce((a,b)=>a+(Number(b)||0),0)+(ship?.passengerGem?1:0);}
         function disembarkShipGem(ship,target){
-            if(!ship?.passengerGem||!target)return false;
+            if(!ship||!target)return false;
             target.walkingGems=Array.isArray(target.walkingGems)?target.walkingGems:[];
-            const gem=ship.passengerGem;
-            gem.angle=Math.random()*Math.PI*2;
-            gem.transportStatus=null;
-            gem.bubbleText='🛸 Chegou de '+(PLANETS[ship.originPlanetId]?.shortName||'outro mundo');
-            target.walkingGems.push(gem);
-            if(gem.populationTracked){const census=Object.assign({},getPlanetCensus(target.id));census[gem.caste||gem.type]=(Number(census[gem.caste||gem.type])||0)+1;setPlanetCensus(target.id,census);}
-            ship.passengerGem=null;
-            addChronicle('Gem transportada',(GEM_RECIPES[gem.caste||gem.type]?.shortName||gem.caste||gem.type)+' chegou a '+target.shortName+'.','Desembarque concluído');
-            return true;
+            const origin=PLANETS[ship.originPlanetId]?.shortName||'outro mundo';
+            let delivered=0;
+            if(ship.passengerGem){ // viagem iniciada em saves antigos (uma Gem caminhante)
+                const gem=ship.passengerGem;gem.angle=Math.random()*Math.PI*2;gem.transportStatus=null;gem.bubbleText='🛸 Chegou de '+origin;target.walkingGems.push(gem);
+                if(gem.populationTracked){const census=Object.assign({},getPlanetCensus(target.id));census[gem.caste||gem.type]=(Number(census[gem.caste||gem.type])||0)+1;setPlanetCensus(target.id,census);}
+                ship.passengerGem=null;delivered++;
+            }
+            const load=ship.passengers;
+            if(load&&Object.keys(load.counts||{}).length){
+                const census=Object.assign({},getPlanetCensus(target.id));
+                Object.entries(load.counts).forEach(([type,n])=>{census[type]=(Number(census[type])||0)+n;delivered+=n;});
+                setPlanetCensus(target.id,census);
+                const f=getPlanetFounding(target.id);
+                if(f&&Object.keys(load.quartzVariants||{}).length){f.quartzVariantCounts=Object.assign({carnelian:0,amethyst:0,jasper:0,rose:0,citrine:0,ruby:0,onyx:0,tigerEye:0,chalcedony:0,rutile:0},f.quartzVariantCounts||{});Object.entries(load.quartzVariants).forEach(([k,v])=>f.quartzVariantCounts[k]=(Number(f.quartzVariantCounts[k])||0)+v);}
+                (load.walkers||[]).forEach(gem=>{gem.angle=Math.random()*Math.PI*2;gem.transportStatus=null;gem.bubbleText='🛸 Chegou de '+origin;target.walkingGems.push(gem);});
+            }
+            ship.passengers=null;
+            if(delivered)addChronicle('Gems transportadas',delivered.toLocaleString('pt-BR')+' Gem(s) desembarcaram em '+target.shortName+' vindas de '+origin+'.','Desembarque concluído');
+            return delivered>0;
         }
-        function sendFleetShip(shipId,targetId,gemId){
+        function sendFleetShip(shipId,targetId,selection){
             const ship=(state.shipFleet||[]).find(x=>x.id===shipId),p=PLANETS[targetId];
             if(!ship||ship.status!=='orbital'){setStatusTicker('Nave indisponível para viagem.',true);return;}
             if(!p?.travelUnlocked){setStatusTicker('O planeta ainda não foi reconhecido pelo Olho Vermelho.',true);return;}
-            if(ship.type==='cargo'){dispatchCargoShip(shipId,targetId,gemId);return;}
-            if(ship.passengerGem){setStatusTicker('Esta nave já transporta uma Gem.',true);return;}
-            const passenger=gemId?embarkGemOnShip(ship,gemId):null;
-            if(gemId&&!passenger){setStatusTicker('A Gem selecionada não está mais disponível na origem.',true);return;}
-            ship.originPlanetId=ship.planetId||'homeworld';ship.passengerGem=passenger;
+            if(ship.type==='cargo'){dispatchCargoShip(shipId,targetId,selection);return;}
+            if(getShipPassengerCount(ship)){setStatusTicker('Esta nave ainda transporta Gems.',true);return;}
+            const wanted=normalizePassengerSelection(ship,selection),invalid=validatePassengerSelection(ship,wanted);
+            if(invalid){setStatusTicker(invalid,true);return;}
+            const load=embarkGemsOnShip(ship,wanted),passenger=getShipPassengerCount({passengers:load});
+            ship.originPlanetId=ship.planetId||'homeworld';ship.passengers=load;
             ship.status='travelling';ship.destinationPlanetId=targetId;ship.missionProgress=0;
             ship.missionDuration=getSpaceTravelSeconds(ship.planetId||'homeworld',targetId,ship.type==='diamond'?1.8:1);
-            setStatusTicker(ship.name+' iniciou viagem para '+p.shortName+(passenger?' transportando uma Gem.':'.'));
+            setStatusTicker(ship.name+' iniciou viagem para '+p.shortName+(passenger?' transportando '+passenger.toLocaleString('pt-BR')+' Gem(s).':'.'));
             updateHUD();renderDrawerContent();
         }
         function updateFleetTravel(dt){(state.shipFleet||[]).forEach(s=>{if(s.status!=='travelling'||s.type==='cargo')return;s.missionProgress=Math.min(100,(Number(s.missionProgress)||0)+dt*100/Math.max(1,s.missionDuration||1));if(s.missionProgress>=100){const p=PLANETS[s.destinationPlanetId];if(p){p.fleetVisits=Array.isArray(p.fleetVisits)?p.fleetVisits:[];p.fleetVisits.push({shipId:s.id,name:s.name});disembarkShipGem(s,p);s.planetId=p.id;}s.destinationPlanetId=null;s.status='orbital';if(s.type==='diamond'&&s.diamondColonyOwnerId){const ownerId=s.diamondColonyOwnerId;if(s.returningToHomeworld){s.returningToHomeworld=false;activatePlanetEconomy('homeworld',false);state.activeDiamondColonyOwnerId=null;state.activeColonyPlanetId='homeworld';switchScreen('throne');}else if(p&&p.lunarBaseBuilt){activatePlanetEconomy(p.id,false);state.activeDiamondColonyOwnerId=ownerId;state.activeColonyPlanetId=p.id;state.selectedStarMapPlanetId=p.id;state.selectedVeinIndex=0;switchScreen('colony');setStatusTicker(getDiamondOwnerById(ownerId)?.name+' assumiu a Base Lunar de '+p.shortName+'.');}}else setStatusTicker(s.name+' chegou ao destino.');}});}
@@ -3392,8 +3450,18 @@
             ruby:{name:'Nave Rubi',cost:{minerals:85,tech:35},speed:'FTL extremo',capacity:5,description:'Nave compacta permanentemente vermelha, sem armamento, feita para esquadrões de até cinco Rubis ou transporte urgente de Gems.',operator:'ruby',shape:'red'},
             cargo:{name:'Nave de Carga',cost:{minerals:210,tech:100},speed:'FTL moderado',capacity:5,description:'Transporta até cinco estruturas físicas; piloto Peridot ou Nefrita. A Bismuto inicia a instalação no destino.',operator:'cargo',shape:'cargo'}
         };
-        function canBuildShip(type){
+        function getDiamondOwnersWithoutShip(){return [{id:'first',name:state.firstDiamond.name},...(state.matriarchs||[]).map(m=>({id:m.id,name:m.name}))].filter(o=>!(state.shipFleet||[]).some(x=>x.type==='diamond'&&x.ownerId===o.id));}
+        // Quantas naves deste projeto podem ser construídas agora (recursos e, para a Nave Diamante, uma por Diamante).
+        function getMaxShipBuildCount(type){
+            const bp=SHIP_BLUEPRINTS[type];if(!bp||canBuildShip(type))return 0;
+            const byMinerals=bp.cost.minerals>0?Math.floor(state.minerals/bp.cost.minerals):Infinity,byTech=bp.cost.tech>0?Math.floor(state.tech/bp.cost.tech):Infinity;
+            let max=Math.min(byMinerals,byTech,99);
+            if(type==='diamond')max=Math.min(max,getDiamondOwnersWithoutShip().length);
+            return Math.max(0,max);
+        }
+        function canBuildShip(type,count=1){
             const bp=SHIP_BLUEPRINTS[type];if(!bp)return 'Projeto desconhecido.';
+            count=Math.max(1,Math.floor(Number(count)||1));
             if(!structureIsOperational('shipyard'))return 'O Estaleiro precisa estar operacional.';
             if(type==='diamond'){
                 const owners=[{id:'first',name:state.firstDiamond.name},...(state.matriarchs||[]).map(m=>({id:m.id,name:m.name}))];
@@ -3402,21 +3470,27 @@
             const c=state.census||{};
             const eligible=type==='diamond'?true:type==='cargo'?(Number(c.peridot||0)+Number(c.nephrite||0))>0:type==='elite'?(Number(c.hessonite||0)+Number(c.emerald||0)+Number(c.aquamarine||0)+Number(c.morganite||0))>0:type==='war'?c.nephrite>0:type==='ruby'?c.ruby>0:(Number(c.peridot||0)+Number(c.quartz||0)+Number(c.ruby||0)+Number(c.pearl||0))>0;
             if(!eligible)return type==='cargo'?'A Nave de Carga exige Peridot ou Nefrita para pilotar.':'Não há Gems elegíveis para operar esta classe de nave.';
-            if(state.minerals<bp.cost.minerals||state.tech<bp.cost.tech)return 'Recursos insuficientes para este projeto.';
+            if(type==='diamond'&&count>getDiamondOwnersWithoutShip().length)return 'Só '+getDiamondOwnersWithoutShip().length+' Diamante(s) ainda não possuem Nave Diamante.';
+            if(state.minerals<bp.cost.minerals*count||state.tech<bp.cost.tech*count)return count>1?'Recursos insuficientes para '+count+' naves: '+(bp.cost.minerals*count)+' minerais / '+(bp.cost.tech*count)+' tecnologia.':'Recursos insuficientes para este projeto.';
             return '';
         }
-        function buildShip(type){
-            const bp=SHIP_BLUEPRINTS[type],reason=canBuildShip(type);
+        function buildShip(type,count=1){
+            count=Math.max(1,Math.min(99,Math.floor(Number(count)||1)));
+            const bp=SHIP_BLUEPRINTS[type],reason=canBuildShip(type,count);
             if(!bp||reason){setStatusTicker(reason||'Projeto inválido.',true);return;}
-            state.minerals-=bp.cost.minerals;state.tech-=bp.cost.tech;
-            const owner=type==='diamond'?[{id:'first',name:state.firstDiamond.name},...(state.matriarchs||[]).map(m=>({id:m.id,name:m.name}))].find(o=>!(state.shipFleet||[]).some(x=>x.type==='diamond'&&x.ownerId===o.id)):null;
-            const ship={id:'ship_'+Date.now(),type,name:bp.name,ownerId:owner?.id||null,ownerName:owner?.name||null,capacity:bp.capacity,speed:bp.speed,shape:bp.shape,color:type==='ruby'?'#ef4444':null,description:bp.description,planetId:state.activeColonyPlanetId,crew:[],status:'orbital',pilotType:type==='cargo'?(freeGemWorkers('nephrite')>0?'nephrite':'peridot'):null,manifest:[]};
-            state.shipFleet=state.shipFleet||[];state.shipFleet.push(ship);
-            state.ships=(Number(state.ships)||0)+1;
-            setStatusTicker(bp.name+' concluída e adicionada à frota.');
-            addChronicle('Nova nave: '+bp.name,bp.description,'Frota ampliada');
+            state.shipFleet=state.shipFleet||[];
+            for(let i=0;i<count;i++){
+                state.minerals-=bp.cost.minerals;state.tech-=bp.cost.tech;
+                const owner=type==='diamond'?getDiamondOwnersWithoutShip()[0]:null;
+                const ship={id:'ship_'+Date.now()+'_'+i+'_'+Math.floor(Math.random()*1e5),type,name:bp.name,ownerId:owner?.id||null,ownerName:owner?.name||null,capacity:bp.capacity,speed:bp.speed,shape:bp.shape,color:type==='ruby'?'#ef4444':null,description:bp.description,planetId:state.activeColonyPlanetId,crew:[],status:'orbital',pilotType:type==='cargo'?(freeGemWorkers('nephrite')>0?'nephrite':'peridot'):null,manifest:[]};
+                state.shipFleet.push(ship);
+                state.ships=(Number(state.ships)||0)+1;
+            }
+            setStatusTicker((count>1?count+'× ':'')+bp.name+(count>1?' concluídas e adicionadas':' concluída e adicionada')+' à frota.');
+            addChronicle('Nova'+(count>1?'s naves':' nave')+': '+bp.name,(count>1?count+' unidades. ':'')+bp.description,'Frota ampliada');
             updateHUD();renderDrawerContent();
         }
+        function buildShipFromInput(type){const input=document.getElementById('ship-qty-'+type);buildShip(type,input?input.value:1);}
         function executeStructureInteraction(id) {
             if (!structureIsOperational(id)) { setStatusTicker('A estrutura precisa de operadores disponíveis para executar essa interação.', true); return; }
             switch (id) {
@@ -3712,7 +3786,7 @@
                             (state.shipFleet||[]).slice().reverse().forEach(ship=>{html+='<div class="stat-box ship-entry"><canvas class="ship-preview" data-ship="'+escapeHTML(ship.type)+'" width="120" height="72"></canvas><div><b>'+escapeHTML(ship.name)+'</b><small style="display:block;color:var(--text-muted)">'+(ship.ownerName?escapeHTML(ship.ownerName)+' · ':'')+escapeHTML(ship.speed)+' · Capacidade '+ship.capacity+' Gems · '+escapeHTML(PLANETS[ship.planetId]?.shortName||'Órbita desconhecida')+'</small></div></div>';});
                             Object.entries(SHIP_BLUEPRINTS).forEach(([type,bp])=>{
                                 const reason=canBuildShip(type);
-                                html+='<div class="stat-box ship-blueprint"><canvas class="ship-preview" data-ship="'+type+'" width="120" height="72"></canvas><b>'+bp.name+'</b><small style="display:block;color:var(--text-muted)">'+bp.description+'</small><small>Velocidade: '+bp.speed+' · Capacidade: '+bp.capacity+' · Custo: '+bp.cost.minerals+' minerais / '+bp.cost.tech+' tecnologia</small><button class="btn btn-block" onclick="buildShip(\''+type+'\')" '+(reason?'disabled':'')+'>Construir '+bp.name+'</button>'+(reason?'<small style="color:var(--text-muted)">'+reason+'</small>':'')+'</div>';
+                                html+='<div class="stat-box ship-blueprint"><canvas class="ship-preview" data-ship="'+type+'" width="120" height="72"></canvas><b>'+bp.name+'</b><small style="display:block;color:var(--text-muted)">'+bp.description+'</small><small>Velocidade: '+bp.speed+' · Capacidade: '+bp.capacity+(type==='cargo'?' estruturas + '+(bp.gemCapacity??bp.capacity)+' Gems':' Gems')+' · Custo por nave: '+bp.cost.minerals+' minerais / '+bp.cost.tech+' tecnologia</small>'+(reason?'':'<label class="stat-label" style="display:flex;align-items:center;justify-content:space-between;gap:8px">Quantidade <small>(máx. '+getMaxShipBuildCount(type)+')</small><input type="number" id="ship-qty-'+type+'" min="1" max="'+getMaxShipBuildCount(type)+'" step="1" value="1" style="width:72px"></label>')+'<button class="btn btn-block" onclick="buildShipFromInput(\''+type+'\')" '+(reason?'disabled':'')+'>Construir '+bp.name+'</button>'+(reason?'<small style="color:var(--text-muted)">'+reason+'</small>':'')+'</div>';
                             });
                         } else if(def.id==='workshop'){
                             const metallic=Math.max(0,Number(state.founding.gatheredMinerals?.metallic)||0),timer=Math.max(0,Number(state.logisticsMaintenanceTimer)||0);
@@ -3848,24 +3922,24 @@ ${hasAristocrats ? `
                 html+='<div class="stat-box"><b>☀ Sistema Homeworld</b><small>1 planeta · estrela moribunda · sistema inicial</small><button class="btn btn-emerald btn-block" onclick="selectStarSystem(\'home_system\')">Entrar no sistema</button></div>';
                 for(let i=0;i<7;i++){const id='unknown_'+i,ws=getPlanetsInStarSystem(id);html+='<div class="stat-box"><b>✦ Sistema '+(i+1)+'</b><small>'+ws.length+' planeta(s) · '+ws.filter(w=>w.scouted).length+' reconhecido(s)</small><button class="btn btn-block" onclick="selectStarSystem(\''+id+'\')">Viajar até a estrela</button></div>';}
             }else{
-                html+='<button class="btn" onclick="returnToGalaxyMap()">← Voltar ao mapa galáctico</button><p class="structure-desc">Escolha um planeta deste sistema. O Olho Vermelho pode ser enviado sem uma estrutura local.</p>';
+                html+='<button class="btn" onclick="returnToGalaxyMap()">← Voltar ao mapa galáctico</button><p class="structure-desc">Escolha um planeta deste sistema. Cada Olho Vermelho parte do planeta onde foi construído e retorna a ele.</p>';
                 worlds.forEach(w=>html+='<button class="btn btn-block '+(w.id===p.id?'active':'')+'" onclick="selectStarMapPlanet(\''+w.id+'\')">'+(w.scouted?'◈ ':'? ')+escapeHTML(w.shortName)+(w.scouted?' · Reconhecido':' · Não reconhecido')+'</button>');
                 html+='<div class="stat-box"><div class="card-header"><b>'+escapeHTML(p.shortName)+'</b><span class="badge">'+(p.scouted?'Reconhecido':'Não reconhecido')+'</span></div>';
                 if(!p.scouted){
-                    html+='<p class="structure-desc">'+escapeHTML(p.biomeTag||'Dados geológicos desconhecidos')+'</p><p class="structure-desc">Olhos Vermelhos livres: <b>'+getAvailableRedEyeCount()+'</b> / '+getTotalRedEyeCount()+'</p><button class="btn btn-emerald btn-block" onclick="startRedEyeMission(\''+p.id+'\')" '+(getAvailableRedEyeCount()<1?'disabled':'')+'>🔴 Enviar Olho Vermelho</button>';
+                    html+='<p class="structure-desc">'+escapeHTML(p.biomeTag||'Dados geológicos desconhecidos')+'</p><p class="structure-desc">Olhos Vermelhos livres: <b>'+getAvailableRedEyeCount()+'</b> / '+getTotalRedEyeCount()+'</p>'+(()=>{const origins=getRedEyeOrigins(),best=pickRedEyeOrigin(p.id);if(!origins.length)return '';return '<label class="stat-label">Partir de<select id="red-eye-origin">'+origins.map(id=>'<option value="'+id+'"'+(id===best?' selected':'')+'>'+escapeHTML(PLANETS[id].shortName)+' · '+getAvailableRedEyeCountAt(id)+' livre(s) · '+formatDuration(getSpaceTravelSeconds(id,p.id))+'</option>').join('')+'</select></label>';})()+'<button class="btn btn-emerald btn-block" onclick="startRedEyeMission(\''+p.id+'\',document.getElementById(\'red-eye-origin\')?.value)" '+(getAvailableRedEyeCount()<1?'disabled':'')+'>🔴 Enviar Olho Vermelho</button>';
                 }else{
                     html+='<p class="structure-desc">'+escapeHTML(p.lore||'Planeta catalogado.')+'</p><div class="grid-2"><div class="stat-box">Temperatura <b>'+report.temperatureC+' °C</b></div><div class="stat-box">Pressão <b>'+report.pressureAtm+' atm</b></div><div class="stat-box">Distância <b>'+report.distanceAU+' UA</b></div><div class="stat-box">Luas <b>'+report.moons+'</b></div><div class="stat-box">Água <b>'+(report.water?'Detectada':'Não detectada')+'</b></div><div class="stat-box">Vida <b>'+(report.organicLifePresent?'Detectada':report.organicLifePopulation===null?'Indeterminada':'Não detectada')+'</b></div></div><div class="stat-box"><b>Materiais</b>'+(report.composition||[]).map(x=>'<small style="display:block">'+escapeHTML(x.type)+' · '+Number(x.amount).toLocaleString('pt-BR')+'</small>').join('')+'</div><div class="stat-box">Habitabilidade: <b>'+escapeHTML(report.habitability)+'</b></div><label class="stat-label">Nome do planeta</label><input id="scouted-planet-name" type="text" maxlength="32" value="'+escapeHTML(p.shortName)+'"><button class="btn btn-block" onclick="renameScoutedPlanet(\''+p.id+'\',document.getElementById(\'scouted-planet-name\').value)">Salvar nome</button><button class="btn btn-emerald btn-block" onclick="executeStarMapPrimaryAction()">'+(p.colonized?'Entrar na colônia':'Iniciar colonização')+'</button>';
                     (state.shipFleet||[]).filter(ship=>ship.status==='orbital'&&ship.planetId!==p.id).forEach(ship=>{
                         if(ship.type==='cargo'){
                             const cargoCrew=getCargoCrewPlan(ship),cargoReason=getCargoValidation(ship,p.id);
                             const pilotLabel=cargoCrew.pilotType==='nephrite'?'Nefrita':cargoCrew.pilotType==='peridot'?'Peridot':'indisponível';
-                            html+='<div class="stat-box"><b>🚚 '+escapeHTML(ship.name)+'</b><label class="stat-label">Gem passageira (opcional)<select id="ship-gem-'+ship.id+'">'+getShipPassengerOptions(ship)+'</select></label><div class="founding-note">Carga automática fixa: <b>3 Injetores · 1 Galaxy Warp · 1 Extrator Mineral</b> (5 estruturas).</div><div class="stat-box"><b>Tripulação priorizada</b><small style="display:block">Piloto: '+pilotLabel+'</small><small style="display:block">Peridot de apoio: '+(cargoCrew.peridotOperator?'reservada':'nenhuma livre')+'</small><small style="display:block">Bismuto construtora: '+(cargoCrew.bismuthBuilder?'disponível':'indisponível · obrigatória')+'</small><small style="display:block">Demantoide supervisora: '+(cargoCrew.demantoidEscort?'será enviada':'nenhuma livre · opcional')+'</small></div>'+(cargoReason?'<small style="display:block;color:#fca5a5;margin:7px 0">'+escapeHTML(cargoReason)+'</small>':'')+'<button class="btn btn-block" '+(cargoReason?'disabled':'')+' onclick="dispatchCargoShip(\''+ship.id+'\',\''+p.id+'\',document.getElementById(\'ship-gem-'+ship.id+'\').value)">Enviar nave de carga</button></div>';
-                        }else html+='<div class="stat-box"><b>'+escapeHTML(ship.name)+'</b><label class="stat-label">Gem passageira (opcional)<select id="ship-gem-'+ship.id+'">'+getShipPassengerOptions(ship)+'</select></label><button class="btn btn-block" onclick="sendFleetShip(\''+ship.id+'\',\''+p.id+'\',document.getElementById(\'ship-gem-'+ship.id+'\').value)">Enviar nave</button></div>';
+                            html+='<div class="stat-box"><b>🚚 '+escapeHTML(ship.name)+'</b>'+getShipPassengerSelector(ship)+'<div class="founding-note">Carga automática fixa: <b>3 Injetores · 1 Galaxy Warp · 1 Extrator Mineral</b> (5 estruturas).</div><div class="stat-box"><b>Tripulação priorizada</b><small style="display:block">Piloto: '+pilotLabel+'</small><small style="display:block">Peridot de apoio: '+(cargoCrew.peridotOperator?'reservada':'nenhuma livre')+'</small><small style="display:block">Bismuto construtora: '+(cargoCrew.bismuthBuilder?'disponível':'indisponível · obrigatória')+'</small><small style="display:block">Demantoide supervisora: '+(cargoCrew.demantoidEscort?'será enviada':'nenhuma livre · opcional')+'</small></div>'+(cargoReason?'<small style="display:block;color:#fca5a5;margin:7px 0">'+escapeHTML(cargoReason)+'</small>':'')+'<button class="btn btn-block" '+(cargoReason?'disabled':'')+' onclick="dispatchCargoShip(\''+ship.id+'\',\''+p.id+'\',readShipPassengerSelection(\''+ship.id+'\'))">Enviar nave de carga</button></div>';
+                        }else html+='<div class="stat-box"><b>'+escapeHTML(ship.name)+'</b><small style="display:block;color:var(--text-muted)">Em órbita de '+escapeHTML(PLANETS[ship.planetId||'homeworld']?.shortName||'?')+'</small>'+getShipPassengerSelector(ship)+'<button class="btn btn-block" onclick="sendFleetShip(\''+ship.id+'\',\''+p.id+'\',readShipPassengerSelection(\''+ship.id+'\'))">Enviar nave</button></div>';
                     });
                 }
                 html+='</div>';
             }
-            if(activeMissions.length)html+='<div class="card"><div class="card-header"><b class="card-title">Olhos Vermelhos em missão</b><span class="badge">'+activeMissions.length+' ativos</span></div>'+activeMissions.map(m=>'<div class="stat-box"><b>'+escapeHTML(PLANETS[m.planetId]?.shortName||m.planetId)+' · '+escapeHTML(m.phase)+'</b><div class="founding-progress"><div style="width:'+m.progress+'%"></div></div></div>').join('')+'</div>';
+            if(activeMissions.length)html+='<div class="card"><div class="card-header"><b class="card-title">Olhos Vermelhos em missão</b><span class="badge">'+activeMissions.length+' ativos</span></div>'+activeMissions.map(m=>'<div class="stat-box"><b>'+escapeHTML(PLANETS[m.originId||'homeworld']?.shortName||'Homeworld')+' → '+escapeHTML(PLANETS[m.planetId]?.shortName||m.planetId)+' · '+escapeHTML(m.phase)+'</b><div class="founding-progress"><div style="width:'+m.progress+'%"></div></div></div>').join('')+'</div>';
             html+='</div>';container.innerHTML=html;
         }
 
