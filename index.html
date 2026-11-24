@@ -6343,80 +6343,100 @@ ${hasAristocrats ? `
         // à superiora responsável por ela (douradas quando a superiora é outra Matriarca).
         let authorityHitTargets=[];
         function shortDiamondName(name){return String(name||'Diamante').replace(/^Diamante\s+/i,'');}
-        function drawAuthorityDiamondNode(x,y,w,h,entity,isFounder,rank,time,hover){
-            const color=entity.colorHex||'#c4b5fd',rebel=entity.courtStatus==='rebel',away=entity.courtStatus==='mission';
-            ctx.save();ctx.translate(x,y);
-            const pulse=1+(hover?.08:0)+Math.sin(time*.002+rank)*.015;ctx.scale(pulse,pulse);
-            ctx.shadowColor=entity.glowHex||color;ctx.shadowBlur=isFounder?24:hover?22:14;
-            const g=ctx.createLinearGradient(-w*.5,-h*.5,w*.5,h*.5);g.addColorStop(0,'#ffffff');g.addColorStop(.28,color);g.addColorStop(1,entity.glowHex||color);
-            ctx.fillStyle=g;ctx.globalAlpha=away?.55:1;
-            ctx.beginPath();ctx.moveTo(0,-h*.5);ctx.lineTo(w*.5,0);ctx.lineTo(0,h*.5);ctx.lineTo(-w*.5,0);ctx.closePath();ctx.fill();
-            ctx.shadowBlur=0;ctx.lineWidth=Math.max(1.5,w*.05);ctx.strokeStyle=rebel?'#fb7185':'rgba(255,246,220,.85)';ctx.stroke();
-            // Facetas internas.
-            ctx.globalAlpha=(away?.4:1)*.35;ctx.strokeStyle='#fff';ctx.lineWidth=1;ctx.beginPath();ctx.moveTo(-w*.25,-h*.25);ctx.lineTo(0,0);ctx.lineTo(w*.25,-h*.25);ctx.moveTo(0,0);ctx.lineTo(0,h*.5);ctx.stroke();
-            ctx.globalAlpha=1;ctx.restore();
-            // Obediência como arco ao redor do losango (Matriarcas).
-            if(!isFounder){
-                const ob=Math.max(0,Math.min(100,Number(entity.obedience)||0))/100,r=Math.max(w,h)*.62;
-                ctx.save();ctx.lineWidth=3;ctx.strokeStyle='rgba(20,10,35,.55)';ctx.beginPath();ctx.arc(x,y,r,Math.PI*.75,Math.PI*2.25);ctx.stroke();
-                ctx.strokeStyle=ob<.35?'#fb7185':ob<.6?'#f2cf86':'#6ee7b7';ctx.beginPath();ctx.arc(x,y,r,Math.PI*.75,Math.PI*.75+Math.PI*1.5*ob);ctx.stroke();ctx.restore();
+        // Emblema da Autoridade: um losango grande dividido em quatro losangos (topo, esquerda,
+        // direita, base), nessa ordem de poder. A fundadora ocupa o topo do primeiro emblema;
+        // a cada quatro Diamantes nasce um novo emblema, menor e abaixo do anterior.
+        const AUTHORITY_SLOTS=[[0,-.5],[-.5,0],[.5,0],[0,.5]];
+        function getAuthorityLayout(){
+            const isMobile=window.matchMedia('(max-width:600px)').matches,cx=canvasWidth*.5;
+            const members=[{entity:state.firstDiamond,id:'first',founder:true},...state.matriarchs.map(m=>({entity:m,id:m.id,founder:false}))];
+            const emblemCount=Math.max(1,Math.ceil(members.length/4));
+            // Emblemas em fileiras: 1 no topo, depois 2, 3, 4…
+            const rows=[];let left=emblemCount,r=0;while(left>0){const n=Math.min(r+1,left);rows.push(n);left-=n;r++;}
+            const top=canvasHeight*.15,bottom=canvasHeight*.95,avail=bottom-top;
+            const weights=rows.map((_,i)=>Math.pow(.72,i)),wsum=weights.reduce((a,b)=>a+b,0);
+            const emblems=[];let y=top;
+            rows.forEach((n,ri)=>{
+                let H=(avail-(rows.length-1)*18)*weights[ri]/wsum*.5;let W=H*.72;
+                const maxW=(canvasWidth*.9)/n/2*.92;if(W>maxW){W=maxW;H=W/.72;}
+                H=Math.min(H,isMobile?150:200);W=H*.72;
+                const cy=y+H,gap=Math.min((canvasWidth*.9)/n,W*2.4);
+                for(let i=0;i<n;i++)emblems.push({x:cx+(i-(n-1)/2)*gap,y:cy,W,H,row:ri});
+                y=cy+H+(isMobile?10:18);
+            });
+            const cells=[];
+            emblems.forEach((e,ei)=>AUTHORITY_SLOTS.forEach(([sx,sy],si)=>{const idx=ei*4+si,m=members[idx];cells.push({emblem:e,x:e.x+sx*e.W,y:e.y+sy*e.H,w:e.W,h:e.H,rank:idx,member:m||null,id:m?.id||null,founder:!!m?.founder,entity:m?.entity||null});}));
+            return {emblems,cells};
+        }
+        function drawAuthorityCell(c,time,hover){
+            const hw=c.w*.5,hh=c.h*.5,ent=c.entity;
+            ctx.save();ctx.translate(c.x,c.y);
+            ctx.beginPath();ctx.moveTo(0,-hh);ctx.lineTo(hw,0);ctx.lineTo(0,hh);ctx.lineTo(-hw,0);ctx.closePath();
+            if(!ent){ctx.fillStyle='rgba(255,240,255,.07)';ctx.fill();ctx.setLineDash([4,5]);ctx.lineWidth=1.2;ctx.strokeStyle='rgba(255,236,250,.35)';ctx.stroke();ctx.restore();return;}
+            const color=ent.colorHex||'#c4b5fd',away=ent.courtStatus==='mission',rebel=ent.courtStatus==='rebel';
+            const g=ctx.createLinearGradient(0,-hh,0,hh);g.addColorStop(0,mixHexColor(color,'#ffffff',.55));g.addColorStop(.55,mixHexColor(color,'#ffffff',.25));g.addColorStop(1,color);
+            ctx.globalAlpha=away?.55:1;ctx.shadowColor=ent.glowHex||color;ctx.shadowBlur=hover?26:c.founder?18:8;
+            ctx.fillStyle=g;ctx.fill();ctx.shadowBlur=0;
+            // Brilho suave que percorre a faceta.
+            const sh=(time*.00025+c.rank*.37)%1;ctx.save();ctx.clip();ctx.globalAlpha=.18;ctx.fillStyle='#ffffff';ctx.beginPath();ctx.moveTo(-hw+sh*hw*3,-hh);ctx.lineTo(-hw+sh*hw*3+hw*.35,-hh);ctx.lineTo(-hw+sh*hw*3-hw*.4,hh);ctx.lineTo(-hw+sh*hw*3-hw*.75,hh);ctx.closePath();ctx.fill();ctx.restore();
+            ctx.globalAlpha=1;ctx.lineJoin='round';ctx.lineWidth=hover?3.2:2.2;ctx.strokeStyle=rebel?'#fb7185':'#e8737e';
+            ctx.beginPath();ctx.moveTo(0,-hh);ctx.lineTo(hw,0);ctx.lineTo(0,hh);ctx.lineTo(-hw,0);ctx.closePath();ctx.stroke();
+            ctx.restore();
+            // Texto: posição, nome e obediência.
+            const fs=Math.max(9,Math.min(14,c.w*.095));
+            ctx.save();ctx.textAlign='center';ctx.shadowColor='rgba(255,255,255,.55)';ctx.shadowBlur=3;
+            ctx.fillStyle='#3a1f52';ctx.font='800 '+Math.round(fs*.85)+'px "Exo 2", "Segoe UI", sans-serif';
+            ctx.fillText(c.founder?'SUPREMA':'Nº '+c.rank,c.x,c.y-fs*.9);
+            ctx.font='800 '+Math.round(fs)+'px "Exo 2", "Segoe UI", sans-serif';ctx.fillStyle='#24143a';
+            ctx.fillText(c.founder?(ent.name||'Primeira Diamante'):shortDiamondName(ent.name),c.x,c.y+fs*.35);
+            if(!c.founder){
+                const ob=Math.max(0,Math.min(100,Number(ent.obedience)||0))/100,bw=c.w*.34,by=c.y+fs*1.05;
+                ctx.shadowBlur=0;ctx.fillStyle='rgba(36,20,58,.25)';ctx.fillRect(c.x-bw/2,by,bw,3);
+                ctx.fillStyle=ob<.35?'#be123c':ob<.6?'#b45309':'#5b21b6';ctx.fillRect(c.x-bw/2,by,bw*ob,3);
+                if(rebelOrAway(ent)){ctx.font='800 '+Math.round(fs*.7)+'px "Exo 2", "Segoe UI", sans-serif';ctx.fillStyle=ent.courtStatus==='rebel'?'#be123c':'#0e7490';ctx.fillText(ent.courtStatus==='rebel'?'REBELDE':'EM MISSÃO',c.x,by+fs*1.1);}
             }
-            ctx.save();ctx.textAlign='center';ctx.shadowColor='rgba(20,10,35,.95)';ctx.shadowBlur=5;
-            if(!isFounder){ctx.fillStyle='#f2cf86';ctx.font='800 '+Math.max(9,Math.round(w*.2))+'px "Exo 2", "Segoe UI", sans-serif';ctx.fillText(String(rank),x,y+4);}
-            ctx.fillStyle='#fff9ff';ctx.font='bold '+(isFounder?13:Math.max(10,Math.min(12,Math.round(w*.24))))+'px "Exo 2", "Segoe UI", sans-serif';
-            ctx.fillText(isFounder?(entity.name||'Primeira Diamante'):shortDiamondName(entity.name),x,y+h*.5+(isFounder?16:15));
-            if(!isFounder&&(rebel||away)){ctx.font='700 9px "Exo 2", "Segoe UI", sans-serif';ctx.fillStyle=rebel?'#fb7185':'#7dd3fc';ctx.fillText(rebel?'REBELDE':'EM MISSÃO',x,y+h*.5+27);}
             ctx.restore();
         }
-        // Layout da pirâmide: fileiras crescentes (2, 3, 4, 5…) abaixo da fundadora.
-        function getAuthorityLayout(){
-            const isMobile=window.matchMedia('(max-width:600px)').matches,cx=canvasWidth*.5,members=state.matriarchs.slice();
-            const topY=canvasHeight*.22,topW=Math.min(isMobile?70:92,canvasWidth*.2),topH=topW*1.3;
-            const caps=[2,3,4,5,6,7];const rows=[];let cursor=0,r=0;
-            while(cursor<members.length){const c=Math.min(caps[Math.min(r,caps.length-1)],members.length-cursor);rows.push(members.slice(cursor,cursor+c));cursor+=c;r++;}
-            const bottom=canvasHeight*.88,rowStep=Math.max(isMobile?64:78,Math.min(isMobile?100:150,(bottom-topY-topH*.6)/Math.max(1,rows.length)));
-            const nodes=[{entity:state.firstDiamond,id:'first',x:cx,y:topY,w:topW,h:topH,founder:true,rank:0}];
-            let rank=1;
-            rows.forEach((row,ri)=>{
-                const y=topY+topH*.45+(ri+1)*rowStep,gap=Math.min(isMobile?78:168,(canvasWidth*.86)/Math.max(1,row.length));
-                const w=Math.max(isMobile?26:32,Math.min(isMobile?44:62,topW*(.68-ri*.08),gap*.6)),h=w*1.28;
-                row.forEach((m,i)=>{nodes.push({entity:m,id:m.id,x:cx+(i-(row.length-1)/2)*gap,y,w,h,founder:false,rank:rank++});});
-            });
-            return nodes;
-        }
+        function rebelOrAway(e){return e&&(e.courtStatus==='rebel'||e.courtStatus==='mission');}
         let authorityHoverId=null;
         function drawDiamondAuthorityScene(time){
             const image=getPrimarySceneImage('authority');
-            drawPrimarySceneImage(image,'rgba(20,8,34,.24)');
+            drawPrimarySceneImage(image,'rgba(20,8,34,.3)');
             const cx=canvasWidth*.5,isMobile=window.matchMedia('(max-width:600px)').matches;
             ctx.save();
             ctx.textAlign='center';ctx.fillStyle='rgba(255,248,255,.96)';
             ctx.font='bold '+(isMobile?16:21)+'px "Exo 2", Georgia, serif';
             ctx.shadowColor='rgba(28,7,45,.8)';ctx.shadowBlur=10;
-            ctx.fillText('AUTORIDADE DIAMANTE',cx,Math.max(28,canvasHeight*.08));
+            ctx.fillText('AUTORIDADE DIAMANTE',cx,Math.max(28,canvasHeight*.07));
             ctx.shadowBlur=0;ctx.font=(isMobile?9:11)+'px "Exo 2", "Segoe UI", sans-serif';
-            ctx.fillStyle='rgba(248,226,255,.8)';
-            ctx.fillText('Quanto mais alto, mais autoridade · toque numa Diamante para abrir a Corte',cx,Math.max(44,canvasHeight*.08+18));
+            ctx.fillStyle='rgba(248,226,255,.82)';
+            ctx.fillText('Topo, esquerda, direita e base: da maior à menor autoridade · toque numa Diamante para abrir a Corte',cx,Math.max(44,canvasHeight*.07+18));
             ctx.restore();
-            const nodes=getAuthorityLayout(),byId=Object.fromEntries(nodes.map(n=>[n.id,n]));
-            authorityHitTargets=nodes.map(n=>({id:n.id,x:n.x,y:n.y,r:Math.max(n.w,n.h)*.6}));
-            // Linhas de comando: de cada Diamante até a superiora responsável.
-            nodes.forEach(n=>{
-                if(n.founder)return;
-                const sup=byId[n.entity.superiorId]||byId.first,golden=sup.id!=='first';
-                ctx.save();ctx.lineWidth=golden?2.2:1.2;ctx.strokeStyle=golden?'rgba(242,207,134,.85)':'rgba(255,240,255,.32)';
-                if(!golden)ctx.setLineDash([3,5]);if(n.entity.courtStatus==='rebel'){ctx.strokeStyle='rgba(251,113,133,.7)';ctx.setLineDash([2,4]);}
-                ctx.beginPath();ctx.moveTo(sup.x,sup.y+sup.h*.5);ctx.lineTo(n.x,n.y-n.h*.5);ctx.stroke();ctx.restore();
+            const {emblems,cells}=getAuthorityLayout(),byId=Object.fromEntries(cells.filter(c=>c.id).map(c=>[c.id,c]));
+            authorityHitTargets=cells.filter(c=>c.id).map(c=>({id:c.id,x:c.x,y:c.y,hw:c.w*.5,hh:c.h*.5}));
+            // Ligação entre emblemas: cada novo emblema pende do anterior.
+            emblems.forEach((e,i)=>{if(!i)return;const parent=emblems[Math.floor((i-1)/2)]||emblems[0];ctx.save();ctx.strokeStyle='rgba(242,207,134,.4)';ctx.lineWidth=1.5;ctx.setLineDash([3,6]);ctx.beginPath();ctx.moveTo(parent.x,parent.y+parent.H);ctx.lineTo(e.x,e.y-e.H);ctx.stroke();ctx.restore();});
+            // Aura de cada emblema.
+            emblems.forEach(e=>{ctx.save();ctx.shadowColor='rgba(255,220,250,.55)';ctx.shadowBlur=30;ctx.fillStyle='rgba(255,240,255,.06)';ctx.beginPath();ctx.moveTo(e.x,e.y-e.H);ctx.lineTo(e.x+e.W,e.y);ctx.lineTo(e.x,e.y+e.H);ctx.lineTo(e.x-e.W,e.y);ctx.closePath();ctx.fill();ctx.restore();});
+            cells.forEach(c=>drawAuthorityCell(c,time,authorityHoverId&&authorityHoverId===c.id));
+            // Contorno do emblema por cima das células.
+            emblems.forEach(e=>{ctx.save();ctx.lineWidth=2.6;ctx.lineJoin='round';ctx.strokeStyle='#e8737e';ctx.beginPath();ctx.moveTo(e.x,e.y-e.H);ctx.lineTo(e.x+e.W,e.y);ctx.lineTo(e.x,e.y+e.H);ctx.lineTo(e.x-e.W,e.y);ctx.closePath();ctx.stroke();ctx.restore();});
+            // Responsabilidade delegada: fio dourado da superiora até a Diamante.
+            cells.forEach(c=>{
+                if(!c.entity||c.founder)return;const sup=byId[c.entity.superiorId];if(!sup||sup.founder)return;
+                ctx.save();ctx.strokeStyle='rgba(242,207,134,.95)';ctx.lineWidth=2;ctx.setLineDash([5,4]);ctx.shadowColor='rgba(40,16,60,.8)';ctx.shadowBlur=4;
+                const mx=(sup.x+c.x)/2+(c.y-sup.y)*.15,my=(sup.y+c.y)/2-(c.x-sup.x)*.15;
+                ctx.beginPath();ctx.moveTo(sup.x,sup.y+sup.h*.22);ctx.quadraticCurveTo(mx,my,c.x,c.y-c.h*.22);ctx.stroke();
+                ctx.setLineDash([]);ctx.fillStyle='#f2cf86';ctx.beginPath();ctx.arc(c.x,c.y-c.h*.22,3,0,Math.PI*2);ctx.fill();ctx.restore();
             });
-            nodes.forEach(n=>drawAuthorityDiamondNode(n.x,n.y,n.w,n.h,n.entity,n.founder,n.rank,time,authorityHoverId===n.id));
             if(!state.matriarchs.length){
                 ctx.save();ctx.textAlign='center';ctx.fillStyle='rgba(250,238,255,.86)';
                 ctx.font=(isMobile?10:12)+'px "Exo 2", "Segoe UI", sans-serif';
-                ctx.fillText('A próxima Diamante ocupará uma posição abaixo da fundadora.',cx,canvasHeight*.53);
+                ctx.fillText('As próximas Diamantes ocuparão as posições vagas do emblema.',cx,canvasHeight*.92);
                 ctx.restore();
             }
         }
-        function authorityTargetAt(x,y){return authorityHitTargets.find(t=>Math.hypot(x-t.x,y-t.y)<=t.r+6)||null;}
+        function authorityTargetAt(x,y){return authorityHitTargets.find(t=>Math.abs(x-t.x)/t.hw+Math.abs(y-t.y)/t.hh<=1)||null;}
 
         function drawThrone(time) {
             const { cx, cy } = getVisibleCenter(canvasWidth, canvasHeight);
