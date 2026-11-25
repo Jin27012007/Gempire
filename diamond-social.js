@@ -755,7 +755,7 @@
         }
         const diamonds = state.matriarchs || [];
         if (!diamonds.length) {
-            container.innerHTML = '<div class="card card-amber"><div class="card-header"><span class="card-title title-font">♡ Relações da Corte</span><span class="badge">Sem subordinadas</span></div><p class="structure-desc">As interações sociais serão desbloqueadas quando uma nova Diamante emergir do núcleo de um planeta. A Primeira Diamante é sua personagem; as Matriarcas serão seus alvos de interação.</p></div>';
+            container.innerHTML = '<div class="card card-amber"><div class="card-header"><span class="card-title title-font">♡ Relações da Corte</span><span class="badge">Sem subordinadas</span></div><small class="governance-muted">Disponível quando houver Diamantes subordinadas.</small></div>';
             return;
         }
         const selected = getDiamond(social.selectedDiamondId) || diamonds[0];

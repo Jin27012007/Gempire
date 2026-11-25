@@ -529,3 +529,58 @@ span.founder-chip{cursor:default;opacity:.85}
     #top-bar .nav-group .btn .lbl{display:none}
     #top-bar .res-group{flex:1 1 auto}
 }
+
+/* ---------- Detalhes recolhíveis ---------- */
+details.ui-more{margin-top:2px}
+details.ui-more summary{cursor:pointer;font-size:10px;color:var(--text-muted,#b4a3d4);letter-spacing:.06em;list-style:none}
+details.ui-more summary::before{content:"ⓘ ";}
+details.ui-more[open] summary{color:#f2cf86}
+details.ui-more p{margin-top:4px}
+
+/* ---------- Tela deitada (celular e telas baixas) ---------- */
+@media (orientation:landscape) and (max-height:520px){
+    #top-bar{height:40px!important;min-height:40px!important;flex-wrap:nowrap!important;padding:3px 6px!important;gap:6px;row-gap:0}
+    #top-bar .nav-group{flex:1 1 auto!important;min-width:0;overflow-x:auto;scrollbar-width:none;gap:3px}
+    #top-bar .nav-group::-webkit-scrollbar{display:none}
+    #top-bar .nav-group .btn{font-size:10px;padding:4px 8px;min-height:28px;white-space:nowrap}
+    #top-bar .nav-group .btn .num,#top-bar .nav-group .btn .lbl,#era-badge,.time-cycle,#hud-diamond-essences{display:none!important}
+    #top-bar .nav-group>.diamond-icon{display:none}
+    .time-btn{min-width:24px;padding:2px 4px!important;font-size:10px}
+    #top-bar .res-group{flex:0 0 auto!important;display:flex}
+    #top-bar .res-pill{padding:2px 6px;font-size:10px}
+    #top-bar .res-label{font-size:8px}
+    #top-bar .action-group{flex:0 0 auto;gap:3px}
+    #top-bar .action-group .btn{padding:4px 7px;min-height:28px}
+    #top-bar .action-group .btn .lbl{display:none}
+    #top-bar .action-group .btn-pink,#top-bar .action-group button[onclick*="codex-modal"],#top-bar .action-group button[onclick*="tech-modal"]{display:none}
+    #right-drawer{width:min(330px,40vw)!important;max-width:40vw!important}
+    .drawer-tabs{flex-wrap:nowrap!important;overflow-x:auto;scrollbar-width:none}
+    .drawer-tabs::-webkit-scrollbar{display:none}
+    .drawer-tabs .btn{flex:0 0 auto;white-space:nowrap}
+    #drawer-body{padding-top:6px}
+    #hud-banners{top:auto!important;bottom:6px;max-width:46vw}
+    .banner-pill{font-size:10px;padding:4px 8px}
+    .game-menu-shell{max-height:94dvh!important;padding:12px 18px!important}
+    .game-menu-brand{padding:0 0 8px!important}
+    .game-menu-brand .game-menu-mark,.game-menu-brand p{display:none}
+    .game-menu-brand h1{font-size:24px!important}
+    .game-menu-content{gap:6px}
+    .game-menu-content .btn{min-height:34px}
+    .game-menu-shell.founder-mode{margin:6px auto}
+    .founder-editor{grid-template-columns:minmax(200px,260px) 1fr;gap:12px}
+    .founder-preview canvas{max-height:70dvh;width:auto}
+    .governance-screen-title p{display:none}
+    .governance-screen-title h2{font-size:17px}
+    .governance-screen-tabs{flex-wrap:nowrap;overflow-x:auto;scrollbar-width:none}
+    .governance-screen-tabs .btn{flex:0 0 auto;white-space:nowrap}
+}
+/* A barra nunca empurra a página: a navegação encolhe e rola por dentro. */
+@media(min-width:601px){
+    #top-bar{overflow:hidden}
+    #top-bar .nav-group{flex:1 1 auto;min-width:0;overflow-x:auto;scrollbar-width:none}
+    #top-bar .nav-group::-webkit-scrollbar{display:none}
+    #top-bar .nav-group .btn,#top-bar .time-ctrl{flex:0 0 auto}
+    #top-bar .res-group{flex:0 1 auto;min-width:0;overflow:hidden}
+    #top-bar .action-group{flex:0 0 auto}
+    #hud-diamond-essences{max-width:30vw;overflow:hidden;white-space:nowrap}
+}
