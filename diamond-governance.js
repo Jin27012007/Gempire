@@ -3,6 +3,11 @@
  * Sem serviços externos: todas as propostas e consequências são locais.
  */
 (function () {
+    // Mesmo critério da colonização manual: reconhecido pelo Olho Vermelho e preparado pela Diretoria da Água-marinha.
+    function colonizationReady(planet) {
+        if (!planet || !planet.travelUnlocked) return false;
+        return typeof getAquamarinePlanetPreparation === 'function' ? !!getAquamarinePlanetPreparation(planet).ready : true;
+    }
     const PROFILES = {
         militarist: { ambition: 94, discipline: 92, empathy: 20, caution: 34, research: 36, sociability: 42 },
         melancholic: { ambition: 38, discipline: 72, empathy: 78, caution: 86, research: 58, sociability: 76 },
@@ -197,7 +202,7 @@
             });
         }
         const target = Object.values(PLANETS).find(candidate => {
-            if (candidate.colonized) return false;
+            if (candidate.colonized || !candidate.travelUnlocked || !colonizationReady(candidate)) return false;
             const cost = candidate.unlockCost || {};
             return Number(state.minerals || 0) >= Number(cost.minerals || 0) &&
                 essenceValue(state.essence) >= Number(cost.white || 0);
@@ -286,6 +291,11 @@
         const expansionTarget = decision.type === 'expansion' ? PLANETS[decision.targetPlanetId] : null;
         if (decision.type === 'expansion' && (!expansionTarget || expansionTarget.colonized)) {
             updateGovernanceUI('A colonização não foi executada: o mundo de destino já não está disponível.');
+            return false;
+        }
+        if (decision.type === 'expansion' && !colonizationReady(expansionTarget)) {
+            const prep = typeof getAquamarinePlanetPreparation === 'function' ? getAquamarinePlanetPreparation(expansionTarget) : null;
+            updateGovernanceUI('A colonização de ' + expansionTarget.shortName + ' está bloqueada: ' + (prep?.reason || 'o mundo ainda não foi preparado.'));
             return false;
         }
         const cost = decision.cost || {};
