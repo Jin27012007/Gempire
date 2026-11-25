@@ -410,3 +410,33 @@ body.game-paused::after{content:'TEMPO PAUSADO';position:fixed;top:58px;left:50%
 .badge.dz-bad{border-color:#fb7185;color:#fecdd3}
 .court-log.dz-storm{border-left-color:#facc15}.court-log.dz-quake{border-left-color:#d97706}.court-log.dz-asteroid{border-left-color:#94a3b8}
 .court-log.dz-ambush{border-left-color:#fb7185}.court-log.dz-eruption{border-left-color:#f97316}.court-log.dz-natives{border-left-color:#4ade80}
+
+/* ---------- Aristocracia, bailes e Tribunal ---------- */
+.ar-tabs{display:flex;gap:6px;margin-top:10px;flex-wrap:wrap}
+.ar-tabs .btn{flex:1 1 90px}
+.ar-dot{display:inline-block;min-width:16px;padding:0 4px;margin-left:4px;border-radius:8px;background:#f2cf86;color:#1a0f2e;font-size:10px;font-weight:800;line-height:16px}
+.ar-grid{display:grid;grid-template-columns:repeat(auto-fill,minmax(280px,1fr));gap:8px}
+.ar-noble{padding:9px 10px;border-radius:10px;border:1px solid rgba(201,166,255,.18);border-left:3px solid var(--gem,#c4b5fd);background:rgba(20,10,40,.45)}
+.ar-noble.ar-ontrial{border-color:rgba(94,234,212,.5);box-shadow:0 0 0 1px rgba(94,234,212,.25) inset}
+.ar-noble .court-actions .btn{min-width:0;flex:1 1 auto;font-size:10px;padding:4px 6px}
+.ar-gem{display:inline-block;width:9px;height:9px;margin-right:6px;transform:rotate(45deg);background:var(--gem,#c4b5fd);box-shadow:0 0 6px var(--gem,#c4b5fd)}
+.ar-offices{display:grid;grid-template-columns:repeat(auto-fill,minmax(200px,1fr));gap:6px}
+.ar-event{display:flex;flex-direction:column;gap:5px;padding:9px 10px;margin-top:6px;border-radius:10px;background:rgba(20,10,40,.5);border:1px solid rgba(242,207,134,.22);font-size:12px}
+.ar-moment{border-color:rgba(242,207,134,.6);background:linear-gradient(135deg,rgba(242,207,134,.12),rgba(196,181,253,.08));animation:arPulse 2.2s ease-in-out infinite}
+@keyframes arPulse{0%,100%{box-shadow:0 0 0 0 rgba(242,207,134,0)}50%{box-shadow:0 0 14px 0 rgba(242,207,134,.25)}}
+.ar-choice{display:flex;flex-wrap:wrap;gap:6px;margin-top:4px}
+.ar-choice .btn{flex:1 1 130px;text-align:left}
+.ar-choice .btn small{opacity:.75;font-size:10px}
+.ar-notes{display:flex;flex-direction:column;gap:2px;margin-top:8px;padding-left:8px;border-left:2px solid rgba(201,166,255,.3)}
+.ar-notes small{color:var(--text-muted,#b4a3d4)}
+.ar-scale{display:grid;grid-template-columns:70px 1fr 70px;align-items:center;gap:8px;margin:12px 0 4px;font-size:11px;font-weight:700;text-align:center}
+.ar-scale>span:first-child{color:#6ee7b7}.ar-scale>span:last-child{color:#fb7185}
+.ar-beam{position:relative;height:4px;border-radius:2px;background:linear-gradient(90deg,#6ee7b7,#f2cf86,#fb7185);transition:transform .6s ease}
+.ar-beam i{position:absolute;top:2px;width:26px;height:12px;border:2px solid #f2cf86;border-top:none;border-radius:0 0 14px 14px}
+.ar-beam i:first-child{left:-4px}.ar-beam i:last-child{right:-4px}
+.ar-bench{display:grid;grid-template-columns:1fr 1fr;gap:8px;margin-top:8px}
+.ar-bench>div{padding:6px 8px;border-radius:8px;border-left:3px solid var(--gem);background:rgba(20,10,40,.45);display:flex;flex-direction:column}
+.ar-bench small{color:var(--text-muted,#b4a3d4);font-size:10px;text-transform:uppercase;letter-spacing:.1em}
+#governance-content>.card.ar-wide{grid-column:1/-1}
+.ar-noble .badge{white-space:nowrap}
+@media(max-width:600px){#governance-content>.card.ar-wide{grid-column:auto}.ar-grid{grid-template-columns:minmax(0,1fr)}}

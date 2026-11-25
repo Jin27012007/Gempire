@@ -674,6 +674,7 @@
                     <button id="governance-section-council" class="btn active" onclick="switchGovernanceSection('council')">🏛 Conselho</button>
                     <button id="governance-section-court" class="btn" onclick="switchGovernanceSection('court')">👑 Corte</button>
                     <button id="governance-section-order" class="btn" onclick="switchGovernanceSection('order')">⚖️ Ordem Pública</button>
+                    <button id="governance-section-aristocracy" class="btn" onclick="switchGovernanceSection('aristocracy')">🎭 Aristocracia</button>
                     <button id="governance-section-disasters" class="btn" onclick="switchGovernanceSection('disasters')">🌋 Desastres</button>
                     <button id="governance-section-demantoid" class="btn hidden" onclick="switchGovernanceSection('demantoid')">🔬 Demantoide</button>
                     <button id="governance-section-hessonite" class="btn hidden" onclick="switchGovernanceSection('hessonite')">⚔️ Hessonita</button>
@@ -804,6 +805,7 @@
             pyrope:{id:'pyrope',shortName:'Piropo',name:'Piropo (General de Exércitos)',primeTitle:'Piropo Marechal [Rank S]',offcolorTitle:'Piropo de Corte Irregular',requiredVein:'garnet',veinLabel:'Granada Piropo',optimalPlanets:['ignis_prime','homeworld'],optimalLabel:'Ignis-Prime, Homeworld',essence:{white:10,yellow:35,blue:10,pink:15},idealMaturation:2,color:'#b91c1c',bubbleText:'⚔️ Formando legiões',roleDesc:'General de alto escalão, especializado em organizar grandes exércitos.'},
             hessonite:{id:'hessonite',shortName:'Hessonita',name:'Hessonita (General e Mobilização)',primeTitle:'Hessonita Marechal [Rank S]',offcolorTitle:'Hessonita de Tom Turvo',requiredVein:'garnet',veinLabel:'Granada Hessonítica',optimalPlanets:['ignis_prime','homeworld'],optimalLabel:'Ignis-Prime, Homeworld',essence:{white:15,yellow:25,blue:10,pink:20},idealMaturation:2,color:'#d97745',bubbleText:'⚔️ Coordenando',roleDesc:'General responsável por organizar tropas e coordenar ataques.'},
             topaz:{id:'topaz',shortName:'Topázio',name:'Topázio (Guarda Palaciana)',primeTitle:'Topázio Sentinela [Rank S]',offcolorTitle:'Topázio Irregular',requiredVein:'topaz',veinLabel:'Bolsa de Topázio',optimalPlanets:['caelum_gelidus','ignis_prime'],optimalLabel:'Caelum-Gelidus, Ignis-Prime',essence:{white:30,yellow:15,blue:15,pink:5},idealMaturation:3,color:'#f59e0b',bubbleText:'🏛️ Em guarda',roleDesc:'Soldado raro, reservado à proteção de palácios e comitivas de Gems importantes.'},
+            zircon:{id:'zircon',shortName:'Zircônia',name:'Zircônia (Aristocrata da Justiça)',primeTitle:'Zircônia Magistral [Rank S]',offcolorTitle:'Zircônia Turva',requiredVein:'silicate',refinedMaterial:'silicate',veinLabel:'Silicato Refinado',optimalPlanets:['homeworld','caelum_gelidus'],optimalLabel:'Homeworld, Caelum-Gelidus',essence:{white:25,yellow:20,blue:25,pink:10},idealMaturation:3,color:'#5eead4',bubbleText:'⚖️ Preparando a acusação',roleDesc:'Aristocrata jurista: acusa e defende nos julgamentos do Tribunal da Corte.'},
             pearl:{id:'pearl',shortName:'Pérola',name:'Pérola Imperial (Assistência da Corte)',primeTitle:'Pérola Real Cristalina [Rank S]',offcolorTitle:'Pérola de Nácar Livre [Off-Color]',requiredVein:'nacre',veinLabel:'Sedimento Nacarado',optimalPlanets:['thalassa_9','homeworld','caelum_gelidus'],optimalLabel:'Thalassa-9, Homeworld, Caelum-Gelidus',essence:{white:35,yellow:10,blue:25,pink:10},idealMaturation:3,color:'#f8fafc',bubbleText:'🤍 Aguardando dona',roleDesc:'Servente de uma única dona; Pérolas de Nácar concedem ×1,5 e Pérolas legítimas de Recife ×2.'}
         };
 
@@ -928,11 +930,11 @@
             {id:'diamond_quarters',name:'Quarto de Diamante',category:'Corte e Residências',desc:'Residência individual e exclusiva de uma Diamante em Homeworld. O limite de quartos acompanha a quantidade de Diamantes e exige o Palácio Real.',cost:{minerals:120,tech:70},buildTime:55,prerequisites:['royal_palace'],workers:{peridot:1},interaction:'Um quarto exclusivo para cada Diamante da dinastia.',maxCount:99},
             {id:'lunar_base',name:'Base Lunar',category:'Corte e Residências',desc:'Habitat de uma Diamante ou elite em uma lua natural. Consolida relatórios resumidos, alertas e informações da colônia. Só pode ser construída em planetas com ao menos uma lua.',cost:{minerals:180,tech:90},buildTime:65,prerequisites:['royal_palace','reactor'],workers:{peridot:1},interaction:'Fornece residência avançada e relatórios resumidos da colônia.',maxCount:3}
         ];
-        const GEM_ROLE_NAMES = {quartz:'Quartzo · extração e infantaria',peridot:'Peridoto · engenharia e jardins',bismuth:'Bismuto · construção',lapis:'Lápis-Lazúli · manipulação da água',obsidian:'Obsidiana · manipulação do calor',snowflake_obsidian:'Obsidiana Floco de Neve · manipulação do frio',sapphire:'Safira · previsão',ruby:'Rubi · guarda pessoal',pearl:'Pérola · assistência',hessonite:'Hessonita · general',demantoid:'Demantoide · supervisão científica',pyrope:'Piropo · general',agate:'Ágata · comando de esquadrões',nephrite:'Nefrita · pilotagem de guerra',jade:'Jade · corte e eventos sociais',morganite:'Morganita · comando de obras',aquamarine:'Água-marinha · engenharia planetária',emerald:'Esmeralda · comando militar',topaz:'Topázio · guarda palaciana'};
+        const GEM_ROLE_NAMES = {quartz:'Quartzo · extração e infantaria',peridot:'Peridoto · engenharia e jardins',bismuth:'Bismuto · construção',lapis:'Lápis-Lazúli · manipulação da água',obsidian:'Obsidiana · manipulação do calor',snowflake_obsidian:'Obsidiana Floco de Neve · manipulação do frio',sapphire:'Safira · previsão',ruby:'Rubi · guarda pessoal',pearl:'Pérola · assistência',hessonite:'Hessonita · general',demantoid:'Demantoide · supervisão científica',pyrope:'Piropo · general',zircon:'Zircônia · tribunal',agate:'Ágata · comando de esquadrões',nephrite:'Nefrita · pilotagem de guerra',jade:'Jade · corte e eventos sociais',morganite:'Morganita · comando de obras',aquamarine:'Água-marinha · engenharia planetária',emerald:'Esmeralda · comando militar',topaz:'Topázio · guarda palaciana'};
 
         const GEM_HIERARCHY = [
             {tier:'S',name:'Autoridade Diamante',entries:[['firstDiamond','Diamante Matriarca','Jogadora e autoridade máxima do Império.'],['matriarchs','Diamantes subordinadas','Possuem consciência própria e autonomia para governar suas Gems e colônias; decisões imperiais de grande escala são encaminhadas à Matriarca.']]},
-            {tier:'A',name:'Aristocratas',entries:[['sapphire','Safiras','5% de chance de previsão por Safira a cada cinco minutos; as chances aumentam com a quantidade.'],['jade','Jades','Feitas de piroxênio refinado; dedicadas a bailes e eventos sociais futuros.'],['morganite','Morganitas','Berílio refinado em mundos acima de 100 °C; supervisionam automaticamente obras e Bismutos.'],['aquamarine','Águas-marinhas','Berílio refinado; a primeira pode ser formada em Homeworld para iniciar a Diretoria. Depois, exigem mundos oceânicos ou abaixo de 0 °C e comandam a preparação planetária.'],['emerald','Esmeraldas','Berílio refinado entre 1 °C e 99 °C; ampliam o comando das Hessonitas.'],['lapis','Lápis-Lazúlis','Manipulam água e formam massas terrestres. Trabalham em equipes próprias de Rank S, A, B ou C, conforme a escala de terraformação.']]},
+            {tier:'A',name:'Aristocratas',entries:[['sapphire','Safiras','5% de chance de previsão por Safira a cada cinco minutos; as chances aumentam com a quantidade.'],['jade','Jades','Feitas de piroxênio refinado; organizam e animam os bailes da Corte.'],['zircon','Zircônias','Feitas de silicato refinado; acusam e defendem nos julgamentos do Tribunal.'],['morganite','Morganitas','Berílio refinado em mundos acima de 100 °C; supervisionam automaticamente obras e Bismutos.'],['aquamarine','Águas-marinhas','Berílio refinado; a primeira pode ser formada em Homeworld para iniciar a Diretoria. Depois, exigem mundos oceânicos ou abaixo de 0 °C e comandam a preparação planetária.'],['emerald','Esmeraldas','Berílio refinado entre 1 °C e 99 °C; ampliam o comando das Hessonitas.'],['lapis','Lápis-Lazúlis','Manipulam água e formam massas terrestres. Trabalham em equipes próprias de Rank S, A, B ou C, conforme a escala de terraformação.']]},
             {tier:'B',name:'Generais e especialistas',entries:[['pyrope','Piropo','General de exércitos e operações em larga escala.'],['hessonite','Hessonita','Mobilização de tropas, coordenação de ataques e formação de exércitos.'],['demantoid','Demantoide','Supervisão científica; define a produção dos Injetores e coordena Peridotos.']]},
             {tier:'C',name:'Operárias',entries:[['agate','Ágata','Quartzo refinado; comanda até 20 soldados Quartzo.'],['nephrite','Nefrita','Piroxênio comum; piloto de naves com velocidade dobrada e única piloto de naves de guerra.'],['peridot','Peridoto','Equipe técnica dos jardins de infância, análise de terreno e operação de estruturas tecnológicas.'],['obsidian','Obsidianas','Operárias geocinéticas que manipulam o calor e aquecem mundos congelados.'],['snowflake_obsidian','Obsidianas Floco de Neve','Operárias geocinéticas que manipulam o frio e estabilizam mundos vulcânicos.']]},
             {tier:'D',name:'Soldados',entries:[['quartz','Família Quartzo','Cornalinas, Ametistas, Jaspers, Roses, Citrinos, Rubis, Onyx, Olho de Tigre, Calcedônias e Rutilos. A variante depende das condições geológicas.'],['topaz','Topázios','Soldados raros, guardas exclusivos de palácios e comitivas de Gems importantes.']]},
@@ -1488,7 +1490,7 @@
             tech: 0,
             energy: 0,
             refinedMaterials: 0,
-            refinedResources: {quartz:0,pyroxene:0,beryllium:0,cooled_obsidian:0},
+            refinedResources: {quartz:0,pyroxene:0,beryllium:0,cooled_obsidian:0,silicate:0},
             gemObjects: {total:0,byOwner:{},influenceByOwner:{},history:[]},
             ships: 0,
             structures: {},
@@ -1599,7 +1601,7 @@
             census: {
                 quartz: 3, peridot: 2, lapis: 1, sapphire: 1, hessonite: 0, demantoid:0,
                 bismuth: 1, ruby: 2, pearl: 1, prime: 2, offcolor: 0,
-                pyrope:0, agate:0, nephrite:0, jade:0, morganite:0, aquamarine:0, emerald:0, topaz:0, obsidian:0, snowflake_obsidian:0
+                pyrope:0, agate:0, nephrite:0, jade:0, morganite:0, aquamarine:0, emerald:0, topaz:0, obsidian:0, snowflake_obsidian:0, zircon:0
             },
             researchedTechs: {
                 diamond_drills: false,
@@ -2472,14 +2474,14 @@
         }
 
         function switchGovernanceSection(section) {
-            const allowed = ['council', 'court', 'order', 'disasters', 'demantoid', 'hessonite', 'morganite', 'aquamarine'];
+            const allowed = ['council', 'court', 'order', 'aristocracy', 'disasters', 'demantoid', 'hessonite', 'morganite', 'aquamarine'];
             if (!allowed.includes(section)) section = 'council';
             if (section === 'demantoid' && !isInjectorManagerActive()) section = 'council';
             if (section === 'hessonite' && !(window.isHessoniteCommandActive && window.isHessoniteCommandActive())) section = 'council';
             if (section === 'morganite' && Number(state.census.morganite||0)<1) section = 'council';
             if (section === 'aquamarine' && Number(state.census.aquamarine||0)<1) section = 'council';
             state.governanceSection = section;
-            ['council', 'court', 'order', 'disasters', 'demantoid', 'hessonite', 'morganite', 'aquamarine'].forEach(key => {
+            ['council', 'court', 'order', 'aristocracy', 'disasters', 'demantoid', 'hessonite', 'morganite', 'aquamarine'].forEach(key => {
                 const button = document.getElementById('governance-section-' + key);
                 if (!button) return;
                 button.classList.toggle('hidden', key === 'demantoid' && !isInjectorManagerActive());
@@ -2490,7 +2492,8 @@
             });
             const content = document.getElementById('governance-content');
             if (!content) return;
-            if (section === 'disasters') { if (window.renderDisastersTab) window.renderDisastersTab(content); else content.innerHTML = '<div class="card">O módulo de desastres ainda não foi carregado.</div>'; }
+            if (section === 'aristocracy') { if (window.renderAristocracyTab) window.renderAristocracyTab(content); else content.innerHTML = '<div class="card">O módulo da Aristocracia ainda não foi carregado.</div>'; }
+            else if (section === 'disasters') { if (window.renderDisastersTab) window.renderDisastersTab(content); else content.innerHTML = '<div class="card">O módulo de desastres ainda não foi carregado.</div>'; }
             else if (section === 'order') { if (window.renderOrderTab) window.renderOrderTab(content); else content.innerHTML = '<div class="card">O módulo de Ordem Pública ainda não foi carregado.</div>'; }
             else if (section === 'court') { if (window.renderDiamondCourtTab) window.renderDiamondCourtTab(content); else content.innerHTML = '<div class="card">O módulo da Corte ainda não foi carregado.</div>'; }
             else if (section === 'demantoid') renderDemantoidManagementTab(content);
@@ -3818,7 +3821,7 @@
 
         function updateStructureSimulation(dt,mode='all',allowUI=true) {
             if(mode!=='local'){
-                updateRedEyeMission(dt);updateCargoMissions(dt);updateFleetTravel(dt);updateGalaxyWarpExpeditions(dt);updateMatriarchChambers(dt);if(window.GempireCourt)GempireCourt.update(dt);if(window.GempireOffColors)GempireOffColors.update(dt);if(window.GempireResistance)GempireResistance.update(dt);if(window.GempireGemFate)GempireGemFate.update(dt);if(window.GempireDisasters)GempireDisasters.update(dt);
+                updateRedEyeMission(dt);updateCargoMissions(dt);updateFleetTravel(dt);updateGalaxyWarpExpeditions(dt);updateMatriarchChambers(dt);if(window.GempireCourt)GempireCourt.update(dt);if(window.GempireAristocracy)GempireAristocracy.update(dt);if(window.GempireOffColors)GempireOffColors.update(dt);if(window.GempireResistance)GempireResistance.update(dt);if(window.GempireGemFate)GempireGemFate.update(dt);if(window.GempireDisasters)GempireDisasters.update(dt);
                 if(window.updateHessonitePatrols)window.updateHessonitePatrols(dt);
             }
             if(mode==='global')return;
@@ -4031,7 +4034,7 @@
                             html+='<div class="founding-note">O Palácio Real não administra recursos nem exige Gems operadoras. Sua única função sistêmica é liberar a janela do Palácio na aba Trono Diamante.</div>';
                          } else if (def.id === 'mineral_extractor') html += '<div class="founding-note">Todos os ' + Math.max(0,Number(state.census.quartz)||0) + ' Quartzos da população mineram automaticamente, sem designação manual. Cada Quartzo extrai 1 mineral a cada 10s; cada Ágata acelera até 20 deles para 5s (2×).</div>';
                         else if (def.id === 'essence_chamber') html += '<div class="founding-note">Transfere essência da reserva interna da Diamante para o estoque.</div>';
-                          if(def.id==='refinery') html += '<div class="founding-note"><b>Refino automático · limite de 5% da coleta total</b><br>A Refinaria processa continuamente Quartzo, Piroxênio e Berílio assim que houver material bruto elegível e os operadores estiverem designados. Não é necessária intervenção manual.<br>Estoque bruto: Quartzo '+Number(state.founding.gatheredMinerals.quartz||0)+' · Piroxênio '+Number(state.founding.gatheredMinerals.pyroxene||0)+' · Berílio '+Number(state.founding.gatheredMinerals.beryllium||0)+'<br>Refinados: Quartzo '+Number(state.refinedResources.quartz||0)+' · Piroxênio '+Number(state.refinedResources.pyroxene||0)+' · Berílio '+Number(state.refinedResources.beryllium||0)+'</div>';
+                          if(def.id==='refinery') html += '<div class="founding-note"><b>Refino automático · limite de 5% da coleta total</b><br>A Refinaria processa continuamente Quartzo, Piroxênio, Berílio e Silicato (para Zircônias) assim que houver material bruto elegível e os operadores estiverem designados. Não é necessária intervenção manual.<br>Estoque bruto: Quartzo '+Number(state.founding.gatheredMinerals.quartz||0)+' · Piroxênio '+Number(state.founding.gatheredMinerals.pyroxene||0)+' · Berílio '+Number(state.founding.gatheredMinerals.beryllium||0)+' · Silicato '+Number(state.founding.gatheredMinerals.silicate||0)+'<br>Refinados: Quartzo '+Number(state.refinedResources.quartz||0)+' · Piroxênio '+Number(state.refinedResources.pyroxene||0)+' · Berílio '+Number(state.refinedResources.beryllium||0)+' · Silicato '+Number(state.refinedResources.silicate||0)+'</div>';
                         if(def.id==='reef') html += '<div class="founding-note">Pérolas armazenadas: <b>'+(state.founding.reefPearlInventory||[]).length+'</b>. Produção automática a partir de Nácar e distribuição automática às Diamantes e Aristocratas.</div>';
                         if (def.id === 'injector' && count < (def.maxCount || 1)) {
                             const nextReason = canBuildStructure(def);
@@ -4113,6 +4116,7 @@ ${hasAristocrats ? `
                 </div>` : `
                 <div class="card"><div class="card-header"><span class="card-title title-font">⚖️ Conferência de Diamantes</span><span class="badge">Aguardando Rank S</span></div><p style="font-size:11px;color:#94a3b8;line-height:1.5">Somente Gems Aristocratas podem convocar e conduzir conferências diante da autoridade Diamante. A conferência será desbloqueada quando houver ao menos uma Aristocrata no Império.</p></div>`}
 
+                ${window.GempireAristocracy?GempireAristocracy.throneCard():''}
                 ${(()=>{const c=window.GempireCourt&&GempireCourt.summary();if(!c)return '';const pending=c.requests+(c.dispute?1:0)+(c.vote?1:0);return '<div class="card card-amber"><div class="card-header"><span class="card-title title-font">👑 Corte das Diamantes</span><span class="badge">'+(pending?pending+' pendente(s)':'Em ordem')+'</span></div><p class="structure-desc">'+c.requests+' pedido(s) · '+(c.dispute?'1 disputa · ':'')+(c.vote?'1 votação · ':'')+c.missions+' missão(ões) em andamento'+(c.rebels?' · <b style="color:#fb7185">'+c.rebels+' rebelde(s)</b>':'')+'</p><button class="btn btn-block" onclick="openDiamondCourt()">Abrir a Corte</button></div>';})()}
                 <!-- Dinastia de Diamantes Autônomas -->
                 <div class="card">
@@ -6247,7 +6251,7 @@ ${hasAristocrats ? `
                 const cards=reports.map(c=>{const rows=Object.entries(c.byType||{}).filter(([,n])=>Number(n)>0).sort((a,b)=>b[1]-a[1]).map(([type,n])=>'<div class="stat-box" style="display:flex;justify-content:space-between"><span>'+(FOUNDING_GEM_DATA[type]?.label||type)+'</span><b>'+Number(n).toLocaleString('pt-BR')+'</b></div>').join('');return '<div class="card card-cyan"><div class="card-header"><span class="card-title">◇ Corte de '+escapeHTML(c.name)+'</span><span class="badge">'+Number(c.total||0)+' Gems</span></div><div class="stat-box">Governança: <b>'+escapeHTML(c.planet||'Sem colônia')+'</b></div>'+(rows||'<small>Nenhuma Gem registrada.</small>')+'</div>';}).join('');
                 container.innerHTML=tabs+'<div class="card"><b>Cortes das Diamantes</b><p class="structure-desc">Distribuição política da população por corte. A distribuição territorial é exibida nos filtros de império e colônia.</p></div>'+(cards||'<div class="card">Nenhuma corte disponível.</div>');return;
             }
-            const keys=['quartz','peridot','bismuth','lapis','obsidian','snowflake_obsidian','sapphire','ruby','pearl','hessonite','pyrope','agate','nephrite','jade','morganite','aquamarine','emerald','topaz'];
+            const keys=['quartz','peridot','bismuth','lapis','obsidian','snowflake_obsidian','sapphire','ruby','pearl','hessonite','pyrope','agate','nephrite','jade','morganite','aquamarine','emerald','topaz','zircon'];
             const census=state.populationSubtab==='colony'?getPlanetCensus(activeId):getEmpireCensus(),counts={};keys.forEach(k=>counts[k]=Math.max(0,Number(census[k])||0));counts.prime=Math.max(0,Number(census.prime)||0);counts.offcolor=Math.max(0,Number(census.offcolor)||0);
             const gemTotal=keys.reduce((sum,key)=>sum+counts[key],0),diamondTotal=state.populationSubtab==='empire'?(state.matriarchs||[]).length+1:(state.activeDiamondColonyOwnerId?1:(planet.id==='homeworld'?1:(String(planet.governor||'').startsWith('matriarch_')?1:0)));
             const total=gemTotal+diamondTotal,rankS=state.populationSubtab==='colony'?Number(getPlanetCensus(activeId).prime)||0:Object.values(PLANETS).filter(p=>p.colonized).reduce((n,p)=>n+(Number(getPlanetCensus(p.id).prime)||0),0);
@@ -6297,11 +6301,12 @@ ${hasAristocrats ? `
                 pyrope:'General de alto escalão, especializado em exércitos e operações militares de larga escala.',
                 agate:'Comanda grupos de até 20 soldados Quartzo.',
                 nephrite:'Pilota naves com velocidade dobrada e é a única casta apta a operar naves de guerra.',
-                jade:'Aristocrata social feita de piroxênio refinado; destinada a bailes e eventos futuros.',
+                jade:'Aristocrata social feita de piroxênio refinado; organiza os bailes da Corte e anima os salões.',
                 morganite:'Supervisiona automaticamente as Bismutos e pode ativar a construção automática.',
                 aquamarine:'Administra expedições de Lápis, Obsidianas e Obsidianas Floco de Neve, preparando planetas antes de qualquer colonização.',
                 emerald:'Amplia em dez vezes a capacidade de mobilização dos Generais.',
-                topaz:'Soldado raro e mais forte, reservado à guarda de palácios e comitivas importantes.'
+                topaz:'Soldado raro e mais forte, reservado à guarda de palácios e comitivas importantes.',
+                zircon:'Aristocrata jurista feita de silicato refinado; acusa ou defende as rés no Tribunal da Corte.'
             };
             const buffs={
                 quartz:'Infantaria. Cornalinas, Ametistas, Jaspers, Roses, Citrinos, Onyx, Olhos-de-Tigre, Calcedônias e Rutilos surgem conforme as condições geológicas.',
@@ -6317,11 +6322,12 @@ ${hasAristocrats ? `
                 pyrope:'Cada Piropo acrescenta capacidade de comando para grandes operações militares.',
                 agate:'Cada Ágata lidera até 20 soldados Quartzo.',
                 nephrite:'Dobra a velocidade das viagens interplanetárias e habilita pilotagem de naves de guerra.',
-                jade:'Sem bônus operacional ativo; sua função social será usada em sistemas futuros.',
+                jade:'Cada Jade eleva a qualidade dos bailes; a Mestra de Cerimônias acrescenta ainda mais.',
                 morganite:'Ativa a construção automática e reduz o tempo das obras.',
                 aquamarine:'Define equipes por rank, acompanha temperatura e geologia, solicita escoltas Hessonitas, registra interrupções e organiza a sequência de preparação planetária.',
                 emerald:'Multiplica por dez a capacidade total de mobilização dos Generais.',
-                topaz:'Guarda de elite para palácios e comitivas, com força superior aos Quartzos comuns.'
+                topaz:'Guarda de elite para palácios e comitivas, com força superior aos Quartzos comuns.',
+                zircon:'Sem Zircônias não há julgamentos; com duas ou mais, uma acusa e outra defende.'
             };
             const targetOptions=[['firstDiamond',state.firstDiamond.name],['aristocrats','Gems Aristocratas · Rank S'],...state.matriarchs.map(m=>['matriarch_'+m.id,m.name+' · Diamante'])];
             const selectedTarget=targetOptions.some(([id])=>id===state.pearlTarget)?state.pearlTarget:'firstDiamond';
@@ -7362,7 +7368,7 @@ function drawColony(time){
             state.gemTransfers = [];
             state.order = 100;
             state.matriarchs = [];
-            state.census = {quartz:0,peridot:0,lapis:0,sapphire:0,hessonite:0,bismuth:0,ruby:0,pearl:0,prime:0,offcolor:0,pyrope:0,agate:0,nephrite:0,jade:0,morganite:0,aquamarine:0,emerald:0,topaz:0,obsidian:0,snowflake_obsidian:0};
+            state.census = {quartz:0,peridot:0,lapis:0,sapphire:0,hessonite:0,bismuth:0,ruby:0,pearl:0,prime:0,offcolor:0,pyrope:0,agate:0,nephrite:0,jade:0,morganite:0,aquamarine:0,emerald:0,topaz:0,obsidian:0,snowflake_obsidian:0,zircon:0};
             state.aquamarineTerraforming={teams:[],completed:[],nextId:1,uiAccumulator:0};
             state.refinedResources={quartz:0,pyroxene:0,beryllium:0,cooled_obsidian:0};
             state.gemObjects={total:0,byOwner:{},influenceByOwner:{},history:[]};
@@ -7441,7 +7447,7 @@ function drawColony(time){
         }
 
         function getRefinableAmount(type){
-            if(!['quartz','pyroxene','beryllium','obsidian'].includes(type))return 0;
+            if(!['quartz','pyroxene','beryllium','obsidian','silicate'].includes(type))return 0;
             const f=state.founding||{};
             const collected=Math.max(0,Number(f.collectedMinerals&&f.collectedMinerals[type])||0);
             const processed=Math.max(0,Number(f.refineryProcessed&&f.refineryProcessed[type])||0);
@@ -7451,7 +7457,7 @@ function drawColony(time){
         }
         function refineSpecialMaterial(type){
             if(!structureIsOperational('refinery')){setStatusTicker('A Refinaria exige 1 Peridot e 5 Bismutos designados.',true);return;}
-            const labels={quartz:'Quartzo',pyroxene:'Piroxênio',beryllium:'Berílio',obsidian:'Obsidiana resfriada'};
+            const labels={quartz:'Quartzo',pyroxene:'Piroxênio',beryllium:'Berílio',obsidian:'Obsidiana resfriada',silicate:'Silicato'};
             if(!Object.prototype.hasOwnProperty.call(labels,type))return;
             const amount=getRefinableAmount(type);
             if(amount<1){setStatusTicker('Ainda não há material disponível para refino: o limite acumulado é 5% do total coletado.',true);return;}
@@ -7466,7 +7472,7 @@ function drawColony(time){
 
         function processAutomaticRefinery(){
             if(!structureIsOperational('refinery'))return 0;
-            const labels={quartz:'Quartzo',pyroxene:'Piroxênio',beryllium:'Berílio',obsidian:'Obsidiana resfriada'};
+            const labels={quartz:'Quartzo',pyroxene:'Piroxênio',beryllium:'Berílio',obsidian:'Obsidiana resfriada',silicate:'Silicato'};
             const f=state.founding;
             f.refineryProcessed=f.refineryProcessed||{quartz:0,pyroxene:0,beryllium:0,obsidian:0};
             f.gatheredMinerals=f.gatheredMinerals||{};
@@ -7599,11 +7605,12 @@ function drawColony(time){
             pyrope:{label:'Piropo',mineral:'garnet',color:'#b91c1c',role:'General de exércitos e operações em larga escala',elements:'Granada piropo',mineralName:'Granada piropo'},
             agate:{label:'Ágata',mineral:'quartz',refinedMaterial:'quartz',color:'#d6a77a',role:'Comanda grupos de até 20 soldados Quartzo por Ágata',elements:'Quartzo microcristalino refinado',mineralName:'Quartzo refinado'},
             nephrite:{label:'Nefrita',mineral:'pyroxene',color:'#65a30d',role:'Pilota naves com velocidade dobrada; única casta apta a pilotar naves de guerra',elements:'Piroxênio',mineralName:'Piroxênio comum'},
-            jade:{label:'Jade',mineral:'pyroxene',refinedMaterial:'pyroxene',color:'#34d399',role:'Aristocrata de eventos sociais e bailes; sistema social futuro',elements:'Piroxênio refinado',mineralName:'Piroxênio refinado'},
+            jade:{label:'Jade',mineral:'pyroxene',refinedMaterial:'pyroxene',color:'#34d399',role:'Aristocrata de eventos sociais e bailes da Corte',elements:'Piroxênio refinado',mineralName:'Piroxênio refinado'},
             morganite:{label:'Morganita',mineral:'beryllium',refinedMaterial:'beryllium',color:'#f0a6c2',role:'Aristocrata que comanda Bismutos e supervisiona construções',elements:'Berílio refinado',mineralName:'Berílio refinado',climate:'hot'},
             aquamarine:{label:'Água-marinha',mineral:'beryllium',refinedMaterial:'beryllium',color:'#67e8f9',role:'Aristocrata que envia Lápis-Lazúlis a mundos elegíveis',elements:'Berílio refinado',mineralName:'Berílio refinado',climate:'coldOrOcean'},
             emerald:{label:'Esmeralda',mineral:'beryllium',refinedMaterial:'beryllium',color:'#34d399',role:'Aristocrata que comanda Hessonitas e mobilização em larga escala',elements:'Berílio refinado',mineralName:'Berílio refinado',climate:'temperate'},
-            topaz:{label:'Topázio',mineral:'topaz',color:'#f59e0b',role:'Soldado raro reservado à guarda de palácios e comitivas importantes',elements:'Topázio',mineralName:'Topázio bruto'}
+            topaz:{label:'Topázio',mineral:'topaz',color:'#f59e0b',role:'Soldado raro reservado à guarda de palácios e comitivas importantes',elements:'Topázio',mineralName:'Topázio bruto'},
+            zircon:{label:'Zircônia',mineral:'silicate',refinedMaterial:'silicate',color:'#5eead4',role:'Aristocrata jurista; acusa e defende nos julgamentos da Corte',elements:'ZrSiO₄ (silicato de zircônio refinado)',mineralName:'Silicato refinado'}
         };
 
         const PRIMITIVE_MINERAL_FINDS = [
@@ -8112,7 +8119,7 @@ function drawColony(time){
                 state.constructionQueue=Array.isArray(state.constructionQueue)?state.constructionQueue:(state.construction&&state.construction.active?[state.construction]:[]);
                 state.construction=state.constructionQueue[0]||null;
                 state.currentScreen='throne';
-                state.governanceSection = ['council','court','order','disasters','demantoid','hessonite','morganite','aquamarine'].includes(state.governanceSection) ? state.governanceSection : 'council';
+                state.governanceSection = ['council','court','order','aristocracy','disasters','demantoid','hessonite','morganite','aquamarine'].includes(state.governanceSection) ? state.governanceSection : 'council';
                 state.morganiteAutoBuild = state.morganiteAutoBuild !== false;
                 ensureMorganiteArchitectureState();
                 state.structures.diamond_quarters=Number(state.structures.diamond_quarters)||0;
@@ -8144,7 +8151,7 @@ function drawColony(time){
                 PLANETS.homeworld.gemObjects = Array.isArray(PLANETS.homeworld.gemObjects)?PLANETS.homeworld.gemObjects:[];
                 state.census = state.census || {};
                 state.census.demantoid=Math.max(0,Number(state.census.demantoid)||0);
-                ['quartz','peridot','lapis','sapphire','hessonite','demantoid','bismuth','ruby','pearl','prime','offcolor','pyrope','agate','nephrite','jade','morganite','aquamarine','emerald','topaz','obsidian','snowflake_obsidian'].forEach(k=>state.census[k]=Math.max(0,Number(state.census[k])||0));
+                ['quartz','peridot','lapis','sapphire','hessonite','demantoid','bismuth','ruby','pearl','prime','offcolor','pyrope','agate','nephrite','jade','morganite','aquamarine','emerald','topaz','obsidian','snowflake_obsidian','zircon'].forEach(k=>state.census[k]=Math.max(0,Number(state.census[k])||0));
                 state.founding.gatheredMinerals=Object.assign({quartz:0,silicate:0,corundum:0,metallic:0,nacre:0,garnet:0,olivine:0,lapisrock:0,pyroxene:0,beryllium:0,obsidian:0,topaz:0},state.founding.gatheredMinerals||{});
                 state.founding.collectedMinerals=Object.assign({},state.founding.gatheredMinerals,state.founding.collectedMinerals||{});
                 state.founding.refineryProcessed=Object.assign({quartz:0,pyroxene:0,beryllium:0,obsidian:0},state.founding.refineryProcessed||{});
@@ -8304,5 +8311,6 @@ function drawColony(time){
     <script src="gempire-offcolors.js"></script>
     <script src="gempire-resistance.js"></script>
     <script src="gempire-disasters.js"></script>
+    <script src="gempire-aristocracy.js"></script>
 </body>
 </html>
