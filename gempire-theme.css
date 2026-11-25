@@ -468,3 +468,46 @@ body.game-paused::after{content:'TEMPO PAUSADO';position:fixed;top:58px;left:50%
 .intro-caption small{display:block;margin-top:6px;font-size:clamp(12px,1.5vw,16px);color:#d8c8ff;letter-spacing:.14em;text-transform:uppercase;text-shadow:0 2px 4px rgba(0,0,0,.8)}
 .intro-skip{position:absolute;top:16px;right:16px;padding:8px 16px;border-radius:20px;border:1px solid rgba(233,221,255,.4);background:rgba(20,10,40,.55);color:#e9ddff;font:600 13px "Exo 2","Segoe UI",sans-serif;cursor:pointer}
 .intro-skip:hover{background:rgba(60,30,110,.7)}
+
+/* ---------- Editor da Primeira Diamante ---------- */
+.game-menu-shell.founder-mode{width:min(1120px,calc(100vw - 24px));max-height:none;overflow:visible;align-self:flex-start;margin:12px auto}
+.game-menu-overlay:has(.founder-mode){align-items:flex-start}
+.game-menu-shell.founder-mode .game-menu-brand{padding:0 0 10px}
+.game-menu-shell.founder-mode .game-menu-brand .game-menu-mark,.game-menu-shell.founder-mode .game-menu-brand p{display:none}
+.founder-editor{display:grid;grid-template-columns:minmax(260px,360px) 1fr;gap:18px;align-items:start}
+.founder-preview{position:sticky;top:0;display:flex;flex-direction:column;align-items:center;gap:6px}
+.founder-preview canvas{width:100%;max-width:340px;aspect-ratio:340/460;height:auto;border-radius:14px;border:1px solid rgba(201,166,255,.35);box-shadow:0 0 30px rgba(140,92,220,.25);cursor:crosshair}
+.founder-preview b{font:700 18px "Exo 2","Segoe UI",sans-serif;color:#f6efff;text-align:center}
+.founder-preview small{color:var(--text-muted,#b4a3d4);font-size:10px;text-align:center}
+.founder-form{gap:10px}
+.founder-section{display:flex;flex-direction:column;gap:7px;padding:10px 12px;border:1px solid rgba(201,166,255,.18);border-radius:12px;background:rgba(20,10,40,.45)}
+.founder-section h3{font:800 10px "Exo 2","Segoe UI",sans-serif;letter-spacing:.16em;text-transform:uppercase;color:#f2cf86;margin:0}
+.founder-section label{margin:2px 0 0}
+.founder-colors{display:grid;grid-template-columns:repeat(3,minmax(0,1fr));gap:8px}
+.founder-color{display:flex;flex-direction:column;gap:4px;margin:0!important}
+.founder-color input{height:40px!important;padding:3px!important;cursor:pointer}
+.founder-color span{font-size:10px;color:var(--text-muted,#b4a3d4);text-align:center}
+.founder-palettes{display:grid;grid-template-columns:repeat(8,minmax(0,1fr));gap:6px}
+.founder-palette{display:flex;flex-direction:column;align-items:center;gap:3px;padding:4px;border-radius:8px;border:1px solid rgba(201,166,255,.2);background:rgba(10,5,25,.5);color:#e9ddff;cursor:pointer}
+.founder-palette i{display:block;width:100%;height:22px;border-radius:5px;border:1px solid rgba(255,255,255,.25)}
+.founder-palette span{font-size:8.5px;white-space:nowrap;overflow:hidden;text-overflow:ellipsis;max-width:100%}
+.founder-palette:hover{border-color:#d8b4fe}
+.founder-editor .diamond-vitral-gallery{grid-template-columns:repeat(auto-fill,minmax(92px,1fr));gap:6px}
+.founder-editor .diamond-vitral-option{padding:5px;gap:2px}
+.founder-editor .diamond-vitral-option canvas{height:128px}
+.founder-editor .diamond-vitral-option b{font-size:10px}
+.founder-chips{display:flex;flex-wrap:wrap;gap:6px}
+.founder-chip{display:inline-flex;align-items:center;gap:5px;padding:5px 10px;border-radius:16px;border:1px solid rgba(201,166,255,.3);background:rgba(10,5,25,.55);color:#e9ddff;font:600 11px "Exo 2","Segoe UI",sans-serif;cursor:pointer}
+.founder-chip img{width:20px;height:20px}
+.founder-chip.selected{border-color:#f2cf86;background:rgba(242,207,134,.16);color:#fff;box-shadow:0 0 10px rgba(242,207,134,.2)}
+span.founder-chip{cursor:default;opacity:.85}
+.founder-start{min-height:46px;font-size:14px}
+@media(max-width:760px){
+  .game-menu-shell.founder-mode{width:min(560px,96vw)}
+  .founder-editor{grid-template-columns:1fr}
+  .founder-preview{position:static}
+  .founder-preview canvas{max-width:250px}
+  .founder-palettes{grid-template-columns:repeat(4,minmax(0,1fr))}
+  .founder-editor .diamond-vitral-gallery{grid-template-columns:repeat(3,minmax(0,1fr))}
+  .founder-editor .diamond-vitral-option canvas{height:110px}
+}

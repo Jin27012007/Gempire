@@ -55,7 +55,7 @@
             const h=Math.round(Math.min(H*.56,W*.9)),scale=h/358,w=Math.round(h*.72);
             const a=document.createElement('canvas');a.width=w;a.height=h;const ac=a.getContext('2d');
             let ok=false;
-            try{if(typeof drawDiamondVitral==='function'){drawDiamondVitral(ac,w/2,h*.474,scale,o.style||'regal',o.colors||[coreHex],o.gemPos||'chest',o.gemCut||'lozenge');ok=ac.getImageData(0,0,w,h).data.some((v,i)=>i%4===3&&v>0);}}catch(e){ok=false;}
+            try{if(typeof drawDiamondVitral==='function'){drawDiamondVitral(ac,w/2,h*.474,scale,o.style||'regal',o.colors||[coreHex],o.gemPos||'chest',o.gemCut||'lozenge',o.gemSize||'medium');ok=ac.getImageData(0,0,w,h).data.some((v,i)=>i%4===3&&v>0);}}catch(e){ok=false;}
             if(!ok){ac.clearRect(0,0,w,h);ac.translate(w/2,h*.5);const s=h*.32;ac.beginPath();ac.moveTo(0,-s);ac.lineTo(s*.62,0);ac.lineTo(0,s);ac.lineTo(-s*.62,0);ac.closePath();const g=ac.createLinearGradient(-s,-s,s,s);g.addColorStop(0,'#fff');g.addColorStop(.4,coreHex);g.addColorStop(1,rgba(col.map(v=>v*.4|0),1));ac.fillStyle=g;ac.fill();ac.lineWidth=4;ac.strokeStyle='rgba(255,255,255,.8)';ac.stroke();ac.setTransform(1,0,0,1,0,0);}
             const b=document.createElement('canvas');b.width=w;b.height=h;const bc=b.getContext('2d');bc.drawImage(a,0,0);bc.globalCompositeOperation='source-in';bc.fillStyle='#fff';bc.fillRect(0,0,w,h);
             diamond={img:a,white:b,w,h};
