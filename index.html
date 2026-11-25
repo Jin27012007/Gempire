@@ -675,6 +675,7 @@
                     <button id="governance-section-court" class="btn" onclick="switchGovernanceSection('court')">👑 Corte</button>
                     <button id="governance-section-order" class="btn" onclick="switchGovernanceSection('order')">⚖️ Ordem Pública</button>
                     <button id="governance-section-aristocracy" class="btn" onclick="switchGovernanceSection('aristocracy')">🎭 Aristocracia</button>
+                    <button id="governance-section-xeno" class="btn" onclick="switchGovernanceSection('xeno')">🧬 Xenobiologia</button>
                     <button id="governance-section-disasters" class="btn" onclick="switchGovernanceSection('disasters')">🌋 Desastres</button>
                     <button id="governance-section-demantoid" class="btn hidden" onclick="switchGovernanceSection('demantoid')">🔬 Demantoide</button>
                     <button id="governance-section-hessonite" class="btn hidden" onclick="switchGovernanceSection('hessonite')">⚔️ Hessonita</button>
@@ -924,6 +925,7 @@
             {id:'shipyard',name:'Estaleiro',category:'Transporte e Exploração',desc:'Bismutos constroem naves e Peridotos integram seus sistemas. Com o Estaleiro operacional, as classes de nave ficam disponíveis sem exigir Centro de Pesquisa.',cost:{minerals:90,tech:40},buildTime:40,prerequisites:['workshop','refinery','reactor'],workers:{bismuth:1,peridot:1},interaction:'Permite construir naves das classes Diamante, Elite, Guerra, Excursão e Rubi.',maxCount:1},
             
             {id:'bubble_room',name:'Sala das Bolhas',category:'Defesa Planetária',desc:'Quando uma Gem sofre um ferimento, sua forma de luz se desfaz (poof) e a gema cai, vulnerável até se reformar. A Sala das Bolhas guarda gemas embolhadas, que não se reformam: prisioneiras rebeldes, líderes capturadas e off-colors sob a lei de Embolhamento. Cada sala guarda 40 bolhas.',cost:{minerals:80,tech:30},buildTime:35,prerequisites:['workshop'],workers:{},interaction:'Guarda até 40 gemas embolhadas. As decisões sobre as bolhas ficam na aba Ordem Pública.',maxCount:5},
+            {id:'zoo',name:'Zoológico Orbital',category:'Corte e Residências',desc:'Estação de habitats selados onde casais de espécies alienígenas vivem a salvo da extinção. Cada Zoológico tem 4 recintos. Espécimes rendem estudos contínuos e prestígio imperial e podem ser reintroduzidos no mundo de origem. As Diamantes Grandiosas adoram; prender seres pensantes revolta as Gentis.',cost:{minerals:220,tech:80},buildTime:70,prerequisites:['research_center'],workers:{},interaction:'Recintos para espécimes alienígenas (aba Governo · Xenobiologia).',maxCount:3},
             {id:'shield_generator',name:'Gerador de Escudo',category:'Defesa Planetária',desc:'Barreira automática contra tempestades solares. Quando operacional e abastecido pelo Reator, o escudo protege a rede elétrica planetária e evita apagões durante eventos solares.',cost:{minerals:70,tech:25},buildTime:34,prerequisites:['reactor','defense_tower'],workers:{ruby:1,peridot:1},interaction:'Proteção automática da rede elétrica contra tempestades solares.',maxCount:2},
             {id:'red_eye',name:'Olho Vermelho',category:'Transporte e Exploração',desc:'Sonda orbital autônoma, visível como um planeta anão. Cada mundo pode abrigar até três Olhos Vermelhos em órbitas independentes. Pode ser enviada a mundos desconhecidos para retornar com dados de tamanho, distância, temperatura e composição; também rastreia Gems fugitivas e Off-Colors em colônias antigas.',cost:{minerals:150,tech:80},buildTime:60,prerequisites:['shipyard','galaxy_warp','reactor'],workers:{peridot:2,bismuth:1},interaction:'Envia sondas de reconhecimento e varreduras de rastreamento.',maxCount:3},
             {id:'royal_palace',name:'Palácio Real',category:'Corte e Residências',desc:'Construção exclusiva de Homeworld. Sua conclusão desbloqueia a janela do Palácio Real na aba Trono Diamante. Não exige Gems designadas para funcionar.',cost:{minerals:250,tech:150},buildTime:90,prerequisites:['red_eye','research_center'],workers:{},interaction:'Desbloqueia a janela do Palácio Real na aba Trono Diamante.',maxCount:1},
@@ -2474,14 +2476,14 @@
         }
 
         function switchGovernanceSection(section) {
-            const allowed = ['council', 'court', 'order', 'aristocracy', 'disasters', 'demantoid', 'hessonite', 'morganite', 'aquamarine'];
+            const allowed = ['council', 'court', 'order', 'aristocracy', 'xeno', 'disasters', 'demantoid', 'hessonite', 'morganite', 'aquamarine'];
             if (!allowed.includes(section)) section = 'council';
             if (section === 'demantoid' && !isInjectorManagerActive()) section = 'council';
             if (section === 'hessonite' && !(window.isHessoniteCommandActive && window.isHessoniteCommandActive())) section = 'council';
             if (section === 'morganite' && Number(state.census.morganite||0)<1) section = 'council';
             if (section === 'aquamarine' && Number(state.census.aquamarine||0)<1) section = 'council';
             state.governanceSection = section;
-            ['council', 'court', 'order', 'aristocracy', 'disasters', 'demantoid', 'hessonite', 'morganite', 'aquamarine'].forEach(key => {
+            ['council', 'court', 'order', 'aristocracy', 'xeno', 'disasters', 'demantoid', 'hessonite', 'morganite', 'aquamarine'].forEach(key => {
                 const button = document.getElementById('governance-section-' + key);
                 if (!button) return;
                 button.classList.toggle('hidden', key === 'demantoid' && !isInjectorManagerActive());
@@ -2492,7 +2494,8 @@
             });
             const content = document.getElementById('governance-content');
             if (!content) return;
-            if (section === 'aristocracy') { if (window.renderAristocracyTab) window.renderAristocracyTab(content); else content.innerHTML = '<div class="card">O módulo da Aristocracia ainda não foi carregado.</div>'; }
+            if (section === 'xeno') { if (window.renderXenoTab) window.renderXenoTab(content); else content.innerHTML = '<div class="card">O módulo de Xenobiologia ainda não foi carregado.</div>'; }
+            else if (section === 'aristocracy') { if (window.renderAristocracyTab) window.renderAristocracyTab(content); else content.innerHTML = '<div class="card">O módulo da Aristocracia ainda não foi carregado.</div>'; }
             else if (section === 'disasters') { if (window.renderDisastersTab) window.renderDisastersTab(content); else content.innerHTML = '<div class="card">O módulo de desastres ainda não foi carregado.</div>'; }
             else if (section === 'order') { if (window.renderOrderTab) window.renderOrderTab(content); else content.innerHTML = '<div class="card">O módulo de Ordem Pública ainda não foi carregado.</div>'; }
             else if (section === 'court') { if (window.renderDiamondCourtTab) window.renderDiamondCourtTab(content); else content.innerHTML = '<div class="card">O módulo da Corte ainda não foi carregado.</div>'; }
@@ -3821,7 +3824,7 @@
 
         function updateStructureSimulation(dt,mode='all',allowUI=true) {
             if(mode!=='local'){
-                updateRedEyeMission(dt);updateCargoMissions(dt);updateFleetTravel(dt);updateGalaxyWarpExpeditions(dt);updateMatriarchChambers(dt);if(window.GempireCourt)GempireCourt.update(dt);if(window.GempireAristocracy)GempireAristocracy.update(dt);if(window.GempireOffColors)GempireOffColors.update(dt);if(window.GempireResistance)GempireResistance.update(dt);if(window.GempireGemFate)GempireGemFate.update(dt);if(window.GempireDisasters)GempireDisasters.update(dt);
+                updateRedEyeMission(dt);updateCargoMissions(dt);updateFleetTravel(dt);updateGalaxyWarpExpeditions(dt);updateMatriarchChambers(dt);if(window.GempireCourt)GempireCourt.update(dt);if(window.GempireAristocracy)GempireAristocracy.update(dt);if(window.GempireXeno)GempireXeno.update(dt);if(window.GempireOffColors)GempireOffColors.update(dt);if(window.GempireResistance)GempireResistance.update(dt);if(window.GempireGemFate)GempireGemFate.update(dt);if(window.GempireDisasters)GempireDisasters.update(dt);
                 if(window.updateHessonitePatrols)window.updateHessonitePatrols(dt);
             }
             if(mode==='global')return;
@@ -4673,6 +4676,7 @@ ${hasAristocrats ? `
             }
             // Sabotagens, insurreição e mundo rebelde derrubam a produção.
             if(window.GempireDisasters){const f=GempireDisasters.yieldFactor(planet);if(f!==1)['min','tech','white','yellow','blue','pink'].forEach(k=>result[k]*=f);}
+            if(window.GempireXeno){const f=GempireXeno.yieldFactor(planet),e=GempireXeno.essenceFactor(planet);if(f!==1)['min','tech'].forEach(k=>result[k]*=f);if(e!==1)['white','yellow','blue','pink'].forEach(k=>result[k]*=e);}
             if(window.GempireResistance){const f=GempireResistance.yieldFactor(planet);if(f!==1)['min','tech','white','yellow','blue','pink'].forEach(k=>result[k]*=f);}
             return result;
         }
@@ -6662,6 +6666,7 @@ ${hasAristocrats ? `
           lunar_base:{kind:'hall',color:'#94a3b8',accent:'#e2e8f0',glow:'#cbd5e1'},
           shield_generator:{kind:'shield',color:'#60a5fa',accent:'#dbeafe',glow:'#93c5fd'},
           bubble_room:{kind:'chamber',color:'#f0abfc',accent:'#fdf4ff',glow:'#e879f9'},
+          zoo:{kind:'chamber',color:'#86efac',accent:'#f0fdf4',glow:'#4ade80'},
           red_eye:{kind:'orbital',color:'#ef4444',accent:'#fecaca',glow:'#f87171'},
           royal_palace:{kind:'palace',color:'#a78bfa',accent:'#ddd6fe',glow:'#c4b5fd'}
         };
@@ -8227,7 +8232,7 @@ function drawColony(time){
                 state.constructionQueue=Array.isArray(state.constructionQueue)?state.constructionQueue:(state.construction&&state.construction.active?[state.construction]:[]);
                 state.construction=state.constructionQueue[0]||null;
                 state.currentScreen='throne';
-                state.governanceSection = ['council','court','order','aristocracy','disasters','demantoid','hessonite','morganite','aquamarine'].includes(state.governanceSection) ? state.governanceSection : 'council';
+                state.governanceSection = ['council','court','order','aristocracy','xeno','disasters','demantoid','hessonite','morganite','aquamarine'].includes(state.governanceSection) ? state.governanceSection : 'council';
                 state.morganiteAutoBuild = state.morganiteAutoBuild !== false;
                 ensureMorganiteArchitectureState();
                 state.structures.diamond_quarters=Number(state.structures.diamond_quarters)||0;
@@ -8420,5 +8425,6 @@ function drawColony(time){
     <script src="gempire-resistance.js"></script>
     <script src="gempire-disasters.js"></script>
     <script src="gempire-aristocracy.js"></script>
+    <script src="gempire-xenobio.js"></script>
 </body>
 </html>

@@ -441,3 +441,20 @@ body.game-paused::after{content:'TEMPO PAUSADO';position:fixed;top:58px;left:50%
 .ar-noble .badge{white-space:nowrap}
 @media(max-width:600px){#governance-content>.card.ar-wide{grid-column:auto}.ar-grid{grid-template-columns:minmax(0,1fr)}}
 .structure-preview{display:block;width:160px;height:104px;margin:2px auto 0;border-radius:10px}
+
+/* ---------- Xenobiologia ---------- */
+.xeno-list{display:grid;grid-template-columns:repeat(auto-fill,minmax(300px,1fr));gap:8px;margin-top:8px}
+.xeno-card{display:grid;grid-template-columns:120px 1fr;gap:10px;padding:8px;border-radius:10px;background:rgba(20,10,40,.45);border:1px solid rgba(201,166,255,.18);border-left:3px solid hsl(var(--hue,270),70%,60%)}
+.xeno-card.xeno-unknown{opacity:.7;border-left-color:#64748b}
+.xeno-card .court-actions .btn{min-width:0;font-size:10px;padding:4px 6px}
+.xeno-info{min-width:0;display:flex;flex-direction:column;gap:3px}
+.xeno-portrait{width:120px;height:84px;border-radius:8px;background:rgba(10,5,25,.5)}
+.xeno-zoo{display:grid;grid-template-columns:repeat(auto-fill,minmax(150px,1fr));gap:8px;margin:6px 0}
+.xeno-pen{display:flex;flex-direction:column;align-items:center;gap:4px;padding:8px;border-radius:10px;background:rgba(20,10,40,.45);border:1px solid rgba(134,239,172,.3);text-align:center}
+.xeno-pen .btn{font-size:10px;padding:4px 6px}
+#governance-content>.card.xeno-world{grid-column:1/-1}
+@media(max-width:600px){.xeno-list{grid-template-columns:minmax(0,1fr)}.xeno-card{grid-template-columns:96px 1fr}.xeno-portrait{width:96px;height:68px}#governance-content>.card.xeno-world{grid-column:auto}}
+.xeno-name{font-size:13px;line-height:1.2}
+.xeno-badges{display:flex;flex-wrap:wrap;gap:4px}
+.xeno-badges .badge{white-space:nowrap;font-size:9px}
+.court-bar.xeno-bar{grid-template-columns:64px 1fr 74px}

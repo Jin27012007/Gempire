@@ -103,6 +103,7 @@
         if(planet.demantoidSupervisor||Number(censusOf(planet).demantoid)>0)p*=.6;
         // Jardim de infância danificado por terremoto, asteroide ou lava.
         if(window.GempireDisasters)p+=GempireDisasters.offColorBonus(planet);
+        if(window.GempireXeno)p+=GempireXeno.offColorBonus(planet);
         return Math.min(.35,p*mult());
     }
     function onBatch(planet,caste,quantity){
