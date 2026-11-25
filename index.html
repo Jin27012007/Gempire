@@ -6798,9 +6798,101 @@ ${hasAristocrats ? `
             ctx.restore();
         }
 
+        // --- CIDADE: ruas e edifícios decorativos que crescem com a colônia ---
+        const COLONY_CITY_CACHE={};
+        const CITY_MAX_LOTS=240;
+        function structurePlanarPlacements(camera){
+            const list=[];
+            STRUCTURE_CATALOG.forEach((def,index)=>{
+                const count=structureCount(def.id);if(count<=0||def.id==='red_eye')return;
+                for(let instance=0;instance<Math.min(count,def.maxCount||1);instance++){
+                    let angle,ratio;
+                    if(def.id==='injector'){angle=instance*2.399963229728653;ratio=.28+(instance%3)*.17;}
+                    else if(def.id==='royal_palace'){angle=-Math.PI/2-camera.rotation;ratio=.70;}
+                    else if(def.id==='diamond_quarters'||def.id==='essence_chamber'){angle=instance*2.399963229728653;ratio=.38+(instance%4)*.12;}
+                    else{angle=index*2.399963229728653+.55+instance*.16;ratio=.39+(index%3)*.13+instance*.025;}
+                    list.push({id:def.id,a:angle,r:ratio,px:Math.cos(angle)*ratio,py:Math.sin(angle)*ratio});
+                }
+            });
+            return list;
+        }
+        function colonyCityLots(planet){
+            const key=planet.id+'|'+(state.galaxy?.seed||0);
+            if(COLONY_CITY_CACHE[key])return COLONY_CITY_CACHE[key];
+            let h=2166136261;for(const ch of key){h^=ch.charCodeAt(0);h=Math.imul(h,16777619);}
+            let v=h>>>0;const rnd=()=>{v+=0x6D2B79F5;let t=v;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return((t^(t>>>14))>>>0)/4294967296;};
+            const lots=[];
+            for(let i=0;i<CITY_MAX_LOTS+40;i++){const a=rnd()*Math.PI*2,r=.1+Math.sqrt(rnd())*.78;lots.push({a,r,px:Math.cos(a)*r,py:Math.sin(a)*r,order:r+rnd()*.35,variant:rnd(),pick:rnd()});}
+            lots.sort((x,y)=>x.order-y.order);
+            const pools=[[['house',4],['block',3],['dome',1.2],['pillar',1],['plaza',.6]],[['block',3],['tower',3],['house',2],['pillar',2],['ribs',1.5],['dome',1],['spire',1],['plaza',1]],[['tower',4],['spire',3],['pillar',2],['ribs',2],['block',2],['plaza',1],['statue',.35]]];
+            let statues=0;
+            lots.forEach((l,i)=>{const pool=pools[i<30?0:i<85?1:2];const tot=pool.reduce((a,x)=>a+x[1],0);let k=l.pick*tot,kind=pool[0][0];for(const [n,w] of pool){if(k<w){kind=n;break;}k-=w;}if(kind==='statue'&&++statues>3)kind='spire';l.kind=kind;});
+            // Ruas: cada lote liga-se ao vizinho anterior mais próximo.
+            lots.forEach((l,i)=>{let best=-1,bd=1e9;for(let j=0;j<i;j++){const d=Math.hypot(l.px-lots[j].px,l.py-lots[j].py);if(d<bd){bd=d;best=j;}}l.link=bd<.2?best:-1;});
+            return COLONY_CITY_CACHE[key]={lots};
+        }
+        function colonyDevelopment(planet){
+            const S=STRUCTURE_CATALOG.reduce((a,d)=>a+structureCount(d.id),0);
+            const census=state.census||{};const P=Object.entries(census).reduce((a,[k,n])=>k==='prime'||k==='offcolor'?a:a+Math.max(0,Number(n)||0),0);
+            const proj=(state.morganiteArchitecture?.completed||[]).filter(r=>r&&r.planetId===planet.id).length;
+            return {S,lots:Math.min(CITY_MAX_LOTS,Math.round(5*S+24*Math.log10(P+1)+10*proj))};
+        }
+        const CITY_SPRITES=new Map();
+        function citySprite(kind,variant,k,pal,palKey){
+            const vb=Math.min(2,Math.floor(variant*3)),sb=Math.max(1,Math.round(k*8)),key=kind+'|'+vb+'|'+sb+'|'+palKey;
+            let sp=CITY_SPRITES.get(key);if(sp)return sp;
+            if(CITY_SPRITES.size>600)CITY_SPRITES.clear();
+            const kk=sb/8,q=2,w=Math.ceil(26*kk)+6,h=Math.ceil(40*kk)+6,ox=w/2,oy=h-Math.ceil(6*kk)-3;
+            const cv=document.createElement('canvas');cv.width=w*q;cv.height=h*q;const c=cv.getContext('2d');c.scale(q,q);
+            GempirePlanetArt.drawCityBuilding(c,kind,{x:ox,y:oy,scale:kk,pal,variant:(vb+.5)/3});
+            sp={cv,w,h,ox,oy};CITY_SPRITES.set(key,sp);return sp;
+        }
+        let CITY_GLOW=null;
+        function cityGlowSprite(){if(CITY_GLOW)return CITY_GLOW;const cv=document.createElement('canvas');cv.width=cv.height=64;const c=cv.getContext('2d'),g=c.createRadialGradient(32,32,0,32,32,32);g.addColorStop(0,'rgba(245,220,255,.16)');g.addColorStop(1,'rgba(245,220,255,0)');c.fillStyle=g;c.fillRect(0,0,64,64);return CITY_GLOW=cv;}
+        function drawColonyCity(planet,cx,cy,radius,camera,time,size,rulerColors){
+            if(!window.GempirePlanetArt||!GempirePlanetArt.drawCityBuilding)return;
+            const dev=colonyDevelopment(planet);if(dev.lots<1&&dev.S<1)return;
+            const rot=camera.rotation,{lots}=colonyCityLots(planet),hubs=structurePlanarPlacements(camera);
+            const scr=(px,py)=>{const a=Math.atan2(py,px)+rot,r=Math.hypot(px,py);return [cx+Math.cos(a)*radius*r,cy+Math.sin(a)*radius*r*.78];};
+            const built=[];let n=0;
+            for(const l of lots){if(n>=dev.lots)break;if(hubs.some(hb=>Math.hypot(hb.px-l.px,hb.py-l.py)<.085))continue;built.push(l);n++;}
+            const builtSet=new Set(built);
+            const lit=!(window.GempireDisasters&&planet.hazards&&GempireDisasters._hz(planet).blackoutUntil>gameNow());
+            ctx.save();ctx.beginPath();ctx.ellipse(cx,cy,radius*.97,radius*.97,0,0,Math.PI*2);ctx.clip();
+            // Brilho urbano em torno dos polos.
+            const glowCol=rulerColors?.accent||'#e9ddff';
+            const glow=cityGlowSprite(),gr=radius*.16;[...hubs,...built.filter((l,i)=>i%9===0)].forEach(hb=>{const [x,y]=scr(hb.px,hb.py);ctx.drawImage(glow,x-gr,y-gr,gr*2,gr*2);});
+            // Ruas finas entre lotes.
+            // Piso urbano sob cada quarteirão.
+            ctx.beginPath();built.forEach(l=>{const [x,y]=scr(l.px,l.py),r=Math.hypot(l.px,l.py),w=radius*.04*(1-.3*r*r);ctx.moveTo(x-w,y);ctx.lineTo(x,y-w*.46);ctx.lineTo(x+w,y);ctx.lineTo(x,y+w*.46);ctx.closePath();});ctx.fillStyle='rgba(238,228,255,.30)';ctx.fill();ctx.strokeStyle='rgba(255,255,255,.22)';ctx.lineWidth=.6;ctx.stroke();
+            ctx.lineCap='round';ctx.strokeStyle='rgba(60,36,110,.35)';ctx.lineWidth=Math.max(2,radius*.012);ctx.beginPath();
+            built.forEach(l=>{let t=l.link>=0?lots[l.link]:null;if(!t||!builtSet.has(t)){let bd=1e9;hubs.forEach(hb=>{const d=Math.hypot(hb.px-l.px,hb.py-l.py);if(d<bd){bd=d;t=hb;}});if(bd>.22)t=null;}if(!t)return;const [x1,y1]=scr(l.px,l.py),[x2,y2]=scr(t.px,t.py);ctx.moveTo(x1,y1);ctx.lineTo(x2,y2);});
+            ctx.stroke();ctx.strokeStyle='rgba(246,238,255,.6)';ctx.lineWidth=Math.max(.8,radius*.005);ctx.stroke();
+            // Avenidas de luz ligando as estruturas (árvore mínima).
+            if(hubs.length){
+                const nodes=[{px:0,py:0},...hubs],inTree=[0],edges=[];
+                while(inTree.length<nodes.length){let best=null;inTree.forEach(i=>nodes.forEach((nd,j)=>{if(inTree.includes(j))return;const d=Math.hypot(nodes[i].px-nd.px,nodes[i].py-nd.py);if(!best||d<best.d)best={i,j,d};}));inTree.push(best.j);edges.push(best);}
+                edges.forEach((e,k)=>{const [x1,y1]=scr(nodes[e.i].px,nodes[e.i].py),[x2,y2]=scr(nodes[e.j].px,nodes[e.j].py);const mx=(x1+x2)/2,my=(y1+y2)/2,dx=x2-x1,dy=y2-y1,s=(k%2?1:-1)*.18;const qx=mx-dy*s,qy=my+dx*s;
+                    const g=ctx.createLinearGradient(x1,y1,x2,y2);g.addColorStop(0,'#f0abfc');g.addColorStop(1,'#a78bfa');
+                    ctx.globalAlpha=.32;ctx.strokeStyle=g;ctx.lineWidth=Math.max(2.4,radius*.02);ctx.beginPath();ctx.moveTo(x1,y1);ctx.quadraticCurveTo(qx,qy,x2,y2);ctx.stroke();
+                    ctx.globalAlpha=.9;ctx.lineWidth=Math.max(.9,radius*.006);ctx.stroke();ctx.globalAlpha=1;
+                    if(lit){const p=((time*.0002+k*.37)%1),u=1-p,px=u*u*x1+2*u*p*qx+p*p*x2,py=u*u*y1+2*u*p*qy+p*p*y2;ctx.fillStyle='#fdf4ff';ctx.beginPath();ctx.arc(px,py,Math.max(1,radius*.006),0,Math.PI*2);ctx.fill();}});
+            }
+            // Edifícios, do fundo para a frente.
+            const pal=GempirePlanetArt.structPalette(rulerColors),palKey=(rulerColors?.color||'-');
+            ctx.fillStyle='rgba(255,236,170,.9)';
+            built.map(l=>{const [x,y]=scr(l.px,l.py);return {l,x,y};}).sort((a,b)=>a.y-b.y).forEach(({l,x,y})=>{
+                const r=Math.hypot(l.px,l.py),k=Math.max(.5,radius/390)*1.6*(1-.32*r*r),sp=citySprite(l.kind,l.variant,k,pal,palKey);
+                ctx.drawImage(sp.cv,x-sp.ox,y-sp.oy,sp.w,sp.h);
+                if(lit&&l.variant>.45&&l.kind!=='plaza'&&l.kind!=='statue'){ctx.fillRect(x+.4*k,y-3.5*k,Math.max(1,1.1*k),Math.max(1,1.1*k));}
+            });
+            ctx.restore();
+        }
+
         function drawHomeworldStructures(planet,cx,cy,radius,camera,time){
-            if(!planet||planet.id!=='homeworld')return;
-            const size=Math.max(.30,Math.min(.56,radius/390)),rulerColors=getPlanetRulerColors(planet);
+            if(!planet||(planet.id!=='homeworld'&&!planet.colonized))return;
+            const size=Math.max(.30,radius/390),rulerColors=getPlanetRulerColors(planet);
+            drawColonyCity(planet,cx,cy,radius,camera,time,size,rulerColors);
             if(structureCount('workshop')>0&&state.logisticsActive!==false&&structureIsOperational('reactor')){
                 const stock=Math.max(0,Number(state.minerals)||0),growth=Math.max(0,Math.min(1,Math.log1p(stock)/Math.log1p(50000)));
                 const orbitRadius=radius*(1.075+growth*.48),rotation=camera.rotation*.16;

@@ -1156,6 +1156,26 @@
         lunar_base(c,P,a,t){plate(c,P.blue);c.beginPath();c.ellipse(0,6,16,14,0,Math.PI,TAU);c.closePath();c.fillStyle=P.blue.light;c.fill();c.strokeStyle='rgba(27,15,48,.55)';c.lineWidth=.7;c.stroke();seam(c,[[-12,-2],[12,-2]]);seam(c,[[0,-8],[0,6]]);antenna(c,10,-4,10,'#38bdf8');},
         default(c,P,a,t){plate(c,P.main);block(c,0,10,12,5,16,P.main,8);}
     };
+    // Edifícios decorativos da cidade (crescem com o desenvolvimento da colônia).
+    const CITY_ART={
+        house(c,P,v){block(c,0,0,4,1.8,4+v*2,v>.5?P.pink:P.main,3);},
+        block(c,P,v){const h=7+v*5;block(c,0,0,5,2.2,h,v>.5?P.blue:P.main);windows(c,-4,-h+2,3,Math.floor(h/3),1.6,2.4,.5,'rgba(255,255,255,.55)');},
+        tower(c,P,v){const h=13+v*9;block(c,0,0,3.6,1.6,h,v>.5?P.blue:P.pink,4);windows(c,-2.6,-h+3,2,Math.floor(h/3.2),1.6,2.8,.5,'rgba(255,255,255,.6)');},
+        pillar(c,P,v){prism(c,-2.2,0,1.6,8+v*4,P.pink);prism(c,2,1,1.8,11+v*5,P.blue);},
+        spire(c,P,v){block(c,0,0,2.6,1.2,10+v*6,P.main,9);antenna(c,0,-(19+v*6),6,'#38bdf8');},
+        dome(c,P,v){c.beginPath();c.ellipse(0,0,5.5,5,0,Math.PI,TAU);c.closePath();c.fillStyle=P.blue.light;c.fill();c.strokeStyle='rgba(27,15,48,.5)';c.lineWidth=.6;c.stroke();seam(c,[[0,-5],[0,0]]);},
+        ribs(c,P,v){for(let k=0;k<4;k++){const x=-6+k*3.2;face(c,[[x,0],[x+2.6,0],[x+1.6,-7-k],[x-.6,-6-k]],k%2?P.blue.dark:P.blue.mid);}},
+        plaza(c,P,v){const tiles=['#fdf4ff','#f0abfc','#a5f3fc','#c4b5fd'];for(let i=0;i<2;i++)for(let j=0;j<2;j++){const ox=(i-j)*3.5,oy=(i+j)*1.6-1.6;face(c,[[ox-3.5,oy+1.6],[ox,oy],[ox+3.5,oy+1.6],[ox,oy+3.2]],tiles[(i*2+j+Math.floor(v*4))%4],'rgba(27,15,48,.35)');}},
+        statue(c,P,v){face(c,[[-3,0],[3,0],[2,-3],[-2,-3]],P.main.dark);face(c,[[-2,-3],[2,-3],[1.4,-12],[-1.4,-12]],'#f5f3ff');
+            [[-4,-15],[-2,-18],[0,-19.5],[2,-18],[4,-15]].forEach(([x,y],i)=>face(c,[[x*.3,-12],[x,y],[x*.5,y-2.5],[0,-13]],i%2?'#ede9fe':'#ffffff'));}
+    };
+    function drawCityBuilding(c,kind,opts={}){
+        const art=CITY_ART[kind]||CITY_ART.house;
+        c.save();c.translate(opts.x||0,opts.y||0);const s=opts.scale||1;c.scale(s,s);c.lineJoin='round';
+        art(c,opts.pal||structPalette(opts.palette),opts.variant||0);
+        if(opts.lit){c.fillStyle='rgba(255,236,170,.9)';c.beginPath();c.arc(.8,-3,.55,0,TAU);c.fill();}
+        c.restore();
+    }
     function drawStructure(c,id,opts={}){
         const art=STRUCTURE_ART[id]||STRUCTURE_ART.default;
         c.save();c.translate(opts.x||0,opts.y||0);const s=opts.scale||1;c.scale(s,s);
@@ -1191,5 +1211,5 @@
     }
     if(document.body)watchShipPreviews();else document.addEventListener('DOMContentLoaded',watchShipPreviews);
 
-    window.GempirePlanetArt={drawPlanet,drawSpaceBackground,drawStar,drawShip,drawRedEye,drawStructure,paintStructurePreviews,paintShipPreviews,BIOMES,_cache:{TEXTURE_CACHE,SPHERE_CACHE}};
+    window.GempirePlanetArt={drawPlanet,drawSpaceBackground,drawStar,drawShip,drawRedEye,drawStructure,paintStructurePreviews,drawCityBuilding,structPalette,paintShipPreviews,BIOMES,_cache:{TEXTURE_CACHE,SPHERE_CACHE}};
 })();
