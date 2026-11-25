@@ -6784,10 +6784,10 @@ ${hasAristocrats ? `
                 const x=cx+Math.cos(a)*rx,y=cy+Math.sin(a)*ry;
                 ctx.strokeStyle=i===0?'rgba(248,113,113,.25)':'rgba(248,113,113,.14)';
                 ctx.lineWidth=1;ctx.setLineDash([3,8]);ctx.beginPath();ctx.ellipse(cx,cy,rx,ry,0,0,Math.PI*2);ctx.stroke();ctx.setLineDash([]);
-                const eyeRadius=Math.max(7,radius*.052);
-                ctx.save();ctx.shadowColor='#ef4444';ctx.shadowBlur=8;
-                ctx.fillStyle='#7f1d1d';ctx.beginPath();ctx.arc(x,y,eyeRadius,0,Math.PI*2);ctx.fill();
-                ctx.shadowBlur=2;ctx.fillStyle='#fca5a5';ctx.beginPath();ctx.arc(x,y,Math.max(3,radius*.021),0,Math.PI*2);ctx.fill();
+                const eyeRadius=Math.max(8,radius*.058);
+                ctx.save();ctx.shadowColor='rgba(239,68,68,.55)';ctx.shadowBlur=8;
+                if(window.GempirePlanetArt&&GempirePlanetArt.drawRedEye)GempirePlanetArt.drawRedEye(ctx,x,y,eyeRadius,time+i*900);
+                else{ctx.fillStyle='#7f1d1d';ctx.beginPath();ctx.arc(x,y,eyeRadius,0,Math.PI*2);ctx.fill();}
                 ctx.restore();
             }
             ctx.restore();

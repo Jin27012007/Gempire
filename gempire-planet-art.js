@@ -857,6 +857,31 @@
         shade(c,[[x,y-s],[x+s*.7,y],[x,y+s],[x-s*.7,y]],color);
         shade(c,[[x,y-s],[x-s*.7,y],[x,y]],'rgba(255,255,255,.55)',false);
     }
+    // Olho Vermelho: disco creme, corpo laranja facetado e lente hexagonal com diafragma.
+    function drawRedEye(c,x,y,r,t){
+        c.save();c.translate(x,y);
+        c.lineWidth=Math.max(.6,r*.05);c.lineJoin='round';
+        c.beginPath();c.arc(0,0,r,0,TAU);c.fillStyle='#fbf1df';c.fill();c.strokeStyle='rgba(27,15,48,.55)';c.stroke();
+        c.save();c.beginPath();c.arc(-r*.04,r*.02,r*.88,0,TAU);c.clip();
+        const g=c.createRadialGradient(-r*.25,-r*.2,r*.1,0,0,r);g.addColorStop(0,'#fb9a5a');g.addColorStop(1,'#f1662d');c.fillStyle=g;c.fillRect(-r,-r,2*r,2*r);
+        c.globalAlpha=.16;for(let i=-3;i<=3;i++)for(let j=-3;j<=3;j++){const px=i*r*.32+(j%2?r*.16:0),py=j*r*.28;c.beginPath();c.moveTo(px,py-r*.14);c.lineTo(px+r*.16,py+r*.14);c.lineTo(px-r*.16,py+r*.14);c.closePath();c.fillStyle=(i+j)%2?'#ffd2a0':'#c2410c';c.fill();}
+        c.globalAlpha=1;
+        c.beginPath();c.moveTo(r*.15,-r);c.lineTo(r*.62,-r*.62);c.lineTo(r*.62,r*.3);c.lineTo(r,r*.35);c.lineTo(r,-r);c.closePath();c.fillStyle='rgba(250,205,180,.85)';c.fill();
+        c.strokeStyle='rgba(214,80,90,.8)';c.lineWidth=Math.max(.4,r*.03);
+        for(let k=0;k<4;k++){c.beginPath();c.moveTo(r*.2+k*r*.07,-r*(.98-k*.06));c.lineTo(r*.66+k*r*.05,-r*(.62-k*.08));c.lineTo(r*.66+k*r*.05,r*.3);c.stroke();}
+        for(let k=0;k<5;k++){c.beginPath();c.moveTo(r*.62,r*.3);c.lineTo(r,r*(.05+k*.12));c.stroke();}
+        c.restore();
+        c.beginPath();c.arc(-r*.04,r*.02,r*.88,0,TAU);c.strokeStyle='rgba(214,80,90,.75)';c.lineWidth=Math.max(.5,r*.04);c.stroke();
+        const hex=(R,ox,oy)=>{c.beginPath();for(let k=0;k<6;k++){const a=Math.PI/2+k*Math.PI/3;c.lineTo(ox+Math.cos(a)*R*.88,oy+Math.sin(a)*R);}c.closePath();};
+        const lx=-r*.1,ly=r*.04;
+        hex(r*.48,lx,ly);c.fillStyle='#fde3bd';c.fill();c.strokeStyle='#d6505a';c.lineWidth=Math.max(.5,r*.04);c.stroke();
+        hex(r*.34,lx,ly);c.fillStyle='#e0213f';c.fill();c.strokeStyle='#7f1d1d';c.stroke();
+        const open=.09+Math.sin((t||0)*.002)*.03;
+        c.strokeStyle='rgba(127,29,29,.9)';c.lineWidth=Math.max(.4,r*.025);
+        for(let k=0;k<6;k++){const a=Math.PI/2+k*Math.PI/3,b=a+Math.PI/3+.5;c.beginPath();c.moveTo(lx+Math.cos(a)*r*.3,ly+Math.sin(a)*r*.34);c.lineTo(lx+Math.cos(b)*r*open,ly+Math.sin(b)*r*open);c.stroke();}
+        hex(r*open,lx,ly);c.fillStyle='#1a0505';c.fill();
+        c.restore();
+    }
     const SHIP_ART={
         // Nau capitânia lapidada; o núcleo assume a cor da Diamante proprietária.
         diamond(c,col,t){
@@ -870,55 +895,111 @@
             c.beginPath();c.moveTo(-9,-8);c.lineTo(0,-2);c.lineTo(9,-8);c.moveTo(0,-2);c.lineTo(0,18);c.strokeStyle='rgba(27,15,48,.55)';c.stroke();
             gemCore(c,0,4,4.2,hull);
         },
-        // Losango da Elite Berílio com canhões laterais.
+        // Nave da Elite: octaedro verde com chevron e quatro hastes de pontas amarelo-limão.
         elite(c,col,t){
-            engine(c,0,13,3,11,'#9fe8ff',t);
-            shade(c,[[-11,-2],[-15,-2],[-15,4],[-11,4]],'#4a2f7a');shade(c,[[11,-2],[15,-2],[15,4],[11,4]],'#4a2f7a');
-            shade(c,[[0,-16],[12,0],[0,14],[-12,0]],'#8fd8c8');
-            shade(c,[[0,-16],[-12,0],[0,14]],'#c7f3e7',false);
-            c.strokeStyle=INK;poly(c,[[0,-16],[12,0],[0,14],[-12,0]]);c.stroke();
-            c.beginPath();c.moveTo(-12,0);c.lineTo(12,0);c.moveTo(0,-16);c.lineTo(0,14);c.strokeStyle='rgba(27,15,48,.45)';c.stroke();
-            gemCore(c,0,0,3,'#5eead4');
-        },
-        // Disco blindado de guerra (Nefritas).
-        war(c,col,t){
-            shade(c,[[-21,0],[-15,-1.5],[-15,3.5],[-21,2]],'#3d2a5e');shade(c,[[21,0],[15,-1.5],[15,3.5],[21,2]],'#3d2a5e');
-            c.beginPath();c.ellipse(0,2,18,9,0,0,TAU);c.fillStyle='#5b8a52';c.fill();c.strokeStyle=INK;c.stroke();
-            c.beginPath();c.ellipse(0,0,18,7.5,0,Math.PI,TAU);c.fillStyle='#86b86a';c.fill();
-            c.beginPath();c.ellipse(0,-3,8,7,0,Math.PI,TAU);c.closePath();c.fillStyle='#c9f2ff';c.fill();c.stroke();
-            c.beginPath();c.ellipse(-2,-6,3,2,-.4,0,TAU);c.fillStyle='rgba(255,255,255,.8)';c.fill();
-            for(let i=-3;i<=3;i++){c.beginPath();c.arc(i*4.6,4+Math.abs(i)*-.4,1.2,0,TAU);c.fillStyle=(Math.floor((t||0)/250)+i)%3===0?'#fff3a6':'#ffd24a';c.fill();}
-        },
-        // Excursão: casco em forma de mão em repouso.
-        excursion(c,col,t){
-            engine(c,0,13,4,10,'#f4a8e4',t);
-            [[-8,-6,-8],[-3,-9,-11],[2,-9,-11.5],[7,-6,-9]].forEach(([x,y,top])=>{
-                c.beginPath();c.moveTo(x-2.2,y+2);c.lineTo(x-2.2,y+top*.4);c.quadraticCurveTo(x,y+top*.95,x+2.2,y+top*.4);c.lineTo(x+2.2,y+2);c.closePath();
-                c.fillStyle='#e8c99a';c.fill();c.strokeStyle=INK;c.stroke();
+            engine(c,0,13,2.6,10,'#a7f3d0',t);
+            [[-17,-14],[17,-13],[-15,16],[17,15]].forEach(([x,y])=>{
+                const a=Math.atan2(y,x),nx=-Math.sin(a)*1.5,ny=Math.cos(a)*1.5;
+                shade(c,[[nx,ny],[x+nx,y+ny],[x-nx,y-ny],[-nx,-ny]],'#3dd598');
+                const tx=Math.cos(a),ty=Math.sin(a);
+                shade(c,[[x+tx*4,y+ty*4],[x-ty*3.2,y+tx*3.2],[x+ty*3.2,y-tx*3.2]],'#8be32c');
+                shade(c,[[x+tx*4,y+ty*4],[x-ty*3.2,y+tx*3.2],[x,y]],'#e3ff73',false);
             });
-            c.beginPath();c.moveTo(-11,-4);c.quadraticCurveTo(-13,10,0,13);c.quadraticCurveTo(13,10,11,-4);c.closePath();
-            c.fillStyle='#d8b07a';c.fill();c.strokeStyle=INK;c.stroke();
-            c.beginPath();c.moveTo(-11,-4);c.quadraticCurveTo(-12,6,-4,10);c.lineTo(-6,-4);c.closePath();c.fillStyle='rgba(255,255,255,.25)';c.fill();
-            c.beginPath();c.moveTo(-10,2);c.quadraticCurveTo(-16,0,-14,-6);c.lineTo(-10,-3);c.fillStyle='#c79b66';c.fill();c.strokeStyle=INK;c.stroke();
-            gemCore(c,0,3,2.6,'#86efac');
+            const T=[0,-15],L=[-14,3],R=[14,-1],B=[3,15],C=[0,3];
+            shade(c,[T,L,C],'#dcff7e',false);shade(c,[T,C,R],'#7dffd2',false);shade(c,[C,R,B],'#1e5136',false);shade(c,[L,C,B],'#3fd39b',false);
+            c.strokeStyle=INK;poly(c,[T,R,B,L]);c.stroke();
+            c.beginPath();c.moveTo(T[0],T[1]);c.lineTo(C[0],C[1]);c.lineTo(R[0],R[1]);c.moveTo(C[0],C[1]);c.lineTo(B[0],B[1]);c.strokeStyle='rgba(27,15,48,.35)';c.stroke();
+            shade(c,[[-5,-6],[0,-3.4],[5,-7],[0,-1]],'#1f5a3c');
         },
-        // Nave Rubi: gota vermelha compacta.
+        // Nave de Guerra (restaurada): casco ovoide perolado e iridescente, escotilha circular e pernas angulares.
+        war(c,col,t){
+            engine(c,-5,19,2.8,11,'#c4b5fd',t);engine(c,5,19,2.8,11,'#c4b5fd',t);
+            const leg=(pts,f)=>shade(c,pts,f);
+            [1,-1].forEach(sx=>{
+                leg([[8*sx,-6],[19*sx,-14],[22*sx,-11],[10*sx,-2]],'#d9dce6');
+                leg([[19*sx,-14],[25*sx,-12],[23*sx,6],[19*sx,5]],'#c3c7d4');
+                leg([[18*sx,4],[25*sx,4],[25*sx,8],[18*sx,8]],'#9ea3b4');
+                leg([[9*sx,8],[19*sx,6],[21*sx,9],[11*sx,12]],'#d0d3de');
+                leg([[19*sx,6],[23*sx,8],[22*sx,20],[18*sx,19]],'#b8bccb');
+            });
+            const g=c.createLinearGradient(-12,-17,12,21);
+            g.addColorStop(0,'#fbe3ee');g.addColorStop(.35,'#fbfbfd');g.addColorStop(.7,'#eef1f8');g.addColorStop(1,'#d6e4fb');
+            c.beginPath();c.ellipse(0,2,12.5,19.5,0,0,TAU);c.fillStyle=g;c.fill();c.strokeStyle=INK;c.stroke();
+            c.save();c.beginPath();c.ellipse(0,2,12.5,19.5,0,0,TAU);c.clip();
+            c.beginPath();c.ellipse(5,6,9,17,0,0,TAU);c.fillStyle='rgba(150,160,190,.22)';c.fill();
+            c.beginPath();c.ellipse(-4,-6,4,8,.2,0,TAU);c.fillStyle='rgba(255,215,235,.35)';c.fill();
+            c.restore();
+            c.strokeStyle='rgba(110,118,145,.6)';c.lineWidth*=.6;
+            c.beginPath();c.ellipse(0,2,9,15.5,0,-.3*Math.PI,1.3*Math.PI,true);c.stroke();
+            c.beginPath();c.moveTo(-12,4);c.lineTo(12,4);c.moveTo(0,4);c.lineTo(0,21);c.moveTo(-6,13);c.lineTo(6,13);c.stroke();
+            c.lineWidth/=.6;
+            c.beginPath();c.arc(0,-8,5.4,0,TAU);c.fillStyle='#f4f5fa';c.fill();c.strokeStyle=INK;c.stroke();
+            c.beginPath();c.arc(0,-8,3.6,0,TAU);c.strokeStyle='rgba(27,15,48,.7)';c.stroke();
+            c.beginPath();c.arc(0,-8,2.1,0,TAU);c.fillStyle='#e6e9f2';c.fill();c.strokeStyle='rgba(27,15,48,.45)';c.stroke();
+        },
+        // Excursão: mão de luz azul com veios verdes e punho cilíndrico.
+        excursion(c,col,t){
+            engine(c,0,17,4,11,'#5eead4',t);
+            const BLUE='#3a86ee',GLOW='#2ef5a8',LINE='rgba(170,215,255,.85)';
+            const finger=(x,y,len,w,ang)=>{
+                c.save();c.translate(x,y);c.rotate(ang);
+                c.beginPath();c.moveTo(-w/2,0);c.lineTo(-w/2,-len+w/2);c.arc(0,-len+w/2,w/2,Math.PI,0);c.lineTo(w/2,0);c.closePath();
+                c.fillStyle=BLUE;c.fill();c.strokeStyle='#1d4ed8';c.stroke();
+                c.beginPath();c.moveTo(-w/2,0);c.lineTo(-w/2,-len+w/2);c.arc(0,-len+w/2,w/2,Math.PI,Math.PI*1.5);c.lineTo(-w*.05,0);c.closePath();c.fillStyle=GLOW;c.globalAlpha=.85;c.fill();c.globalAlpha=1;
+                c.beginPath();c.moveTo(-w/2,-len*.45);c.lineTo(w/2,-len*.45);c.moveTo(-w/2,-len*.75);c.lineTo(w/2,-len*.75);c.strokeStyle=LINE;c.lineWidth*=.5;c.stroke();c.lineWidth*=2;
+                c.beginPath();c.ellipse(w*.12,-len+w*.9,w*.26,w*.42,0,0,TAU);c.fillStyle='#93d2ff';c.fill();
+                c.restore();
+            };
+            // punho
+            c.beginPath();c.moveTo(-5.5,7);c.lineTo(-5.5,15);c.ellipse(0,15,5.5,2.2,0,Math.PI,0,true);c.lineTo(5.5,7);c.closePath();c.fillStyle='#2f6fd6';c.fill();c.strokeStyle='#1d4ed8';c.stroke();
+            c.beginPath();c.ellipse(0,15.4,4.6,1.8,0,0,TAU);c.fillStyle='#1e3a8a';c.fill();
+            c.beginPath();c.rect(-3,14.8,6,1.2);c.fillStyle='#93c5fd';c.fill();
+            c.beginPath();c.rect(-5.5,8,2.4,7);c.fillStyle=GLOW;c.globalAlpha=.8;c.fill();c.globalAlpha=1;
+            // dedos
+            finger(-6.2,-2,10,3.3,-.12);finger(-2.1,-3,12.5,3.4,-.03);finger(2.1,-3,12,3.4,.04);finger(6,-1.5,9.5,3.1,.13);
+            // palma
+            c.beginPath();c.moveTo(-8,-3);c.quadraticCurveTo(0,-5.5,8,-2.5);c.quadraticCurveTo(9,4,5.5,8);c.lineTo(-5.5,8);c.quadraticCurveTo(-9,4,-8,-3);c.closePath();
+            c.fillStyle=BLUE;c.fill();c.strokeStyle='#1d4ed8';c.stroke();
+            c.beginPath();c.moveTo(-8,-3);c.quadraticCurveTo(-9,4,-5.5,8);c.lineTo(-3,8);c.quadraticCurveTo(-5,2,-4,-3.5);c.closePath();c.fillStyle=GLOW;c.globalAlpha=.8;c.fill();c.globalAlpha=1;
+            c.beginPath();c.moveTo(-2,6);c.quadraticCurveTo(1,1,5,-1);c.moveTo(0,-3.5);c.quadraticCurveTo(1,1,-1,5);c.strokeStyle=LINE;c.lineWidth*=.5;c.stroke();c.lineWidth*=2;
+            // polegar
+            finger(-7.5,4,9,3.3,-.95);
+        },
+        // Nave Rubi: cápsula magenta arredondada, visor amarelo triangular e duas aletas.
         ruby(c,col,t){
-            engine(c,0,11,3,9,'#ff8a8a',t);
-            shade(c,[[-5,4],[-11,9],[-6,10]],'#7f1d1d');shade(c,[[5,4],[11,9],[6,10]],'#7f1d1d');
-            c.beginPath();c.moveTo(0,-13);c.quadraticCurveTo(9,0,6,9);c.lineTo(-6,9);c.quadraticCurveTo(-9,0,0,-13);c.closePath();
-            c.fillStyle='#ef4444';c.fill();c.strokeStyle=INK;c.stroke();
-            c.beginPath();c.moveTo(0,-13);c.quadraticCurveTo(-9,0,-6,9);c.lineTo(0,9);c.closePath();c.fillStyle='rgba(255,210,210,.45)';c.fill();
-            c.beginPath();c.ellipse(0,-2,2.6,3.6,0,0,TAU);c.fillStyle='#ffe4e6';c.fill();c.strokeStyle=INK;c.stroke();
+            engine(c,-3.5,12,2,7,'#ff7ab0',t);engine(c,3.5,12,2,7,'#ff7ab0',t);
+            shade(c,[[-8,6],[-11,14],[-7.5,13],[-4.5,9]],'#c3005a');
+            shade(c,[[8,6],[11,14],[7.5,13],[4.5,9]],'#74004a');
+            const body=()=>{c.beginPath();c.moveTo(0,14);c.bezierCurveTo(-7,10,-13,4,-13,-3);c.bezierCurveTo(-13,-11,-7,-16,0,-16);c.bezierCurveTo(7,-16,13,-11,13,-3);c.bezierCurveTo(13,4,7,10,0,14);c.closePath();};
+            body();c.fillStyle='#76004a';c.fill();
+            c.save();body();c.clip();
+            c.beginPath();c.moveTo(-20,-20);c.lineTo(-1,-17);c.bezierCurveTo(-8,-8,-8,6,-1,15);c.lineTo(-20,20);c.closePath();c.fillStyle='#c4005a';c.fill();
+            c.beginPath();c.moveTo(-14,-4.5);c.quadraticCurveTo(0,-8,14,-4.5);c.strokeStyle='#a3003f';c.lineWidth*=.5;c.stroke();c.lineWidth*=2;
+            c.restore();
+            body();c.strokeStyle=INK;c.stroke();
+            c.beginPath();c.moveTo(-8.5,-7);c.quadraticCurveTo(0,-8.2,8.5,-7.2);c.quadraticCurveTo(8.8,-6.4,8,-5.6);c.lineTo(0.8,0.6);c.quadraticCurveTo(0,1.3,-0.8,0.6);c.lineTo(-8.4,-5.8);c.quadraticCurveTo(-9.2,-6.6,-8.5,-7);c.closePath();
+            c.fillStyle='#fbe98e';c.fill();
+            c.save();c.clip();c.beginPath();c.moveTo(-10,-9);c.lineTo(-2,-9);c.lineTo(-6,-1);c.lineTo(-10,-1);c.closePath();c.fillStyle='#ffffc2';c.fill();c.restore();
         },
-        // Cargueiro modular com contêineres.
+        // Nave de carga: torpedo amarelo com faixas castanhas, anel frontal e aleta traseira curva.
         cargo(c,col,t){
-            engine(c,-5,15,2.6,9,'#ffd27a',t);engine(c,5,15,2.6,9,'#ffd27a',t);
-            shade(c,[[-4,-17],[4,-17],[6,-11],[-6,-11]],'#c9b6e8');
-            shade(c,[[-7,-11],[7,-11],[7,15],[-7,15]],'#8f7ab3');
-            [[-12,-8,'#f2cf86'],[-12,1,'#c9a6ff'],[7,-8,'#c9a6ff'],[7,1,'#f2cf86']].forEach(([x,y,f])=>{shade(c,[[x,y],[x+5,y],[x+5,y+8],[x,y+8]],f);c.beginPath();c.moveTo(x+.5,y+4);c.lineTo(x+4.5,y+4);c.strokeStyle='rgba(27,15,48,.45)';c.stroke();});
-            c.beginPath();c.rect(-3,-9,6,4);c.fillStyle='#c9f2ff';c.fill();c.strokeStyle=INK;c.stroke();
+            engine(c,-3.5,15,2.4,9,'#ffd27a',t);engine(c,3.5,15,2.4,9,'#ffd27a',t);
+            const hull=()=>{c.beginPath();c.moveTo(0,-19);c.bezierCurveTo(5,-15,7.5,-7,7.5,2);c.bezierCurveTo(7.5,9,6,13,4.5,14.5);c.quadraticCurveTo(0,16,-4.5,14.5);c.bezierCurveTo(-6,13,-7.5,9,-7.5,2);c.bezierCurveTo(-7.5,-7,-5,-15,0,-19);c.closePath();};
+            shade(c,[[6.5,4],[9.5,5],[9.5,8.5],[6.5,8]],'#e8b878');
+            hull();c.fillStyle='#fbe27a';c.fill();
+            c.save();hull();c.clip();
+            c.fillStyle='#fef9c3';c.fillRect(-8,-20,4.2,36);
+            c.fillStyle='#cd9065';c.fillRect(3.6,-20,5,36);
+            c.restore();
+            hull();c.strokeStyle=INK;c.stroke();
+            c.beginPath();c.ellipse(1.2,4,1,4,0,0,TAU);c.fillStyle='#8a5a3a';c.fill();
+            shade(c,[[-9.5,-6.5],[9.5,-6.5],[9.5,-2.5],[-9.5,-2.5]],'#fbe27a');
+            shade(c,[[-9.5,-6.5],[-7,-6.5],[-7,-2.5],[-9.5,-2.5]],'#cd9065');shade(c,[[7,-6.5],[9.5,-6.5],[9.5,-2.5],[7,-2.5]],'#cd9065');
+            c.beginPath();c.moveTo(-10.5,12.5);c.quadraticCurveTo(0,15.5,10.5,12.5);c.lineTo(10.5,15);c.quadraticCurveTo(0,18,-10.5,15);c.closePath();c.fillStyle='#f5d36a';c.fill();c.strokeStyle=INK;c.stroke();
+            c.beginPath();c.moveTo(-10.5,15);c.quadraticCurveTo(0,18,10.5,15);c.lineTo(10.5,16);c.quadraticCurveTo(0,19,-10.5,16);c.closePath();c.fillStyle='#cd9065';c.fill();c.stroke();
         },
+        // Olho Vermelho: sonda circular creme e laranja com lente hexagonal.
+        redeye(c,col,t){drawRedEye(c,0,0,12,t);},
         default(c,col,t){engine(c,0,8,3,8,'#c9a6ff',t);shade(c,[[0,-10],[8,8],[0,5],[-8,8]],col||'#d6c4f5');}
     };
     function drawShip(ctx,type,opts={}){
@@ -949,5 +1030,5 @@
     }
     if(document.body)watchShipPreviews();else document.addEventListener('DOMContentLoaded',watchShipPreviews);
 
-    window.GempirePlanetArt={drawPlanet,drawSpaceBackground,drawStar,drawShip,paintShipPreviews,BIOMES,_cache:{TEXTURE_CACHE,SPHERE_CACHE}};
+    window.GempirePlanetArt={drawPlanet,drawSpaceBackground,drawStar,drawShip,drawRedEye,paintShipPreviews,BIOMES,_cache:{TEXTURE_CACHE,SPHERE_CACHE}};
 })();
