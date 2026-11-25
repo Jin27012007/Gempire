@@ -449,7 +449,7 @@
             const missing=.1;
             for(let i=0;i<N;i++)if(mid[i]<missing){flags[i]=3;rgba[i*4+3]=0;}
         }
-        const result=Object.assign({},base,{root,megaIdx:root.megaIdx,megaCent:root.megaCent,rgba,flags,damaged:true,shattered:!!shatterStep,gapD,coreRGB:glow,hotRGB:hot});
+        const result=Object.assign({},base,{root,megaIdx:root.megaIdx,megaCent:root.megaCent,rgba,flags,damaged:true,shattered:!!shatterStep,gapD,crackD:D,coreRGB:glow,hotRGB:hot});
         if(DAMAGE_CACHE.size>24)DAMAGE_CACHE.delete(DAMAGE_CACHE.keys().next().value);
         DAMAGE_CACHE.set(key,result);
         return result;
@@ -640,6 +640,7 @@
             }
         }
         buf.ctx.putImageData(buf.image,0,0);
+        sp.shatterOff={ox,oy,oz};
         return buf;
     }
 
@@ -715,8 +716,23 @@
      * opts: {cx,cy,radius,surface:{id,seed,topology,biome,landCoverage,waterKind,features},
      *        rotation,time,atmosphere,selected,maxResolution,outline}
      */
+    // Último globo desenhado: permite ancorar cidades e estruturas na superfície.
+    let LAST_GLOBE=null;
+    // lon: longitude da textura (0..2π); lat: -π/2 (topo) .. π/2. Devolve posição na tela e o estado do terreno.
+    function surfaceQuery(lon,lat){
+        const G=LAST_GLOBE;if(!G||!G.tex)return null;
+        const tex=G.tex,W=tex.W,H=tex.H;
+        let rel=lon-Math.PI-G.rot;rel=((rel+Math.PI)%TAU+TAU)%TAU-Math.PI;
+        const cl=Math.cos(lat),x=cl*Math.sin(rel),z=cl*Math.cos(rel),y=Math.sin(lat);
+        const u=Math.floor(((lon%TAU+TAU)%TAU)/TAU*W)%W,v=Math.max(0,Math.min(H-1,Math.floor((lat+Math.PI/2)/Math.PI*H)));
+        const i=v*W+u;
+        let sx=G.cx+x*G.radius,sy=G.cy+y*G.radius,plate=-1;
+        if(G.shattered&&G.sp.shatterOff&&tex.megaIdx){plate=tex.megaIdx[i];const k=G.radius*2/G.S;sx+=G.sp.shatterOff.ox[plate]*k;sy+=G.sp.shatterOff.oy[plate]*k;}
+        return {x:sx,y:sy,z,flag:tex.flags[i],crack:tex.crackD?tex.crackD[i]:9,plate,shattered:G.shattered};
+    }
     function drawPlanet(ctx,opts){
         const {cx,cy,radius}=opts;
+        LAST_GLOBE=null;
         if(!ctx||!(radius>1))return;
         const base=getTexture(opts.surface,!!opts.deferred);
         const damage=opts.damage||{};
@@ -754,6 +770,7 @@
             return;
         }
         const rot=Number(opts.rotation)||0,time=Number(opts.time)||0,sp=getSphere(S);
+        LAST_GLOBE={cx,cy,radius,rot,tex,S,sp,shattered:!!tex.shattered};
         if(tex.shattered){
             drawExposedCore(ctx,cx,cy,radius,coreRGB,time,shatter);
             const last=sp.lastShatter,fresh=last&&last.tex===tex&&Math.abs(last.rot-rot)<.006&&Math.abs(last.time-time)<90&&last.amount===shatter;
@@ -1166,6 +1183,8 @@
         dome(c,P,v){c.beginPath();c.ellipse(0,0,5.5,5,0,Math.PI,TAU);c.closePath();c.fillStyle=P.blue.light;c.fill();c.strokeStyle='rgba(27,15,48,.5)';c.lineWidth=.6;c.stroke();seam(c,[[0,-5],[0,0]]);},
         ribs(c,P,v){for(let k=0;k<4;k++){const x=-6+k*3.2;face(c,[[x,0],[x+2.6,0],[x+1.6,-7-k],[x-.6,-6-k]],k%2?P.blue.dark:P.blue.mid);}},
         plaza(c,P,v){const tiles=['#fdf4ff','#f0abfc','#a5f3fc','#c4b5fd'];for(let i=0;i<2;i++)for(let j=0;j<2;j++){const ox=(i-j)*3.5,oy=(i+j)*1.6-1.6;face(c,[[ox-3.5,oy+1.6],[ox,oy],[ox+3.5,oy+1.6],[ox,oy+3.2]],tiles[(i*2+j+Math.floor(v*4))%4],'rgba(27,15,48,.35)');}},
+        ruin(c,P,v){face(c,[[-4,0],[0,1.8],[0,-3-v*3],[-1.5,-4-v*2],[-4,-2.5]],P.main.dark);face(c,[[0,1.8],[4,0],[4,-2],[2.5,-1],[1.2,-3.5-v*3],[0,-3-v*3]],P.main.deep);
+            c.fillStyle='rgba(27,15,48,.45)';[[-5,1],[5,1.2],[3,2]].forEach(([x,y])=>{c.beginPath();c.arc(x,y,.8,0,TAU);c.fill();});},
         statue(c,P,v){face(c,[[-3,0],[3,0],[2,-3],[-2,-3]],P.main.dark);face(c,[[-2,-3],[2,-3],[1.4,-12],[-1.4,-12]],'#f5f3ff');
             [[-4,-15],[-2,-18],[0,-19.5],[2,-18],[4,-15]].forEach(([x,y],i)=>face(c,[[x*.3,-12],[x,y],[x*.5,y-2.5],[0,-13]],i%2?'#ede9fe':'#ffffff'));}
     };
@@ -1211,5 +1230,5 @@
     }
     if(document.body)watchShipPreviews();else document.addEventListener('DOMContentLoaded',watchShipPreviews);
 
-    window.GempirePlanetArt={drawPlanet,drawSpaceBackground,drawStar,drawShip,drawRedEye,drawStructure,paintStructurePreviews,drawCityBuilding,structPalette,paintShipPreviews,BIOMES,_cache:{TEXTURE_CACHE,SPHERE_CACHE}};
+    window.GempirePlanetArt={drawPlanet,drawSpaceBackground,drawStar,drawShip,drawRedEye,drawStructure,paintStructurePreviews,drawCityBuilding,structPalette,surfaceQuery,paintShipPreviews,BIOMES,_cache:{TEXTURE_CACHE,SPHERE_CACHE}};
 })();
