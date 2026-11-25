@@ -911,31 +911,36 @@
             c.beginPath();c.moveTo(T[0],T[1]);c.lineTo(C[0],C[1]);c.lineTo(R[0],R[1]);c.moveTo(C[0],C[1]);c.lineTo(B[0],B[1]);c.strokeStyle='rgba(27,15,48,.35)';c.stroke();
             shade(c,[[-5,-6],[0,-3.4],[5,-7],[0,-1]],'#1f5a3c');
         },
-        // Nave de Guerra (restaurada): casco ovoide perolado e iridescente, escotilha circular e pernas angulares.
+        // Nave de Guerra (restaurada): disco voador perolado e iridescente, cúpula com escotilha circular e pernas angulares.
         war(c,col,t){
-            engine(c,-5,19,2.8,11,'#c4b5fd',t);engine(c,5,19,2.8,11,'#c4b5fd',t);
-            const leg=(pts,f)=>shade(c,pts,f);
-            [1,-1].forEach(sx=>{
-                leg([[8*sx,-6],[19*sx,-14],[22*sx,-11],[10*sx,-2]],'#d9dce6');
-                leg([[19*sx,-14],[25*sx,-12],[23*sx,6],[19*sx,5]],'#c3c7d4');
-                leg([[18*sx,4],[25*sx,4],[25*sx,8],[18*sx,8]],'#9ea3b4');
-                leg([[9*sx,8],[19*sx,6],[21*sx,9],[11*sx,12]],'#d0d3de');
-                leg([[19*sx,6],[23*sx,8],[22*sx,20],[18*sx,19]],'#b8bccb');
+            engine(c,-6,15,2.8,10,'#c4b5fd',t);engine(c,6,15,2.8,10,'#c4b5fd',t);
+            // pernas dobradas em quatro direções diagonais
+            [[1,1],[-1,1],[1,-1],[-1,-1]].forEach(([sx,sy])=>{
+                shade(c,[[11*sx,8*sy],[19*sx,13*sy],[21*sx,10*sy],[13*sx,5*sy]],'#d3d6e1');
+                shade(c,[[19*sx,13*sy],[23*sx,19*sy],[26*sx,17*sy],[21*sx,10*sy]],'#b9bdcc');
+                shade(c,[[22*sx,18*sy],[27*sx,21*sy],[28*sx,18*sy],[25*sx,16*sy]],'#9ea3b4');
             });
-            const g=c.createLinearGradient(-12,-17,12,21);
-            g.addColorStop(0,'#fbe3ee');g.addColorStop(.35,'#fbfbfd');g.addColorStop(.7,'#eef1f8');g.addColorStop(1,'#d6e4fb');
-            c.beginPath();c.ellipse(0,2,12.5,19.5,0,0,TAU);c.fillStyle=g;c.fill();c.strokeStyle=INK;c.stroke();
-            c.save();c.beginPath();c.ellipse(0,2,12.5,19.5,0,0,TAU);c.clip();
-            c.beginPath();c.ellipse(5,6,9,17,0,0,TAU);c.fillStyle='rgba(150,160,190,.22)';c.fill();
-            c.beginPath();c.ellipse(-4,-6,4,8,.2,0,TAU);c.fillStyle='rgba(255,215,235,.35)';c.fill();
+            // aba externa do disco
+            const g=c.createLinearGradient(-20,-18,20,18);
+            g.addColorStop(0,'#fbe3ee');g.addColorStop(.4,'#fbfbfd');g.addColorStop(.75,'#eef1f8');g.addColorStop(1,'#d6e4fb');
+            c.beginPath();c.ellipse(0,0,20,18,0,0,TAU);c.fillStyle=g;c.fill();c.strokeStyle=INK;c.stroke();
+            c.save();c.beginPath();c.ellipse(0,0,20,18,0,0,TAU);c.clip();
+            c.beginPath();c.ellipse(7,7,18,16,0,0,TAU);c.fillStyle='rgba(150,160,190,.2)';c.fill();
             c.restore();
-            c.strokeStyle='rgba(110,118,145,.6)';c.lineWidth*=.6;
-            c.beginPath();c.ellipse(0,2,9,15.5,0,-.3*Math.PI,1.3*Math.PI,true);c.stroke();
-            c.beginPath();c.moveTo(-12,4);c.lineTo(12,4);c.moveTo(0,4);c.lineTo(0,21);c.moveTo(-6,13);c.lineTo(6,13);c.stroke();
-            c.lineWidth/=.6;
-            c.beginPath();c.arc(0,-8,5.4,0,TAU);c.fillStyle='#f4f5fa';c.fill();c.strokeStyle=INK;c.stroke();
-            c.beginPath();c.arc(0,-8,3.6,0,TAU);c.strokeStyle='rgba(27,15,48,.7)';c.stroke();
-            c.beginPath();c.arc(0,-8,2.1,0,TAU);c.fillStyle='#e6e9f2';c.fill();c.strokeStyle='rgba(27,15,48,.45)';c.stroke();
+            // anel de painéis e luzes
+            c.beginPath();c.ellipse(0,0,15,13.5,0,0,TAU);c.strokeStyle='rgba(110,118,145,.65)';c.stroke();
+            c.lineWidth*=.6;c.beginPath();
+            for(let k=0;k<12;k++){const a=k*TAU/12;c.moveTo(Math.cos(a)*15,Math.sin(a)*13.5);c.lineTo(Math.cos(a)*20,Math.sin(a)*18);}
+            c.strokeStyle='rgba(110,118,145,.45)';c.stroke();c.lineWidth/=.6;
+            for(let k=0;k<12;k++){const a=k*TAU/12+TAU/24;c.beginPath();c.arc(Math.cos(a)*17.5,Math.sin(a)*15.8,.9,0,TAU);c.fillStyle=(Math.floor((t||0)/300)+k)%4===0?'#f5d0fe':'#c4b5fd';c.fill();}
+            // cúpula central
+            const d=c.createRadialGradient(-4,-4,1,0,0,11);d.addColorStop(0,'#ffffff');d.addColorStop(.6,'#f3f1fa');d.addColorStop(1,'#d9dcea');
+            c.beginPath();c.ellipse(0,0,11,10,0,0,TAU);c.fillStyle=d;c.fill();c.strokeStyle=INK;c.stroke();
+            c.beginPath();c.ellipse(-3.5,-4,3.5,2.2,-.5,0,TAU);c.fillStyle='rgba(255,215,235,.45)';c.fill();
+            // escotilha circular
+            c.beginPath();c.arc(0,0,5.4,0,TAU);c.fillStyle='#f4f5fa';c.fill();c.strokeStyle=INK;c.stroke();
+            c.beginPath();c.arc(0,0,3.6,0,TAU);c.strokeStyle='rgba(27,15,48,.7)';c.stroke();
+            c.beginPath();c.arc(0,0,2.1,0,TAU);c.fillStyle='#e6e9f2';c.fill();c.strokeStyle='rgba(27,15,48,.45)';c.stroke();
         },
         // Excursão: mão de luz azul com veios verdes e punho cilíndrico.
         excursion(c,col,t){
