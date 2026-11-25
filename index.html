@@ -2920,7 +2920,6 @@
             const def = structureDefinition(id);
             if (!def || (id==='galaxy_warp' ? !PLANETS[state.activeColonyPlanetId]?.galaxyWarpBuilt : id==='red_eye' ? getTotalRedEyeCount()<1 : structureCount(id)<1) || (id!=='red_eye'&&!hasStructurePrerequisites(def))) return false;
             if(id==='red_eye')return getTotalRedEyeCount()>0;
-            if (id === 'injector' && !structureIsOperational('essence_chamber')) return false;
             if(id==='essence_chamber')return (Number(state.structureAssignments?.essence_chamber?.peridot)||0)>=structureCount('essence_chamber');
             if(['workshop','defense_tower','shield_generator'].includes(id)&&!structureIsOperational('reactor'))return false;
             if(id==='research_center')return (Number(state.census.demantoid)||0)>0||(Number(state.census.pyrope)||0)>0;
@@ -3274,7 +3273,7 @@
             const refinedInventory=state.refinedResources||(state.refinedResources={});
             const remainingRaw=Object.assign({},rawInventory),remainingRefined=Object.assign({},refinedInventory);
             const rawCosts={},refinedCosts={},readyBatches=[],waitingReasons=[];
-            let totalGems=0,remainingEssence=Math.max(0,Number(state.founding.injectorEssence)||0);
+            let totalGems=0,remainingEssence=Math.max(0,Number(state.founding.injectorEssence)||0)+Math.max(0,essenceValue(state.essence));
             for(const batch of plan.batches){
                 const gem=FOUNDING_GEM_DATA[batch.type];
                 if(!gem)continue;
@@ -3304,7 +3303,10 @@
             for(const [material,needed] of Object.entries(rawCosts))rawInventory[material]=Math.max(0,(Number(rawInventory[material])||0)-needed);
             for(const [material,needed] of Object.entries(refinedCosts))refinedInventory[material]=Math.max(0,(Number(refinedInventory[material])||0)-needed);
             const essenceCost=12*totalGems;
-            state.founding.injectorEssence=Math.max(0,(Number(state.founding.injectorEssence)||0)-essenceCost);
+            // Primeiro a essência entregue pela Câmara; o que faltar sai da essência armazenada da Diamante.
+            const fromChamber=Math.min(essenceCost,Math.max(0,Number(state.founding.injectorEssence)||0));
+            state.founding.injectorEssence=Math.max(0,(Number(state.founding.injectorEssence)||0)-fromChamber);
+            if(essenceCost>fromChamber)state.essence=Math.max(0,essenceValue(state.essence)-(essenceCost-fromChamber));
             state.founding.creationBatches=readyBatches.map(batch=>({injectorIndex:batch.injectorIndex,type:batch.type,quantity:batch.quantity,targetOwnerId:batch.targetOwnerId||null,demandId:batch.demandId||null,progress:0,duration:FOUNDING_GEM_DATA[batch.type].refinedMaterial?84:42,completed:false}));
             state.founding.creationBatchCount=totalGems;
             state.founding.creationDuration=Math.max(...state.founding.creationBatches.map(batch=>batch.duration));
@@ -3830,7 +3832,19 @@
             }
         }
 
+        // Se Gems designadas a estruturas deixarem de existir (poof, estilhaço, transferência),
+        // libera as designações excedentes para não deixar estruturas operando com Gems fantasmas.
+        function reconcileStructureAssignments(){
+            const jobs=state.structureAssignments||{},census=state.census||{};
+            const types=new Set();Object.values(jobs).forEach(j=>Object.keys(j||{}).forEach(t=>types.add(t)));
+            const order=STRUCTURE_CATALOG.map(d=>d.id).reverse();
+            types.forEach(type=>{
+                let excess=totalAssignedWorkers(type)-Math.max(0,Math.floor(Number(census[type])||0));
+                for(const id of order){if(excess<=0)break;const j=jobs[id];if(!j||!(Number(j[type])>0))continue;const cut=Math.min(Number(j[type]),excess);j[type]=Number(j[type])-cut;excess-=cut;}
+            });
+        }
         function updateStructureSimulation(dt,mode='all',allowUI=true) {
+            reconcileStructureAssignments();
             if(mode!=='local'){
                 updateRedEyeMission(dt);updateCargoMissions(dt);updateFleetTravel(dt);updateGalaxyWarpExpeditions(dt);updateMatriarchChambers(dt);if(window.GempireCourt)GempireCourt.update(dt);if(window.GempireAristocracy)GempireAristocracy.update(dt);if(window.GempireXeno)GempireXeno.update(dt);if(window.GempireOffColors)GempireOffColors.update(dt);if(window.GempireResistance)GempireResistance.update(dt);if(window.GempireGemFate)GempireGemFate.update(dt);if(window.GempireDisasters)GempireDisasters.update(dt);
                 if(window.updateHessonitePatrols)window.updateHessonitePatrols(dt);
@@ -3891,9 +3905,10 @@
                         const pools=planet.resourcesByType||{};
                         const inventory=state.founding.gatheredMinerals||(state.founding.gatheredMinerals={});
                         const collected=state.founding.collectedMinerals||(state.founding.collectedMinerals={});
+                        const poolTotal=Object.values(pools).reduce((a,v)=>a+Math.max(0,Number(v)||0),0)||1;
                         for(const [key,value] of Object.entries(pools)){
                             if(left<=0)break;
-                            const take=Math.min(Math.max(0,Number(value)||0),left);
+                            const take=Math.min(Math.max(0,Number(value)||0),left,actual*Math.max(0,Number(value)||0)/poolTotal);
                             pools[key]=Math.max(0,(Number(pools[key])||0)-take);
                             inventory[key]=(Number(inventory[key])||0)+take;
                             collected[key]=(Number(collected[key])||0)+take;
@@ -4189,13 +4204,13 @@ ${hasAristocrats ? `
         }
 
         function buildEssenceBathCard() {
-            const f=state.founding||{},chamberBuilt=structureCount('essence_chamber')>0,chamberReady=structureIsOperational('essence_chamber');
-            const cooldown=Number(f.bathCooldown)||0,essence=essenceValue(state.essence);
+            const f=state.founding||{},cooldown=Number(f.bathCooldown)||0,chamberBuilt=structureIsOperational('essence_chamber')&&(cooldown<=0||f.bathActive),chamberReady=chamberBuilt;
+            const essence=essenceValue(state.essence);
             return '<div class="card"><div class="card-header"><span class="card-title title-font">✨ Essência da Diamante</span></div>'+
                 
                 '<div class="stat-box">Essência armazenada: <b>'+essence.toFixed(1)+'</b> · Reserva interna: <b>'+(Number(f.diamondEssence)||0).toFixed(1)+'</b> · Recebida pelo Injetor: <b>'+(Number(f.injectorEssence)||0).toFixed(1)+'</b></div>'+
                 (f.bathActive?'<div class="founding-progress"><div id="founder-bath-progress" style="width:'+Math.floor(f.bathProgress||0)+'%"></div></div><div id="founder-bath-label" style="font-size:10px;color:#cbd5e1">Banho de essência: '+Math.floor(f.bathProgress||0)+'% · '+Math.max(0,Math.ceil(30*(1-(Number(f.bathProgress)||0)/100)))+'s restantes</div>':(cooldown>0?'<div class="stat-box" style="color:#fbbf24">Próximo banho em: <b id="founder-bath-cooldown">'+formatDuration(cooldown)+'</b></div>':''))+
-                '<button id="founder-activity-button" class="btn btn-pink btn-block" onclick="performFounderActivity()" '+(f.bathActive||f.creationActive||cooldown>0||(chamberBuilt&&!chamberReady)||(!chamberBuilt&&(Number(f.essenceCooldown)||0)>0)?'disabled':'')+'>'+(chamberBuilt?(f.bathActive?'🛁 Banho em andamento':chamberReady?(cooldown>0?'⏳ Próximo banho em '+formatDuration(cooldown):'🛁 Iniciar banho · '+getEssenceChamberStats('first').duration+'s'):'⏳ Aguardando Peridot na Câmara'):(Number(f.essenceCooldown)||0)>0?'⏳ Recuperando fôlego':'💪 Exercício físico · produzir 2 essência')+'</button></div>';
+                '<button id="founder-activity-button" class="btn btn-pink btn-block" onclick="performFounderActivity()" '+(f.bathActive||f.creationActive||(chamberBuilt&&cooldown>0)||(chamberBuilt&&!chamberReady)||(!chamberBuilt&&(Number(f.essenceCooldown)||0)>0)?'disabled':'')+'>'+(chamberBuilt?(f.bathActive?'🛁 Banho em andamento':chamberReady?(cooldown>0?'⏳ Próximo banho em '+formatDuration(cooldown):'🛁 Iniciar banho · '+getEssenceChamberStats('first').duration+'s'):'⏳ Aguardando Peridot na Câmara'):(Number(f.essenceCooldown)||0)>0?'⏳ Recuperando fôlego':'💪 Exercício físico · produzir 2 essência')+'</button></div>';
         }
 
         function renderColonyContext(container) {
@@ -4207,7 +4222,17 @@ ${hasAristocrats ? `
                 <div class="grid-2"><div class="stat-box" style="display:flex;justify-content:space-between;"><span style="color:var(--text-muted)">Calor Sísmico:</span><b style="color:${p.seismicHeat>=75?'#fb7185':'#fde047'}">${Math.round(p.seismicHeat)}%</b></div><div class="stat-box" style="display:flex;justify-content:space-between;"><span style="color:var(--text-muted)">Dissidência:</span><b style="color:${p.dissent>=70?'#fb7185':'#7dd3fc'}">${Math.round(p.dissent)}%</b></div></div></div>
                 ${buildEssenceBathCard()}
                 ${buildGemProductionReportCard()}
+                ${buildManualFormationCard()}
             `;
+        }
+        // Formação manual sempre ao alcance: evita ficar preso sem Gems operadoras (ex.: sem Peridoto livre).
+        function buildManualFormationCard(){
+            const found=state.founding||{};if(!found.gatheredMinerals)return '';
+            const selected=FOUNDING_GEM_DATA[found.selectedGem]||FOUNDING_GEM_DATA.peridot;
+            const options=Object.entries(FOUNDING_GEM_DATA).map(([key,g])=>{const have=g.refinedMaterial?Number(state.refinedResources&&state.refinedResources[g.refinedMaterial]||0):Number(found.gatheredMinerals[g.mineral]||0);return '<button type="button" class="founder-chip'+(found.selectedGem===key?' selected':'')+'" onclick="selectFoundingGem(\''+key+'\')" '+(found.creationActive?'disabled':'')+' title="'+escapeHTML(g.mineralName)+'">'+g.label+' <small>'+Math.floor(have)+'</small></button>';}).join('');
+            return '<div class="card"><div class="card-header"><span class="card-title title-font">🤲 Formação manual</span><span class="badge">12 essência + 1 amostra</span></div><div class="founder-chips">'+options+'</div>'+
+                (found.creationActive&&found.creationSource==='manual'?'<div class="founding-progress"><div style="width:'+Math.floor(found.creationProgress||0)+'%"></div></div>':
+                '<button class="btn btn-emerald btn-block" onclick="startFirstGemCreation()" '+(found.creationActive||found.bathActive?'disabled':'')+'>Formar '+selected.label+' à mão</button>')+'</div>';
         }
 
         function buildForecastHTML(evalData) {
@@ -7774,7 +7799,7 @@ function drawColony(time){
         }
         function performFounderActivity() {
             const fd=state.firstDiamond,f=state.founding;
-            if(structureCount('essence_chamber')>0){startEssenceBath();return;}
+            if(structureIsOperational('essence_chamber')&&!((Number(f.bathCooldown)||0)>0)){startEssenceBath();return;}
             if(f.creationActive||f.bathActive){setStatusTicker('A Diamante está ocupada e não pode realizar outra atividade.');return;}
             if((f.essenceCooldown||0)>0){setStatusTicker('A Diamante precisa recuperar o fôlego por mais '+f.essenceCooldown.toFixed(1)+'s.');return;}
             const amount=2*getPearlMultiplierFor('firstDiamond');
@@ -7848,7 +7873,6 @@ function drawColony(time){
 
         function gatherPrimitiveMineral() {
             const found=state.founding;
-            if(manualMineralGatheringCanEnd()){setStatusTicker('A coleta manual foi substituída: Quartzo, Peridot, Bismuto e Extrator Mineral já estão disponíveis.');return;}
             if((Number(found.gatherCooldown)||0)>0){
                 setStatusTicker('Aguarde '+found.gatherCooldown.toFixed(1)+'s antes de procurar outra rocha.',true);
                 return;
@@ -7874,7 +7898,6 @@ function drawColony(time){
         }
 
         function startFirstGemCreation() {
-            if (structureIsOperational('injector')) { setStatusTicker('O Injetor está operacional. A Diamante não participa mais da criação; consulte o relatório de produção.'); return; }
             if (state.founding.creationActive || state.founding.bathActive) { setStatusTicker('A Diamante está ocupada. Aguarde a conclusão da atividade atual.'); return; }
             let type = state.founding.selectedGem;
             const planet=PLANETS[state.activeColonyPlanetId]||PLANETS.homeworld;
@@ -8014,7 +8037,7 @@ function drawColony(time){
             const fd = state.firstDiamond, found = state.founding;
             const mineralLabels = {quartz:'Quartzo',silicate:'Silicato',corundum:'Coríndon (Safiras/Rubis)',metallic:'Metal',nacre:'Nácar (Pérolas)',garnet:'Granada (Hessonita/Piropo)',olivine:'Olivina (Peridotos)',lapisrock:'Lápis-lazúli (Lápis)',pyroxene:'Piroxênio (Jade/Nefrita)',beryllium:'Berílio (Morganita/Água-marinha/Esmeralda)',obsidian:'Obsidiana vulcânica',topaz:'Topázio'};
             const mineralCards = Object.entries(mineralLabels).filter(([key]) => (found.gatheredMinerals[key] || 0) > 0).map(([key,label]) => {
-                const n = found.gatheredMinerals[key] || 0;
+                const n = Math.floor(found.gatheredMinerals[key] || 0);
                 return '<div class="stat-box" style="display:flex;justify-content:space-between;gap:6px;align-items:center"><span>' + label + '</span><b>' + n + '</b></div>';
             }).join('');
             const selected = FOUNDING_GEM_DATA[found.selectedGem] || FOUNDING_GEM_DATA.quartz;
@@ -8023,22 +8046,22 @@ function drawColony(time){
                 '<strong>' + g.label + (found.selectedGem===key?' ✓':'') + '</strong><small>' + g.mineralName + '</small></button>'
             ).join('');
             const hasInjector = structureCount('injector')>0;
-            const hasChamber = structureIsOperational('essence_chamber');
+            const hasChamber = structureIsOperational('essence_chamber')&&(!(found.bathCooldown>0)||found.bathActive);
             container.innerHTML =
                 '<div class="card card-cyan"><div class="card-header"><span class="card-title title-font">🌑 Fundação de Homeworld</span><span class="badge">Era Primitiva</span></div>' +
                 '<div class="stat-box">Gems criadas: <b>' + (found.gemsCreatedCount || 0) + '</b> · Minerais brutos: <b>' + Math.floor(state.minerals) + '</b> · Materiais refinados: <b>' + Math.floor(state.refinedMaterials || 0) + '</b></div>' +
                 '</div>' +
-                '<div class="card"><div class="card-header"><span class="card-title title-font">⛏️ Exploração manual</span></div><div class="stat-box"><span class="stat-label">Próximo encontro</span><b>' + ((found.gatherCooldown||0)>0?'⏳ Disponível em '+found.gatherCooldown.toFixed(1)+'s':'Pronto para explorar') + '</b></div><button id="gather-mineral-button" class="btn btn-amber btn-block" onclick="gatherPrimitiveMineral()" ' + ((found.gatherCooldown||0)>0||manualMineralGatheringCanEnd()?'disabled':'') + '>'+(manualMineralGatheringCanEnd()?'⛏️ Extração automatizada':'⛏️ Procurar rochas · 5s entre encontros')+'</button>' + (mineralCards ? '<div class="grid-2">' + mineralCards + '</div>' : '<small class="governance-muted">Nenhuma rocha encontrada ainda.</small>') + '</div>' +
+                '<div class="card"><div class="card-header"><span class="card-title title-font">⛏️ Exploração manual</span></div><div class="stat-box"><span class="stat-label">Próximo encontro</span><b>' + ((found.gatherCooldown||0)>0?'⏳ Disponível em '+found.gatherCooldown.toFixed(1)+'s':'Pronto para explorar') + '</b></div><button id="gather-mineral-button" class="btn btn-amber btn-block" onclick="gatherPrimitiveMineral()" ' + ((found.gatherCooldown||0)>0?'disabled':'') + '>⛏️ Procurar rochas · 5s entre encontros</button>' + (mineralCards ? '<div class="grid-2">' + mineralCards + '</div>' : '<small class="governance-muted">Nenhuma rocha encontrada ainda.</small>') + '</div>' +
                 '<div class="card"><div class="card-header"><span class="card-title title-font">✨ Essência da Diamante</span></div>' +
                 '<div class="stat-box">Essência armazenada: <b>' + essenceValue(state.essence).toFixed(1) + '</b> · Reserva interna da Diamante: <b>' + (found.diamondEssence || 0).toFixed(1) + '</b> · Recebida pelo Injetor: <b>' + (found.injectorEssence || 0).toFixed(1) + '</b></div>' +
                 (found.bathActive?'<div class="founding-progress"><div id="founder-bath-progress" style="width:'+Math.floor(found.bathProgress||0)+'%"></div></div><div id="founder-bath-label" style="font-size:10px;color:#cbd5e1">Banho de essência: '+Math.floor(found.bathProgress||0)+'% · '+Math.max(0,Math.ceil(30*(1-(Number(found.bathProgress)||0)/100)))+'s restantes</div>':(found.bathCooldown>0?'<div class="stat-box" style="color:#fbbf24">Próximo banho em: <b id="founder-bath-cooldown">'+formatDuration(found.bathCooldown)+'</b></div>':''))+
-                '<button id="founder-activity-button" class="btn btn-pink btn-block" onclick="performFounderActivity()" '+(found.bathActive||found.creationActive||found.bathCooldown>0||(structureCount('essence_chamber')>0&&!hasChamber)||(!hasChamber&&structureCount('essence_chamber')===0&&(found.essenceCooldown||0)>0)?'disabled':'')+'>'+(structureCount('essence_chamber')>0?(found.bathActive?'🛁 Banho de essência em andamento':hasChamber?(found.bathCooldown>0?'⏳ Próximo banho em '+formatDuration(found.bathCooldown):'🛁 Iniciar banho · '+getEssenceChamberStats('first').duration+'s'):'⏳ Aguardando Peridot na Câmara'):(found.essenceCooldown||0)>0?'⏳ Recuperando fôlego · '+found.essenceCooldown.toFixed(1)+'s':'💪 Exercício físico · produzir 2 essência')+'</button></div>' +
-                (hasInjector?'<div class="card"><div class="card-header"><span class="card-title title-font">📊 Programação dos Injetores</span><span class="badge">Produção paralela</span></div>'+buildInjectorProductionControlsHTML('context')+'<div class="stat-box">Lotes concluídos: <b>'+(found.productionReports||[]).length+'</b> · Gems produzidas: <b>'+(found.gemsCreatedCount||0)+'</b></div><button class="btn btn-emerald btn-block" onclick="requestGemProductionReport()">📄 Abrir relatório detalhado</button></div>':
+                '<button id="founder-activity-button" class="btn btn-pink btn-block" onclick="performFounderActivity()" '+(found.bathActive||found.creationActive||(hasChamber&&found.bathCooldown>0)||(!hasChamber&&(found.essenceCooldown||0)>0)?'disabled':'')+'>'+(hasChamber?(found.bathActive?'🛁 Banho de essência em andamento':hasChamber?(found.bathCooldown>0?'⏳ Próximo banho em '+formatDuration(found.bathCooldown):'🛁 Iniciar banho · '+getEssenceChamberStats('first').duration+'s'):'⏳ Aguardando Peridot na Câmara'):(found.essenceCooldown||0)>0?'⏳ Recuperando fôlego · '+found.essenceCooldown.toFixed(1)+'s':'💪 Exercício físico · produzir 2 essência')+'</button></div>' +
+                (hasInjector?'<div class="card"><div class="card-header"><span class="card-title title-font">📊 Programação dos Injetores</span><span class="badge">Produção paralela</span></div>'+buildInjectorProductionControlsHTML('context')+'<div class="stat-box">Lotes concluídos: <b>'+(found.productionReports||[]).length+'</b> · Gems produzidas: <b>'+(found.gemsCreatedCount||0)+'</b></div><button class="btn btn-emerald btn-block" onclick="requestGemProductionReport()">📄 Abrir relatório detalhado</button></div>':'') +
                 '<div class="card"><div class="card-header"><span class="card-title title-font">💎 Formação manual de Gems</span></div>' +
                 '<div class="founding-gem-catalog" role="group" aria-label="Catálogo de tipos de Gem">' + gemCatalog + '</div>' +
                 '<div class="founding-note" style="margin-top:8px"><b>' + selected.label + '</b> · ' + selected.role + '<br><small>Custa 12 de essência e 1 amostra de ' + selected.mineralName + '.</small></div>' +
                 (found.creationActive ? '<div class="founding-progress"><div id="founder-creation-progress" style="width:' + found.creationProgress + '%"></div></div><div id="founder-creation-progress-label" style="font-size:10px;color:#cbd5e1">Formação em andamento: ' + Math.floor(found.creationProgress) + '% · a Diamante não pode realizar outra atividade durante este processo.</div>' :
-                '<button class="btn btn-emerald btn-block" onclick="startFirstGemCreation()">🤲 Formar Gem manualmente</button>')) +
+                '<button class="btn btn-emerald btn-block" onclick="startFirstGemCreation()">🤲 Formar Gem manualmente</button>') +
                 '</div>';
         }
 
@@ -8046,7 +8069,7 @@ function drawColony(time){
             const found = state.founding;
             const button = document.getElementById('founder-activity-button');
             if (button) {
-                const cooling=(found.essenceCooldown||0)>0,chamberBuilt=structureCount('essence_chamber')>0,chamberReady=structureIsOperational('essence_chamber');
+                const cooling=(found.essenceCooldown||0)>0,chamberBuilt=structureIsOperational('essence_chamber')&&(!(found.bathCooldown>0)||found.bathActive),chamberReady=chamberBuilt;
                 button.disabled=Boolean(found.creationActive||found.bathActive||(chamberBuilt&&found.bathCooldown>0)||(!chamberBuilt&&cooling)||(chamberBuilt&&!chamberReady));
                 button.textContent=chamberBuilt?(found.bathActive?'🛁 Banho de essência · '+Math.floor(found.bathProgress||0)+'%':chamberReady?(found.bathCooldown>0?'⏳ Próximo banho em '+formatDuration(found.bathCooldown):'🛁 Iniciar banho · '+getEssenceChamberStats('first').duration+'s'):'⏳ Aguardando Peridot na Câmara'):cooling?'⏳ Recuperando fôlego · '+found.essenceCooldown.toFixed(1)+'s':'💪 Exercício físico · produzir 2 essência';
             }

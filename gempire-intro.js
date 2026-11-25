@@ -29,12 +29,21 @@
     // Planetoide desta sessão e preparo antecipado das texturas.
     const ROCK_SEED=(Date.now()^0x5bd1e995)>>>0;
     const ROCK={id:'intro_planetoid_'+ROCK_SEED,seed:ROCK_SEED,topology:'fragmented',biome:'rocky',landCoverage:.95,waterKind:'water',features:[]};
-    const DAMAGES=[{stage:0},{stage:1},{stage:2},{stage:3},{stage:4},{stage:4,shattered:true,shatterProgress:1}];
+    // Planeta natal da cena: mesmo estilo de Homeworld (rochoso, sem oceanos), preparado antes da partida existir.
+    const HOME={id:'intro_home_'+ROCK_SEED,seed:(ROCK_SEED+7919)>>>0,topology:'superterrestrial',biome:'rocky',landCoverage:.96,waterKind:'none',features:[]};
+    // Tamanhos usados na tela atual (o renderizador guarda um buffer por tamanho).
+    const sizes=()=>{const W=window.innerWidth,H=window.innerHeight;return {R1:Math.min(W,H)*.2,PR:Math.max(W*.62,H*.95)};};
+    const STEPS=[{stage:0},{stage:1},{stage:2},{stage:3},{stage:4},{stage:4,shattered:true,shatterProgress:1,big:'R1'},{home:true}];
+    const DAMAGES=STEPS;
     let prepared=0,preparing=false;
-    function warmOne(i){const P=window.GempirePlanetArt;if(!P||!P.drawPlanet)return;const c=document.createElement('canvas').getContext('2d');try{P.drawPlanet(c,{cx:40,cy:40,radius:36,surface:ROCK,rotation:0,time:0,damage:Object.assign({coreColor:CORE},DAMAGES[i])});}catch(e){}}
+    function warmOne(i){const P=window.GempirePlanetArt;if(!P||!P.drawPlanet)return;const st=STEPS[i];if(!st)return;const c=document.createElement('canvas').getContext('2d'),z=sizes();
+        try{
+            if(st.home)P.drawPlanet(c,{cx:0,cy:0,radius:z.PR,surface:HOME,rotation:.4,time:0,maxResolution:512});
+            else{const d=Object.assign({coreColor:CORE},st);delete d.big;P.drawPlanet(c,{cx:0,cy:0,radius:st.big?z.R1:z.R1,surface:ROCK,rotation:0,time:0,damage:d});}
+        }catch(e){}}
     function prepare(){
         if(preparing||prepared>=DAMAGES.length)return;preparing=true;
-        const step=()=>{if(prepared>=DAMAGES.length){preparing=false;return;}warmOne(prepared++);setTimeout(step,120);};
+        const step=()=>{if(prepared>=STEPS.length){preparing=false;return;}warmOne(prepared++);setTimeout(step,150);};
         setTimeout(step,250);
     }
     function warmAllNow(){while(prepared<DAMAGES.length)warmOne(prepared++);}
@@ -55,10 +64,10 @@
         resize();window.addEventListener('resize',resize);
         const R=(()=>{let v=ROCK_SEED;return ()=>{v+=0x6D2B79F5;let t=v;t=Math.imul(t^(t>>>15),t|1);t^=t+Math.imul(t^(t>>>7),t|61);return((t^(t>>>14))>>>0)/4294967296;};})();
         const stars=Array.from({length:340},()=>({x:R(),y:R(),z:.2+R()*.8,a:.3+R()*.7,tw:R()*TAU}));
-        const home=o.surface||{id:'intro_home_'+ROCK_SEED,seed:ROCK_SEED+7,topology:'continental',biome:'rocky',landCoverage:.6,waterKind:'water',features:[]};
+        const home=HOME;
         const P=window.GempirePlanetArt;
-        let homeReady=false;
-        function warmHome(){if(homeReady||!P||!P.drawPlanet)return;homeReady=true;try{P.drawPlanet(document.createElement('canvas').getContext('2d'),{cx:40,cy:40,radius:36,surface:home,rotation:0,time:0});}catch(e){}}
+        let homeReady=prepared>=STEPS.length;
+        function warmHome(){if(homeReady)return;homeReady=true;warmAllNow();}
 
         // Silhueta da Diamante escolhida (cores e modelo da criação), com versão branca para a condensação.
         function buildDiamond(){
@@ -122,7 +131,7 @@
                 background(t,0);
                 const zoom=1+.06*easeInOut(seg(t,0,3.5));
                 const crack=t<1.5?0:Math.min(4,Math.floor((t-1.5)/.45)+1),shat=t>=3.5,amt=shat?Math.max(.05,easeOut(seg(t,3.5,6))):0;
-                if(!shat&&prepared<DAMAGES.length&&t>1.2)warmAllNow();
+                if(!shat&&prepared<STEPS.length-1&&t>1.2)while(prepared<STEPS.length-1)warmOne(prepared++);
                 if(P&&P.drawPlanet)P.drawPlanet(ctx,{cx,cy,radius:R1*zoom,surface:ROCK,rotation:t*.12,time:t*1000,atmosphere:'#7c5cc4',damage:{stage:crack,shattered:shat,shatterProgress:amt,coreColor:CORE}});
                 if(crack&&!shat)glow(cx,cy,R1*(1.1+crack*.12),col,.12*crack);
                 if(shat&&!flags.boom){flags.boom=true;burst(cx,cy,220,R1*3.2,col,2.4);}
@@ -204,8 +213,11 @@
         window.addEventListener('keydown',onKey,true);
         root.querySelector('.intro-skip').addEventListener('click',e=>{e.stopPropagation();finish();});
         // Primeiro quadro imediato com estrelas; a textura base do planetoide já está pronta se o editor ficou aberto.
-        if(prepared<1)warmOne(prepared++);
-        raf=requestAnimationFrame(frame);
+        // Se o preparo não terminou no editor, conclui agora com um quadro parado de estrelas
+        // (uma pausa curta antes do movimento é menos perceptível que um travamento no meio da cena).
+        ctx.fillStyle='#0b0519';ctx.fillRect(0,0,W,H);background(0,0);
+        if(prepared<STEPS.length){setTimeout(()=>{warmAllNow();homeReady=true;raf=requestAnimationFrame(frame);},30);}
+        else raf=requestAnimationFrame(frame);
         api.skip=finish;
     }
     api={play,prepare,skip(){}};
