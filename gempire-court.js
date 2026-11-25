@@ -102,7 +102,7 @@
         matriarchs().forEach(m=>{
             m.loyalty=clamp(m.loyalty??80);m.autonomy=clamp(m.autonomy??35);m.grievances=Math.max(0,Number(m.grievances)||0);
             m.cooldowns=m.cooldowns&&typeof m.cooldowns==='object'?m.cooldowns:{};
-            if(!['court','mission','rebel','bubbled'].includes(m.courtStatus))m.courtStatus='court';
+            if(!['court','mission','rebel','bubbled','poofed'].includes(m.courtStatus))m.courtStatus='court';
             if(!Number.isFinite(m.requestTimer))m.requestTimer=90+Math.random()*120;
             if(!Number.isFinite(m.obedience))m.obedience=clamp((OBEDIENCE_BASE[m.personalityId]??55)+(Math.random()-.5)*20);
             if(!Array.isArray(m.delegated))m.delegated=[];
@@ -149,7 +149,7 @@
     function governedPlanet(m){return Object.values(PLANETS).find(p=>p.colonized&&p.governor==='matriarch_'+m.id)||null;}
     function cooldownLeft(m,key){return Math.max(0,(Number(m.cooldowns[key])||0)-gameNow())/1000;}
     function setCooldown(m,key,sec){m.cooldowns[key]=gameNow()+sec*1000;}
-    function available(m){return m.courtStatus==='court';}
+    function available(m){return m.courtStatus==='court'&&!isolated(m);}
 
     // ---------------------------------------------------------------- integração com rebeldes e off-colors
     const R=()=>window.GempireResistance,O=()=>window.GempireOffColors;
@@ -351,7 +351,7 @@
         });
         matriarchs().forEach(m=>{
             if(m.courtStatus==='rebel'||m.courtStatus==='bubbled')return;
-            if(c.requests.some(r=>r.ownerId===m.id)||c.appeals.some(a=>a.subId===m.id))return;
+            if(c.requests.some(r=>r.ownerId===m.id)||c.appeals.some(a=>a.subId===m.id)||isolated(m)||m.courtStatus==='poofed')return;
             m.requestTimer-=dt;if(m.requestTimer<=0)makeRequest(m);
         });
     }
@@ -383,6 +383,8 @@
         const m=byId(id);if(!m)return;const L=lines(m),p=m.personalityId,def=AUDIENCE[action];
         if(m.courtStatus==='rebel'&&action!=='report'){notify(m.name+' não atende mais à fundadora. Tente a reconciliação.',true);return;}
         if(m.courtStatus==='mission'&&action!=='report'){notify(m.name+' está em missão.',true);return;}
+        if(m.courtStatus==='poofed'){notify(m.name+' está poofada.',true);return;}
+        if(isolated(m)){notify(m.name+' está isolada da corte.',true);return;}
         if(def&&def.cooldown&&cooldownLeft(m,action)>0){notify('Aguarde '+formatDuration(cooldownLeft(m,action))+' para '+def.label.toLowerCase()+' '+m.name+' de novo.',true);return;}
         let impact='';
         if(action==='obey'){const d=toneOf(m)==='harsh'?-3:toneOf(m)==='gentle'?-8:-6;m.obedience=clamp(m.obedience+12);changeLoyalty(m,d,false);say(m,L.reprimand);impact='+12 obediência · '+d+' lealdade';}
@@ -422,7 +424,7 @@
     // não faz pedidos nem missões. A corte inteira sente o recado.
     const GF=()=>window.GempireGemFate;
     function bubblePlace(m){const cand=[PLANETS.homeworld,PLANETS[(governedPlanet(m)||{}).id]].filter(Boolean);return cand.find(p=>GF()&&GF().freeSpace(p)>0)||null;}
-    function bubbleChance(m){if(m.courtStatus!=='rebel'&&m.loyalty>=40)return 1;const base=m.courtStatus==='rebel'?.45:.6;return clamp(base+((Number(state.firstDiamond?.diamondPower)||2.5)-(Number(m.diamondPower)||1.8))*.1+(m.obedience-50)/250,.15,.9);}
+    function bubbleChance(m){if(m.courtStatus==='poofed')return 1;if(m.courtStatus!=='rebel'&&m.loyalty>=40)return 1;const base=m.courtStatus==='rebel'?.45:.6;return clamp(base+((Number(state.firstDiamond?.diamondPower)||2.5)-(Number(m.diamondPower)||1.8))*.1+(m.obedience-50)/250,.15,.9);}
     function punishBubble(id){
         const m=byId(id);if(!m)return;
         if(m.courtStatus==='bubbled')return;if(m.courtStatus==='mission'){notify(m.name+' está em missão.',true);return;}
@@ -434,7 +436,7 @@
             say(m,lines(m).rebel);log(m.name+' resistiu à tentativa de embolhamento e '+(was==='rebel'?'continua foragida':'rompeu com a fundadora')+'.','Fracasso · −20 lealdade','#fb7185');
             matriarchs().forEach(o=>{if(o!==m){changeLoyalty(o,-3,false);}});notify(m.name+' escapou do embolhamento!',true);refresh();return;
         }
-        const wasRebel=m.courtStatus==='rebel',g=governedPlanet(m);
+        const wasRebel=m.courtStatus==='rebel'||(m.courtStatus==='poofed'&&m.prevStatus==='rebel'),g=governedPlanet(m);
         m.courtStatus='bubbled';m.bubbledAt=gameNow();m.bubbledCycle=Number(state.cycleCount)||1;m.bubbledPlanetId=place.id;m.wasRebel=wasRebel;
         if(g){m.formerColony=g.id;g.governor='none';if(wasRebel){g.rebellionActive=false;g.dissent=Math.max(40,Number(g.dissent)||0);}}
         GF().bubble(place,'diamond',1,'diamond:'+m.id,false,null);
@@ -448,6 +450,88 @@
         log(m.name+' foi poofada pela Suprema e embolhada em '+place.shortName+'.','Punição · a corte obedece por medo','#f0abfc');
         if(typeof addChronicle==='function')addChronicle('Diamante embolhada',m.name+' foi poofada e embolhada como punição'+(wasRebel?', encerrando sua rebelião':'')+'.','Autoridade Suprema');
         notify(m.name+' foi embolhada.');refresh();
+    }
+    // ---------------------------------------------------------------- outras punições
+    // Remoção de Pérola · isolamento · queda na hierarquia · tomada de colônia · ataque de cinese.
+    const PUNISH_COOLDOWN=240;
+    function economies(){const list=[state.founding];Object.values(PLANETS).forEach(p=>{if(p.colonized&&p.economy&&p.economy.founding&&p.economy.founding!==state.founding)list.push(p.economy.founding);});return list.filter(Boolean);}
+    function pearlsOf(m){const t='matriarch_'+m.id;return economies().reduce((a,f)=>a+(f.assignedPearls||[]).filter(x=>x&&x.targetId===t).length,0);}
+    function isolated(m){return Number(m.isolatedUntil)>gameNow();}
+    function punishCooldown(m){return cooldownLeft(m,'punish');}
+    function punishReact(m,kind){
+        // Recado para a corte: obediência sobe; gentis e aliadas reagem mal.
+        matriarchs().forEach(o=>{if(o===m||o.courtStatus!=='court')return;const r=relation(m.id,o.id);o.obedience=clamp(o.obedience+({pearl:3,isolate:4,demote:4,colony:6,kinesis:8})[kind]);changeLoyalty(o,(toneOf(o)==='gentle'?-3:0)+(r>=60?-4:r<=-40?2:0),false);});
+    }
+    function punishCommon(m){if(!m)return false;if(!['court','rebel'].includes(m.courtStatus)){notify(m.name+' não pode ser punida agora.',true);return false;}const cd=punishCooldown(m);if(cd>0){notify('Aguarde '+formatDuration(cd)+' para outra punição a '+m.name+'.',true);return false;}return true;}
+    function punishPearl(id){
+        const m=byId(id);if(!punishCommon(m))return;const t='matriarch_'+m.id;let n=0;
+        economies().forEach(f=>{const before=(f.assignedPearls||[]).length;f.assignedPearls=(f.assignedPearls||[]).filter(x=>!(x&&x.targetId===t));n+=before-f.assignedPearls.length;(f.reefPearlInventory||[]).forEach(pl=>{if(pl&&pl.assignedTo===t)pl.assignedTo=null;});});
+        if(!n){notify(m.name+' não tem Pérola designada.',true);return;}
+        m.pearlRevoked=true;const d=toneOf(m)==='grand'?-12:m.personalityId==='isolationist'?-3:-8;changeLoyalty(m,d,false);m.obedience=clamp(m.obedience+5);m.grievances++;
+        say(m,toneOf(m)==='grand'?'Minha Pérola?! Isso é uma humilhação pública.':toneOf(m)==='harsh'?'Uma Pérola a menos não me enfraquece.':'Eu... entendo o recado.');
+        setCooldown(m,'punish',PUNISH_COOLDOWN);punishReact(m,'pearl');
+        log('A Pérola de '+m.name+' foi retirada.',d+' lealdade · +5 obediência · sem bônus de Pérola',m.colorHex);refresh();
+    }
+    function returnPearl(id){const m=byId(id);if(!m)return;m.pearlRevoked=false;if(typeof distributeStoredPearlsAutomatically==='function')distributeStoredPearlsAutomatically();changeLoyalty(m,4,false);log('A Pérola de '+m.name+' pode voltar a servi-la.','+4 lealdade',m.colorHex);refresh();}
+    function punishIsolate(id){
+        const m=byId(id);if(!punishCommon(m))return;if(m.courtStatus!=='court'){notify('Só Diamantes na corte podem ser isoladas.',true);return;}
+        m.isolatedUntil=gameNow()+600000;m.autonomy=clamp(m.autonomy-10);m.obedience=clamp(m.obedience+8);changeLoyalty(m,toneOf(m)==='grand'?-10:toneOf(m)==='harsh'&&m.personalityId==='isolationist'?-2:-6,false);
+        const c=ensureCourt();c.requests=c.requests.filter(r=>r.ownerId!==m.id);
+        // Isolada, ela se afasta das aliadas.
+        matriarchs().forEach(o=>{if(o!==m)changeRelation(m.id,o.id,-6);});
+        say(m,'...');setCooldown(m,'punish',PUNISH_COOLDOWN);punishReact(m,'isolate');
+        log(m.name+' foi isolada da corte por 10 minutos.','Sem votos, pedidos nem audiências · relações esfriam',m.colorHex);refresh();
+    }
+    function punishDemote(id){
+        const m=byId(id);if(!punishCommon(m))return;const list=matriarchs(),from=list.indexOf(m),to=list.length-1;
+        if(from===to){notify(m.name+' já está na posição mais baixa.',true);return;}
+        moveTo(from,to);m.obedience=clamp(m.obedience+10);changeLoyalty(m,-4,false);m.grievances++;
+        say(m,toneOf(m)==='harsh'?'Do fundo da hierarquia ainda se enxerga o topo.':'Mereci isto?');setCooldown(m,'punish',PUNISH_COOLDOWN);punishReact(m,'demote');
+        log(m.name+' foi rebaixada ao fim da hierarquia como punição.','+10 obediência · +1 queixa',m.colorHex);refresh();
+    }
+    function punishColony(id){
+        const m=byId(id);if(!punishCommon(m))return;const g=governedPlanet(m);if(!g){notify(m.name+' não governa nenhuma colônia.',true);return;}
+        g.governor='none';changeLoyalty(m,-15,false);m.autonomy=clamp(m.autonomy-15);m.obedience=clamp(m.obedience+8);m.grievances++;
+        g.dissent=Math.min(100,(Number(g.dissent)||0)+(toneOf(m)==='gentle'?10:4));
+        setCooldown(m,'punish',PUNISH_COOLDOWN);punishReact(m,'colony');
+        // Ressentida demais, ela pode se rebelar e levar a colônia junto.
+        if(m.loyalty<25&&m.courtStatus==='court'&&Math.random()<.3){m.courtStatus='rebel';g.governor='matriarch_'+m.id;g.dissent=100;say(m,lines(m).rebel);log(m.name+' não aceitou perder '+g.shortName+' e se rebelou com ela.','Rebelião','#fb7185');notify(m.name+' se rebelou ao perder '+g.shortName+'!',true);refresh();return;}
+        say(m,toneOf(m)==='gentle'?'Por favor, cuide bem de '+g.shortName+'.':'Você tirou '+g.shortName+' de mim. Não esquecerei.');
+        log('A Suprema retomou '+g.shortName+' de '+m.name+'.','−15 lealdade · −15 autonomia · +8 obediência',m.colorHex);refresh();
+    }
+    // Ataque de cinese: a Suprema usa o próprio poder contra a Diamante. Se vencer, ela é poofada.
+    function kinesisStats(m){
+        const fd=state.firstDiamond||{},kf=typeof ensureDiamondKinesis==='function'?ensureDiamondKinesis(fd):null,km=typeof ensureDiamondKinesis==='function'?ensureDiamondKinesis(m):null;
+        const atk=(Number(fd.diamondPower)||2.5)*(kf?.potency||1),def=(Number(m.diamondPower)||1.8)*(km?.potency||1)*(m.courtStatus==='rebel'?1.15:1);
+        return {chance:clamp(.35+(atk-def)*.25+(m.obedience-50)/300,.1,.95),cost:150,kinesis:kf?.name||'cinese',herKinesis:km?.name||'cinese'};
+    }
+    function punishKinesis(id){
+        const m=byId(id);if(!punishCommon(m))return;const st=kinesisStats(m),f=state.founding||{};
+        const pool=Number(f.diamondEssence)||0;if(pool<st.cost&&essenceValue(state.essence)<st.cost){notify('O ataque de cinese consome '+st.cost+' de essência da Suprema.',true);return;}
+        if(pool>=st.cost)f.diamondEssence=pool-st.cost;else state.essence=essenceValue(state.essence)-st.cost;
+        setCooldown(m,'punish',PUNISH_COOLDOWN);
+        if(Math.random()<st.chance){
+            // Poofada: fora de ação até se reformar (Diamantes demoram), vulnerável a ser embolhada.
+            m.prevStatus=m.courtStatus;m.courtStatus='poofed';m.reformAt=gameNow()+(360+Math.random()*240)*1000;changeLoyalty(m,-12,false);m.obedience=clamp(m.obedience+20);m.grievances++;
+            const c=ensureCourt();c.requests=c.requests.filter(r=>r.ownerId!==m.id);
+            punishReact(m,'kinesis');
+            log('A Suprema atacou '+m.name+' com '+st.kinesis+'. A forma dela se desfez.','Poofada · vulnerável até se reformar · −12 lealdade',m.colorHex);
+            if(typeof addChronicle==='function')addChronicle('Ataque de cinese',(state.firstDiamond?.name||'A Suprema')+' poofou '+m.name+' com '+st.kinesis+'.','Diamante poofada');
+            notify(m.name+' foi poofada. Ela pode ser embolhada enquanto estiver caída.');
+        }else{
+            changeLoyalty(m,-15,false);m.autonomy=clamp(m.autonomy+10);m.grievances+=2;
+            say(m,'Você ergueu sua '+st.kinesis+' contra mim? Minha '+st.herKinesis+' respondeu.');
+            log(m.name+' resistiu ao ataque de cinese.','−15 lealdade · +10 autonomia · +2 queixas','#fb7185');
+            if(m.courtStatus==='court'&&m.loyalty<30&&Math.random()<.5){m.courtStatus='rebel';const g=governedPlanet(m);if(g)g.dissent=100;log(m.name+' rompeu com a Suprema depois do ataque.','Rebelião','#fb7185');notify(m.name+' resistiu e se rebelou!',true);}
+            else notify(m.name+' resistiu ao ataque.',true);
+        }
+        refresh();
+    }
+    function updatePunishments(){
+        matriarchs().forEach(m=>{
+            if(m.courtStatus==='poofed'&&Number(m.reformAt)<=gameNow()){m.courtStatus=m.prevStatus==='rebel'?'rebel':'court';m.prevStatus=null;say(m,toneOf(m)==='harsh'?'Minha forma voltou. E minha memória também.':'...Estou de volta.');log(m.name+' se reformou.','De volta à '+(m.courtStatus==='rebel'?'rebelião':'corte'),m.colorHex);notify(m.name+' se reformou.');}
+            if(m.isolatedUntil&&Number(m.isolatedUntil)<=gameNow()){m.isolatedUntil=0;log(m.name+' voltou do isolamento.','',m.colorHex);}
+        });
     }
     function unbubble(id){
         const m=byId(id);if(!m||m.courtStatus!=='bubbled')return;
@@ -577,7 +661,7 @@
     function update(dt){
         if(!state||!state.firstGameStarted||!matriarchs().length)return;
         dt=Math.max(0,Math.min(5,Number(dt)||0));
-        ensureCourt();updateAppeals(dt);updateRequests(dt);updateMissions(dt);updateIndependence(dt);updatePolitics(dt);
+        ensureCourt();updatePunishments();updateAppeals(dt);updateRequests(dt);updateMissions(dt);updateIndependence(dt);updatePolitics(dt);
         renderTimer-=dt;if(renderTimer<=0){renderTimer=2;renderIfVisible(false);}
     }
     let renderTimer=2;
@@ -610,15 +694,26 @@
     function renderMatriarch(m){
         const c=ensureCourt(),mood=moodOf(m),tone=toneOf(m),g=governedPlanet(m),mission=c.missions.find(x=>x.ownerId===m.id);
         const rels=matriarchs().filter(o=>o!==m).map(o=>{const r=relation(m.id,o.id);return '<span class="badge" style="border-color:'+(r>=20?'#6ee7b7':r<=-10?'#fb7185':'rgba(201,166,255,.4)')+'">'+esc(o.name)+' · '+relationLabel(r)+'</span>';}).join(' ');
-        const status=m.courtStatus==='bubbled'?'<b style="color:#f0abfc">Embolhada</b>':m.courtStatus==='rebel'?'<b style="color:#fb7185">Rebelde</b>':m.courtStatus==='mission'?'<b style="color:#7dd3fc">Em missão</b>':'<b style="color:#6ee7b7">Na corte</b>';
+        const status=m.courtStatus==='poofed'?'<b style="color:#fb923c">Poofada</b>':isolated(m)?'<b style="color:#94a3b8">Isolada</b>':m.courtStatus==='bubbled'?'<b style="color:#f0abfc">Embolhada</b>':m.courtStatus==='rebel'?'<b style="color:#fb7185">Rebelde</b>':m.courtStatus==='mission'?'<b style="color:#7dd3fc">Em missão</b>':'<b style="color:#6ee7b7">Na corte</b>';
         let html='<section id="court-card-'+esc(m.id)+'" class="card court-diamond'+(c.ui?.focus===m.id?' court-focus':'')+'" style="border-left:4px solid '+esc(m.colorHex)+'"><div class="card-header"><span class="card-title"><i class="diamond-icon" style="background:'+esc(m.colorHex)+';margin-right:6px"></i>'+esc(m.name)+'</span><span class="badge">'+MOOD_LABEL[mood]+'</span></div>';
         html+='<small style="display:block;color:var(--text-muted)">'+esc(m.personalityName||'')+' · temperamento '+TONE_LABEL[tone]+' · '+status+(g?' · governa '+esc(g.shortName):'')+' · '+fmt(m.essence)+' essência própria'+(m.grievances?' · <b style="color:#fb923c">'+m.grievances+' queixa(s)</b>':'')+'</small>';
         html+=bar('Lealdade',m.loyalty,m.loyalty<35?'#fb7185':m.loyalty<70?'#f2cf86':'#6ee7b7')+bar('Autonomia',m.autonomy,'#7dd3fc')+bar('Obediência',m.obedience,m.obedience<35?'#fb7185':m.obedience<60?'#f2cf86':'#c9a6ff');
         html+='<small style="display:block;color:var(--text-muted);margin-top:4px">Posição '+rankOf(m)+' · responde a '+(superiorOf(m)?'<b>'+esc(superiorOf(m).name)+'</b>':'<b>fundadora</b>')+(m.delegated.length?' · delega '+m.delegated.map(t=>DELEGABLE[t]).join(', '):'')+'</small>';
         html+='<div class="court-speech">“'+esc(m.currentSpeech||lines(m).greet[mood])+'”</div>';
         if(rels)html+='<div class="court-rels">'+rels+'</div>';
+        if(m.courtStatus==='poofed'){html+='<div class="court-bubbled">Poofada pelo ataque de cinese: a gema está caída e vulnerável. Reforma em '+formatDuration(Math.max(0,(Number(m.reformAt)||0)-gameNow())/1000)+'.</div><div class="court-actions"><button class="btn btn-pink" onclick="GempireCourt.punish(\''+m.id+'\')">Embolhar enquanto está caída · 100%</button></div></section>';return html;}
         if(m.courtStatus==='bubbled'){const cycles=Math.max(0,(Number(state.cycleCount)||1)-(Number(m.bubbledCycle)||1));html+='<div class="court-bubbled">Embolhada em '+esc(PLANETS[m.bubbledPlanetId]?.shortName||'?')+' há '+cycles+' ciclo(s). Não governa, não vota, não faz pedidos nem missões. Quanto mais tempo, mais ressentida ao voltar.</div><div class="court-actions"><button class="btn btn-emerald" onclick="GempireCourt.unbubble(\''+m.id+'\')">Libertar da bolha</button></div></section>';return html;}
-        const punish='<div class="court-subtitle">Punição</div><div class="court-actions"><button class="btn btn-pink" onclick="GempireCourt.punish(\''+m.id+'\')">Embolhar como punição · '+Math.round(bubbleChance(m)*100)+'%</button></div><small style="display:block;color:var(--text-muted)">'+(bubbleChance(m)>=1?'Leal: ela se submete ao poof.':'Ela vai resistir; se escapar, rompe com você.')+' Exige Sala das Bolhas com espaço. A corte fica mais obediente por medo; as gentis e as aliadas dela se indignam.</small>';
+        const pc=punishCooldown(m),pb=(dis,txt,fn)=>'<button class="btn'+(fn==='punish'||fn==='kinesis'?' btn-pink':'')+'" '+(dis||pc>0?'disabled':'')+' onclick="GempireCourt.'+fn+'(\''+m.id+'\')">'+txt+'</button>';
+        const ks=kinesisStats(m),pearls=pearlsOf(m),gp=governedPlanet(m),last=matriarchs().indexOf(m)===matriarchs().length-1;
+        const punish='<div class="court-subtitle">Punição'+(pc>0?' · próxima em '+formatDuration(pc):'')+'</div><div class="court-actions">'+
+            pb(!pearls,'Remover Pérola'+(pearls?'':' (sem Pérola)'),'pearl')+
+            pb(m.courtStatus!=='court'||isolated(m),isolated(m)?'Isolada · '+formatDuration((m.isolatedUntil-gameNow())/1000):'Isolamento (10 min)','isolate')+
+            pb(last,'Queda na hierarquia','demote')+
+            pb(!gp,'Tomar colônia'+(gp?' ('+esc(gp.shortName)+')':' (nenhuma)'),'takeColony')+
+            pb(false,'Ataque de cinese · '+ks.cost+' essência · '+Math.round(ks.chance*100)+'%','kinesis')+
+            pb(false,'Embolhar · '+Math.round(bubbleChance(m)*100)+'%','punish')+'</div>'+
+            (m.pearlRevoked?'<div class="court-actions"><button class="btn" onclick="GempireCourt.returnPearl(\''+m.id+'\')">Devolver o direito à Pérola</button></div>':'')+
+            '<small style="display:block;color:var(--text-muted)">Toda punição aumenta a obediência da corte por medo; as gentis e as aliadas dela reagem mal. Ataque de cinese: sua '+esc(ks.kinesis)+' contra a '+esc(ks.herKinesis)+' dela; se vencer, ela é poofada e pode ser embolhada com certeza; se falhar, ela pode se rebelar. Embolhar exige Sala das Bolhas.</small>';
         if(m.courtStatus==='rebel'){html+=punish+'<div class="court-actions"><button class="btn btn-emerald" onclick="GempireCourt.reconcile(\''+m.id+'\')">Reconciliação · 250 essência + 300 minerais</button>'+audienceButton(m,'report')+'</div></section>';return html;}
         html+='<div class="court-subtitle">Audiência política</div><div class="court-actions">'+['autonomy','obey','gift','tribute','commune','report'].map(k=>audienceButton(m,k)).join('')+'<button class="btn" onclick="GempireCourt.openSocial(\''+m.id+'\')">Convívio pessoal →</button></div>';
         html+=punish;
@@ -669,7 +764,7 @@
         return {requests:c.requests.length+c.appeals.length,appeals:c.appeals.length,dispute:!!c.dispute,vote:!!c.vote,missions:c.missions.length,rebels:matriarchs().filter(m=>m.courtStatus==='rebel').length};
     }
 
-    window.GempireCourt={update,render,audience,reconcile,fulfill:fulfillRequest,negotiate:negotiateRequest,refuse:refuseRequest,startMission,pickMission,openSocial,punish:punishBubble,unbubble,focus,appeal:resolveAppeal,setSuperior,toggleDelegation,takeBack,dispute:resolveDispute,vote:resolveVote,summary,ensure:ensureCourt,_debug:{makeRequest,startDispute,startVote}};
+    window.GempireCourt={update,render,audience,reconcile,fulfill:fulfillRequest,negotiate:negotiateRequest,refuse:refuseRequest,startMission,pickMission,openSocial,punish:punishBubble,unbubble,pearl:punishPearl,returnPearl,isolate:punishIsolate,demote:punishDemote,takeColony:punishColony,kinesis:punishKinesis,focus,appeal:resolveAppeal,setSuperior,toggleDelegation,takeBack,dispute:resolveDispute,vote:resolveVote,summary,ensure:ensureCourt,_debug:{makeRequest,startDispute,startVote}};
     window.renderDiamondCourtTab=render;
     // Mudança de várias posições de uma vez: efeitos somados, com limite, e reação de quem foi ultrapassada.
     function moveTo(from,to){

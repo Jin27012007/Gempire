@@ -6435,7 +6435,7 @@ ${hasAristocrats ? `
             ctx.save();ctx.translate(c.x,c.y);
             ctx.beginPath();ctx.moveTo(0,-hh);ctx.lineTo(hw,0);ctx.lineTo(0,hh);ctx.lineTo(-hw,0);ctx.closePath();
             if(!ent){ctx.fillStyle='rgba(255,240,255,.07)';ctx.fill();ctx.setLineDash([4,5]);ctx.lineWidth=1.2;ctx.strokeStyle='rgba(255,236,250,.35)';ctx.stroke();ctx.restore();return;}
-            const color=ent.colorHex||'#c4b5fd',away=ent.courtStatus==='mission'||ent.courtStatus==='bubbled',rebel=ent.courtStatus==='rebel';
+            const color=ent.colorHex||'#c4b5fd',away=ent.courtStatus==='mission'||ent.courtStatus==='bubbled'||ent.courtStatus==='poofed'||Number(ent.isolatedUntil)>gameNow(),rebel=ent.courtStatus==='rebel';
             const g=ctx.createLinearGradient(0,-hh,0,hh);g.addColorStop(0,mixHexColor(color,'#ffffff',.55));g.addColorStop(.55,mixHexColor(color,'#ffffff',.25));g.addColorStop(1,color);
             ctx.globalAlpha=away?.55:1;ctx.shadowColor=ent.glowHex||color;ctx.shadowBlur=hover?26:c.founder?18:8;
             ctx.fillStyle=g;ctx.fill();ctx.shadowBlur=0;
@@ -6457,11 +6457,12 @@ ${hasAristocrats ? `
                 const ob=Math.max(0,Math.min(100,Number(ent.obedience)||0))/100,bw=c.w*.34,by=c.y+fs*1.05;
                 ctx.shadowBlur=0;ctx.fillStyle='rgba(36,20,58,.25)';ctx.fillRect(c.x-bw/2,by,bw,3);
                 ctx.fillStyle=ob<.35?'#be123c':ob<.6?'#b45309':'#5b21b6';ctx.fillRect(c.x-bw/2,by,bw*ob,3);
-                if(rebelOrAway(ent)){ctx.font='800 '+Math.round(fs*.7)+'px "Exo 2", "Segoe UI", sans-serif';ctx.fillStyle=ent.courtStatus==='rebel'?'#be123c':ent.courtStatus==='bubbled'?'#a21caf':'#0e7490';ctx.fillText(ent.courtStatus==='rebel'?'REBELDE':ent.courtStatus==='bubbled'?'EMBOLHADA':'EM MISSÃO',c.x,by+fs*1.1);}
+                if(rebelOrAway(ent)){ctx.font='800 '+Math.round(fs*.7)+'px "Exo 2", "Segoe UI", sans-serif';const tag=authorityStatusTag(ent);ctx.fillStyle=tag[1];ctx.fillText(tag[0],c.x,by+fs*1.1);}
             }
             ctx.restore();
         }
-        function rebelOrAway(e){return e&&(e.courtStatus==='rebel'||e.courtStatus==='mission'||e.courtStatus==='bubbled');}
+        function rebelOrAway(e){return e&&(e.courtStatus==='rebel'||e.courtStatus==='mission'||e.courtStatus==='bubbled'||e.courtStatus==='poofed'||Number(e.isolatedUntil)>gameNow());}
+        function authorityStatusTag(e){return e.courtStatus==='rebel'?['REBELDE','#be123c']:e.courtStatus==='bubbled'?['EMBOLHADA','#a21caf']:e.courtStatus==='poofed'?['POOFADA','#c2410c']:e.courtStatus==='mission'?['EM MISSÃO','#0e7490']:['ISOLADA','#475569'];}
         let authorityHoverId=null;
         function drawDiamondAuthorityScene(time){
             const image=getPrimarySceneImage('authority');
@@ -7387,7 +7388,8 @@ function drawColony(time){
         }
         function distributeStoredPearlsAutomatically(){
             const f=state.founding||(state.founding={}),inventory=f.reefPearlInventory||(f.reefPearlInventory=[]),assigned=f.assignedPearls||(f.assignedPearls=[]);
-            const targets=['firstDiamond',...(state.matriarchs||[]).map(m=>'matriarch_'+m.id),'aristocrats'];
+            // Diamantes punidas com a remoção da Pérola não recebem outra automaticamente.
+            const targets=['firstDiamond',...(state.matriarchs||[]).filter(m=>!m.pearlRevoked).map(m=>'matriarch_'+m.id),'aristocrats'];
             assigned.forEach((a,index)=>{if(inventory[index]&&!inventory[index].assignedTo)inventory[index].assignedTo=a.targetId;});
             targets.forEach(targetId=>{if(assigned.some(a=>a.targetId===targetId))return;const pearl=inventory.find(item=>!item.assignedTo);if(!pearl)return;pearl.assignedTo=targetId;assigned.push({targetId,planetId:pearl.planetId||'homeworld',source:'reef',pearlId:pearl.id||null});});
             return assigned;
