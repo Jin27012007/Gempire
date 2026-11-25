@@ -3969,7 +3969,7 @@
                     const reason = canBuildStructure(def);
                     const prereqs = def.prerequisites.length ? def.prerequisites.map(id => structureDefinition(id).name).join(' + ') : 'Nenhuma';
                     const costText = (def.cost.minerals || 0) + ' minerais' + ((def.cost.tech || 0) ? ' · ' + def.cost.tech + ' tecnologia' : '');
-                    html += '<div class="card structure-card"><div class="card-header"><span class="card-title">' + def.name + '</span><span class="badge">' + (count ? 'Construída × ' + count : 'Catálogo') + '</span></div>' +
+                    html += '<div class="card structure-card"><div class="card-header"><span class="card-title">' + def.name + '</span><span class="badge">' + (count ? 'Construída × ' + count : 'Catálogo') + '</span></div>' + (def.id!=='red_eye'?'<canvas class="structure-preview" data-structure="'+def.id+'" width="160" height="104"></canvas>':'') +
                         '<p class="structure-desc">' + def.desc + '</p><div class="structure-meta"><span>Pré-requisitos: ' + prereqs + '</span><span>Custo: ' + costText + '</span></div>' +
                         '<div class="structure-interaction">Desbloqueia: ' + def.interaction + '</div>';
                     if (count > 0) {
@@ -6667,6 +6667,11 @@ ${hasAristocrats ? `
         };
 
         function drawGemStructureModel(id,x,y,size,operational,time,progress=100,palette=null){
+          if(ctx&&window.GempirePlanetArt&&GempirePlanetArt.drawStructure&&id!=='red_eye'){
+            GempirePlanetArt.drawStructure(ctx,id,{x,y,scale:size,active:!!operational,time,palette});
+            if(progress<100){ctx.save();ctx.translate(x,y);ctx.scale(size,size);ctx.strokeStyle='#fbbf24';ctx.lineWidth=2;ctx.beginPath();ctx.arc(0,0,29,-Math.PI/2,-Math.PI/2+Math.PI*2*Math.max(0,Math.min(1,progress/100)));ctx.stroke();ctx.restore();}
+            return;
+          }
           const v=STRUCTURE_VISUALS[id];if(!v||!ctx)return;
           const active=!!operational,c=palette?.color||v.color,a=palette?.accent||v.accent,g=palette?.glow||v.glow;
           ctx.save();ctx.translate(x,y);ctx.scale(size,size);ctx.lineJoin='round';ctx.lineCap='round';ctx.globalAlpha=active?1:.7;
