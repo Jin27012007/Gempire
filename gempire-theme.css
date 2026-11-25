@@ -458,3 +458,13 @@ body.game-paused::after{content:'TEMPO PAUSADO';position:fixed;top:58px;left:50%
 .xeno-badges{display:flex;flex-wrap:wrap;gap:4px}
 .xeno-badges .badge{white-space:nowrap;font-size:9px}
 .court-bar.xeno-bar{grid-template-columns:64px 1fr 74px}
+
+/* ---------- Cutscene de abertura ---------- */
+#intro-cutscene{position:fixed;inset:0;z-index:100000;background:#05020d;overflow:hidden;transition:opacity .55s ease}
+#intro-cutscene.intro-out{opacity:0;pointer-events:none}
+#intro-cutscene canvas{display:block}
+.intro-caption{position:absolute;left:50%;bottom:9%;transform:translateX(-50%);width:min(92vw,760px);text-align:center;opacity:0;transition:opacity .35s ease;pointer-events:none}
+.intro-caption span{display:block;font-family:"Exo 2","Segoe UI",sans-serif;font-size:clamp(16px,2.4vw,26px);font-weight:700;color:#f6efff;text-shadow:0 0 18px rgba(201,166,255,.65),0 2px 4px rgba(0,0,0,.8);letter-spacing:.02em}
+.intro-caption small{display:block;margin-top:6px;font-size:clamp(12px,1.5vw,16px);color:#d8c8ff;letter-spacing:.14em;text-transform:uppercase;text-shadow:0 2px 4px rgba(0,0,0,.8)}
+.intro-skip{position:absolute;top:16px;right:16px;padding:8px 16px;border-radius:20px;border:1px solid rgba(233,221,255,.4);background:rgba(20,10,40,.55);color:#e9ddff;font:600 13px "Exo 2","Segoe UI",sans-serif;cursor:pointer}
+.intro-skip:hover{background:rgba(60,30,110,.7)}

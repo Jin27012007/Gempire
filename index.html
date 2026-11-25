@@ -7266,6 +7266,8 @@ function drawColony(time){
         }
 
         function animationFrame(timestamp) {
+            // Durante a cutscene de abertura o mundo fica parado.
+            if (window.GEMPIRE_CUTSCENE) { lastFrameTime = timestamp; requestAnimationFrame(animationFrame); return; }
             if (!lastFrameTime) lastFrameTime = timestamp;
             const frameInterval=state.currentScreen==='colony'?1000/30:1000/60;
             const elapsed=timestamp-lastFrameTime;
@@ -7442,6 +7444,8 @@ function drawColony(time){
                 try { renderBottomBar(); } catch(error) { console.error('Barra inicial:',error); }
                 try { renderDrawerContent(); } catch(error) { console.error('Painel inicial:',error); }
                 setGameMenuStatus('Homeworld iniciado.');
+                // Cutscene de abertura: o planetoide explode e a luz desce como cometa sobre o planeta natal.
+                try{if(window.GempireIntro)GempireIntro.play({name,homeworld:PLANETS.homeworld?.shortName||homeworldName,color:colorHex,colors:[colorHex,secondaryColorHex,tertiaryColorHex],style:bodySilhouette,gemPos,gemCut,surface:getPlanetArtSurface(PLANETS.homeworld)});}catch(error){console.error('Cutscene:',error);}
                 // Não sobrescreve um autosave anterior no instante de criar outra civilização.
                 return true;
             } catch (error) {
@@ -8426,5 +8430,6 @@ function drawColony(time){
     <script src="gempire-disasters.js"></script>
     <script src="gempire-aristocracy.js"></script>
     <script src="gempire-xenobio.js"></script>
+    <script src="gempire-intro.js"></script>
 </body>
 </html>
