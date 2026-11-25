@@ -625,6 +625,14 @@
         <div class="nav-group">
             <span class="diamond-icon" style="background: #ffffff; width: 12px; height: 12px;"></span>
             <span id="era-badge" class="badge hide-mobile">Era 0</span>
+            <span id="time-ctrl" class="time-ctrl" title="Passagem do tempo · Espaço pausa, + e − mudam a velocidade">
+                <button class="time-btn" data-speed="0" onclick="setTimeSpeed(0)" aria-label="Pausar">❚❚</button>
+                <button class="time-btn" data-speed="1" onclick="setTimeSpeed(1)">1×</button>
+                <button class="time-btn" data-speed="2" onclick="setTimeSpeed(2)">2×</button>
+                <button class="time-btn" data-speed="5" onclick="setTimeSpeed(5)">5×</button>
+                <button class="time-btn" data-speed="10" onclick="setTimeSpeed(10)">10×</button>
+                <span class="time-cycle"><b id="time-cycle-label">Ciclo 1</b><i><span id="time-cycle-bar"></span></i></span>
+            </span>
             <button id="nav-throne" class="btn active" onclick="switchScreen('throne')">1. Trono Diamante</button>
             <button id="nav-governance" class="btn" onclick="switchScreen('governance')">2. Governo Imperial</button>
             <button id="nav-starmap" class="btn" onclick="switchScreen('starmap')">3. Mapa Estelar</button>
@@ -1824,6 +1832,7 @@
             }
 
             Object.assign(state.firstDiamond, founderIdentity);
+            state.gameClock = 0; state.gameEpochMs = Date.now(); state.timeSpeed = 1;
             // Nova partida, nova galáxia: a semente fica salva em state.galaxy.seed.
             generateGalaxy(newGalaxySeed());
             // A campanha começa na cena principal; o Globo 360° continua acessível pela navegação.
@@ -5294,6 +5303,38 @@ ${hasAristocrats ? `
         let lastFrameTime = 0;
         let uiRefreshAccumulator = 0;
         let cycleAccumulator = 0;
+        // ---- Relógio do jogo ------------------------------------------------------------
+        // O tempo de jogo só corre quando a simulação anda: pausar congela construções,
+        // tréguas, prazos e esperas; acelerar faz tudo passar mais rápido.
+        const TIME_SPEEDS = [0, 1, 2, 5, 10];
+        function gameNow() { if (!Number.isFinite(state.gameEpochMs)) state.gameEpochMs = Date.now() - (Number(state.gameClock) || 0) * 1000; return state.gameEpochMs + (Number(state.gameClock) || 0) * 1000; }
+        window.gameNow = gameNow;
+        function getTimeSpeed() { const v = Number(state.timeSpeed); return TIME_SPEEDS.includes(v) ? v : 1; }
+        function setTimeSpeed(v) {
+            v = Number(v); if (!TIME_SPEEDS.includes(v)) return;
+            if (v === 0 && getTimeSpeed() !== 0) state.timeSpeedBeforePause = getTimeSpeed();
+            state.timeSpeed = v; updateTimeControlsUI(true);
+            if (typeof setStatusTicker === 'function') setStatusTicker(v === 0 ? 'Tempo pausado. Você ainda pode dar ordens.' : 'Velocidade do tempo: ' + v + '×.');
+        }
+        function toggleTimePause() { setTimeSpeed(getTimeSpeed() === 0 ? (Number(state.timeSpeedBeforePause) || 1) : 0); }
+        function stepTimeSpeed(dir) { const i = TIME_SPEEDS.indexOf(getTimeSpeed()); setTimeSpeed(TIME_SPEEDS[Math.max(1, Math.min(TIME_SPEEDS.length - 1, (i < 1 ? 1 : i) + dir))]); }
+        let timeUiAccumulator = 0;
+        function updateTimeControlsUI(force) {
+            timeUiAccumulator++; if (!force && timeUiAccumulator % 10) return;
+            const speed = getTimeSpeed();
+            document.querySelectorAll('#time-ctrl .time-btn').forEach(b => b.classList.toggle('active', Number(b.dataset.speed) === speed));
+            document.body.classList.toggle('game-paused', speed === 0 && !menuActive);
+            const label = document.getElementById('time-cycle-label'), bar = document.getElementById('time-cycle-bar');
+            if (label) label.textContent = 'Ciclo ' + (Number(state.cycleCount) || 1);
+            if (bar) bar.style.width = Math.max(0, Math.min(100, cycleAccumulator / 60 * 100)) + '%';
+        }
+        document.addEventListener('keydown', event => {
+            const t = event.target, typing = t && (/^(INPUT|TEXTAREA|SELECT)$/.test(t.tagName) || t.isContentEditable);
+            if (typing || menuActive || event.ctrlKey || event.metaKey || event.altKey) return;
+            if (event.code === 'Space') { event.preventDefault(); toggleTimePause(); }
+            else if (event.key === '+' || event.key === '=') stepTimeSpeed(1);
+            else if (event.key === '-' || event.key === '_') stepTimeSpeed(-1);
+        });
         let petitionAccumulator = 0;
 
         function updateSapphirePredictions(dt){
@@ -5685,6 +5726,7 @@ ${hasAristocrats ? `
 
         function updateWorld(deltaMs) {
             const dt = Math.min(0.05, Math.max(0, deltaMs / 1000));
+            state.gameClock = (Number(state.gameClock) || 0) + dt;
             if (typeof updateDiamondGovernance === 'function') updateDiamondGovernance(dt);
             if (typeof updateDiamondSocial === 'function') updateDiamondSocial(dt);
             if (typeof updateMatriarchCourtProduction === 'function') Object.values(PLANETS).filter(planet=>planet&&planet.colonized).forEach(planet=>withPlanetEconomy(planet.id,()=>updateMatriarchCourtProduction(dt)));
@@ -6393,7 +6435,7 @@ ${hasAristocrats ? `
             ctx.save();ctx.translate(c.x,c.y);
             ctx.beginPath();ctx.moveTo(0,-hh);ctx.lineTo(hw,0);ctx.lineTo(0,hh);ctx.lineTo(-hw,0);ctx.closePath();
             if(!ent){ctx.fillStyle='rgba(255,240,255,.07)';ctx.fill();ctx.setLineDash([4,5]);ctx.lineWidth=1.2;ctx.strokeStyle='rgba(255,236,250,.35)';ctx.stroke();ctx.restore();return;}
-            const color=ent.colorHex||'#c4b5fd',away=ent.courtStatus==='mission',rebel=ent.courtStatus==='rebel';
+            const color=ent.colorHex||'#c4b5fd',away=ent.courtStatus==='mission'||ent.courtStatus==='bubbled',rebel=ent.courtStatus==='rebel';
             const g=ctx.createLinearGradient(0,-hh,0,hh);g.addColorStop(0,mixHexColor(color,'#ffffff',.55));g.addColorStop(.55,mixHexColor(color,'#ffffff',.25));g.addColorStop(1,color);
             ctx.globalAlpha=away?.55:1;ctx.shadowColor=ent.glowHex||color;ctx.shadowBlur=hover?26:c.founder?18:8;
             ctx.fillStyle=g;ctx.fill();ctx.shadowBlur=0;
@@ -6401,6 +6443,8 @@ ${hasAristocrats ? `
             const sh=(time*.00025+c.rank*.37)%1;ctx.save();ctx.clip();ctx.globalAlpha=.18;ctx.fillStyle='#ffffff';ctx.beginPath();ctx.moveTo(-hw+sh*hw*3,-hh);ctx.lineTo(-hw+sh*hw*3+hw*.35,-hh);ctx.lineTo(-hw+sh*hw*3-hw*.4,hh);ctx.lineTo(-hw+sh*hw*3-hw*.75,hh);ctx.closePath();ctx.fill();ctx.restore();
             ctx.globalAlpha=1;ctx.lineJoin='round';ctx.lineWidth=hover?3.2:2.2;ctx.strokeStyle=rebel?'#fb7185':'#e8737e';
             ctx.beginPath();ctx.moveTo(0,-hh);ctx.lineTo(hw,0);ctx.lineTo(0,hh);ctx.lineTo(-hw,0);ctx.closePath();ctx.stroke();
+            // Diamante embolhada: uma bolha translúcida envolve o losango.
+            if(ent.courtStatus==='bubbled'){const br=Math.min(hw,hh)*.92,wob=Math.sin(time*.003+c.rank)*2;const bg=ctx.createRadialGradient(-br*.35,-br*.35,br*.1,0,0,br+wob);bg.addColorStop(0,'rgba(255,255,255,.45)');bg.addColorStop(.6,'rgba(240,171,252,.18)');bg.addColorStop(1,'rgba(232,121,249,.45)');ctx.fillStyle=bg;ctx.beginPath();ctx.arc(0,0,br+wob,0,Math.PI*2);ctx.fill();ctx.lineWidth=2;ctx.strokeStyle='rgba(253,244,255,.85)';ctx.stroke();ctx.beginPath();ctx.arc(-br*.35,-br*.4,br*.14,0,Math.PI*2);ctx.fillStyle='rgba(255,255,255,.8)';ctx.fill();}
             ctx.restore();
             // Texto: posição, nome e obediência.
             const fs=Math.max(9,Math.min(14,c.w*.095));
@@ -6413,11 +6457,11 @@ ${hasAristocrats ? `
                 const ob=Math.max(0,Math.min(100,Number(ent.obedience)||0))/100,bw=c.w*.34,by=c.y+fs*1.05;
                 ctx.shadowBlur=0;ctx.fillStyle='rgba(36,20,58,.25)';ctx.fillRect(c.x-bw/2,by,bw,3);
                 ctx.fillStyle=ob<.35?'#be123c':ob<.6?'#b45309':'#5b21b6';ctx.fillRect(c.x-bw/2,by,bw*ob,3);
-                if(rebelOrAway(ent)){ctx.font='800 '+Math.round(fs*.7)+'px "Exo 2", "Segoe UI", sans-serif';ctx.fillStyle=ent.courtStatus==='rebel'?'#be123c':'#0e7490';ctx.fillText(ent.courtStatus==='rebel'?'REBELDE':'EM MISSÃO',c.x,by+fs*1.1);}
+                if(rebelOrAway(ent)){ctx.font='800 '+Math.round(fs*.7)+'px "Exo 2", "Segoe UI", sans-serif';ctx.fillStyle=ent.courtStatus==='rebel'?'#be123c':ent.courtStatus==='bubbled'?'#a21caf':'#0e7490';ctx.fillText(ent.courtStatus==='rebel'?'REBELDE':ent.courtStatus==='bubbled'?'EMBOLHADA':'EM MISSÃO',c.x,by+fs*1.1);}
             }
             ctx.restore();
         }
-        function rebelOrAway(e){return e&&(e.courtStatus==='rebel'||e.courtStatus==='mission');}
+        function rebelOrAway(e){return e&&(e.courtStatus==='rebel'||e.courtStatus==='mission'||e.courtStatus==='bubbled');}
         let authorityHoverId=null;
         function drawDiamondAuthorityScene(time){
             const image=getPrimarySceneImage('authority');
@@ -7111,7 +7155,12 @@ function drawColony(time){
                 if (Math.abs(diff) < 0.002) state.planetCamera.targetRotation = null;
             }
             if (!menuActive) {
-                updateWorld(delta);
+                // Passagem do tempo: a simulação anda em passos de até 50 ms, multiplicados pela velocidade.
+                const speed = getTimeSpeed();
+                let simMs = Math.min(delta, 250) * speed;
+                let steps = 0;
+                while (simMs > 0.5 && steps < 40) { const step = Math.min(50, simMs); updateWorld(step); simMs -= step; steps++; }
+                updateTimeControlsUI();
                 if (gameSettings.autoSave) {
                     autoSaveAccumulator += delta;
                     if (autoSaveAccumulator >= 90000) { autoSaveAccumulator = 0; saveGame('autosave', true); }
@@ -8004,6 +8053,9 @@ function drawColony(time){
                 });
                 if (typeof PLANET_SURFACE_CACHE !== 'undefined') PLANET_SURFACE_CACHE.clear();
                 ensureGalaxyState();
+                state.gameClock = Number(state.gameClock) || 0;
+                if (!Number.isFinite(state.gameEpochMs)) state.gameEpochMs = Date.now() - state.gameClock * 1000;
+                state.timeSpeed = 1;
                 state.essence = essenceValue(state.essence);
                 Object.values(PLANETS).forEach(pl => { if (pl.economy) pl.economy.essence = essenceValue(pl.economy.essence); });
                 applyHomeworldNameToDOM();

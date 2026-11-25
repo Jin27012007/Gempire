@@ -193,9 +193,9 @@
     // Troca de lei: efeitos imediatos e reação da corte.
     function setPolicy(key){
         if(!POLICIES[key])return;const old=policy();if(old===key)return;
-        const left=Math.max(0,(Number(state.imperialLaws.offColorLawCooldownUntil)||0)-Date.now())/1000;
+        const left=Math.max(0,(Number(state.imperialLaws.offColorLawCooldownUntil)||0)-gameNow())/1000;
         if(left>0){notify('A Lei Off-Color só pode mudar de novo em '+(typeof formatDuration==='function'?formatDuration(left):Math.ceil(left)+'s')+'.',true);return;}
-        state.imperialLaws.offColorPolicyKey=key;state.imperialLaws.offColorPolicy=POLICIES[key].name;state.imperialLaws.offColorLawCooldownUntil=Date.now()+LAW_COOLDOWN*1000;
+        state.imperialLaws.offColorPolicyKey=key;state.imperialLaws.offColorPolicy=POLICIES[key].name;state.imperialLaws.offColorLawCooldownUntil=gameNow()+LAW_COOLDOWN*1000;
         let destroyed=0,fled=0;
         // Reciclagem passa a valer também para as off-colors que já existem.
         if(key==='recycle'){
@@ -203,7 +203,7 @@
         }
         // Reação imediata da corte.
         courtLoyalty(t=>(OPINION[key]?.[t]||0)*12);
-        if(window.GempireCourt&&state.court?.log)state.court.log.unshift({text:'Nova Lei Off-Color: '+POLICIES[key].label+'.',impact:'A corte reage à decisão',color:'#c9a6ff',cycle:Number(state.cycleCount)||1,at:Date.now()});
+        if(window.GempireCourt&&state.court?.log)state.court.log.unshift({text:'Nova Lei Off-Color: '+POLICIES[key].label+'.',impact:'A corte reage à decisão',color:'#c9a6ff',cycle:Number(state.cycleCount)||1,at:gameNow()});
         chronicle('Lei Off-Color: '+POLICIES[key].label,POLICIES[key].desc+(destroyed||fled?' '+destroyed+' off-color(s) estilhaçada(s), '+fled+' fugiu(ram).':''),'Lei imperial alterada');
         notify('Lei Off-Color alterada para '+POLICIES[key].label+'.');
         refresh();
@@ -217,13 +217,13 @@
     function hiddenEstimate(planet){
         const r=registry(planet),h=r.hidden;if(!h)return {text:'Nenhum sinal',exact:true};
         if(Object.keys(r.groups).some(k=>k==='sapphire|vision'))return {text:fmt(h)+' (visão do passado)',exact:true};
-        if(Number(planet.resistance?.galleryIntelUntil)>Date.now())return {text:fmt(h)+' (varredura orbital)',exact:true};
+        if(Number(planet.resistance?.galleryIntelUntil)>gameNow())return {text:fmt(h)+' (varredura orbital)',exact:true};
         const lo=Math.max(1,Math.floor(h*.6)),hi=Math.ceil(h*1.5);return {text:'entre '+fmt(lo)+' e '+fmt(hi),exact:false};
     }
     function render(container){
         const pol=policy(),planets=Object.values(PLANETS).filter(p=>p&&p.colonized);planets.forEach(sync);
         const totalVisible=planets.reduce((a,p)=>a+visibleTotal(p),0),recycled=planets.reduce((a,p)=>a+(Number(registry(p).recycled)||0),0);
-        const left=Math.max(0,(Number(state.imperialLaws.offColorLawCooldownUntil)||0)-Date.now())/1000;
+        const left=Math.max(0,(Number(state.imperialLaws.offColorLawCooldownUntil)||0)-gameNow())/1000;
         let html='<section class="card card-cyan"><div class="card-header"><span class="card-title title-font">Ordem Pública · Off-Colors e Resistência</span><span class="badge">Intensidade '+INTENSITY[intensity()].label+'</span></div><p class="governance-muted">Off-colors são Gems que emergiram fora do padrão. A lei define o que acontece com elas e muda produção, dissidência e a opinião das Diamantes. Off-colors em fuga se escondem nas galerias e pressionam a dissidência. Cada colônia tem uma resistência que cresce com dissidência, galerias, leis duras, ordem baixa e esgotamento: Calma → Descontentamento → Células (sabotagens) → Insurreição (veios tomados) → Mundo rebelde (produção parada, revolta se espalha).</p>'+
             '<div class="grid-2"><div class="stat-box">Off-colors visíveis <b>'+fmt(totalVisible)+'</b></div><div class="stat-box">Estilhaçadas até hoje <b>'+fmt(recycled)+'</b></div></div></section>';
         html+='<section class="card"><div class="card-header"><span class="card-title">Lei Off-Color</span><span class="badge">'+(left>0?'Nova mudança em '+(typeof formatDuration==='function'?formatDuration(left):Math.ceil(left)+'s'):'Pode mudar')+'</span></div><div class="order-laws">'+

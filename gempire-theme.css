@@ -389,3 +389,19 @@ input.gstep-source{position:absolute!important;width:1px!important;height:1px!im
 .gemfate{margin-top:8px;padding-top:6px;border-top:1px solid rgba(240,171,252,.25)}
 .gemfate .stat-box{margin-top:6px}
 .gemfate-bubble{border-left:3px solid #f0abfc;background:radial-gradient(circle at 12% 30%,rgba(253,244,255,.12),transparent 55%)}
+
+/* Passagem do tempo */
+.time-ctrl{display:inline-flex;align-items:center;gap:2px;margin-left:4px;padding:2px 4px;background:rgba(20,10,40,.6);border:1px solid rgba(201,166,255,.35);clip-path:polygon(6px 0,calc(100% - 6px) 0,100% 50%,calc(100% - 6px) 100%,6px 100%,0 50%)}
+.time-btn{min-width:28px;height:24px;padding:0 6px;border:0;background:transparent;color:#d9c8f5;font:800 11px/1 "Exo 2","Segoe UI",sans-serif;cursor:pointer;border-radius:3px}
+.time-btn:hover{background:rgba(201,166,255,.18);color:#fff}
+.time-btn.active{background:linear-gradient(180deg,#f2cf86,#c79a45);color:#24143a}
+.time-btn[data-speed="0"].active{background:linear-gradient(180deg,#fb7185,#be123c);color:#fff}
+.time-cycle{display:inline-flex;flex-direction:column;gap:2px;margin:0 6px 0 4px;min-width:58px}
+.time-cycle b{font:800 10px/1 "Exo 2","Segoe UI",sans-serif;color:#f2cf86;letter-spacing:.04em}
+.time-cycle i{display:block;height:3px;background:rgba(201,166,255,.2);border-radius:2px;overflow:hidden}
+.time-cycle i span{display:block;height:100%;background:#c9a6ff}
+body.game-paused #gameCanvas{filter:saturate(.55) brightness(.85)}
+body.game-paused::after{content:'TEMPO PAUSADO';position:fixed;top:58px;left:50%;transform:translateX(-50%);padding:4px 14px;background:rgba(190,18,60,.85);color:#fff;font:800 11px "Exo 2",sans-serif;letter-spacing:.14em;z-index:50;pointer-events:none;clip-path:polygon(8px 0,calc(100% - 8px) 0,100% 50%,calc(100% - 8px) 100%,8px 100%,0 50%)}
+@media (max-width:600px){.time-cycle{display:none}.time-btn{min-width:24px;padding:0 4px}}
+.court-bubbled{margin:8px 0;padding:8px 10px;border-left:3px solid #f0abfc;background:radial-gradient(circle at 10% 30%,rgba(253,244,255,.14),transparent 60%),rgba(40,10,50,.4);color:#f5e8ff;font-size:12px}
+.gemfate-diamond{border-left-color:#e879f9}

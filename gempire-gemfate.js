@@ -88,6 +88,7 @@
     // Bolhas: soltar (anistia), trocar com os rebeldes ou estilhaçar.
     function releaseBubble(planetId,key,mode){
         const p=PLANETS[planetId];if(!p)return;const f=fate(p),n=Number(f.bubbles[key])||0;if(!n)return;const b=parseKey(key);
+        if(String(b.origin).startsWith('diamond:'))return; // Diamantes são libertadas pela Corte
         delete f.bubbles[key];
         if(mode==='shatter'){stats().shattered+=n;courtReact(-.5,.2,n);p.dissent=Math.min(100,(Number(p.dissent)||0)+n*(b.origin==='offcolor'?.8:1.2));chronicle('Bolhas estilhaçadas em '+p.shortName,n+' '+label(b.caste)+' ('+ORIGIN_LABEL[b.origin]+') estilhaçada(s).','Perda permanente');notify(n+' gema(s) embolhada(s) estilhaçada(s).',true);}
         else if(mode==='rebels'){const r=resApi()&&resApi()._res(p);if(r){const k=b.caste+(b.off?'|off':'');r.memberCastes[k]=(r.memberCastes[k]||0)+n;r.members+=n;}stats().released+=n;}
@@ -96,7 +97,7 @@
             const census=Object.assign({},censusOf(p));census[b.caste]=(Number(census[b.caste])||0)+n;setCensus(p,census);
             if(b.off&&offApi())offApi().addVisible(p,b.caste,b.defect||'color',n);
             stats().released+=n;courtReact(.3,-.2,n);p.dissent=Math.max(0,(Number(p.dissent)||0)-n*.8);
-            if(b.origin==='rebel'||b.origin==='leader'){const r=resApi()&&resApi()._res(p);if(r){r.strength=clamp(r.strength-n*.5);r.lastAmnestyAt=Date.now();}}
+            if(b.origin==='rebel'||b.origin==='leader'){const r=resApi()&&resApi()._res(p);if(r){r.strength=clamp(r.strength-n*.5);r.lastAmnestyAt=gameNow();}}
             chronicle('Bolhas libertadas em '+p.shortName,n+' '+label(b.caste)+' foram libertadas e voltaram ao censo.','Anistia');notify(n+' gema(s) libertada(s) das bolhas.');
         }
         refresh();
@@ -132,7 +133,9 @@
             else if(g.owner==='empire')h+='<small style="display:block;color:var(--text-muted)">'+(g.reason?esc(g.reason)+' · ':'')+'fora de ação até se reformar.</small>';
             h+='</div>';
         });
-        Object.entries(f.bubbles).forEach(([k,n])=>{const b=parseKey(k);const isPrisoner=b.origin==='rebel'||b.origin==='leader';
+        Object.entries(f.bubbles).forEach(([k,n])=>{const b=parseKey(k);
+            if(String(b.origin).startsWith('diamond:')){const m=(state.matriarchs||[]).find(x=>x.id===b.origin.slice(8));h+='<div class="stat-box gemfate-bubble gemfate-diamond"><div class="court-row"><b>'+esc(m?.name||'Diamante')+'</b><small>Diamante embolhada como punição</small></div><div class="court-actions"><button class="btn btn-emerald" onclick="GempireCourt.unbubble(\''+esc(m?.id||'')+'\')">Libertar da bolha</button></div></div>';return;}
+            const isPrisoner=b.origin==='rebel'||b.origin==='leader';
             h+='<div class="stat-box gemfate-bubble"><div class="court-row"><b>'+fmt(n)+' '+esc(label(b.caste))+(b.off?' off-color':'')+'</b><small>'+esc(ORIGIN_LABEL[b.origin]||b.origin)+' · em bolha</small></div><div class="court-actions">'+
                 '<button class="btn btn-emerald" onclick="GempireGemFate.release(\''+p.id+'\',\''+k+'\',\'free\')">'+(isPrisoner?'Anistia (libertar no censo)':'Libertar')+'</button>'+
                 '<button class="btn btn-pink" onclick="GempireGemFate.release(\''+p.id+'\',\''+k+'\',\'shatter\')">Estilhaçar</button></div></div>';});
