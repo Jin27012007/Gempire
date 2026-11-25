@@ -584,3 +584,11 @@ details.ui-more p{margin-top:4px}
     #top-bar .action-group{flex:0 0 auto}
     #hud-diamond-essences{max-width:30vw;overflow:hidden;white-space:nowrap}
 }
+
+/* ---------- Avisos sempre visíveis, por cima do painel ---------- */
+#hud-banners{z-index:45!important;pointer-events:none}
+#hud-banners .banner-pill{box-shadow:0 4px 18px rgba(8,3,20,.6);backdrop-filter:blur(3px)}
+@media(max-width:600px){
+    #hud-banners{top:auto!important;bottom:8px!important;left:8px!important;right:8px!important;max-width:none!important}
+    #hud-banners .banner-pill{font-size:11px}
+}
