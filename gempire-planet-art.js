@@ -13,7 +13,9 @@
 (function(){
     'use strict';
     const TAU=Math.PI*2;
-    const TEX_W=512,TEX_H=256;
+    // Qualidade visual: resolução das texturas e limite de detalhe da esfera desenhada.
+    const QUALITY={low:{w:256,h:128,max:224},medium:{w:512,h:256,max:352},high:{w:1024,h:512,max:640}};
+    let QUALITY_KEY='medium',TEX_W=512,TEX_H=256,MAX_RES=352;
 
     // ------------------------------------------------------------------
     // Ruído determinístico
@@ -230,7 +232,7 @@
         return result;
     }
     const PENDING=new Map();let pendingTimer=null;
-    function textureKey(p){return [p.id,p.seed,p.topology,p.biome,p.landCoverage,p.waterKind].join(':');}
+    function textureKey(p){return [p.id,p.seed,p.topology,p.biome,p.landCoverage,p.waterKind,TEX_W].join(':');}
     function getTexture(planetLike,deferred){
         const key=textureKey(planetLike);
         if(TEXTURE_CACHE.has(key))return TEXTURE_CACHE.get(key);
@@ -743,7 +745,7 @@
         const shatter=damage.shattered?Math.max(.05,Math.min(1,damage.shatterProgress??1)):0;
         const coreRGB=parseColor(damage.coreColor,[255,233,194]);
         const dpr=Math.max(1,Math.min(2,window.devicePixelRatio||1));
-        const S=Math.max(32,Math.min(opts.maxResolution||352,Math.round(radius*2*dpr/16)*16));
+        const S=Math.max(32,Math.min(opts.maxResolution?Math.min(opts.maxResolution,Math.round(MAX_RES*1.5/16)*16):MAX_RES,Math.round(radius*2*dpr/16)*16));
         const atm=parseColor(opts.atmosphere,[201,166,255]);
         const rimCol=[atm[0]*.75,atm[1]*.75,atm[2]*.9];
         // Halo atmosférico externo (um mundo desmontado perdeu a atmosfera: o vão mostra o espaço).
@@ -1238,5 +1240,12 @@
     }
     if(document.body)watchShipPreviews();else document.addEventListener('DOMContentLoaded',watchShipPreviews);
 
-    window.GempirePlanetArt={drawPlanet,drawSpaceBackground,drawStar,drawShip,drawRedEye,drawStructure,paintStructurePreviews,drawCityBuilding,structPalette,surfaceQuery,paintShipPreviews,BIOMES,_cache:{TEXTURE_CACHE,SPHERE_CACHE}};
+        function setQuality(q){
+        if(!QUALITY[q])q='medium';if(q===QUALITY_KEY)return false;
+        QUALITY_KEY=q;TEX_W=QUALITY[q].w;TEX_H=QUALITY[q].h;MAX_RES=QUALITY[q].max;
+        TEXTURE_CACHE.clear();GEM_COVER_CACHE.clear();DAMAGE_CACHE.clear();SPHERE_CACHE.clear();PENDING.clear();LAST_GLOBE=null;
+        try{window.dispatchEvent(new CustomEvent('gempire-quality',{detail:q}));}catch(e){}
+        return true;
+    }
+    window.GempirePlanetArt={setQuality,getQuality:()=>QUALITY_KEY,drawPlanet,drawSpaceBackground,drawStar,drawShip,drawRedEye,drawStructure,paintStructurePreviews,drawCityBuilding,structPalette,surfaceQuery,paintShipPreviews,BIOMES,_cache:{TEXTURE_CACHE,SPHERE_CACHE}};
 })();

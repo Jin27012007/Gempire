@@ -47,6 +47,10 @@
         setTimeout(step,250);
     }
     function warmAllNow(){while(prepared<DAMAGES.length)warmOne(prepared++);}
+    // Para a tela de carregamento: prepara um passo e devolve quantos faltam.
+    function warmStep(){if(prepared<STEPS.length)warmOne(prepared++);return STEPS.length-prepared;}
+    // Mudou a qualidade: as texturas antigas foram descartadas.
+    window.addEventListener('gempire-quality',()=>{prepared=0;preparing=false;});
 
     let api=null;
     function play(o){
@@ -220,6 +224,6 @@
         else raf=requestAnimationFrame(frame);
         api.skip=finish;
     }
-    api={play,prepare,skip(){}};
+    api={play,prepare,warmStep,remaining:()=>STEPS.length-prepared,skip(){}};
     window.GempireIntro=api;
 })();

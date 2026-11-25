@@ -1647,7 +1647,7 @@
         let menuActive = true;
         let gameHasStarted = false;
         let autoSaveAccumulator = 0;
-        let gameSettings = { autoSave: true, autoRotate: false, compactUI: false };
+        let gameSettings = { autoSave: true, autoRotate: false, compactUI: false, quality: 'medium' };
 
         // Estrelas de fundo geradas uma vez
         const starBgParticles = Array.from({ length: 130 }, () => ({
@@ -6905,14 +6905,14 @@ ${hasAristocrats ? `
             const S=STRUCTURE_CATALOG.reduce((a,d)=>a+structureCount(d.id),0);
             const census=state.census||{};const P=Object.entries(census).reduce((a,[k,n])=>k==='prime'||k==='offcolor'?a:a+Math.max(0,Number(n)||0),0);
             const proj=(state.morganiteArchitecture?.completed||[]).filter(r=>r&&r.planetId===planet.id).length;
-            return {S,lots:Math.min(CITY_MAX_LOTS,Math.round(7*S+34*Math.log10(P+1)+14*proj))};
+            return {S,lots:Math.min((window.GempirePlanetArt&&GempirePlanetArt.getQuality&&GempirePlanetArt.getQuality()==='low')?160:CITY_MAX_LOTS,Math.round(7*S+34*Math.log10(P+1)+14*proj))};
         }
         const CITY_SPRITES=new Map();
         function citySprite(kind,variant,k,pal,palKey){
             const vb=Math.min(2,Math.floor(variant*3)),sb=Math.max(1,Math.round(k*8)),key=kind+'|'+vb+'|'+sb+'|'+palKey;
             let sp=CITY_SPRITES.get(key);if(sp)return sp;
             if(CITY_SPRITES.size>800)CITY_SPRITES.clear();
-            const kk=sb/8,q=2,w=Math.ceil(26*kk)+6,h=Math.ceil(40*kk)+6,ox=w/2,oy=h-Math.ceil(6*kk)-3;
+            const kk=sb/8,q=(window.GempirePlanetArt&&GempirePlanetArt.getQuality&&GempirePlanetArt.getQuality()==='low')?1:2,w=Math.ceil(26*kk)+6,h=Math.ceil(40*kk)+6,ox=w/2,oy=h-Math.ceil(6*kk)-3;
             const cv=document.createElement('canvas');cv.width=w*q;cv.height=h*q;const c=cv.getContext('2d');c.scale(q,q);
             GempirePlanetArt.drawCityBuilding(c,kind,{x:ox,y:oy,scale:kk,pal,variant:(vb+.5)/3});
             sp={cv,w,h,ox,oy};CITY_SPRITES.set(key,sp);return sp;
@@ -7318,7 +7318,7 @@ function drawColony(time){
 
         function animationFrame(timestamp) {
             // Durante a cutscene de abertura o mundo fica parado.
-            if (window.GEMPIRE_CUTSCENE) { lastFrameTime = timestamp; requestAnimationFrame(animationFrame); return; }
+            if (window.GEMPIRE_CUTSCENE || window.GEMPIRE_LOADING) { lastFrameTime = timestamp; requestAnimationFrame(animationFrame); return; }
             if (!lastFrameTime) lastFrameTime = timestamp;
             const frameInterval=state.currentScreen==='colony'?1000/30:1000/60;
             const elapsed=timestamp-lastFrameTime;
@@ -7390,6 +7390,64 @@ function drawColony(time){
             setGameMenuStatus('Jogo pausado. Escolha uma opção.');
         }
 
+        // ---------- Tela de carregamento: prepara texturas e desenhos antes de mostrar o jogo ----------
+        const LOADING_TIPS=['Forme uma Peridoto cedo: ela opera Injetores, a Câmara e o Extrator.','O exercício físico sempre gera essência, mesmo sem a Câmara.','Espaço pausa o tempo; + e − mudam a velocidade.','Forjar uma Diamante consome 40% do núcleo do planeta.','Reservas protegem espécies alienígenas, ao custo de parte da extração.','Bailes aproximam as Diamantes; julgamentos injustos revoltam as colônias.','A qualidade visual pode ser ajustada em Menu · Configurações.'];
+        function runLoadingScreen(title,tasks,onDone){
+            let el=document.getElementById('loading-screen');
+            if(!el){el=document.createElement('div');el.id='loading-screen';el.innerHTML='<div class="ld-box"><div class="ld-gem"><i></i></div><h2 class="ld-title"></h2><div class="ld-bar"><i></i></div><small class="ld-step"></small><p class="ld-tip"></p></div>';document.body.appendChild(el);}
+            el.classList.remove('ld-out');el.querySelector('.ld-title').textContent=title;
+            el.querySelector('.ld-tip').textContent='Dica: '+LOADING_TIPS[Math.floor(Math.random()*LOADING_TIPS.length)];
+            window.GEMPIRE_LOADING=true;
+            const bar=el.querySelector('.ld-bar i'),label=el.querySelector('.ld-step');
+            const total=tasks.reduce((a,t)=>a+(t.weight||1),0)||1;let done=0,index=0;
+            const paint=()=>{bar.style.width=Math.round(done/total*100)+'%';label.textContent=tasks[index]?tasks[index].label+'…':'Pronto';};
+            const finish=()=>{bar.style.width='100%';label.textContent='Pronto';
+                setTimeout(()=>{el.classList.add('ld-out');window.GEMPIRE_LOADING=false;setTimeout(()=>{if(el.classList.contains('ld-out'))el.remove();},450);try{if(onDone)onDone();}catch(e){console.error(e);}},120);};
+            const step=()=>{
+                const t=tasks[index];if(!t){finish();return;}
+                let again=false;
+                try{const r=t.run();again=typeof r==='number'&&r>0;}catch(e){console.warn('Carregamento: '+t.label,e);}
+                if(!again){done+=(t.weight||1);index++;}
+                paint();
+                // Dá um quadro para a barra ser pintada antes do próximo passo pesado.
+                requestAnimationFrame(()=>setTimeout(step,0));
+            };
+            paint();requestAnimationFrame(()=>setTimeout(step,30));
+        }
+        function warmPlanetVisual(planet,thumbnail){
+            if(!planet||!window.GempirePlanetArt)return;
+            const isMobile=window.matchMedia('(max-width: 600px)').matches;
+            const radius=thumbnail?28:Math.max(70,Math.min(canvasWidth*(isMobile?0.255:0.245),canvasHeight*(isMobile?0.265:0.29),225)*(state.planetCamera?.zoom||1));
+            const c=document.createElement('canvas').getContext('2d');
+            GempirePlanetArt.drawPlanet(c,{cx:0,cy:0,radius,surface:getPlanetArtSurface(planet),rotation:state.planetCamera?.rotation||0,time:0,atmosphere:planet.colors?.atmosphere,
+                gemCover:thumbnail?null:getPlanetGemCover(planet),rebelCover:!thumbnail&&window.GempireResistance?GempireResistance.coverFor(planet):null,damage:getPlanetDamage(planet,getPlanetVisualStats(planet))});
+        }
+        // Tarefas de preparo do mundo atual: planeta ativo primeiro, depois as outras colônias.
+        function worldWarmTasks(){
+            const active=PLANETS[state.activeColonyPlanetId||'homeworld']||PLANETS.homeworld;
+            const others=Object.values(PLANETS).filter(p=>p&&p.colonized&&p!==active);
+            const tasks=[{label:'Moldando '+(active.shortName||'o planeta natal'),weight:3,run:()=>warmPlanetVisual(active)}];
+            others.forEach(p=>tasks.push({label:'Mapeando '+p.shortName,run:()=>warmPlanetVisual(p,true)}));
+            tasks.push({label:'Erguendo as cidades',run:()=>{
+                if(!window.GempirePlanetArt||!GempirePlanetArt.drawCityBuilding)return;
+                const dev=colonyDevelopment(active);if(dev.lots<1)return;
+                const isMobile=window.matchMedia('(max-width: 600px)').matches;
+                const radius=Math.max(70,Math.min(canvasWidth*(isMobile?0.255:0.245),canvasHeight*(isMobile?0.265:0.29),225)*(state.planetCamera?.zoom||1));
+                const colors=getPlanetRulerColors(active),pal=GempirePlanetArt.structPalette(colors),palKey=(colors?.color||'-'),base=Math.max(.5,radius/390)*1.6;
+                colonyCityLots(active).lots.slice(0,dev.lots).forEach(l=>[.35,.7,1].forEach(z=>citySprite(l.kind,l.variant,base*(.4+.6*z),pal,palKey)));
+            }});
+            return tasks;
+        }
+        function setVisualQuality(q){
+            if(!['low','medium','high'].includes(q))return;
+            gameSettings.quality=q;
+            try{localStorage.setItem(SETTINGS_STORAGE_KEY,JSON.stringify(gameSettings));}catch(e){}
+            const changed=window.GempirePlanetArt&&GempirePlanetArt.setQuality(q);
+            if(typeof CITY_SPRITES!=='undefined')CITY_SPRITES.clear();
+            if(changed&&gameHasStarted)runLoadingScreen('Ajustando a qualidade visual',worldWarmTasks(),()=>{});
+            if(typeof showMenuPanel==='function'&&document.querySelector('.quality-pick'))showMenuPanel('settings');
+        }
+
         function startGame() {
             if (!state.firstGameStarted) {
                 showFoundingSetup();
@@ -7398,6 +7456,7 @@ function drawColony(time){
             gameHasStarted = true;
             setGameMenuVisible(false);
             setStatusTicker('A fundadora retorna a Homeworld.');
+            if(!window.__worldWarm){window.__worldWarm=true;runLoadingScreen('Retornando ao Império',worldWarmTasks());}
         }
 
         function startFreshCivilization() {
@@ -7548,7 +7607,10 @@ function drawColony(time){
                 try { renderDrawerContent(); } catch(error) { console.error('Painel inicial:',error); }
                 setGameMenuStatus('Homeworld iniciado.');
                 // Cutscene de abertura: o planetoide explode e a luz desce como cometa sobre o planeta natal.
-                try{if(window.GempireIntro)GempireIntro.play({name,homeworld:PLANETS.homeworld?.shortName||homeworldName,color:colorHex,colors:[colorHex,secondaryColorHex,tertiaryColorHex],style:bodySilhouette,gemPos,gemCut,gemSize,surface:getPlanetArtSurface(PLANETS.homeworld)});}catch(error){console.error('Cutscene:',error);}
+                window.__worldWarm=true;
+                const introTasks=[{label:'Moldando o planeta natal',weight:3,run:()=>warmPlanetVisual(PLANETS.homeworld)}];
+                if(window.GempireIntro&&GempireIntro.warmStep)introTasks.push({label:'Preparando o despertar',weight:4,run:()=>GempireIntro.warmStep()});
+                runLoadingScreen('Despertando '+(PLANETS.homeworld?.shortName||homeworldName),introTasks,()=>{try{if(window.GempireIntro)GempireIntro.play({name,homeworld:PLANETS.homeworld?.shortName||homeworldName,color:colorHex,colors:[colorHex,secondaryColorHex,tertiaryColorHex],style:bodySilhouette,gemPos,gemCut,gemSize,surface:getPlanetArtSurface(PLANETS.homeworld)});}catch(error){console.error('Cutscene:',error);}});
                 // Não sobrescreve um autosave anterior no instante de criar outra civilização.
                 return true;
             } catch (error) {
@@ -8101,6 +8163,7 @@ function drawColony(time){
                 panel.innerHTML = `
                     <div class="game-menu-panel-head"><h2>Configurações</h2><button class="btn" onclick="renderMenuHome()">Voltar</button></div>
                     <div class="menu-option"><div><strong>Salvamento automático</strong><small>Cria um autosave a cada 90 segundos enquanto a partida está em andamento.</small></div><input type="checkbox" aria-label="Salvamento automático" ${gameSettings.autoSave ? 'checked' : ''} onchange="updateGameSetting('autoSave', this.checked)"></div>
+                    <div class="menu-option"><div><strong>Qualidade visual</strong><small>Resolução das texturas dos planetas. Baixa roda melhor em aparelhos simples; Alta deixa os planetas mais nítidos e pede mais do aparelho.</small></div><div class="quality-pick">${[['low','Baixa'],['medium','Média'],['high','Alta']].map(([k,l])=>'<button type="button" class="btn'+((gameSettings.quality||'medium')===k?' active':'')+'" onclick="setVisualQuality(\''+k+'\')">'+l+'</button>').join('')}</div></div>
                     <div class="menu-option"><div><strong>Interface compacta</strong><small>Reduz o tamanho de botões e indicadores para telas menores.</small></div><input type="checkbox" aria-label="Interface compacta" ${gameSettings.compactUI ? 'checked' : ''} onchange="updateGameSetting('compactUI', this.checked)"></div>
                     <p style="color:#94a3b8;font-size:10px;line-height:1.5;">As configurações são guardadas separadamente dos arquivos de progresso.</p>
                 `;
@@ -8131,7 +8194,7 @@ function drawColony(time){
                 const raw = localStorage.getItem(SETTINGS_STORAGE_KEY);
                 if (raw) {
                     const parsed = JSON.parse(raw);
-                    gameSettings = { autoSave: parsed.autoSave !== false, autoRotate: false, compactUI: parsed.compactUI === true };
+                    gameSettings = { autoSave: parsed.autoSave !== false, autoRotate: false, compactUI: parsed.compactUI === true, quality: ['low','medium','high'].includes(parsed.quality) ? parsed.quality : 'medium' };
                 }
             } catch (error) { console.warn('Não foi possível ler as configurações locais:', error); }
             applyGameSettings();
@@ -8146,6 +8209,7 @@ function drawColony(time){
         }
 
         function applyGameSettings() {
+            if (window.GempirePlanetArt && GempirePlanetArt.setQuality) GempirePlanetArt.setQuality(gameSettings.quality || 'medium');
             document.body.classList.toggle('compact-ui', gameSettings.compactUI);
             if (state && state.planetCamera) state.planetCamera.autoRotate = false;
         }
@@ -8442,6 +8506,7 @@ function drawColony(time){
                 updateHUD(); renderBottomBar(); renderDrawerContent(); syncDrawerTabButtons(); toggleDrawer(state.drawerOpen && window.innerWidth > 600);
                 gameHasStarted = true; setGameMenuVisible(false);
                 setStatusTicker('Partida carregada. A dinastia continua de onde foi salva.');
+                window.__worldWarm=true;runLoadingScreen('Carregando a partida',worldWarmTasks());
                 return true;
             } catch (error) {
                 console.error('Falha ao carregar a partida:', error);

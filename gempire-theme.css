@@ -592,3 +592,19 @@ details.ui-more p{margin-top:4px}
     #hud-banners{top:auto!important;bottom:8px!important;left:8px!important;right:8px!important;max-width:none!important}
     #hud-banners .banner-pill{font-size:11px}
 }
+
+/* ---------- Tela de carregamento ---------- */
+#loading-screen{position:fixed;inset:0;z-index:100001;display:grid;place-items:center;background:radial-gradient(ellipse at 50% 40%,rgba(90,50,160,.45),transparent 60%),#07030f;transition:opacity .4s ease}
+#loading-screen.ld-out{opacity:0;pointer-events:none}
+.ld-box{width:min(420px,86vw);text-align:center;display:flex;flex-direction:column;align-items:center;gap:12px}
+.ld-gem{width:46px;height:46px;transform:rotate(45deg);border:1px solid rgba(233,221,255,.8);background:linear-gradient(135deg,rgba(201,166,255,.35),rgba(125,211,252,.15));box-shadow:0 0 30px rgba(201,166,255,.45);animation:ldSpin 2.4s ease-in-out infinite}
+.ld-gem i{display:block;width:100%;height:100%;background:linear-gradient(135deg,rgba(255,255,255,.6),transparent 55%)}
+@keyframes ldSpin{0%,100%{transform:rotate(45deg) scale(1)}50%{transform:rotate(225deg) scale(.86)}}
+.ld-title{font:800 18px "Exo 2","Segoe UI",sans-serif;letter-spacing:.08em;color:#f6efff;text-transform:uppercase;margin:6px 0 0}
+.ld-bar{width:100%;height:6px;border-radius:4px;background:rgba(201,166,255,.15);overflow:hidden}
+.ld-bar i{display:block;height:100%;width:0;border-radius:4px;background:linear-gradient(90deg,#c4b5fd,#f2cf86);transition:width .25s ease}
+.ld-step{color:#d8c8ff;font-size:12px;min-height:16px}
+.ld-tip{color:var(--text-muted,#b4a3d4);font-size:11px;line-height:1.5;max-width:360px}
+.quality-pick{display:flex;gap:4px;flex-shrink:0}
+.quality-pick .btn{min-width:58px;justify-content:center;padding:6px 8px;font-size:11px}
+@media(max-width:600px){.menu-option{flex-wrap:wrap}.quality-pick{width:100%}.quality-pick .btn{flex:1}}
