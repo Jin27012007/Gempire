@@ -674,6 +674,7 @@
                     <button id="governance-section-council" class="btn active" onclick="switchGovernanceSection('council')">🏛 Conselho</button>
                     <button id="governance-section-court" class="btn" onclick="switchGovernanceSection('court')">👑 Corte</button>
                     <button id="governance-section-order" class="btn" onclick="switchGovernanceSection('order')">⚖️ Ordem Pública</button>
+                    <button id="governance-section-disasters" class="btn" onclick="switchGovernanceSection('disasters')">🌋 Desastres</button>
                     <button id="governance-section-demantoid" class="btn hidden" onclick="switchGovernanceSection('demantoid')">🔬 Demantoide</button>
                     <button id="governance-section-hessonite" class="btn hidden" onclick="switchGovernanceSection('hessonite')">⚔️ Hessonita</button>
                     <button id="governance-section-morganite" class="btn hidden" onclick="switchGovernanceSection('morganite')">🏛 Morganita</button>
@@ -2471,14 +2472,14 @@
         }
 
         function switchGovernanceSection(section) {
-            const allowed = ['council', 'court', 'order', 'demantoid', 'hessonite', 'morganite', 'aquamarine'];
+            const allowed = ['council', 'court', 'order', 'disasters', 'demantoid', 'hessonite', 'morganite', 'aquamarine'];
             if (!allowed.includes(section)) section = 'council';
             if (section === 'demantoid' && !isInjectorManagerActive()) section = 'council';
             if (section === 'hessonite' && !(window.isHessoniteCommandActive && window.isHessoniteCommandActive())) section = 'council';
             if (section === 'morganite' && Number(state.census.morganite||0)<1) section = 'council';
             if (section === 'aquamarine' && Number(state.census.aquamarine||0)<1) section = 'council';
             state.governanceSection = section;
-            ['council', 'court', 'order', 'demantoid', 'hessonite', 'morganite', 'aquamarine'].forEach(key => {
+            ['council', 'court', 'order', 'disasters', 'demantoid', 'hessonite', 'morganite', 'aquamarine'].forEach(key => {
                 const button = document.getElementById('governance-section-' + key);
                 if (!button) return;
                 button.classList.toggle('hidden', key === 'demantoid' && !isInjectorManagerActive());
@@ -2489,7 +2490,8 @@
             });
             const content = document.getElementById('governance-content');
             if (!content) return;
-            if (section === 'order') { if (window.renderOrderTab) window.renderOrderTab(content); else content.innerHTML = '<div class="card">O módulo de Ordem Pública ainda não foi carregado.</div>'; }
+            if (section === 'disasters') { if (window.renderDisastersTab) window.renderDisastersTab(content); else content.innerHTML = '<div class="card">O módulo de desastres ainda não foi carregado.</div>'; }
+            else if (section === 'order') { if (window.renderOrderTab) window.renderOrderTab(content); else content.innerHTML = '<div class="card">O módulo de Ordem Pública ainda não foi carregado.</div>'; }
             else if (section === 'court') { if (window.renderDiamondCourtTab) window.renderDiamondCourtTab(content); else content.innerHTML = '<div class="card">O módulo da Corte ainda não foi carregado.</div>'; }
             else if (section === 'demantoid') renderDemantoidManagementTab(content);
             else if (section === 'morganite') renderMorganiteArchitectureTab(content);
@@ -3816,7 +3818,7 @@
 
         function updateStructureSimulation(dt,mode='all',allowUI=true) {
             if(mode!=='local'){
-                updateRedEyeMission(dt);updateCargoMissions(dt);updateFleetTravel(dt);updateGalaxyWarpExpeditions(dt);updateMatriarchChambers(dt);if(window.GempireCourt)GempireCourt.update(dt);if(window.GempireOffColors)GempireOffColors.update(dt);if(window.GempireResistance)GempireResistance.update(dt);if(window.GempireGemFate)GempireGemFate.update(dt);
+                updateRedEyeMission(dt);updateCargoMissions(dt);updateFleetTravel(dt);updateGalaxyWarpExpeditions(dt);updateMatriarchChambers(dt);if(window.GempireCourt)GempireCourt.update(dt);if(window.GempireOffColors)GempireOffColors.update(dt);if(window.GempireResistance)GempireResistance.update(dt);if(window.GempireGemFate)GempireGemFate.update(dt);if(window.GempireDisasters)GempireDisasters.update(dt);
                 if(window.updateHessonitePatrols)window.updateHessonitePatrols(dt);
             }
             if(mode==='global')return;
@@ -4666,6 +4668,7 @@ ${hasAristocrats ? `
                 result.pink *= penalty;
             }
             // Sabotagens, insurreição e mundo rebelde derrubam a produção.
+            if(window.GempireDisasters){const f=GempireDisasters.yieldFactor(planet);if(f!==1)['min','tech','white','yellow','blue','pink'].forEach(k=>result[k]*=f);}
             if(window.GempireResistance){const f=GempireResistance.yieldFactor(planet);if(f!==1)['min','tech','white','yellow','blue','pink'].forEach(k=>result[k]*=f);}
             return result;
         }
@@ -7023,6 +7026,11 @@ function drawColony(time){
 
             // Globo procedural estilizado: continentes, relevo, bioma e nuvens acompanham a rotação.
             GempirePlanetArt.drawPlanet(ctx,{cx,cy,radius,surface:getPlanetArtSurface(planet),rotation:cam.rotation,time,atmosphere:palette.atmosphere,selected:stage>=2,gemCover:getPlanetGemCover(planet),rebelCover:window.GempireResistance?GempireResistance.coverFor(planet):null,damage:getPlanetDamage(planet,stats)});
+            // Desastres visíveis no globo: lava brilhando e apagão escurecendo o planeta.
+            if(window.GempireDisasters&&planet.hazards){const hzd=GempireDisasters._hz(planet),now=gameNow();
+                if(hzd.lava){ctx.save();const pulse=.5+.5*Math.sin(time*.004);const lg=ctx.createRadialGradient(cx,cy,radius*.7,cx,cy,radius*1.25);lg.addColorStop(0,'rgba(249,115,22,0)');lg.addColorStop(.7,'rgba(249,115,22,'+(.25+.2*pulse)*Math.min(1,hzd.lava.strength/60)+')');lg.addColorStop(1,'rgba(249,115,22,0)');ctx.fillStyle=lg;ctx.beginPath();ctx.arc(cx,cy,radius*1.25,0,Math.PI*2);ctx.fill();ctx.restore();}
+                if(hzd.blackoutUntil>now){ctx.save();ctx.fillStyle='rgba(8,4,20,.45)';ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.fill();ctx.fillStyle='#facc15';ctx.font='800 13px "Exo 2", sans-serif';ctx.textAlign='center';ctx.fillText('APAGÃO',cx,cy+radius+28);ctx.restore();}
+            }
 
             if(cam.xrayMode){
                 ctx.save();ctx.beginPath();ctx.arc(cx,cy,radius,0,Math.PI*2);ctx.clip();
@@ -8104,7 +8112,7 @@ function drawColony(time){
                 state.constructionQueue=Array.isArray(state.constructionQueue)?state.constructionQueue:(state.construction&&state.construction.active?[state.construction]:[]);
                 state.construction=state.constructionQueue[0]||null;
                 state.currentScreen='throne';
-                state.governanceSection = ['council','court','order','demantoid','hessonite','morganite','aquamarine'].includes(state.governanceSection) ? state.governanceSection : 'council';
+                state.governanceSection = ['council','court','order','disasters','demantoid','hessonite','morganite','aquamarine'].includes(state.governanceSection) ? state.governanceSection : 'council';
                 state.morganiteAutoBuild = state.morganiteAutoBuild !== false;
                 ensureMorganiteArchitectureState();
                 state.structures.diamond_quarters=Number(state.structures.diamond_quarters)||0;
@@ -8295,5 +8303,6 @@ function drawColony(time){
     <script src="gempire-gemfate.js"></script>
     <script src="gempire-offcolors.js"></script>
     <script src="gempire-resistance.js"></script>
+    <script src="gempire-disasters.js"></script>
 </body>
 </html>

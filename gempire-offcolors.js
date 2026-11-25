@@ -101,6 +101,8 @@
         const stage=Number(planet.resourceTotal)>0?1-(Number(planet.resourcesRemaining)||0)/Number(planet.resourceTotal):0;
         let p=.035+stage*.06+(Number(planet.seismicHeat)>55?.03:0)+(Number(planet.dissent)>50?.02:0);
         if(planet.demantoidSupervisor||Number(censusOf(planet).demantoid)>0)p*=.6;
+        // Jardim de infância danificado por terremoto, asteroide ou lava.
+        if(window.GempireDisasters)p+=GempireDisasters.offColorBonus(planet);
         return Math.min(.35,p*mult());
     }
     function onBatch(planet,caste,quantity){
