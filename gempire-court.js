@@ -153,7 +153,7 @@
 
     // ---------------------------------------------------------------- integração com rebeldes e off-colors
     const R=()=>window.GempireResistance,O=()=>window.GempireOffColors;
-    const SOFT_LAWS=['tolerate','sanctuary','citizen'],HARD_LAWS=['recycle','purge'];
+    const SOFT_LAWS=['tolerate','sanctuary','citizen'],HARD_LAWS=['recycle','purge','bubble'];
     function troubled(minPhase){return R()?Object.values(PLANETS).filter(p=>p.colonized&&p.resistance&&R().phase(p)>=minPhase&&(R().phase(p)>=3||p.resistance.detected)):[];}
     function offColorTotal(){return Object.values(PLANETS).filter(p=>p.colonized).reduce((a,p)=>a+(Number(p.offColors?.hidden)||0)+Object.values(p.offColors?.groups||{}).reduce((x,y)=>x+y,0),0);}
     function forceLaw(key){if(!O())return 'Sem efeito';state.imperialLaws.offColorLawCooldownUntil=0;O().setPolicy(key);return 'Lei Off-Color: '+key;}

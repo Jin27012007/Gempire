@@ -912,6 +912,7 @@
             {id:'galaxy_warp',name:'Galaxy Warp',category:'Transporte e Exploração',desc:'Um ponto de ancoragem de um buraco de minhoca. Só pode existir um Galaxy Warp por planeta. Dois mundos com instalações concluídas formam os pontos A e B; um terceiro ponto se conecta automaticamente aos dois, e assim sucessivamente.',cost:{minerals:100,tech:45},buildTime:42,prerequisites:['reactor','research_center'],workers:{},interaction:'Conecta automaticamente todos os planetas que possuem um Galaxy Warp.',maxCount:1},
             {id:'shipyard',name:'Estaleiro',category:'Transporte e Exploração',desc:'Bismutos constroem naves e Peridotos integram seus sistemas. Com o Estaleiro operacional, as classes de nave ficam disponíveis sem exigir Centro de Pesquisa.',cost:{minerals:90,tech:40},buildTime:40,prerequisites:['workshop','refinery','reactor'],workers:{bismuth:1,peridot:1},interaction:'Permite construir naves das classes Diamante, Elite, Guerra, Excursão e Rubi.',maxCount:1},
             
+            {id:'bubble_room',name:'Sala das Bolhas',category:'Defesa Planetária',desc:'Quando uma Gem sofre um ferimento, sua forma de luz se desfaz (poof) e a gema cai, vulnerável até se reformar. A Sala das Bolhas guarda gemas embolhadas, que não se reformam: prisioneiras rebeldes, líderes capturadas e off-colors sob a lei de Embolhamento. Cada sala guarda 40 bolhas.',cost:{minerals:80,tech:30},buildTime:35,prerequisites:['workshop'],workers:{},interaction:'Guarda até 40 gemas embolhadas. As decisões sobre as bolhas ficam na aba Ordem Pública.',maxCount:5},
             {id:'shield_generator',name:'Gerador de Escudo',category:'Defesa Planetária',desc:'Barreira automática contra tempestades solares. Quando operacional e abastecido pelo Reator, o escudo protege a rede elétrica planetária e evita apagões durante eventos solares.',cost:{minerals:70,tech:25},buildTime:34,prerequisites:['reactor','defense_tower'],workers:{ruby:1,peridot:1},interaction:'Proteção automática da rede elétrica contra tempestades solares.',maxCount:2},
             {id:'red_eye',name:'Olho Vermelho',category:'Transporte e Exploração',desc:'Sonda orbital autônoma, visível como um planeta anão. Cada mundo pode abrigar até três Olhos Vermelhos em órbitas independentes. Pode ser enviada a mundos desconhecidos para retornar com dados de tamanho, distância, temperatura e composição; também rastreia Gems fugitivas e Off-Colors em colônias antigas.',cost:{minerals:150,tech:80},buildTime:60,prerequisites:['shipyard','galaxy_warp','reactor'],workers:{peridot:2,bismuth:1},interaction:'Envia sondas de reconhecimento e varreduras de rastreamento.',maxCount:3},
             {id:'royal_palace',name:'Palácio Real',category:'Corte e Residências',desc:'Construção exclusiva de Homeworld. Sua conclusão desbloqueia a janela do Palácio Real na aba Trono Diamante. Não exige Gems designadas para funcionar.',cost:{minerals:250,tech:150},buildTime:90,prerequisites:['red_eye','research_center'],workers:{},interaction:'Desbloqueia a janela do Palácio Real na aba Trono Diamante.',maxCount:1},
@@ -3806,7 +3807,7 @@
 
         function updateStructureSimulation(dt,mode='all',allowUI=true) {
             if(mode!=='local'){
-                updateRedEyeMission(dt);updateCargoMissions(dt);updateFleetTravel(dt);updateGalaxyWarpExpeditions(dt);updateMatriarchChambers(dt);if(window.GempireCourt)GempireCourt.update(dt);if(window.GempireOffColors)GempireOffColors.update(dt);if(window.GempireResistance)GempireResistance.update(dt);
+                updateRedEyeMission(dt);updateCargoMissions(dt);updateFleetTravel(dt);updateGalaxyWarpExpeditions(dt);updateMatriarchChambers(dt);if(window.GempireCourt)GempireCourt.update(dt);if(window.GempireOffColors)GempireOffColors.update(dt);if(window.GempireResistance)GempireResistance.update(dt);if(window.GempireGemFate)GempireGemFate.update(dt);
                 if(window.updateHessonitePatrols)window.updateHessonitePatrols(dt);
             }
             if(mode==='global')return;
@@ -5572,13 +5573,15 @@ ${hasAristocrats ? `
                             const victim=members[Math.floor(Math.random()*members.length)],victimIndex=planet.walkingGems.indexOf(victim);
                             if(victimIndex>=0)planet.walkingGems.splice(victimIndex,1);
                             team.gemIds=team.gemIds.filter(id=>id!==victim.id);
-                            state.census[team.caste]=Math.max(0,(Number(state.census[team.caste])||0)-1);
-                            if(victim.grade==='S')state.census.prime=Math.max(0,(Number(state.census.prime)||0)-1);
-                            if(victim.grade==='D')state.census.offcolor=Math.max(0,(Number(state.census.offcolor)||0)-1);
-                            const fatal=Math.random()<(escorted?0.08:0.28);
-                            team.reason=fatal?'Uma integrante morreu durante um ataque hostil.':'Um ataque hostil forçou a suspensão temporária do trabalho.';
-                            if(fatal)addChronicle('Perda em expedição geológica',AQUAMARINE_CASTE_LABELS[team.caste]+' morreu durante a preparação de '+planet.shortName+'.','Baixa confirmada');
-                            else addChronicle('Expedição geológica interrompida','Um ataque hostil forçou a equipe em '+planet.shortName+' a suspender o trabalho.','Operação suspensa');
+                            // Ferimento: a integrante é poofada. Sem escolta, os agressores podem estilhaçar a gema caída.
+                            const home=PLANETS[state.activeColonyPlanetId||'homeworld'];
+                            const shattered=Math.random()<(escorted?0.08:0.28);
+                            if(shattered){state.census[team.caste]=Math.max(0,(Number(state.census[team.caste])||0)-1);if(victim.grade==='S')state.census.prime=Math.max(0,(Number(state.census.prime)||0)-1);if(victim.grade==='D')state.census.offcolor=Math.max(0,(Number(state.census.offcolor)||0)-1);if(window.GempireGemFate)GempireGemFate.stats().shattered++;}
+                            else if(window.GempireGemFate)GempireGemFate.poof(home,team.caste,1,{reason:'Poofada durante a terraformação de '+planet.shortName,off:victim.grade==='D'});
+                            else state.census[team.caste]=Math.max(0,(Number(state.census[team.caste])||0)-1);
+                            team.reason=shattered?'Uma integrante foi poofada e sua gema estilhaçada durante um ataque hostil.':'Uma integrante foi poofada num ataque hostil; a gema foi resgatada e vai se reformar.';
+                            if(shattered)addChronicle('Gema estilhaçada em expedição',AQUAMARINE_CASTE_LABELS[team.caste]+' foi poofada e teve a gema estilhaçada durante a preparação de '+planet.shortName+'.','Perda permanente');
+                            else addChronicle('Integrante poofada em expedição',AQUAMARINE_CASTE_LABELS[team.caste]+' foi poofada durante a preparação de '+planet.shortName+'. A gema foi resgatada e se reformará.','Fora de ação temporariamente');
                             team.status='interrupted';
                             if(team.gemIds.length<team.required)team.reason+=' O efetivo restante não permite retomar.';
                             setStatusTicker(team.reason+' '+planet.shortName+'.');updateHUD();
@@ -6604,6 +6607,7 @@ ${hasAristocrats ? `
           shipyard:{kind:'hangar',color:'#64748b',accent:'#cbd5e1',glow:'#94a3b8'},
           lunar_base:{kind:'hall',color:'#94a3b8',accent:'#e2e8f0',glow:'#cbd5e1'},
           shield_generator:{kind:'shield',color:'#60a5fa',accent:'#dbeafe',glow:'#93c5fd'},
+          bubble_room:{kind:'chamber',color:'#f0abfc',accent:'#fdf4ff',glow:'#e879f9'},
           red_eye:{kind:'orbital',color:'#ef4444',accent:'#fecaca',glow:'#f87171'},
           royal_palace:{kind:'palace',color:'#a78bfa',accent:'#ddd6fe',glow:'#c4b5fd'}
         };
@@ -8234,6 +8238,7 @@ function drawColony(time){
     <script src="diamond-social.js"></script>
     <script src="diamond-chat.js"></script>
     <script src="gempire-court.js"></script>
+    <script src="gempire-gemfate.js"></script>
     <script src="gempire-offcolors.js"></script>
     <script src="gempire-resistance.js"></script>
 </body>

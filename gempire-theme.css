@@ -384,3 +384,8 @@ input.gstep-source{position:absolute!important;width:1px!important;height:1px!im
 @media (min-width:1100px){.order-colonies{grid-column:span 2}}
 .order-colonies .order-planet{display:grid;grid-template-columns:1fr;gap:4px}
 .resist-demand span{font-size:12px;line-height:1.35}
+
+/* Poof, bolhas e estilhaçamento */
+.gemfate{margin-top:8px;padding-top:6px;border-top:1px solid rgba(240,171,252,.25)}
+.gemfate .stat-box{margin-top:6px}
+.gemfate-bubble{border-left:3px solid #f0abfc;background:radial-gradient(circle at 12% 30%,rgba(253,244,255,.12),transparent 55%)}
