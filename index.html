@@ -4406,6 +4406,8 @@ ${hasAristocrats ? `
             const gatheredTotal=Object.values(gathered).reduce((sum,value)=>sum+Math.max(0,Number(value)||0),0);
             if(externalNeed>0&&(!structureIsOperational('workshop')||gatheredTotal<externalNeed)){setStatusTicker('A forja exige 40% dos recursos do planeta. Para completar o déficit de '+externalNeed.toLocaleString('pt-BR')+' unidades, opere o Centro de Logística e reúna minerais coletados.',true);return;}
             if(cost<1){setStatusTicker('Reserva mineral inválida para a forja.',true);return;}
+            // Ação irreversível: confirma antes de perfurar o núcleo.
+            if(typeof window.confirm==='function'&&!window.confirm('Forjar uma Diamante consome '+cost.toLocaleString('pt-BR')+' unidades (40%) do núcleo de '+planet.shortName+'. O planeta fica rachado para sempre e se desmonta quando a Diamante nasce. Continuar?'))return;
             const pressure=Number(planet.corePressure)||35;
             const size=String(planet.resourceSize||'pequeno').toLowerCase();
             const drillBase=size.includes('gigante')?70:size.includes('grande')?48:size.includes('médio')?28:14;
