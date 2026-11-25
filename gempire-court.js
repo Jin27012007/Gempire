@@ -69,6 +69,13 @@
         {id:'voice',title:'Dar voz às colônias',text:'As governantes decidem mais sobre seus mundos.',pref:{gentle:.8,grand:.6,cerebral:.3,harsh:-1},
             effect(){state.order=Math.max(0,(Number(state.order)||0)-5);matriarchs().forEach(m=>m.autonomy=clamp((Number(m.autonomy)||0)+8));return '−5% ordem · +8 autonomia de todas';}}
     ];
+    // Propostas ligadas à revolta e às off-colors (só aparecem quando fazem sentido).
+    PROPOSALS.push(
+        {id:'law_citizen',title:'Conceder cidadania às off-colors',text:'Off-colors passam a trabalhar como cidadãs, com seus traços.',pref:{gentle:1,grand:.4,cerebral:.2,harsh:-1},when:()=>offColorTotal()>0&&O()&&O().policy()!=='citizen',effect(){forceLaw('citizen');return 'Lei Off-Color: Cidadania integrada';}},
+        {id:'law_purge',title:'Decretar o Expurgo das off-colors',text:'Caçar as off-colors em todas as colônias.',pref:{harsh:1,cerebral:-.3,grand:-.4,gentle:-1},when:()=>offColorTotal()>0&&O()&&O().policy()!=='purge',effect(){forceLaw('purge');return 'Lei Off-Color: Expurgo';}},
+        {id:'offensive',title:'Ofensiva contra as células rebeldes',text:'Tropas em todas as colônias com resistência organizada.',pref:{harsh:1,cerebral:.2,grand:-.2,gentle:-.8},when:()=>troubled(2).length>0,effect(){const list=troubled(2);list.forEach(p=>{R().reduce(p,15,'Ofensiva do conselho');p.dissent=Math.min(100,(Number(p.dissent)||0)+8);});return '−15 força rebelde e +8 dissidência em '+list.length+' colônia(s)';}},
+        {id:'general_amnesty',title:'Anistia geral às desertoras',text:'Perdoar todas as Gems que se juntaram aos rebeldes.',pref:{gentle:1,grand:.5,cerebral:.2,harsh:-1},when:()=>R()&&Object.values(PLANETS).some(p=>p.resistance&&p.resistance.members>0),effect(){const n=R().generalAmnesty(.6);return n+' desertora(s) voltaram';}}
+    );
     const DISPUTES={
         'gentle|harsh':['{a} acusa {b} de tratar as Gems da colônia como ferramentas descartáveis.','{b} chama {a} de fraca por proteger Off-Colors.'],
         'cerebral|grand':['{a} diz que os bailes de {b} desperdiçam essência preciosa.','{b} zomba das planilhas intermináveis de {a}.'],
@@ -144,6 +151,14 @@
     function setCooldown(m,key,sec){m.cooldowns[key]=Date.now()+sec*1000;}
     function available(m){return m.courtStatus==='court';}
 
+    // ---------------------------------------------------------------- integração com rebeldes e off-colors
+    const R=()=>window.GempireResistance,O=()=>window.GempireOffColors;
+    const SOFT_LAWS=['tolerate','sanctuary','citizen'],HARD_LAWS=['recycle','purge'];
+    function troubled(minPhase){return R()?Object.values(PLANETS).filter(p=>p.colonized&&p.resistance&&R().phase(p)>=minPhase&&(R().phase(p)>=3||p.resistance.detected)):[];}
+    function offColorTotal(){return Object.values(PLANETS).filter(p=>p.colonized).reduce((a,p)=>a+(Number(p.offColors?.hidden)||0)+Object.values(p.offColors?.groups||{}).reduce((x,y)=>x+y,0),0);}
+    function forceLaw(key){if(!O())return 'Sem efeito';state.imperialLaws.offColorLawCooldownUntil=0;O().setPolicy(key);return 'Lei Off-Color: '+key;}
+    const GOAL_TYPES=['caste','colonies','crush','conciliate','softlaw','hardlaw','investigate'];
+
     // ---------------------------------------------------------------- 1. pedidos
     function makeRequest(m){
         const c=ensureCourt(),tone=toneOf(m),empire=getEmpireCensus(),colonies=Object.values(PLANETS).filter(p=>p.colonized).length;
@@ -160,6 +175,13 @@
         if(['reformer','isolationist','manipulator','visionary'].includes(m.personalityId)&&m.autonomy<85)options.push(()=>({type:'autonomy',title:'Mais autonomia',text:'Quero decidir mais sobre meus próprios assuntos.',reward:9,penalty:7,deadline:420}));
         const organic=Object.values(PLANETS).filter(p=>p.colonized&&p.organicLifePresent);
         if(tone==='gentle'&&organic.length)options.push(()=>{const p=pick(organic);return {type:'protect',title:'Poupar '+p.shortName,text:'Não extraia nada de '+p.shortName+' por um tempo. A vida de lá precisa respirar.',planetId:p.id,snapshot:Number(p.resourcesRemaining)||0,reward:10,penalty:8,deadline:480};});
+        // Revolta e off-colors: cada temperamento quer uma resposta diferente.
+        const hot=troubled(2),pol=O()?O().policy():'recycle';
+        if(hot.length&&tone==='harsh')options.push(()=>{const p=pick(hot);return {type:'crush',title:'Esmagar a revolta em '+p.shortName,text:'A revolta em '+p.shortName+' é uma vergonha. Esmague-a antes que se espalhe.',planetId:p.id,reward:12,penalty:9,deadline:900};});
+        if(hot.length&&tone==='gentle')options.push(()=>{const p=pick(hot);return {type:'conciliate',title:'Ouvir os rebeldes de '+p.shortName,text:'Negocie ou ofereça anistia em '+p.shortName+'. Força só gera mais revolta.',planetId:p.id,reward:12,penalty:8,deadline:900};});
+        if(hot.length&&tone==='cerebral'){const unknown=hot.filter(p=>!p.resistance.leader||!p.resistance.leader.identified);if(unknown.length)options.push(()=>{const p=pick(unknown);return {type:'investigate',title:'Identificar a líder de '+p.shortName,text:'Precisamos saber quem lidera a resistência em '+p.shortName+'.',planetId:p.id,reward:9,penalty:6,deadline:720};});}
+        if(offColorTotal()>0&&HARD_LAWS.includes(pol)&&(tone==='gentle'||m.personalityId==='reformer'))options.push(()=>({type:'softlaw',title:'Revogar a lei dura',text:'As off-colors não merecem ser destruídas. Decrete uma lei mais branda.',reward:11,penalty:8,deadline:900}));
+        if(offColorTotal()>0&&SOFT_LAWS.includes(pol)&&tone==='harsh')options.push(()=>({type:'hardlaw',title:'Endurecer a lei off-color',text:'Tolerar defeituosas enfraquece o Império. Restaure a Reciclagem.',reward:10,penalty:7,deadline:900}));
         const spec=pick(options)();
         const req=Object.assign({id:c.nextId++,ownerId:m.id,remaining:spec.deadline,created:Date.now()},spec);
         c.requests.push(req);
@@ -270,6 +292,11 @@
     function requestProgress(r){
         if(r.type==='caste'){const n=Math.floor(Number(getEmpireCensus()[r.goal.caste])||0);return {done:n>=r.goal.count,text:fmt(n)+' / '+fmt(r.goal.count)};}
         if(r.type==='colonies'){const n=Object.values(PLANETS).filter(p=>p.colonized).length;return {done:n>=r.goal.count,text:n+' / '+r.goal.count+' colônias'};}
+        if(r.type==='crush'){const p=PLANETS[r.planetId];const ph=p&&R()?R().phase(p):0;return {done:ph<=1,text:p?(R()?.PHASES?.[ph]?.label||'')+' em '+p.shortName:''};}
+        if(r.type==='conciliate'){const res=PLANETS[r.planetId]?.resistance||{};const ok=(Number(res.lastDealAt)||0)>r.created||(Number(res.lastAmnestyAt)||0)>r.created;return {done:ok,text:ok?'Acordo ou anistia feitos':'Aguardando acordo ou anistia'};}
+        if(r.type==='investigate'){const L=PLANETS[r.planetId]?.resistance?.leader;return {done:!!(L&&L.identified),text:L&&L.identified?'Líder: '+L.name:'Líder desconhecida'};}
+        if(r.type==='softlaw'){const k=O()?O().policy():'recycle';return {done:SOFT_LAWS.includes(k),text:'Lei atual: '+(state.imperialLaws?.offColorPolicy||k)};}
+        if(r.type==='hardlaw'){const k=O()?O().policy():'recycle';return {done:HARD_LAWS.includes(k),text:'Lei atual: '+(state.imperialLaws?.offColorPolicy||k)};}
         if(r.type==='protect'){const p=PLANETS[r.planetId];const broke=p&&(Number(p.resourcesRemaining)||0)<r.snapshot-1;return {done:false,broken:broke,text:broke?'Extração detectada':'Preservado'};}
         return {done:false,text:''};
     }
@@ -286,7 +313,7 @@
         if(r.type==='pay'){if(!canPay(r.cost)){notify('Recursos insuficientes: '+costText(r.cost)+'.',true);return;}pay(r.cost);}
         else if(r.type==='govern'){const p=PLANETS[r.planetId];if(!p||!p.colonized||(p.governor&&p.governor!=='none')){notify('Essa colônia não está mais disponível.',true);closeRequest(r);refresh();return;}p.governor='matriarch_'+m.id;}
         else if(r.type==='autonomy'){m.autonomy=clamp(m.autonomy+15);}
-        else if(r.type==='caste'||r.type==='colonies'){if(!requestProgress(r).done){notify('O objetivo ainda não foi alcançado: '+requestProgress(r).text+'.',true);return;}}
+        else if(GOAL_TYPES.includes(r.type)){if(!requestProgress(r).done){notify('O objetivo ainda não foi alcançado: '+requestProgress(r).text+'.',true);return;}}
         else if(r.type==='protect'){notify('Este pedido se cumpre sozinho se você não extrair do planeta até o prazo.',true);return;}
         grantRequest(r,m,false);closeRequest(r);notify('Pedido de '+m.name+' atendido.');refresh();
     }
@@ -313,7 +340,7 @@
             if(r.handledBy){const sup=byId(r.handledBy);if(!sup||sup.courtStatus!=='court'){r.handledBy=null;}else{r.decideIn-=dt;if(r.decideIn<=0)superiorDecide(r);return;}}
             const prog=requestProgress(r);
             if(r.type==='protect'&&prog.broken){changeLoyalty(m,-r.penalty-4);m.grievances++;say(m,lines(m).refused);log('A extração em '+(PLANETS[r.planetId]?.shortName||'um planeta')+' feriu a confiança de '+m.name+'.','−'+(r.penalty+4)+' lealdade',m.colorHex);notify(m.name+' viu a extração que pediu para evitar.',true);closeRequest(r);return;}
-            if((r.type==='caste'||r.type==='colonies')&&prog.done){grantRequest(r,m,false);closeRequest(r);notify('Objetivo de '+m.name+' alcançado: '+r.title+'.');return;}
+            if(GOAL_TYPES.includes(r.type)&&prog.done){grantRequest(r,m,false);closeRequest(r);notify('Objetivo de '+m.name+' alcançado: '+r.title+'.');return;}
             r.remaining-=dt;
             if(r.remaining>0)return;
             if(r.type==='protect'){grantRequest(r,m,false);closeRequest(r);notify(m.name+' agradece por poupar '+(PLANETS[r.planetId]?.shortName||'o planeta')+'.');return;}
@@ -450,8 +477,11 @@
         const tones=[toneOf(best.a),toneOf(best.b)].sort().join('|');let [a,b]=[best.a,best.b];
         if(tones==='gentle|harsh'&&toneOf(a)!=='gentle')[a,b]=[b,a];
         if(tones==='cerebral|grand'&&toneOf(a)!=='cerebral')[a,b]=[b,a];
-        const text=pick(DISPUTES[tones]||DISPUTES.default).replace('{a}',a.name).replace('{b}',b.name);
-        ensureCourt().dispute={a:a.id,b:b.id,text,remaining:240};
+        let text=pick(DISPUTES[tones]||DISPUTES.default).replace('{a}',a.name).replace('{b}',b.name),rebelPlanet=null;
+        // Com revolta aberta, a linha-dura e as conciliadoras brigam sobre como responder.
+        const hot=troubled(3);
+        if(hot.length&&tones==='gentle|harsh'){rebelPlanet=pick(hot);text=b.name+' quer esmagar a revolta em '+rebelPlanet.shortName+'; '+a.name+' quer negociar com os rebeldes.';}
+        ensureCourt().dispute={a:a.id,b:b.id,text,remaining:240,rebelPlanetId:rebelPlanet?.id||null};
         log('Disputa na corte: '+text,'Aguardando sua mediação','#f2cf86');notify('Disputa na corte entre '+a.name+' e '+b.name+'.');
         renderIfVisible(true);
     }
@@ -459,7 +489,10 @@
         const c=ensureCourt(),d=c.dispute;if(!d)return;const a=byId(d.a),b=byId(d.b);c.dispute=null;if(!a||!b){renderIfVisible(true);return;}
         let impact='';
         if(choice==='a'||choice==='b'){
-            const win=choice==='a'?a:b,lose=choice==='a'?b:a;changeLoyalty(win,8);changeLoyalty(lose,-9);changeRelation(a.id,b.id,-15);impact='Favoreceu '+win.name;
+            const win=choice==='a'?a:b,lose=choice==='a'?b:a;
+            const rp=d.rebelPlanetId&&PLANETS[d.rebelPlanetId];
+            if(rp&&R()){if(toneOf(win)==='harsh'){R().reduce(rp,10,'Ofensiva apoiada por '+win.name);rp.dissent=Math.min(100,(Number(rp.dissent)||0)+6);}else{R().reduce(rp,6,'Diálogo apoiado por '+win.name);rp.dissent=Math.max(0,(Number(rp.dissent)||0)-8);}}
+            changeLoyalty(win,8);changeLoyalty(lose,-9);changeRelation(a.id,b.id,-15);impact='Favoreceu '+win.name;
             // Hierarquia: dar razão à menor contra a superiora mina a autoridade.
             const winRank=rankOf(win),loseRank=rankOf(lose);
             if(winRank>loseRank){win.obedience=clamp(win.obedience-5);changeLoyalty(lose,-3,false);impact+=' · contra a hierarquia (−5 obediência)';}
@@ -471,7 +504,7 @@
     }
     function startVote(){
         const ms=present();if(!ms.length)return;
-        const prop=pick(PROPOSALS),votes={};
+        const pool=PROPOSALS.filter(p=>!p.when||p.when());const prop=pick(pool.length?pool:PROPOSALS),votes={};
         // Voto pela preferência do temperamento, puxado pela lealdade (leais tendem a apoiar a fundadora).
         ms.forEach(m=>{const pref=prop.pref[toneOf(m)]||0;votes[m.id]=pref+(Math.random()-.5)*.8>0?'yes':'no';});
         // Autoridade: Diamantes obedientes tendem a seguir o voto da superiora (na ordem da hierarquia).
@@ -523,7 +556,7 @@
         if(r.type==='pay'){actions.push('<button class="btn btn-emerald" '+(canPay(r.cost)?'':'disabled')+' onclick="GempireCourt.fulfill('+r.id+')">Atender · '+costText(r.cost)+'</button>');actions.push('<button class="btn" '+(canPay(r.cost,.5)?'':'disabled')+' onclick="GempireCourt.negotiate('+r.id+')">Negociar metade</button>');}
         else if(r.type==='govern')actions.push('<button class="btn btn-emerald" onclick="GempireCourt.fulfill('+r.id+')">Conceder o governo</button>');
         else if(r.type==='autonomy')actions.push('<button class="btn btn-emerald" onclick="GempireCourt.fulfill('+r.id+')">Conceder (+15 autonomia)</button>');
-        else if(r.type==='caste'||r.type==='colonies')actions.push('<button class="btn btn-emerald" '+(prog.done?'':'disabled')+' onclick="GempireCourt.fulfill('+r.id+')">Entregar</button>');
+        else if(GOAL_TYPES.includes(r.type))actions.push('<button class="btn btn-emerald" '+(prog.done?'':'disabled')+' onclick="GempireCourt.fulfill('+r.id+')">Entregar</button>');
         actions.push('<button class="btn btn-pink" onclick="GempireCourt.refuse('+r.id+')">Recusar</button>');
         return '<div class="stat-box court-request" style="border-left:3px solid '+esc(m.colorHex)+'"><div class="court-row"><b>'+esc(m.name)+' · '+esc(r.title)+'</b><span class="badge">'+formatDuration(r.remaining)+'</span></div><p class="structure-desc">“'+esc(r.text)+'”</p>'+(prog.text?'<small>Progresso: <b>'+esc(prog.text)+'</b></small>':'')+'<small style="display:block;color:var(--text-muted)">Atender: +'+r.reward+' lealdade · Recusar: −'+r.penalty+' · Ignorar até o prazo: −'+Math.round(r.penalty*1.5)+' e uma queixa</small><div class="court-actions">'+actions.join('')+'</div></div>';
     }

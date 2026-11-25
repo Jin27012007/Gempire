@@ -68,9 +68,14 @@
         power*=1+Math.min(.6,(n('hessonite')+n('pyrope')+n('emerald'))*.1);
         return power;
     }
+    // Temperamento da governante (Matriarca) sobre a resistência da colônia que ela administra.
+    const TONE_OF={militarist:'harsh',isolationist:'harsh',manipulator:'harsh',melancholic:'gentle',empathic:'gentle',naturalist:'gentle',technocrat:'cerebral',scholar:'cerebral',reformer:'cerebral',visionary:'grand',artist:'grand',hedonist:'grand'};
+    const STANCE={harsh:{label:'Linha-dura',growth:.15,contain:.1},gentle:{label:'Conciliadora',growth:-.2,contain:-.05},cerebral:{label:'Pragmática',growth:-.05,contain:.05},grand:{label:'Indiferente',growth:.05,contain:0}};
+    function governorOf(p){const g=String(p.governor||'');if(!g.startsWith('matriarch_'))return null;return (state.matriarchs||[]).find(x=>'matriarch_'+x.id===g)||null;}
+    function stanceOf(m){return m?STANCE[TONE_OF[m.personalityId]||'grand']:null;}
     function containStats(p){
-        const r=res(p),g=garrison(p);
-        const chance=clamp(.3+(g/(r.strength*3+r.members*2+10))*.35,.1,.95);
+        const r=res(p),g=garrison(p),gs=stanceOf(governorOf(p));
+        const chance=clamp(.3+(g/(r.strength*3+r.members*2+10))*.35+(gs?gs.contain:0),.1,.95);
         return {cost:Math.round(20+r.strength*1.2),duration:Math.round(45+r.strength*1.5),chance,garrison:g};
     }
 
@@ -84,6 +89,7 @@
         g+=depletion(p)*.3;
         if(p.organicLifePresent&&depletion(p)>.3)g+=.2;
         if(rebelGovernor(p))g+=2;
+        else{const gs=stanceOf(governorOf(p));if(gs)g+=gs.growth;}
         if(r.phase>=3)g+=.2; // insurreição se alimenta
         if(g>0)g*=mult();else g*=1/Math.max(.5,mult());
         if(dissent<15&&!rebelGovernor(p))g-=.6;
@@ -142,15 +148,64 @@
         if(to>=2||from>=2)notify((up?'⚠ ':'')+p.shortName+': '+label+'.',up);
         if(up&&to>=3)chronicle(label+' em '+p.shortName,PHASES[to].desc,'Ordem pública');
     }
-    function spread(p){
-        const others=Object.values(PLANETS).filter(o=>o.colonized&&o!==p);if(!others.length)return;
-        const same=others.filter(o=>o.systemId===p.systemId),pool=same.length?same:others;
-        const target=pool[Math.floor(Math.random()*pool.length)],tr=res(target),add=Math.round(6*mult());
-        tr.strength=clamp(tr.strength+add);target.dissent=Math.min(100,(Number(target.dissent)||0)+8);
-        rlog(target,'Agitadores vindos de '+p.shortName+' chegaram (+'+add+' de força rebelde).');rlog(p,'A revolta se espalhou para '+target.shortName+'.');
-        notify('A revolta de '+p.shortName+' se espalhou para '+target.shortName+'.',true);
+    // ------------------------------------------------------------ rede rebelde (fase 4)
+    // Colônias em insurreição ou rebeldes enviam agitadores (às vezes com a própria
+    // líder). Eles viajam até a colônia mais vulnerável e próxima; podem ser
+    // detectados e interceptados por naves em órbita na origem ou no destino.
+    function net(){const n=state.resistanceNet=state.resistanceNet&&typeof state.resistanceNet==='object'?state.resistanceNet:{};n.transits=Array.isArray(n.transits)?n.transits:[];n.nextId=Number(n.nextId)||1;return n;}
+    function travelSeconds(a,b){if(a.galaxyWarpBuilt&&b.galaxyWarpBuilt)return 30;return typeof getSpaceTravelSeconds==='function'?Math.max(60,Math.round(getSpaceTravelSeconds(a.id,b.id)*.5)):180;}
+    function pickTarget(p){
+        const others=Object.values(PLANETS).filter(o=>o.colonized&&o!==p&&res(o).phase<4);if(!others.length)return null;
+        // Mais atraente: perto, com dissidência alta e guarnição fraca.
+        const score=o=>{const d=typeof getSpaceDistance==='function'?getSpaceDistance(p.id,o.id):1;return (Number(o.dissent)||0)/20+res(o).strength/25-Math.min(4,garrison(o)/150)-d*.6+(o.systemId===p.systemId?1.5:0)+Math.random()*1.5;};
+        return others.sort((x,y)=>score(y)-score(x))[0];
     }
-
+    function spread(p){
+        const r=res(p),target=pickTarget(p);if(!target)return;
+        const amount=Math.round((r.phase>=4?8:5)*mult()),withLeader=r.phase>=4&&r.leader&&r.leader.identified&&Math.random()<.25;
+        const n=net(),eta=travelSeconds(p,target);
+        // Detecção: inteligência ativa na origem, Safiras no destino ou sorte.
+        const detected=r.intelUntil>Date.now()||Number(censusOf(target).sapphire)>0||Math.random()<.4;
+        const t={id:n.nextId++,from:p.id,to:target.id,eta,total:eta,amount,leader:withLeader?Object.assign({},r.leader):null,detected};
+        n.transits.push(t);
+        if(withLeader){rlog(p,r.leader.name+' partiu para inflamar '+target.shortName+'.');r.leader=null;}
+        if(detected){rlog(p,'Agitadores partiram rumo a '+target.shortName+' (chegam em '+dur(eta)+').');notify('Agitadores rebeldes de '+p.shortName+' seguem para '+target.shortName+'.',true);}
+    }
+    function arrive(t){
+        const from=PLANETS[t.from],to=PLANETS[t.to];if(!to||!to.colonized)return;
+        const tr=res(to),shield=Math.min(.6,garrison(to)/400),add=Math.max(1,Math.round(t.amount*(1-shield)));
+        tr.strength=clamp(tr.strength+add);to.dissent=Math.min(100,(Number(to.dissent)||0)+8*(1-shield));
+        if(t.leader&&!tr.leader){tr.leader=Object.assign({},t.leader,{identified:false});tr.strength=clamp(tr.strength+10);rlog(to,'Uma líder rebelde vinda de '+(from?.shortName||'outra colônia')+' chegou em segredo.');}
+        rlog(to,'Agitadores vindos de '+(from?.shortName||'outra colônia')+' chegaram (+'+add+' de força rebelde'+(shield>.05?', a guarnição conteve parte':'')+').');
+        if(from)rlog(from,'A revolta se espalhou para '+to.shortName+'.');
+        notify('Agitadores de '+(from?.shortName||'outra colônia')+' chegaram a '+to.shortName+'.',true);
+    }
+    function interceptors(t){
+        return (state.shipFleet||[]).filter(sh=>sh&&sh.status==='orbital'&&[t.from,t.to].includes(sh.planetId)&&['war','excursion','ruby','elite','diamond'].includes(sh.type));
+    }
+    function intercept(id){
+        const n=net(),t=n.transits.find(x=>x.id===id);if(!t)return;
+        const ships=interceptors(t);if(!ships.length){notify('Nenhuma nave em órbita na origem ou no destino para interceptar.',true);return;}
+        const best=ships.sort((a,b)=>({war:4,diamond:3,elite:2,ruby:2,excursion:1}[b.type]||0)-({war:4,diamond:3,elite:2,ruby:2,excursion:1}[a.type]||0))[0];
+        const chance={war:.9,diamond:.85,elite:.75,ruby:.75,excursion:.6}[best.type]||.6;
+        n.transits=n.transits.filter(x=>x!==t);const from=PLANETS[t.from],to=PLANETS[t.to];
+        if(Math.random()<chance){
+            if(t.leader&&to){rlog(to,'A líder '+t.leader.name+' foi capturada em trânsito.');}
+            if(to)rlog(to,'A '+best.name+' interceptou agitadores vindos de '+(from?.shortName||'outra colônia')+'.');notify('Agitadores interceptados pela '+best.name+'.');
+            if(typeof addChronicle==='function')addChronicle('Interceptação','A '+best.name+' deteve agitadores rebeldes a caminho de '+(to?.shortName||'uma colônia')+'.','Revolta contida');
+        }else{n.transits.push(Object.assign(t,{eta:Math.max(10,t.eta*.5)}));notify('Os agitadores escaparam da '+best.name+'.',true);}
+        refresh();
+    }
+    function updateNet(step){
+        const n=net();
+        n.transits.slice().forEach(t=>{t.eta-=step;if(!t.detected&&t.eta<t.total*.35&&Math.random()<.3)t.detected=true;if(t.eta<=0){n.transits=n.transits.filter(x=>x!==t);arrive(t);}});
+    }
+    // Uma Matriarca rebelde assume a liderança da resistência da colônia que governava.
+    function matriarchLeader(p,r){
+        const m=rebelGovernor(p);
+        if(m&&(!r.leader||!r.leader.matriarchId)){r.leader={name:m.name,caste:'diamond',offcolor:false,type:'radical',identified:true,matriarchId:m.id};rlog(p,m.name+' assumiu a liderança da resistência.');}
+        if(r.leader&&r.leader.matriarchId){const m2=(state.matriarchs||[]).find(x=>x.id===r.leader.matriarchId);if(!m2||m2.courtStatus!=='rebel'){rlog(p,(m2?.name||'A Matriarca')+' deixou a liderança rebelde.');r.leader=null;}}
+    }
     // ------------------------------------------------------------ operação de contenção
     function contain(planetId){
         const p=PLANETS[planetId||activeId()];if(!p||!p.colonized)return;
@@ -290,10 +345,10 @@
     }
     function closeDeal(planetId,abandon){
         const p=PLANETS[planetId],r=res(p),n=r.negotiation;if(!n)return;r.negotiation=null;setCd(r,'negotiate',600);
-        const share=n.demands.filter(d=>d.granted).length/Math.max(1,n.demands.length),L=r.leader;
+        const share=n.demands.filter(d=>d.granted).length/Math.max(1,n.demands.length),L=r.leader||(r.leader={name:'a líder',type:'pragmatic',identified:true});
         if(abandon||share===0||(L.type==='radical'&&share<1)){r.strength=clamp(r.strength+(abandon?10:8));L.type=L.type==='pragmatic'?'idealist':'radical';rlog(p,'A negociação fracassou. '+L.name+' se radicalizou.');notify('A negociação em '+p.shortName+' fracassou.',true);}
-        else if(share>=1){r.strength=clamp(r.strength-50);r.truceUntil=Date.now()+1200000;p.dissent=Math.max(0,(Number(p.dissent)||0)-30);L.deal=true;rlog(p,'Acordo fechado com '+L.name+': trégua de 20 minutos e −50 de força rebelde.');chronicle('Acordo em '+p.shortName,'O Império aceitou as exigências de '+L.name+'.','Trégua de 20 minutos');notify('Acordo fechado em '+p.shortName+'.');}
-        else if(share>=.5){r.strength=clamp(r.strength-25);r.truceUntil=Date.now()+600000;rlog(p,'Acordo parcial com '+L.name+': trégua de 10 minutos e −25 de força rebelde.');notify('Acordo parcial em '+p.shortName+'.');}
+        else if(share>=1){r.lastDealAt=Date.now();r.strength=clamp(r.strength-50);r.truceUntil=Date.now()+1200000;p.dissent=Math.max(0,(Number(p.dissent)||0)-30);L.deal=true;rlog(p,'Acordo fechado com '+L.name+': trégua de 20 minutos e −50 de força rebelde.');chronicle('Acordo em '+p.shortName,'O Império aceitou as exigências de '+L.name+'.','Trégua de 20 minutos');notify('Acordo fechado em '+p.shortName+'.');}
+        else if(share>=.5){r.lastDealAt=Date.now();r.strength=clamp(r.strength-25);r.truceUntil=Date.now()+600000;rlog(p,'Acordo parcial com '+L.name+': trégua de 10 minutos e −25 de força rebelde.');notify('Acordo parcial em '+p.shortName+'.');}
         else{r.strength=clamp(r.strength-8);rlog(p,'Concessões insuficientes: '+L.name+' saiu sem acordo (−8 de força rebelde).');}
         courtReact('negotiate');const to=phaseFor(r);if(to!==r.phase)enterPhase(p,r,r.phase,to);applyInsurrection(p,r);refresh();
     }
@@ -305,7 +360,7 @@
         const st=amnestyStats(p);if(essenceValue(state.essence)<st.cost){notify('A anistia exige '+st.cost+' de essência.',true);return;}
         state.essence=essenceValue(state.essence)-st.cost;setCd(r,'amnesty',480);
         let n=0;for(let i=0;i<r.members;i++)if(Math.random()<st.chance)n++;
-        const back=returnMembers(p,r,n);r.strength=clamp(r.strength-back.returned*.8);
+        const back=returnMembers(p,r,n);r.strength=clamp(r.strength-back.returned*.8);if(back.returned)r.lastAmnestyAt=Date.now();
         rlog(p,'Anistia: '+back.returned+' de '+(back.returned+r.members)+' desertora(s) voltaram.');notify(back.returned+' desertora(s) aceitaram a anistia em '+p.shortName+'.');
         courtReact('amnesty');refresh();
     }
@@ -315,7 +370,7 @@
     function update(dt){
         if(!state||!state.firstGameStarted)return;
         dt=Math.max(0,Math.min(5,Number(dt)||0));acc+=dt;uiAcc+=dt;
-        if(acc>=5){const step=acc;acc=0;
+        if(acc>=5){const step=acc;acc=0;updateNet(step);
             Object.values(PLANETS).filter(p=>p&&p.colonized).forEach(p=>{
                 const r=res(p);
                 if(r.operation){r.operation.progress+=step*100/Math.max(1,r.operation.duration);if(r.operation.progress>=100)finishOperation(p,r);}
@@ -331,7 +386,8 @@
                 if(r.phase>=1)p.dissent=Math.min(100,(Number(p.dissent)||0)+.5*step/60*mult());
                 if(r.phase>=2){r.sabotageTimer-=step*mult();if(r.sabotageTimer<=0){r.sabotageTimer=Math.max(60,240-r.strength*1.5)+Math.random()*60;sabotage(p);}}
                 if(r.phase>=3)state.order=Math.max(0,(Number(state.order)||0)-.5*step/60);
-                if(r.phase>=4){r.spreadTimer-=step;if(r.spreadTimer<=0){r.spreadTimer=240+Math.random()*120;spread(p);}}
+                if(r.phase>=3){r.spreadTimer-=step*(r.phase>=4?1:.5);if(r.spreadTimer<=0){r.spreadTimer=240+Math.random()*120;spread(p);}}
+                matriarchLeader(p,r);
                 applyInsurrection(p,r);
             });
         }
@@ -354,6 +410,7 @@
         const barStyle=k.exact?'width:'+r.strength+'%':'left:'+k.range[0]+'%;width:'+(k.range[1]-k.range[0])+'%;opacity:.6';
         let html='<div class="resist"><div class="court-row"><b style="color:'+ph.color+'">Resistência · '+esc(k.label)+'</b><small>'+(k.exact?Math.round(r.strength)+'/100':'estimativa')+'</small></div>';
         html+='<div class="resist-bar">'+[10,30,55,80].map(v=>'<i class="tick" style="left:'+v+'%"></i>').join('')+'<span style="'+barStyle+';background:'+ph.color+'"></span></div>';
+        const gov=governorOf(p),gs=stanceOf(gov);if(gov)html+='<small style="display:block;color:#c9a6ff">Governante: '+esc(gov.name)+(gov.courtStatus==='rebel'?' · rebelde':' · '+gs.label+(gs.growth>0?' (alimenta a revolta, contém melhor)':gs.growth<0?' (acalma a revolta)':''))+'</small>';
         html+='<small style="display:block;color:var(--text-muted)">'+esc(ph.desc)+(k.exact?' · tendência '+(g>0.05?'subindo':g<-0.05?'caindo':'estável'):'')+(r.members?' · '+fmt(r.members)+' desertora(s)':'')+(r.sabotageUntil>Date.now()?' · produção sabotada':'')+(k.exact?'':' · Safiras na colônia revelariam a força exata')+'</small>';
         if(r.operation)html+='<div class="stat-box">Operação de contenção<div class="founding-progress"><div style="width:'+r.operation.progress+'%"></div></div><small>Chance '+Math.round(r.operation.chance*100)+'% · faltam '+dur(r.operation.duration*(100-r.operation.progress)/100)+'</small></div>';
         else if(r.strength>=10||p.rebellionActive)html+='<button class="btn btn-pink btn-block" onclick="GempireResistance.contain(\''+p.id+'\')">Operação de contenção · '+st.cost+' essência · '+dur(st.duration)+' · '+Math.round(st.chance*100)+'%</button><small style="display:block;color:var(--text-muted)">Guarnição: '+fmt(st.garrison)+' (Quartzos, Rubis, Topázios e Ágatas; generais reforçam). A missão "Pacificar" da Corte também enfraquece a resistência.</small>';
@@ -386,5 +443,19 @@
         if(r.members>0){const a=amnestyStats(p),cd=cooldownLeft(r,'amnesty');h+='<div class="court-subtitle">Anistia</div>'+btn('Oferecer anistia · '+a.cost+' essência · ~'+Math.round(a.chance*100)+'% aceitam'+(cd?' · '+dur(cd):''),"GempireResistance.amnesty('"+id+"')",cd>0)+'<small style="display:block;color:var(--text-muted)">'+fmt(r.members)+' desertora(s): '+Object.entries(r.memberCastes).map(([k,n])=>n+' '+casteName(k.split('|')[0])+(k.endsWith('|off')?' off-color':'')).join(', ')+'. Leis brandas e tréguas aumentam a adesão.</small>';}
         return h;
     }
-    window.GempireResistance={update,contain,intel,assault,negotiate,grant:grantDemand,deal:closeDeal,amnesty,reduce,yieldFactor,renderPlanet,phase:p=>res(p).phase,_res:res,_sabotage:sabotage,PHASES};
+    // Áreas rebeldes visíveis no globo da colônia.
+    function coverFor(p){
+        if(!p||!p.resistance)return null;const r=res(p);
+        let c=0;if(r.phase>=4)c=.4+(r.strength-80)/100*.5;else if(r.phase===3)c=.1+(r.strength-55)/100*.6;else if(r.phase===2&&r.detected)c=.03+(r.strength-30)/100*.12;
+        if(c<=.01)return null;c=Math.round(Math.min(.75,c)*100)/100;
+        return {coverage:c,parts:[{id:'rebels',share:1,color:r.phase>=4?'#4c0519':'#7f1d3a'}],key:'rebels:'+c+':'+r.phase};
+    }
+    function renderNetwork(){
+        const n=net(),list=n.transits.filter(t=>t.detected);
+        const head='<section class="card"><div class="card-header"><span class="card-title">Rede rebelde</span><span class="badge">'+list.length+' em trânsito detectado(s)</span></div>';
+        if(!list.length)return head+'<p class="governance-muted">Nenhum agitador detectado entre as colônias. Colônias em Insurreição ou rebeldes enviam agitadores (às vezes com a líder) para mundos próximos e vulneráveis. Inteligência na origem e Safiras no destino ajudam a detectá-los; naves em órbita podem interceptá-los.</p></section>';
+        return head+list.map(t=>{const f=PLANETS[t.from],to=PLANETS[t.to],ships=interceptors(t);return '<div class="stat-box"><div class="court-row"><b>'+esc(f?.shortName||'?')+' → '+esc(to?.shortName||'?')+'</b><span class="badge">chega em '+dur(t.eta)+'</span></div><div class="founding-progress"><div style="width:'+Math.max(0,100-t.eta/t.total*100)+'%"></div></div><small>+'+t.amount+' de força rebelde'+(t.leader?' · leva a líder '+esc(t.leader.name):'')+'</small><button class="btn btn-block" '+(ships.length?'':'disabled')+' onclick="GempireResistance.intercept('+t.id+')">'+(ships.length?'Interceptar com a '+esc(ships[0].name):'Sem nave em órbita na origem ou no destino')+'</button></div>';}).join('')+'</section>';
+    }
+    function generalAmnesty(fraction){let total=0;Object.values(PLANETS).filter(p=>p.colonized&&p.resistance&&p.resistance.members>0).forEach(p=>{const r=res(p),n=Math.round(r.members*fraction);const back=returnMembers(p,r,n);if(back.returned){r.strength=clamp(r.strength-back.returned*.8);r.lastAmnestyAt=Date.now();rlog(p,'Anistia geral: '+back.returned+' desertora(s) voltaram.');total+=back.returned;}});return total;}
+    window.GempireResistance={generalAmnesty,update,intercept,coverFor,renderNetwork,transits:()=>net().transits,stanceOf:m=>stanceOf(m),governorOf,contain,intel,assault,negotiate,grant:grantDemand,deal:closeDeal,amnesty,reduce,yieldFactor,renderPlanet,phase:p=>res(p).phase,_res:res,_sabotage:sabotage,PHASES};
 })();

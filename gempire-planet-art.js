@@ -720,7 +720,9 @@
         if(!ctx||!(radius>1))return;
         const base=getTexture(opts.surface,!!opts.deferred);
         const damage=opts.damage||{};
-        const covered=base&&opts.gemCover?getGemCoverTexture(base,opts.gemCover):base;
+        const gemCovered=base&&opts.gemCover?getGemCoverTexture(base,opts.gemCover):base;
+        // Áreas tomadas pelos rebeldes: manchas escuras por cima das cores das gems.
+        const covered=gemCovered&&opts.rebelCover?getGemCoverTexture(gemCovered,opts.rebelCover):gemCovered;
         const tex=covered&&(damage.stage||damage.shattered||damage.depleted)?getDamagedTexture(covered,damage,!!opts.deferred):covered;
         const shatter=damage.shattered?Math.max(.05,Math.min(1,damage.shatterProgress??1)):0;
         const coreRGB=parseColor(damage.coreColor,[255,233,194]);

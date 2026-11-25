@@ -223,6 +223,7 @@
                 '<small style="display:block;color:var(--text-muted)">Chance de off-color por Gem nos lotes: '+(chance*100).toFixed(1)+'% (sobe com o esgotamento, calor e dissidência; cai com Demantoide).</small>'+
                 (groups.length?'<div class="order-groups">'+groups.map(([k,n])=>{const [c,d]=k.split('|');return '<span class="badge" title="'+esc(DEFECTS[d]?.desc||'')+'">'+fmt(n)+' '+esc(casteLabel(c))+' · '+esc(DEFECTS[d]?.label||d)+'</span>';}).join(' ')+'</div>':'')+(window.GempireResistance?GempireResistance.renderPlanet(planet):'')+'</div>';
         }).join('')+'</section>';
+        if(window.GempireResistance&&GempireResistance.renderNetwork)html+=GempireResistance.renderNetwork();
         html+='<section class="card"><div class="card-header"><span class="card-title">Defeitos</span></div>'+Object.values(DEFECTS).map(d=>'<div class="stat-box"><b>'+d.label+'</b><small style="display:block">'+d.desc+'</small></div>').join('')+'</section>';
         container.innerHTML=html;
     }
