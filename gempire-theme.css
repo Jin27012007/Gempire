@@ -511,3 +511,21 @@ span.founder-chip{cursor:default;opacity:.85}
   .founder-editor .diamond-vitral-gallery{grid-template-columns:repeat(3,minmax(0,1fr))}
   .founder-editor .diamond-vitral-option canvas{height:110px}
 }
+
+/* ---------- Barra superior adaptável (telas médias) ---------- */
+@media(min-width:601px) and (max-width:1720px){
+    .action-group .btn .lbl{display:none}
+    .action-group .btn{padding-left:10px;padding-right:10px}
+}
+@media(min-width:601px) and (max-width:1320px){
+    #top-bar .nav-group .btn .num{display:none}
+    #top-bar .nav-group .btn{padding-left:9px;padding-right:9px}
+    #era-badge,.time-cycle{display:none!important}
+    #hud-diamond-essences{display:none}
+}
+@media(min-width:601px) and (max-width:1060px){
+    #top-bar{height:auto;min-height:52px;flex-wrap:wrap;row-gap:4px;padding-top:4px;padding-bottom:4px}
+    #top-bar .nav-group{flex:1 1 100%;justify-content:flex-start}
+    #top-bar .nav-group .btn .lbl{display:none}
+    #top-bar .res-group{flex:1 1 auto}
+}

@@ -15,6 +15,7 @@
  * ========================================================================= */
 (function(){
     'use strict';
+    const uiGate=(()=>{let last=0;return ms=>{const t=performance.now();if(t-last<ms)return false;last=t;return true;};})();
     const PHASES=[
         {label:'Calma',min:0,color:'#6ee7b7',desc:'Sem sinais de organização rebelde.'},
         {label:'Descontentamento',min:10,color:'#f2cf86',desc:'Rumores e queixas. A dissidência cresce mais rápido.'},
@@ -406,7 +407,7 @@
                 applyInsurrection(p,r);
             });
         }
-        if(uiAcc>=3){uiAcc=0;if(state.currentScreen==='governance'&&state.governanceSection==='order'){const el=document.getElementById('governance-content');if(el&&!el.contains(document.activeElement)&&window.renderOrderTab)window.renderOrderTab(el);}}
+        if(uiAcc>=3&&uiGate(2000)){uiAcc=0;if(state.currentScreen==='governance'&&state.governanceSection==='order'){const el=document.getElementById('governance-content');if(el&&!el.contains(document.activeElement)&&window.renderOrderTab)window.renderOrderTab(el);}}
     }
     function refresh(){try{updateHUD();}catch(e){}try{renderDrawerContent();}catch(e){}if(state.currentScreen==='governance'&&state.governanceSection==='order'){const el=document.getElementById('governance-content');if(el&&window.renderOrderTab)window.renderOrderTab(el);}}
 

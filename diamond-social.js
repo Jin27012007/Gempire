@@ -738,7 +738,9 @@
             }
         }
         social.uiAccumulator += dt;
-        if (social.uiAccumulator >= 0.5) {
+        const uiNow = performance.now();
+        if (social.uiAccumulator >= 0.5 && uiNow - (window.__socialUiAt || 0) >= 600) {
+            window.__socialUiAt = uiNow;
             social.uiAccumulator = 0;
             if (state.drawerOpen && state.drawerTab === 'social') renderSocialTab(document.getElementById('drawer-body'));
         }

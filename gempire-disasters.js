@@ -19,6 +19,7 @@
  * ========================================================================= */
 (function(){
     'use strict';
+    const uiGate=(()=>{let last=0;return ms=>{const t=performance.now();if(t-last<ms)return false;last=t;return true;};})();
     const DESTRUCTIBLE=['injector','mineral_extractor','workshop','refinery','research_center','reactor','defense_tower','shield_generator','shipyard'];
     const ARISTOCRATS=['sapphire','morganite','aquamarine','emerald','jade','demantoid','hessonite','pyrope'];
     const WORKERS=['quartz','peridot','bismuth','lapis','pearl','nephrite'];
@@ -212,7 +213,7 @@
             else if(r.eruption&&Math.random()<r.eruption*minutes*m)eruption(p);
             else if(r.ambush&&Math.random()<r.ambush*minutes*m)rebelAttack(p);
         });
-        uiTimer-=step;if(uiTimer<=0){uiTimer=3;renderIfVisible();}
+        uiTimer-=step;if(uiTimer<=0){uiTimer=3;if(uiGate(2000))renderIfVisible();}
     }
     let uiTimer=3;
     function yieldFactor(p){if(!p||!p.hazards)return 1;const h=hz(p);let f=1;if(h.blackoutUntil>now())f*=.6;if(h.lava)f*=.7;return f;}

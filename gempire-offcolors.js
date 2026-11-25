@@ -17,6 +17,7 @@
  * ========================================================================= */
 (function(){
     'use strict';
+    const uiGate=(()=>{let last=0;return ms=>{const t=performance.now();if(t-last<ms)return false;last=t;return true;};})();
     const DEFECTS={
         color:{label:'Cor errada',work:1,desc:'Trabalha normalmente, mas é estigmatizada pela corte.'},
         gem:{label:'Gema fora do lugar',work:.8,desc:'Forma instável; rende 80% do esperado.'},
@@ -214,7 +215,7 @@
     function refresh(){try{updateHUD();}catch(e){}try{renderDrawerContent();}catch(e){}renderIfVisible();}
     function renderIfVisible(){if(state.currentScreen==='governance'&&state.governanceSection==='order'){const el=document.getElementById('governance-content');if(el)render(el);}}
     let uiTimer=0;
-    function updateUI(dt){uiTimer-=dt;if(uiTimer<=0){uiTimer=3;const el=document.getElementById('governance-content');if(el&&state.currentScreen==='governance'&&state.governanceSection==='order'&&!el.contains(document.activeElement))render(el);}}
+    function updateUI(dt){uiTimer-=dt;if(uiTimer<=0&&uiGate(2000)){uiTimer=3;const el=document.getElementById('governance-content');if(el&&state.currentScreen==='governance'&&state.governanceSection==='order'&&!el.contains(document.activeElement))render(el);}}
 
     // Estimativa das galerias: exata com uma Safira de visão invertida na colônia.
     function hiddenEstimate(planet){

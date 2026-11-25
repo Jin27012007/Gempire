@@ -22,6 +22,7 @@
  * ========================================================================= */
 (function(){
     'use strict';
+    const uiGate=(()=>{let last=0;return ms=>{const t=performance.now();if(t-last<ms)return false;last=t;return true;};})();
     const CASTES=['sapphire','jade','morganite','aquamarine','emerald','lapis','zircon'];
     const PER_PLANET=3,MAX_NOBLES=30;
     const TONE={militarist:'harsh',isolationist:'harsh',manipulator:'harsh',melancholic:'gentle',empathic:'gentle',naturalist:'gentle',technocrat:'cerebral',scholar:'cerebral',reformer:'cerebral',visionary:'grand',artist:'grand',hedonist:'grand'};
@@ -604,7 +605,7 @@
         acc+=dt;ui+=dt;
         updateBall(dt);
         if(acc>=5){const step=acc;acc=0;sync();scanLeaders();updateNobles(step);updateTrials();updateJustice(step);}
-        if(ui>=1){ui=0;renderIfVisible();}
+        if(ui>=1){ui=0;if(uiGate(1000))renderIfVisible();}
     }
     function refresh(){try{updateHUD();}catch(e){}const el=document.getElementById('governance-content');if(el&&state.currentScreen==='governance'&&state.governanceSection==='aristocracy')render(el);}
     function renderIfVisible(){if(state.currentScreen!=='governance'||state.governanceSection!=='aristocracy')return;const el=document.getElementById('governance-content');if(el&&!el.contains(document.activeElement)||el&&document.activeElement===document.body)render(el);}

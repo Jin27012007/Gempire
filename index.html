@@ -633,10 +633,10 @@
                 <button class="time-btn" data-speed="10" onclick="setTimeSpeed(10)">10×</button>
                 <span class="time-cycle"><b id="time-cycle-label">Ciclo 1</b><i><span id="time-cycle-bar"></span></i></span>
             </span>
-            <button id="nav-throne" class="btn active" onclick="switchScreen('throne')">1. Trono Diamante</button>
-            <button id="nav-governance" class="btn" onclick="switchScreen('governance')">2. Governo Imperial</button>
-            <button id="nav-starmap" class="btn" onclick="switchScreen('starmap')">3. Mapa Estelar</button>
-            <button id="nav-colony" class="btn" onclick="switchScreen('colony')">4. Globo 360°</button>
+            <button id="nav-throne" class="btn active" onclick="switchScreen('throne')"><span class="num">1. </span>Trono<span class="lbl"> Diamante</span></button>
+            <button id="nav-governance" class="btn" onclick="switchScreen('governance')"><span class="num">2. </span>Governo<span class="lbl"> Imperial</span></button>
+            <button id="nav-starmap" class="btn" onclick="switchScreen('starmap')"><span class="num">3. </span>Mapa<span class="lbl"> Estelar</span></button>
+            <button id="nav-colony" class="btn" onclick="switchScreen('colony')"><span class="num">4. </span>Globo<span class="lbl"> 360°</span></button>
         </div>
 
         <div class="res-group">
@@ -650,11 +650,11 @@
         </div>
 
         <div class="action-group">
-            <button class="btn btn-pink" onclick="openDrawerDynasty()">👑 Dinastia & Forja</button>
-            <button class="btn btn-amber" onclick="toggleModal('codex-modal')">📖 Códice</button>
-            <button class="btn btn-emerald" onclick="toggleModal('tech-modal')">🔬 Tecnol. & Logística</button>
-            <button class="btn btn-amber" onclick="openGameMenu()">☰ Menu</button>
-            <button id="btn-top-drawer" class="btn active" onclick="toggleDrawer()">🗂️ Painel</button>
+            <button class="btn btn-pink" onclick="openDrawerDynasty()" title="Dinastia & Forja">👑<span class="lbl"> Dinastia & Forja</span></button>
+            <button class="btn btn-amber" onclick="toggleModal('codex-modal')" title="Códice">📖<span class="lbl"> Códice</span></button>
+            <button class="btn btn-emerald" onclick="toggleModal('tech-modal')" title="Tecnologia & Logística">🔬<span class="lbl"> Tecnol. & Logística</span></button>
+            <button class="btn btn-amber" onclick="openGameMenu()" title="Menu">☰<span class="lbl"> Menu</span></button>
+            <button id="btn-top-drawer" class="btn active" onclick="toggleDrawer()" title="Painel">🗂️<span class="lbl"> Painel</span></button>
         </div>
     </header>
 
@@ -2213,7 +2213,7 @@
             if (!['throne', 'governance', 'starmap', 'colony'].includes(screenId)) screenId = 'throne';
             if(screenId==='throne'&&state.activeDiamondColonyOwnerId)screenId='colony';
             state.currentScreen = screenId;
-            const throneNav=document.getElementById('nav-throne');if(throneNav)throneNav.textContent=state.activeDiamondColonyOwnerId?'Base Lunar':'1. Trono Diamante';
+            const throneNav=document.getElementById('nav-throne');if(throneNav)throneNav.innerHTML=state.activeDiamondColonyOwnerId?'<span class="num">1. </span>Base<span class="lbl"> Lunar</span>':'<span class="num">1. </span>Trono<span class="lbl"> Diamante</span>';
             const colonyNav=document.getElementById('nav-colony');if(colonyNav)colonyNav.textContent=state.activeDiamondColonyOwnerId?'Colônia · '+(PLANETS[state.activeColonyPlanetId]?.shortName||'Mundo'):'4. Globo 360°';
             if(screenId==='starmap'&&!state.starMapView)state.starMapView='galaxy';
             ['throne', 'governance', 'starmap', 'colony'].forEach(s => {
@@ -2644,7 +2644,12 @@
             if (state.drawerTab === 'chronicle') { renderChronicleTab(body); return; }
             if (state.drawerTab === 'dynasty') { renderDynastyTab(body); return; }
             if (state.drawerTab === 'social') { renderSocialTab(body); return; }
-            if (state.currentScreen === 'governance') { renderGovernanceScreen(); return; }
+            if (state.currentScreen === 'governance') {
+                const gov=document.getElementById('governance-content'),t=performance.now();
+                if(gov&&gov.contains(document.activeElement)&&/INPUT|SELECT|TEXTAREA/.test(document.activeElement.tagName))return;
+                if(t-(renderDrawerContent.govAt||0)<750)return;
+                renderDrawerContent.govAt=t;renderGovernanceScreen();return;
+            }
             // O painel de fundação pertence exclusivamente à Era Primitiva.
             // Depois da primeira Gem, o Contexto volta a refletir a tela ativa
             // (Trono, Mapa Estelar ou Globo 360°), sem recriar a coleta manual.
@@ -3462,7 +3467,10 @@
         }
         function renameScoutedPlanet(id,name){const p=PLANETS[id],value=String(name||'').trim().slice(0,32);if(!p||!(p.scouted||p.colonized||id==='homeworld')||!value){setStatusTicker('Nome inválido ou planeta ainda não reconhecido.',true);return;}renamePlanetDirect(id,value);setStatusTicker('Planeta renomeado para '+value+'.');addChronicle('Planeta renomeado',id+' recebeu o nome '+value+'.','Catálogo atualizado');renderDrawerContent();renderBottomBar();}
         function createRedEyeReport(p){const env=PLANET_ENVIRONMENT[p.id]||{};return{id:'scan_'+Date.now(),planetId:p.id,planetName:p.shortName||p.name,distanceAU:Number(env.orbitAU??p.orbitAU??p.orbitRadius/100)||0,temperatureC:Number(env.temperatureC??p.temperatureC)||0,pressureAtm:Number(env.atmosphericPressureAtm??p.atmosphericPressureAtm)||0,composition:Object.entries(p.resourcesByType||{}).map(([type,amount])=>({type,amount:Math.floor(Number(amount)||0)})),water:!!p.hasOcean,moons:(p.moons||[]).length,organicLifePresent:p.organicLifePresent===true||(Number(p.organicLifePopulation)||0)>0,organicLifePopulation:p.organicLifePopulation??null,habitability:p.hasOcean&&Number(env.temperatureC??p.temperatureC??0)>-20&&Number(env.temperatureC??p.temperatureC??0)<55?'Potencialmente habitável':'Condições ambientais restritivas',cycle:state.cycleCount||1};}
-        function updateRedEyeMission(dt){const missions=Array.isArray(state.redEyeMissions)?state.redEyeMissions:[];missions.forEach(m=>{if(!m||!m.active)return;m.phaseProgress=(Number(m.phaseProgress)||0)+Math.max(0,Number(dt)||0);m.progress=Math.min(100,m.phaseProgress/Math.max(1,Number(m.phaseDuration)||1)*100);if(m.phaseProgress<m.phaseDuration)return;if(m.phase==='outbound'){m.phase='survey';m.phaseProgress=0;m.phaseDuration=12;setStatusTicker('Olho Vermelho chegou a '+PLANETS[m.planetId].shortName+' e iniciou a varredura.');}else if(m.phase==='survey'){m.reportDraft=createRedEyeReport(PLANETS[m.planetId]);m.phase='returning';m.phaseProgress=0;m.phaseDuration=getSpaceTravelSeconds(m.planetId,m.originId);setStatusTicker('Varredura concluída em '+PLANETS[m.planetId].shortName+'. Retorno iniciado.');}else{const p=PLANETS[m.planetId],report=m.reportDraft||createRedEyeReport(p);p.scouted=true;p.travelUnlocked=true;p.reconnaissance=report;state.redEyeReports=Array.isArray(state.redEyeReports)?state.redEyeReports:[];state.redEyeReports.unshift(report);state.redEyeReports=state.redEyeReports.slice(0,30);m.phase='completed';m.progress=100;m.active=false;setStatusTicker(report.planetName+' reconhecido. Viagens espaciais desbloqueadas.');addChronicle('Reconhecimento espacial concluído',report.planetName+' foi catalogado; viagens espaciais liberadas.','Destino reconhecido');}});state.redEyeMissions=missions.filter(m=>m.active||m.phase==='completed').slice(-30);updateHUD();renderDrawerContent();renderBottomBar();}
+        function updateRedEyeMission(dt){const missions=Array.isArray(state.redEyeMissions)?state.redEyeMissions:[];if(!missions.some(m=>m&&m.active))return;const phaseSig=missions.map(m=>m&&(m.phase+'|'+m.active)).join(',');missions.forEach(m=>{if(!m||!m.active)return;m.phaseProgress=(Number(m.phaseProgress)||0)+Math.max(0,Number(dt)||0);m.progress=Math.min(100,m.phaseProgress/Math.max(1,Number(m.phaseDuration)||1)*100);if(m.phaseProgress<m.phaseDuration)return;if(m.phase==='outbound'){m.phase='survey';m.phaseProgress=0;m.phaseDuration=12;setStatusTicker('Olho Vermelho chegou a '+PLANETS[m.planetId].shortName+' e iniciou a varredura.');}else if(m.phase==='survey'){m.reportDraft=createRedEyeReport(PLANETS[m.planetId]);m.phase='returning';m.phaseProgress=0;m.phaseDuration=getSpaceTravelSeconds(m.planetId,m.originId);setStatusTicker('Varredura concluída em '+PLANETS[m.planetId].shortName+'. Retorno iniciado.');}else{const p=PLANETS[m.planetId],report=m.reportDraft||createRedEyeReport(p);p.scouted=true;p.travelUnlocked=true;p.reconnaissance=report;state.redEyeReports=Array.isArray(state.redEyeReports)?state.redEyeReports:[];state.redEyeReports.unshift(report);state.redEyeReports=state.redEyeReports.slice(0,30);m.phase='completed';m.progress=100;m.active=false;setStatusTicker(report.planetName+' reconhecido. Viagens espaciais desbloqueadas.');addChronicle('Reconhecimento espacial concluído',report.planetName+' foi catalogado; viagens espaciais liberadas.','Destino reconhecido');}});state.redEyeMissions=missions.filter(m=>m.active||m.phase==='completed').slice(-30);
+            // Redesenha só quando uma fase muda; o progresso contínuo é atualizado no máximo duas vezes por segundo.
+            const changed=phaseSig!==missions.map(m=>m&&(m.phase+'|'+m.active)).join(','),t=performance.now();
+            if(changed||t-(updateRedEyeMission.uiAt||0)>500){updateRedEyeMission.uiAt=t;updateHUD();renderDrawerContent();renderBottomBar();}}
         const CARGO_STRUCTURE_IDS=['injector','galaxy_warp','mineral_extractor'];
         const DEFAULT_CARGO_MANIFEST=['injector','injector','injector','galaxy_warp','mineral_extractor'];
         function getPlanetStructureCount(p,id){return Math.max(0,Math.floor(Number(p?.structures?.[id])||0));}
@@ -5099,8 +5107,8 @@ ${hasAristocrats ? `
             planet.walkingGems = [];
             addChronicle(`Colonização de ${planet.shortName}`, `${state.firstDiamond.name} estabeleceu o primeiro núcleo administrativo em ${planet.name}.`, 'Novo mundo incorporado ao Império');
             setStatusTicker(`🚀 ${planet.shortName} foi colonizado. Escolha um estrato para iniciar a produção.`);
-            saveActivePlanetEconomy();
-            state.activeColonyPlanetId = planet.id;
+            // Troca a economia antes de marcar o planeta como ativo; marcar antes fazia o planeta novo
+            // herdar, por referência, o censo e os recursos do planeta anterior.
             ensurePlanetEconomy(planet,false);
             activatePlanetEconomy(planet.id,false);
             state.selectedVeinIndex = 0;

@@ -22,6 +22,7 @@
  * ========================================================================= */
 (function(){
     'use strict';
+    const uiGate=(()=>{let last=0;return ms=>{const t=performance.now();if(t-last<ms)return false;last=t;return true;};})();
     const TAU=Math.PI*2;
     const TONE={militarist:'harsh',isolationist:'harsh',manipulator:'harsh',melancholic:'gentle',empathic:'gentle',naturalist:'gentle',technocrat:'cerebral',scholar:'cerebral',reformer:'cerebral',visionary:'grand',artist:'grand',hedonist:'grand'};
     const KINDS={
@@ -236,7 +237,7 @@
         x.captures=x.captures.filter(c=>{c.remaining-=dt;if(c.remaining<=0){finishCapture(c);return false;}return true;});
         acc+=dt;ui+=dt;
         if(acc>=5){const step=acc;acc=0;tick(step);}
-        if(ui>=1){ui=0;renderIfVisible();}
+        if(ui>=1){ui=0;if(uiGate(1000))renderIfVisible();}
     }
     function tick(sec){
         const k=sec/60,x=X();

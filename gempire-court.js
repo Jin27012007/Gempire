@@ -17,6 +17,7 @@
  * ========================================================================= */
 (function(){
     'use strict';
+    const uiGate=(()=>{let last=0;return ms=>{const t=performance.now();if(t-last<ms)return false;last=t;return true;};})();
     const TONE={militarist:'harsh',isolationist:'harsh',manipulator:'harsh',melancholic:'gentle',empathic:'gentle',naturalist:'gentle',technocrat:'cerebral',scholar:'cerebral',reformer:'cerebral',visionary:'grand',artist:'grand',hedonist:'grand'};
     const TONE_LABEL={harsh:'Dura',gentle:'Gentil',cerebral:'Racional',grand:'Grandiosa'};
     const TONE_AFFINITY={'harsh|harsh':20,'gentle|gentle':20,'cerebral|cerebral':20,'grand|grand':20,'gentle|harsh':-30,'cerebral|grand':-12,'cerebral|harsh':0,'gentle|grand':10,'grand|harsh':5,'cerebral|gentle':0};
@@ -662,7 +663,7 @@
         if(!state||!state.firstGameStarted||!matriarchs().length)return;
         dt=Math.max(0,Math.min(5,Number(dt)||0));
         ensureCourt();updatePunishments();updateAppeals(dt);updateRequests(dt);updateMissions(dt);updateIndependence(dt);updatePolitics(dt);
-        renderTimer-=dt;if(renderTimer<=0){renderTimer=2;renderIfVisible(false);}
+        renderTimer-=dt;if(renderTimer<=0){renderTimer=2;if(uiGate(2000))renderIfVisible(false);}
     }
     let renderTimer=2;
     function renderIfVisible(force){
